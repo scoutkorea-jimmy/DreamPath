@@ -1,4 +1,11 @@
 // Partners.jsx + Stories.jsx + News.jsx + Contact.jsx (bundled)
+const PARTNER_GLYPHS = {
+  CUFS: 'campus',
+  WOSM: 'scout-fleur',
+  APR:  'globe',
+  NSOs: 'community',
+};
+
 function Partners({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.partners) || window.PARTNERS;
@@ -18,16 +25,22 @@ function Partners({ lang, c }) {
       <section className="section">
         <div className="container">
           <div className="partners-grid">
-            {list.map((p, i) => (
-              <div key={i} className="partner">
-                <div className="partner-logo" style={{'--c': p.color}}>{p.name}</div>
-                <div className="partner-body">
-                  <div className="partner-role">{isKo ? p.role_ko : p.role_en}</div>
-                  <div className={'partner-name' + (isKo ? '' : ' en')}>{p.name}</div>
-                  <div className="partner-full">{p.full}</div>
+            {list.map((p, i) => {
+              const glyph = PARTNER_GLYPHS[p.name] || 'community';
+              return (
+                <div key={i} className="partner">
+                  <div className="partner-logo" style={{'--c': p.color}} aria-hidden="true">
+                    <img src={`../assets/icons/${glyph}.svg`} alt="" width="28" height="28" className="partner-glyph" />
+                    <span className="partner-mark">{p.name}</span>
+                  </div>
+                  <div className="partner-body">
+                    <div className="partner-role">{isKo ? p.role_ko : p.role_en}</div>
+                    <div className={'partner-name' + (isKo ? '' : ' en')}>{p.name}</div>
+                    <div className="partner-full">{p.full}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -59,7 +72,10 @@ function Stories({ lang, c }) {
                 <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
                 <blockquote className={isKo ? '' : 'en'}>"{isKo ? s.quote_ko : s.quote_en}"</blockquote>
                 <div className="story-foot">
-                  <div className="story-avatar" />
+                  <div className="story-avatar" aria-hidden="true">
+                    <img src="../assets/placeholder-student.svg" alt="" />
+                    <span className="story-initial">{s.name ? s.name[0] : ''}</span>
+                  </div>
                   <div>
                     <div className="story-name">{s.name}</div>
                     <div className="story-prog">{s.program}</div>

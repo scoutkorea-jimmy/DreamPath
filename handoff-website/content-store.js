@@ -10,7 +10,7 @@
     brand: {
       name_kr: 'DreamPath',
       name_en: 'DreamPath',
-      logo_mark: '../../assets/logo-dreampath-mark.svg',
+      logo_mark: '../assets/logo-dreampath-mark.svg',
       footer_tagline_ko: '월드스카우트 네트워크를 활용해 글로벌 청년을 한국의 고등교육으로 연결하는 독립 이니셔티브.',
       footer_tagline_en: 'An independent initiative connecting global scouting youth to Korean higher education through the World Scout Network.',
       email: 'hello@dreampath.org',

@@ -178,7 +178,7 @@ body {
 
 /* ============ FOOTER ============ */
 .footer { background: var(--gray-900); color: rgba(255,255,255,0.78); padding: 72px 32px 32px; position: relative; overflow: hidden; }
-.footer-bg { position: absolute; inset: 0; opacity: 0.04; background-image: url('../../assets/wosm-tile.svg'); background-size: 240px; pointer-events: none; }
+.footer-bg { display: none; }
 .footer-inner { max-width: 1200px; margin: 0 auto; position: relative; }
 .footer-top { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 48px; padding-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .footer-brand { display: flex; flex-direction: column; gap: 16px; }

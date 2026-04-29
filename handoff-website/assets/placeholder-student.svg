@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#F7F7F5"></rect>
+  <rect x="0" y="0" width="600" height="400" fill="#0094B4" opacity="0.12"></rect>
+  <circle cx="180" cy="180" r="70" fill="#FFAE80" opacity="0.6"></circle>
+  <circle cx="420" cy="240" r="90" fill="#9FED8F" opacity="0.55"></circle>
+  <rect x="40" y="300" width="520" height="6" fill="#622599" opacity="0.35" rx="3"></rect>
+  <text x="300" y="370" text-anchor="middle" fill="#8F8F8F" font-family="&#39;Google Sans Flex&#39;, system-ui, sans-serif" font-size="13" letter-spacing="0.22em" font-weight="500">STUDENT · PHOTO</text>
+</svg>

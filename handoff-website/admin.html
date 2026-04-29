@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DreamPath · Admin</title>
+  <link rel="icon" href="../../assets/logo-dreampath-mark.svg">
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--canvas-white); color: var(--fg-primary); font-family: var(--font-sans); min-height: 100vh; }
+
+    /* Skip link */
+    .skip-link { position: absolute; top: -100px; left: 16px; background: var(--midnight-purple); color: #fff; padding: 12px 20px; border-radius: 0 0 12px 12px; font-weight: 600; z-index: 9999; transition: top 180ms; }
+    .skip-link:focus { top: 0; }
+    :focus-visible { outline: 3px solid var(--scouting-purple); outline-offset: 3px; border-radius: 4px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    /* Desktop-first admin shell. Min-width enforces PC layout; content scrolls horizontally on narrower screens. */
+    body { min-width: 1280px; overflow-x: auto; }
+    .admin { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    .side { background: var(--midnight-purple); color: #fff; padding: 28px 22px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .side .brand { display: flex; gap: 10px; align-items: center; margin-bottom: 28px; }
+    .side .brand img { width: 32px; height: 32px; }
+    .side .brand .wm { font-family: var(--font-en); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+    .side .brand .wm .pt { color: #FFE600; }
+    .side h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin: 20px 0 10px; font-weight: 700; }
+    .side button.tab { display: block; width: 100%; text-align: left; background: none; border: none; color: rgba(255,255,255,0.88); padding: 9px 12px; font: inherit; font-size: 14px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+    .side button.tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .side button.tab.active { background: rgba(255,255,255,0.16); color: #fff; font-weight: 600; }
+    .side .actions { margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.14); display: flex; flex-direction: column; gap: 8px; }
+    .side .actions a, .side .actions button { display: block; width: 100%; text-align: center; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: inherit; }
+    .side .actions .primary { background: #FFE600; color: var(--midnight-purple); }
+    .side .actions .primary:hover { filter: brightness(0.96); }
+    .side .actions .danger { background: rgba(255,86,85,0.2); }
+    .side .actions .danger:hover { background: rgba(255,86,85,0.35); }
+
+    .main { padding: 36px 56px 96px; max-width: 1440px; }
+    .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
+    .main h1 { font-family: var(--font-en); font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
+    .main .lede { color: var(--fg-secondary); font-size: 14px; margin: 0; }
+
+    /* Status banner */
+    .status { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; background: var(--forest-green); color: #fff; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 12px 32px rgba(0,0,0,0.2); opacity: 0; pointer-events: none; transition: opacity 240ms, transform 240ms; transform: translateY(8px); z-index: 1000; }
+    .status.on { opacity: 1; transform: translateY(0); }
+
+    /* Form surfaces */
+    .card { background: #fff; border: 1px solid var(--border-subtle); border-radius: 16px; padding: 28px 32px; margin-bottom: 20px; }
+    .card h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .card .desc { color: var(--fg-muted); font-size: 13px; margin: 0 0 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+    .grid-2.tight { gap: 14px 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 18px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 18px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.span-2 { grid-column: span 2; }
+    .field.span-3 { grid-column: span 3; }
+    .field label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-secondary); }
+    .field input, .field select, .field textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: #fff; color: var(--fg-primary); transition: border-color 160ms; font-family: var(--font-sans); }
+    .field input:hover, .field select:hover, .field textarea:hover { border-color: var(--fg-muted); }
+    .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--scouting-purple); box-shadow: 0 0 0 3px rgba(98,37,153,0.18); }
+    .field textarea { resize: vertical; min-height: 64px; }
+    .field .hint { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
+
+    /* Repeater (arrays) */
+    .rep-item { background: var(--bg-muted); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; position: relative; }
+    .rep-item .rep-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; }
+    .rep-item .rep-head strong { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-secondary); }
+    .rep-item .rep-head .ctrls { display: flex; gap: 4px; }
+    .icon-btn { background: #fff; border: 1px solid var(--border-default); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--fg-secondary); font-family: inherit; }
+    .icon-btn:hover { color: var(--fg-primary); border-color: var(--fg-muted); }
+    .icon-btn.danger:hover { background: #FFF0F0; color: var(--state-danger); border-color: var(--state-danger); }
+    .btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--midnight-purple); color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .btn-add:hover { background: var(--scouting-purple); }
+
+    /* Color picker */
+    .color-row { display: flex; gap: 8px; align-items: center; }
+    .color-row input[type="color"] { width: 48px; height: 36px; padding: 0; border-radius: 6px; cursor: pointer; border: 1px solid var(--border-default); }
+    .color-row input[type="text"] { flex: 1; }
+
+    /* Icon picker */
+    .icon-picker-wrap { position: relative; }
+    .icon-picker-wrap .current { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: #fff; cursor: pointer; font-size: 14px; width: 100%; font-family: inherit; color: var(--fg-primary); }
+    .icon-picker-wrap .current:hover { border-color: var(--fg-muted); }
+    .icon-picker-wrap .current .glyph { width: 32px; height: 32px; background: var(--bg-muted); border-radius: 6px; display: grid; place-items: center; color: var(--scouting-purple); }
+    .icon-picker-wrap .current .name { flex: 1; text-align: left; font-family: var(--font-mono); font-size: 13px; }
+    .icon-popover { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; background: #fff; border: 1px solid var(--border-default); border-radius: 12px; padding: 12px; box-shadow: var(--shadow-lg); max-height: 360px; overflow-y: auto; }
+    .icon-popover input { width: 100%; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .icon-cell { aspect-ratio: 1; display: grid; place-items: center; background: var(--bg-muted); border: 2px solid transparent; border-radius: 8px; cursor: pointer; color: var(--fg-secondary); }
+    .icon-cell:hover { background: #fff; border-color: var(--scouting-purple); color: var(--scouting-purple); }
+    .icon-cell.selected { border-color: var(--scouting-purple); background: rgba(98,37,153,0.08); color: var(--scouting-purple); }
+    .icon-cell-label { font-size: 9px; font-family: var(--font-mono); color: var(--fg-muted); text-align: center; margin-top: 2px; line-height: 1; }
+
+    /* Preview panel */
+    .preview-ribbon { position: sticky; top: 0; background: #FFE600; color: var(--midnight-purple); padding: 10px 16px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
+    .preview-ribbon a { color: var(--midnight-purple); text-decoration: underline; }
+
+    /* Applications table + modal */
+    .apps-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .apps-table th { text-align: left; padding: 10px 12px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); font-weight: 700; border-bottom: 1px solid var(--border-default); }
+    .apps-table td { padding: 14px 12px; border-bottom: 1px solid var(--border-hair); vertical-align: top; }
+    .apps-table tr:hover td { background: var(--bg-muted); }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
+    .app-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 2000; padding: 40px 20px; }
+    .app-modal-inner { background: #fff; border-radius: 16px; width: 100%; max-width: 780px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
+    .app-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 24px 28px; border-bottom: 1px solid var(--border-default); }
+    .app-modal-body { padding: 20px 28px; overflow-y: auto; flex: 1; }
+    .app-modal-foot { padding: 16px 28px; border-top: 1px solid var(--border-default); display: flex; justify-content: flex-end; }
+    .app-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 8px 0; }
+    .app-k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); font-weight: 700; }
+    .app-v { font-size: 14px; color: var(--fg-primary); }
+    .app-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--scouting-purple); margin: 20px 0 8px; padding-top: 12px; border-top: 1px solid var(--border-hair); }
+    .essay-box { background: var(--bg-muted); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--fg-primary); line-height: 1.6; white-space: pre-wrap; margin: 8px 0 4px; }
+
+    /* Responsive: removed — admin is desktop-only. Min-width on body keeps layout intact. */
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="content-store.js"></script>
+</head>
+<body>
+  <a href="#main" class="skip-link">본문 바로가기</a>
+  <div id="root"></div>
+
+  <script type="text/babel">
+  const { useState, useEffect, useMemo, useRef } = React;
+
+  // ---- A curated Lucide icon whitelist (popular icons that work as slots)
+  const LUCIDE_ICONS = [
+    'arrow-right','arrow-up-right','arrow-left','arrow-down-right','send','mail','phone',
+    'user','user-check','users','graduation-cap','book-open','book','briefcase','building-2',
+    'globe','map-pin','map','compass','flag','award','trophy','star','heart','sparkles',
+    'video','camera','image','mic','headphones','play-circle','monitor','laptop','smartphone',
+    'file-text','file-check','clipboard-check','check-circle-2','check','x','plus','minus',
+    'calendar','clock','calendar-check','timer','hourglass',
+    'languages','message-circle','message-square','bell','info','help-circle','alert-circle',
+    'search','filter','settings','log-in','log-out','share-2','link','download','upload',
+    'lightbulb','target','puzzle','tent','backpack','footprints','mountain','tree-pine',
+    'handshake','hand-heart','gift','zap','rocket','wand-2','palette','layers','grid-3x3',
+    'rss','newspaper','presentation','megaphone','quote','scroll-text',
+  ];
+
+  // ---- Icon picker (button + popover)
+  function IconPicker({ value, onChange }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const ref = useRef(null);
+    useEffect(() => {
+      if (open) setTimeout(() => window.lucide && window.lucide.createIcons(), 0);
+    }, [open, q]);
+    useEffect(() => {
+      function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+      document.addEventListener('mousedown', onDoc);
+      return () => document.removeEventListener('mousedown', onDoc);
+    }, []);
+    useEffect(() => { window.lucide && window.lucide.createIcons(); });
+    const filtered = useMemo(() => {
+      const n = q.trim().toLowerCase();
+      if (!n) return LUCIDE_ICONS;
+      return LUCIDE_ICONS.filter(i => i.includes(n));
+    }, [q]);
+    return (
+      <div className="icon-picker-wrap" ref={ref}>
+        <button type="button" className="current" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}>
+          <span className="glyph"><i data-lucide={value || 'help-circle'} width="18" height="18" strokeWidth="2"></i></span>
+          <span className="name">{value || '(none)'}</span>
+          <i data-lucide={open ? 'chevron-up' : 'chevron-down'} width="16" height="16" aria-hidden="true"></i>
+        </button>
+        {open && (
+          <div className="icon-popover" role="listbox">
+            <input
+              type="text"
+              placeholder="Search icons…"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              autoFocus
+              aria-label="Search icons"
+            />
+            <div className="icon-grid">
+              {filtered.map(name => (
+                <button key={name} type="button"
+                  className={'icon-cell' + (name === value ? ' selected' : '')}
+                  onClick={() => { onChange(name); setOpen(false); }}
+                  title={name}
+                  aria-label={name}>
+                  <i data-lucide={name} width="20" height="20" strokeWidth="1.75"></i>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ---- Field primitives ----------------------------------------------------
+  function Text({ label, value, onChange, type='text', hint, lang }) {
+    return (
+      <div className="field">
+        <label>{label}</label>
+        <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} lang={lang} />
+        {hint && <span className="hint">{hint}</span>}
+      </div>
+    );
+  }
+  function Area({ label, value, onChange, rows=3, hint, lang }) {
+    return (
+      <div className="field">
+        <label>{label}</label>
+        <textarea rows={rows} value={value ?? ''} onChange={e => onChange(e.target.value)} lang={lang} />
+        {hint && <span className="hint">{hint}</span>}
+      </div>
+    );
+  }
+  function Color({ label, value, onChange }) {
+    return (
+      <div className="field">
+        <label>{label}</label>
+        <div className="color-row">
+          <input type="color" value={value || '#000000'} onChange={e => onChange(e.target.value)} aria-label={label + ' color picker'} />
+          <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} aria-label={label + ' hex value'} />
+        </div>
+      </div>
+    );
+  }
+  function IconField({ label, value, onChange, hint }) {
+    return (
+      <div className="field">
+        <label>{label}</label>
+        <IconPicker value={value} onChange={onChange} />
+        {hint && <span className="hint">{hint}</span>}
+      </div>
+    );
+  }
+
+  // ---- Immutable setter helper
+  function setDeep(obj, pathArr, val) {
+    if (pathArr.length === 0) return val;
+    const [head, ...rest] = pathArr;
+    const next = Array.isArray(obj) ? obj.slice() : { ...obj };
+    next[head] = setDeep(obj ? obj[head] : undefined, rest, val);
+    return next;
+  }
+
+  // ---- Tabs ----------------------------------------------------------------
+  const TABS = [
+    { id: 'brand',    label: 'Brand & Nav' },
+    { id: 'hero',     label: 'Hero' },
+    { id: 'how',      label: 'How it works' },
+    { id: 'programs', label: 'Programs' },
+    { id: 'partners', label: 'Partners' },
+    { id: 'stories',  label: 'Stories' },
+    { id: 'news',     label: 'News' },
+    { id: 'cta',      label: 'CTA banner' },
+    { id: 'faq',      label: 'FAQ' },
+    { id: 'icons',    label: 'Icons' },
+    { id: 'apps',     label: 'Applications' },
+  ];
+
+  // ===== Section editors ====================================================
+  function BrandTab({ c, set }) {
+    const b = c.brand, n = c.nav;
+    return (
+      <>
+        <div className="card">
+          <h3>Brand</h3>
+          <div className="grid-2">
+            <Text label="Brand name (KO)" value={b.name_kr} onChange={v => set(['brand','name_kr'], v)} lang="ko" />
+            <Text label="Brand name (EN)" value={b.name_en} onChange={v => set(['brand','name_en'], v)} lang="en" />
+          </div>
+          <Text label="Logo mark path" value={b.logo_mark} onChange={v => set(['brand','logo_mark'], v)} hint="Path to SVG logo, relative to this folder" />
+          <Area label="Footer tagline (KO)" value={b.footer_tagline_ko} onChange={v => set(['brand','footer_tagline_ko'], v)} lang="ko" />
+          <Area label="Footer tagline (EN)" value={b.footer_tagline_en} onChange={v => set(['brand','footer_tagline_en'], v)} lang="en" />
+          <div className="grid-2">
+            <Text label="Contact email" value={b.email} onChange={v => set(['brand','email'], v)} />
+            <Text label="Partners email" value={b.partners_email} onChange={v => set(['brand','partners_email'], v)} />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Navigation labels</h3>
+          <p className="desc">Labels for the top navigation. Most are shared across languages; the Apply CTA differs.</p>
+          <div className="grid-2">
+            {['programs','about','partners','stories','news','apply'].map(k => (
+              <React.Fragment key={k}>
+                <Text label={`${k} (KO)`} value={n.ko[k]} onChange={v => set(['nav','ko',k], v)} lang="ko" />
+                <Text label={`${k} (EN)`} value={n.en[k]} onChange={v => set(['nav','en',k], v)} lang="en" />
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  function HeroTab({ c, set }) {
+    const ko = c.hero.ko, en = c.hero.en;
+    return (
+      <>
+        <div className="card">
+          <h3>Hero copy — Korean</h3>
+          <Text label="Kicker" value={ko.kicker} onChange={v => set(['hero','ko','kicker'], v)} lang="ko" />
+          <div className="grid-2 tight">
+            <Text label="Title line 1" value={ko.title_l1} onChange={v => set(['hero','ko','title_l1'], v)} lang="ko" />
+            <Text label="Title line 2" value={ko.title_l2} onChange={v => set(['hero','ko','title_l2'], v)} lang="ko" />
+          </div>
+          <Area label="Subtitle" value={ko.sub} onChange={v => set(['hero','ko','sub'], v)} rows={3} lang="ko" />
+          <div className="grid-2 tight">
+            <Text label="Primary CTA" value={ko.cta1} onChange={v => set(['hero','ko','cta1'], v)} lang="ko" />
+            <Text label="Secondary CTA" value={ko.cta2} onChange={v => set(['hero','ko','cta2'], v)} lang="ko" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Hero copy — English</h3>
+          <Text label="Kicker" value={en.kicker} onChange={v => set(['hero','en','kicker'], v)} lang="en" />
+          <div className="grid-2 tight">
+            <Text label="Title line 1" value={en.title_l1} onChange={v => set(['hero','en','title_l1'], v)} lang="en" />
+            <Text label="Title line 2" value={en.title_l2} onChange={v => set(['hero','en','title_l2'], v)} lang="en" />
+          </div>
+          <Area label="Subtitle" value={en.sub} onChange={v => set(['hero','en','sub'], v)} rows={3} lang="en" />
+          <div className="grid-2 tight">
+            <Text label="Primary CTA" value={en.cta1} onChange={v => set(['hero','en','cta1'], v)} lang="en" />
+            <Text label="Secondary CTA" value={en.cta2} onChange={v => set(['hero','en','cta2'], v)} lang="en" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Hero accent dots</h3>
+          <p className="desc">The four color dots floating in the hero. Edit color and accessibility label.</p>
+          {c.hero.dots.map((d, i) => (
+            <div className="rep-item" key={i}>
+              <div className="rep-head"><strong>Dot {i+1}</strong></div>
+              <div className="grid-2 tight">
+                <Color label="Color" value={d.color} onChange={v => set(['hero','dots',i,'color'], v)} />
+                <Text label="Label" value={d.label} onChange={v => set(['hero','dots',i,'label'], v)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  function StatsTab({ c, set, addItem, removeItem }) {
+    return (
+      <div className="card">
+        <h3>Key stats</h3>
+        <p className="desc">Four large numbers shown under the hero.</p>
+        {c.stats.map((s, i) => (
+          <div className="rep-item" key={i}>
+            <div className="rep-head">
+              <strong>Stat {i+1}</strong>
+              <div className="ctrls">
+                <button className="icon-btn danger" onClick={() => removeItem(['stats'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-2 tight">
+              <Text label="Number" value={s.n} onChange={v => set(['stats',i,'n'], v)} />
+              <div/>
+              <Text label="Label (KO)" value={s.ko} onChange={v => set(['stats',i,'ko'], v)} lang="ko" />
+              <Text label="Label (EN)" value={s.en} onChange={v => set(['stats',i,'en'], v)} lang="en" />
+            </div>
+          </div>
+        ))}
+        <button className="btn-add" onClick={() => addItem(['stats'], { n: '0', ko: '새 지표', en: 'New stat' })}>+ Add stat</button>
+      </div>
+    );
+  }
+
+  function HowTab({ c, set, addItem, removeItem }) {
+    return (
+      <>
+        <div className="card">
+          <h3>Section heading</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={c.how.ko.kicker} onChange={v => set(['how','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={c.how.en.kicker} onChange={v => set(['how','en','kicker'], v)} lang="en" />
+            <Text label="Title (KO)" value={c.how.ko.title} onChange={v => set(['how','ko','title'], v)} lang="ko" />
+            <Text label="Title (EN)" value={c.how.en.title} onChange={v => set(['how','en','title'], v)} lang="en" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Steps</h3>
+          {c.how.steps.map((s, i) => (
+            <div className="rep-item" key={i}>
+              <div className="rep-head">
+                <strong>Step {i+1}</strong>
+                <div className="ctrls">
+                  <button className="icon-btn danger" onClick={() => removeItem(['how','steps'], i)}>Delete</button>
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                <Text label="Number" value={s.n} onChange={v => set(['how','steps',i,'n'], v)} />
+                <IconField label="Icon" value={s.icon} onChange={v => set(['how','steps',i,'icon'], v)} />
+                <Text label="Title (KO)" value={s.t_ko} onChange={v => set(['how','steps',i,'t_ko'], v)} lang="ko" />
+                <Text label="Title (EN)" value={s.t_en} onChange={v => set(['how','steps',i,'t_en'], v)} lang="en" />
+                <Area label="Description (KO)" value={s.d_ko} onChange={v => set(['how','steps',i,'d_ko'], v)} lang="ko" />
+                <Area label="Description (EN)" value={s.d_en} onChange={v => set(['how','steps',i,'d_en'], v)} lang="en" />
+              </div>
+            </div>
+          ))}
+          <button className="btn-add" onClick={() => addItem(['how','steps'], { n: String(c.how.steps.length+1).padStart(2,'0'), icon: 'check', t_ko: '제목', t_en: 'Title', d_ko: '', d_en: '' })}>+ Add step</button>
+        </div>
+      </>
+    );
+  }
+
+  function ProgramsTab({ c, set, addItem, removeItem }) {
+    return (
+      <>
+        <div className="card">
+          <h3>Programs section heading</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={c.programs_section.ko.kicker} onChange={v => set(['programs_section','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
+            <Text label="Title (KO)" value={c.programs_section.ko.title} onChange={v => set(['programs_section','ko','title'], v)} lang="ko" />
+            <Text label="Title (EN)" value={c.programs_section.en.title} onChange={v => set(['programs_section','en','title'], v)} lang="en" />
+            <Area label="Subtitle (KO)" value={c.programs_section.ko.sub} onChange={v => set(['programs_section','ko','sub'], v)} lang="ko" />
+            <Area label="Subtitle (EN)" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Programs</h3>
+          {c.programs.map((p, i) => (
+            <div className="rep-item" key={i}>
+              <div className="rep-head">
+                <strong>{p.id}</strong>
+                <div className="ctrls">
+                  <button className="icon-btn danger" onClick={() => removeItem(['programs'], i)}>Delete</button>
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                <Text label="ID" value={p.id} onChange={v => set(['programs',i,'id'], v)} hint="URL-friendly identifier" />
+                <Text label="Kicker" value={p.kicker} onChange={v => set(['programs',i,'kicker'], v)} />
+                <Text label="Title (KO)" value={p.title_ko} onChange={v => set(['programs',i,'title_ko'], v)} lang="ko" />
+                <Text label="Title (EN)" value={p.title_en} onChange={v => set(['programs',i,'title_en'], v)} lang="en" />
+                <Area label="Subtitle (KO)" value={p.sub_ko} onChange={v => set(['programs',i,'sub_ko'], v)} lang="ko" />
+                <Area label="Subtitle (EN)" value={p.sub_en} onChange={v => set(['programs',i,'sub_en'], v)} lang="en" />
+                <Text label="Meta (comma-separated)" value={(p.meta || []).join(', ')} onChange={v => set(['programs',i,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN" />
+                <Text label="Level" value={p.level} onChange={v => set(['programs',i,'level'], v)} hint="Beginner · Intermediate · All" />
+                <Text label="Status" value={p.status} onChange={v => set(['programs',i,'status'], v)} />
+                <IconField label="Icon" value={p.icon} onChange={v => set(['programs',i,'icon'], v)} />
+                <Color label="Primary color" value={p.color} onChange={v => set(['programs',i,'color'], v)} />
+                <Color label="Accent color" value={p.accent} onChange={v => set(['programs',i,'accent'], v)} />
+              </div>
+            </div>
+          ))}
+          <button className="btn-add" onClick={() => addItem(['programs'], {
+            id: 'new-program', kicker: 'MICRO-DEGREE · CUFS',
+            title_ko: '새 프로그램', title_en: 'New program',
+            sub_ko: '', sub_en: '',
+            meta: ['12 weeks','100% remote','EN'], level: 'Beginner', status: 'open',
+            color: '#622599', accent: '#82E6DE', icon: 'book-open'
+          })}>+ Add program</button>
+        </div>
+      </>
+    );
+  }
+
+  function PartnersTab({ c, set, addItem, removeItem }) {
+    return (
+      <>
+        <div className="card">
+          <h3>Partners section heading</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={c.partners_section.ko.kicker} onChange={v => set(['partners_section','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={c.partners_section.en.kicker} onChange={v => set(['partners_section','en','kicker'], v)} lang="en" />
+            <Text label="Title (KO)" value={c.partners_section.ko.title} onChange={v => set(['partners_section','ko','title'], v)} lang="ko" />
+            <Text label="Title (EN)" value={c.partners_section.en.title} onChange={v => set(['partners_section','en','title'], v)} lang="en" />
+            <Area label="Subtitle (KO)" value={c.partners_section.ko.sub} onChange={v => set(['partners_section','ko','sub'], v)} lang="ko" />
+            <Area label="Subtitle (EN)" value={c.partners_section.en.sub} onChange={v => set(['partners_section','en','sub'], v)} lang="en" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Partners</h3>
+          {c.partners.map((p, i) => (
+            <div className="rep-item" key={i}>
+              <div className="rep-head">
+                <strong>{p.name}</strong>
+                <div className="ctrls">
+                  <button className="icon-btn danger" onClick={() => removeItem(['partners'], i)}>Delete</button>
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                <Text label="Short name" value={p.name} onChange={v => set(['partners',i,'name'], v)} />
+                <Text label="Full name" value={p.full} onChange={v => set(['partners',i,'full'], v)} />
+                <Text label="Role (KO)" value={p.role_ko} onChange={v => set(['partners',i,'role_ko'], v)} lang="ko" />
+                <Text label="Role (EN)" value={p.role_en} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
+                <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
+              </div>
+            </div>
+          ))}
+          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#622599' })}>+ Add partner</button>
+        </div>
+      </>
+    );
+  }
+
+  function StoriesTab({ c, set, addItem, removeItem }) {
+    return (
+      <div className="card">
+        <h3>Learner stories</h3>
+        {c.stories.map((s, i) => (
+          <div className="rep-item" key={i}>
+            <div className="rep-head">
+              <strong>{s.name}</strong>
+              <div className="ctrls">
+                <button className="icon-btn danger" onClick={() => removeItem(['stories'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-2 tight">
+              <Text label="Tag" value={s.tag} onChange={v => set(['stories',i,'tag'], v)} />
+              <Color label="Tag color" value={s.tag_color} onChange={v => set(['stories',i,'tag_color'], v)} />
+              <Text label="Name" value={s.name} onChange={v => set(['stories',i,'name'], v)} />
+              <Text label="Program" value={s.program} onChange={v => set(['stories',i,'program'], v)} />
+              <Area label="Quote (KO)" value={s.quote_ko} onChange={v => set(['stories',i,'quote_ko'], v)} lang="ko" rows={3} />
+              <Area label="Quote (EN)" value={s.quote_en} onChange={v => set(['stories',i,'quote_en'], v)} lang="en" rows={3} />
+            </div>
+          </div>
+        ))}
+        <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#622599', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
+      </div>
+    );
+  }
+
+  function NewsTab({ c, set, addItem, removeItem }) {
+    return (
+      <div className="card">
+        <h3>News items</h3>
+        {c.news.map((n, i) => (
+          <div className="rep-item" key={i}>
+            <div className="rep-head">
+              <strong>{n.date} · {n.tag}</strong>
+              <div className="ctrls">
+                <button className="icon-btn danger" onClick={() => removeItem(['news'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-2 tight">
+              <Text label="Tag" value={n.tag} onChange={v => set(['news',i,'tag'], v)} />
+              <Color label="Tag color" value={n.tag_color} onChange={v => set(['news',i,'tag_color'], v)} />
+              <Text label="Date" value={n.date} onChange={v => set(['news',i,'date'], v)} hint="YYYY.MM.DD" />
+              <div/>
+              <Text label="Title (KO)" value={n.title_ko} onChange={v => set(['news',i,'title_ko'], v)} lang="ko" />
+              <Text label="Title (EN)" value={n.title_en} onChange={v => set(['news',i,'title_en'], v)} lang="en" />
+            </div>
+          </div>
+        ))}
+        <button className="btn-add" onClick={() => addItem(['news'], { tag: 'Tag', tag_color: '#622599', date: '2025.01.01', title_ko: '제목', title_en: 'Title' })}>+ Add news item</button>
+      </div>
+    );
+  }
+
+  function CtaTab({ c, set }) {
+    return (
+      <div className="card">
+        <h3>CTA banner (homepage)</h3>
+        <div className="grid-2 tight">
+          <Text label="Title (KO)" value={c.cta_banner.ko.title} onChange={v => set(['cta_banner','ko','title'], v)} lang="ko" />
+          <Text label="Title (EN)" value={c.cta_banner.en.title} onChange={v => set(['cta_banner','en','title'], v)} lang="en" />
+          <Text label="Subtitle (KO)" value={c.cta_banner.ko.sub} onChange={v => set(['cta_banner','ko','sub'], v)} lang="ko" />
+          <Text label="Subtitle (EN)" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
+          <Text label="CTA label (KO)" value={c.cta_banner.ko.cta} onChange={v => set(['cta_banner','ko','cta'], v)} lang="ko" />
+          <Text label="CTA label (EN)" value={c.cta_banner.en.cta} onChange={v => set(['cta_banner','en','cta'], v)} lang="en" />
+        </div>
+      </div>
+    );
+  }
+
+  function FaqTab({ c, set, addItem, removeItem }) {
+    return (
+      <div className="card">
+        <h3>FAQ</h3>
+        {c.faq.map((f, i) => (
+          <div className="rep-item" key={i}>
+            <div className="rep-head">
+              <strong>Q{i+1}</strong>
+              <div className="ctrls">
+                <button className="icon-btn danger" onClick={() => removeItem(['faq'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-2 tight">
+              <Text label="Question (KO)" value={f.q_ko} onChange={v => set(['faq',i,'q_ko'], v)} lang="ko" />
+              <Text label="Question (EN)" value={f.q_en} onChange={v => set(['faq',i,'q_en'], v)} lang="en" />
+              <Area label="Answer (KO)" value={f.a_ko} onChange={v => set(['faq',i,'a_ko'], v)} lang="ko" rows={3} />
+              <Area label="Answer (EN)" value={f.a_en} onChange={v => set(['faq',i,'a_en'], v)} lang="en" rows={3} />
+            </div>
+          </div>
+        ))}
+        <button className="btn-add" onClick={() => addItem(['faq'], { q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
+      </div>
+    );
+  }
+
+  function IconsTab({ c, set }) {
+    const keys = Object.keys(c.icons);
+    return (
+      <div className="card">
+        <h3>Icon slots</h3>
+        <p className="desc">Each slot is a named role used somewhere on the site. Pick any Lucide icon.</p>
+        <div className="grid-3">
+          {keys.map(k => (
+            <IconField key={k} label={k} value={c.icons[k]} onChange={v => set(['icons',k], v)} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Applications (submitted forms) -------------------------------------
+  function ApplicationsTab() {
+    const [apps, setApps] = useState(() => {
+      try { return JSON.parse(localStorage.getItem('dp_applications_v1') || '[]'); }
+      catch { return []; }
+    });
+    const [selected, setSelected] = useState(null);
+    const [filter, setFilter] = useState('all');
+
+    useEffect(() => {
+      const h = () => {
+        try { setApps(JSON.parse(localStorage.getItem('dp_applications_v1') || '[]')); }
+        catch { setApps([]); }
+      };
+      window.addEventListener('storage', h);
+      return () => window.removeEventListener('storage', h);
+    }, []);
+
+    const trackLabel = t => t === 'full' ? 'Full scholarship' : t === 'partial' ? 'Partial scholarship' : t === 'general' ? 'Standard' : '—';
+    const trackColor = t => t === 'full' ? '#4D006E' : t === 'partial' ? '#622599' : t === 'general' ? '#6B7280' : '#999';
+
+    const filtered = filter === 'all' ? apps : apps.filter(a => a.track === filter);
+
+    function refresh() {
+      try { setApps(JSON.parse(localStorage.getItem('dp_applications_v1') || '[]')); }
+      catch { setApps([]); }
+      setSelected(null);
+    }
+    function deleteApp(id) {
+      if (!confirm('Delete this application?')) return;
+      const next = apps.filter(a => a.id !== id);
+      localStorage.setItem('dp_applications_v1', JSON.stringify(next));
+      setApps(next);
+      setSelected(null);
+    }
+    function exportCSV() {
+      const cols = ['id','submittedAt','status','track','partial_tier','amount','program','name','email','country','nso','recommender_name','recommender_email','essay_title'];
+      const esc = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+      const rows = [cols.join(',')].concat(apps.map(a => cols.map(k => esc(a[k])).join(',')));
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'dreampath-applications.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    return (
+      <>
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginBottom:16}}>
+            <div>
+              <h3 style={{margin:0}}>Submitted applications</h3>
+              <p className="desc" style={{margin:'4px 0 0'}}>{apps.length} total · stored locally in the browser</p>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="icon-btn" onClick={refresh}>Refresh</button>
+              <button className="icon-btn" onClick={exportCSV}>Export CSV</button>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+            {[
+              {k:'all', l:'All'},
+              {k:'full', l:'Full scholarship'},
+              {k:'partial', l:'Partial scholarship'},
+              {k:'general', l:'Standard'}
+            ].map(f => (
+              <button key={f.k} type="button"
+                onClick={() => setFilter(f.k)}
+                className="icon-btn"
+                style={filter === f.k ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+                {f.l} {f.k !== 'all' && `(${apps.filter(a => a.track === f.k).length})`}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div style={{padding:'40px 20px',textAlign:'center',color:'var(--fg-muted)',background:'var(--bg-muted)',borderRadius:12,fontSize:14}}>
+              No applications yet. Submit one from <a href="index.html#apply" target="_blank" rel="noopener">the Apply page</a>.
+            </div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+              <table className="apps-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Submitted</th><th>Name</th><th>Country</th>
+                    <th>Program</th><th>Track</th><th>Paid</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(a => (
+                    <tr key={a.id}>
+                      <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{a.id}</td>
+                      <td>{new Date(a.submittedAt).toLocaleString()}</td>
+                      <td><strong>{a.name}</strong><div style={{fontSize:12,color:'var(--fg-muted)'}}>{a.email}</div></td>
+                      <td>{a.country}</td>
+                      <td style={{fontSize:13}}>{a.program}</td>
+                      <td><span className="pill" style={{background:trackColor(a.track)+'22',color:trackColor(a.track)}}>{trackLabel(a.track)}{a.track==='partial'?` · ${a.partial_tier}%`:''}</span></td>
+                      <td style={{fontFamily:'var(--font-en)',fontWeight:700}}>{a.amount > 0 ? `$${a.amount}` : '—'}</td>
+                      <td><button className="icon-btn" onClick={() => setSelected(a)}>View</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {selected && (
+          <div className="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-modal-title"
+               onClick={(e) => { if (e.target === e.currentTarget) setSelected(null); }}>
+            <div className="app-modal-inner">
+              <div className="app-modal-head">
+                <div>
+                  <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4,fontFamily:'var(--font-mono)'}}>{selected.id}</div>
+                  <h3 id="app-modal-title" style={{margin:0,fontSize:22}}>{selected.name}</h3>
+                  <div style={{color:'var(--fg-secondary)',fontSize:13,marginTop:2}}>{selected.email} · {selected.country}</div>
+                </div>
+                <button className="icon-btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
+
+              <div className="app-modal-body">
+                <Row k="Submitted">{new Date(selected.submittedAt).toLocaleString()}</Row>
+                <Row k="Track">
+                  <span className="pill" style={{background:trackColor(selected.track)+'22',color:trackColor(selected.track)}}>
+                    {trackLabel(selected.track)}{selected.track==='partial'?` · ${selected.partial_tier}%`:''}
+                  </span>
+                  {selected.amount > 0 && <span style={{marginLeft:10,fontFamily:'var(--font-en)',fontWeight:700}}>${selected.amount}.00 paid</span>}
+                </Row>
+                <Row k="Program">{selected.program}</Row>
+
+                <h4 className="app-sec">Basic info</h4>
+                <Row k="Date of birth">{selected.birthdate || '—'}</Row>
+                <h4 className="app-sec">Academic</h4>
+                <Row k="School">{selected.prior_school || '—'}</Row>
+                <Row k="Major">{selected.prior_major || '—'}</Row>
+                <Row k="GPA">{selected.prior_gpa || '—'}</Row>
+                <Row k="Transcript note">{selected.transcript_note || '—'}</Row>
+
+                <h4 className="app-sec">Essay</h4>
+                <Row k="Title">{selected.essay_title || '—'}</Row>
+                <div className="essay-box">{selected.essay_body || '—'}</div>
+
+                <h4 className="app-sec">Scout recommender</h4>
+                <Row k="NSO">{selected.nso || '—'}</Row>
+                <Row k="Recommender">{selected.recommender_name}{selected.recommender_role ? ` · ${selected.recommender_role}` : ''}</Row>
+                <Row k="Email">{selected.recommender_email || '—'}</Row>
+                {selected.recommender_letter && (
+                  <>
+                    <Row k="Letter">&nbsp;</Row>
+                    <div className="essay-box">{selected.recommender_letter}</div>
+                  </>
+                )}
+
+                {selected.card_last4 && (
+                  <>
+                    <h4 className="app-sec">Payment</h4>
+                    <Row k="Method">Card</Row>
+                    <Row k="Last 4">•••• {selected.card_last4}</Row>
+                  </>
+                )}
+              </div>
+
+              <div className="app-modal-foot">
+                <button className="icon-btn danger" onClick={() => deleteApp(selected.id)}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  function Row({ k, children }) {
+    return (
+      <div className="app-row">
+        <div className="app-k">{k}</div>
+        <div className="app-v">{children}</div>
+      </div>
+    );
+  }
+
+  // ---- Main admin shell ----------------------------------------------------
+  function Admin() {
+    const [content, setContent] = useState(() => window.DreamPathContent.load());
+    const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'brand');
+    const [saved, setSaved] = useState(false);
+    const savedTimer = useRef(null);
+
+    useEffect(() => { localStorage.setItem('dp_admin_tab', tab); }, [tab]);
+
+    // Auto-save on every change, with debounced "Saved" indicator
+    useEffect(() => {
+      window.DreamPathContent.save(content);
+      setSaved(true);
+      clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 1200);
+    }, [content]);
+
+    useEffect(() => { window.lucide && window.lucide.createIcons(); });
+
+    const set = (pathArr, val) => setContent(prev => setDeep(prev, pathArr, val));
+    const addItem = (pathArr, item) => setContent(prev => {
+      const arr = pathArr.reduce((a,k) => a[k], prev) || [];
+      return setDeep(prev, pathArr, [...arr, item]);
+    });
+    const removeItem = (pathArr, i) => setContent(prev => {
+      const arr = pathArr.reduce((a,k) => a[k], prev) || [];
+      return setDeep(prev, pathArr, arr.filter((_,idx) => idx !== i));
+    });
+
+    function onReset() {
+      if (confirm('Reset all content to defaults? This cannot be undone.')) {
+        window.DreamPathContent.reset();
+        setContent(window.DreamPathContent.load());
+      }
+    }
+    function onExport() {
+      const blob = new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'dreampath-content.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const TabComp = {
+      brand: BrandTab, hero: HeroTab, how: HowTab,
+      programs: ProgramsTab, partners: PartnersTab, stories: StoriesTab,
+      news: NewsTab, cta: CtaTab, faq: FaqTab, icons: IconsTab,
+      apps: ApplicationsTab,
+    }[tab];
+
+    const activeLabel = TABS.find(t => t.id === tab)?.label ?? '';
+
+    return (
+      <div className="admin">
+        <aside className="side" aria-label="Admin navigation">
+          <div className="brand" aria-hidden="true">
+            <img src="../../assets/logo-dreampath-mark.svg" alt="" />
+            <div className="wm">Dream<span className="pt">Path</span></div>
+          </div>
+          <h2>Content</h2>
+          {TABS.map(t => (
+            <button key={t.id} type="button"
+              className={'tab' + (tab === t.id ? ' active' : '')}
+              onClick={() => setTab(t.id)}
+              aria-current={tab === t.id ? 'page' : undefined}>
+              {t.label}
+            </button>
+          ))}
+          <div className="actions">
+            <a className="primary" href="index.html" target="_blank" rel="noopener">Open site ↗</a>
+            <button type="button" onClick={onExport}>Export JSON</button>
+            <button type="button" className="danger" onClick={onReset}>Reset all</button>
+          </div>
+        </aside>
+        <div id="main" className="main" tabIndex="-1">
+          <div className="page-head">
+            <div>
+              <h1>{activeLabel}</h1>
+              <p className="lede">Changes save automatically and reflect on the live site.</p>
+            </div>
+          </div>
+          <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />
+        </div>
+        <div className={'status' + (saved ? ' on' : '')} role="status" aria-live="polite">Saved</div>
+      </div>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<Admin />);
+  </script>
+</body>
+</html>

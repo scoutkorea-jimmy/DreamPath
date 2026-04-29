@@ -1,14 +1,4 @@
 // Home.jsx
-const HERO_TILES = [
-  { icon: '../assets/icons/scout-fleur.svg', label: 'Scouting',  color: '#FFD400', text: '#4D006E' },
-  { icon: '../assets/icons/globe.svg',       label: '170+',      color: '#82E6DE', text: '#0A2540' },
-  { icon: '../assets/icons/graduation.svg',  label: 'Degree',    color: '#FF8DFF', text: '#4D006E' },
-  { icon: '../assets/icons/path.svg',        label: 'Path',      color: '#9FED8F', text: '#1F4D2A' },
-];
-
-const STAT_ICONS = ['globe', 'community', 'campus', 'path'];
-const STEP_ICONS_LOCAL = ['scout-fleur', 'essay', 'graduation'];
-
 function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = { hero: c.hero[lang], stats: c.stats, how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
@@ -16,51 +6,25 @@ function Home({ go, lang, c }) {
     <div>
       {/* HERO */}
       <section className="hero" data-screen-label="Hero" aria-labelledby="hero-title">
-        <img src="../assets/icons/scout-fleur.svg" alt="" className="hero-watermark" aria-hidden="true" />
         <div className="hero-dots" aria-hidden="true">
           {c.hero.dots.map((d, i) => (
             <span key={i} className={'d d' + (i+1)} style={{background: d.color}} />
           ))}
         </div>
-        <div className="hero-inner hero-grid">
-          <div className="hero-copy">
-            <p className="hero-kicker">{t.hero.kicker}</p>
-            <h1 id="hero-title" className={'hero-title' + (isKo ? '' : ' en')}>
-              {t.hero.title_l1}<br />{t.hero.title_l2}
-            </h1>
-            <p className="hero-sub">{t.hero.sub}</p>
-            <div className="hero-ctas">
-              <button className="btn btn-lg btn-white" onClick={() => go('programs')} type="button">
-                {t.hero.cta1} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
-              </button>
-              <button className="btn btn-lg btn-ghost" style={{color:'#fff'}} onClick={() => go('about')} type="button">
-                {t.hero.cta2}
-              </button>
-            </div>
+        <div className="hero-inner">
+          <p className="hero-kicker">{t.hero.kicker}</p>
+          <h1 id="hero-title" className={'hero-title' + (isKo ? '' : ' en')}>
+            {t.hero.title_l1}<br />{t.hero.title_l2}
+          </h1>
+          <p className="hero-sub">{t.hero.sub}</p>
+          <div className="hero-ctas">
+            <button className="btn btn-lg btn-white" onClick={() => go('programs')} type="button">
+              {t.hero.cta1} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+            </button>
+            <button className="btn btn-lg btn-ghost" style={{color:'#fff'}} onClick={() => go('about')} type="button">
+              {t.hero.cta2}
+            </button>
           </div>
-          <div className="hero-mosaic" aria-hidden="true">
-            {HERO_TILES.map((tile, i) => (
-              <div key={i} className={'hm-tile hm-' + i} style={{background: tile.color, color: tile.text}}>
-                <img src={tile.icon} alt="" width="36" height="36" />
-                <span>{tile.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="stats" data-screen-label="Stats" aria-label={isKo ? '핵심 지표' : 'Key numbers'}>
-        <div className="stats-inner">
-          {c.stats.map((s, i) => (
-            <div key={i} className="stat">
-              <div className="stat-icon" aria-hidden="true">
-                <img src={`../assets/icons/${STAT_ICONS[i] || 'spark'}.svg`} alt="" width="22" height="22" />
-              </div>
-              <div className="stat-n">{s.n}</div>
-              <div className="stat-l">{isKo ? (s.ko || s.l) : (s.en || s.l)}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -73,7 +37,7 @@ function Home({ go, lang, c }) {
             {c.how.steps.map((s, i) => (
               <li key={i} className="step">
                 <div className="step-icon" aria-hidden="true">
-                  <img src={`../assets/icons/${STEP_ICONS_LOCAL[i] || 'compass'}.svg`} alt="" width="28" height="28" />
+                  <i data-lucide={s.icon} width="28" height="28" strokeWidth="1.75"></i>
                 </div>
                 <div className="step-n">{s.n}</div>
                 <h3 className="step-t">{isKo ? s.t_ko : s.t_en}</h3>

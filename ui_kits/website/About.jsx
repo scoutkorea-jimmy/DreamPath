@@ -40,7 +40,6 @@ function About({ lang }) {
             : 'DreamPath TF is organized across three functional areas.'}</p>
           <div className="team-grid">
             <div className="team-card">
-              <div className="team-icon" aria-hidden="true"><img src="../assets/icons/book.svg" alt="" width="28" height="28" /></div>
               <div className="team-role">{isKo ? '교육' : 'EDUCATION'}</div>
               <div className="team-name">{isKo ? '프로그램 설계' : 'Program Design'}</div>
               <p className="team-desc">{isKo
@@ -48,7 +47,6 @@ function About({ lang }) {
                 : 'Coordinates curriculum with partner universities and designs learning paths.'}</p>
             </div>
             <div className="team-card">
-              <div className="team-icon" aria-hidden="true"><img src="../assets/icons/scholarship.svg" alt="" width="28" height="28" /></div>
               <div className="team-role">{isKo ? '재무' : 'FINANCE'}</div>
               <div className="team-name">{isKo ? '자원·장학' : 'Resources · Scholarship'}</div>
               <p className="team-desc">{isKo
@@ -56,7 +54,6 @@ function About({ lang }) {
                 : 'Manages the scholarship structure and partner contribution model.'}</p>
             </div>
             <div className="team-card">
-              <div className="team-icon" aria-hidden="true"><img src="../assets/icons/compass.svg" alt="" width="28" height="28" /></div>
               <div className="team-role">{isKo ? '실무 총괄' : 'OPERATIONS'}</div>
               <div className="team-name">{isKo ? '파트너십·모집' : 'Partnerships · Recruitment'}</div>
               <p className="team-desc">{isKo

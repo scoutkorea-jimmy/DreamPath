@@ -169,6 +169,52 @@
     }
 
     .main-inner { padding: 32px 56px; max-width: 1280px; }
+    /* Wide mode — tabs that benefit from the full content width on PC.
+       Split-pane previews, Programs board, Members directory, analytics, etc.
+       Body min-width:1280px keeps the layout intact on smaller monitors. */
+    .main-inner.wide { max-width: none; padding: 28px 32px; }
+
+    /* Split-pane editor + live preview (used for page-content tabs).
+       Editor on the left, sticky preview iframe on the right. Save / Discard
+       toolbar pinned above. Tab is desktop-only — width budget assumes ≥1280px. */
+    .splitpane {
+      display: flex; flex-direction: column; gap: 14px;
+      max-width: none;
+    }
+    .split-toolbar {
+      position: sticky; top: 60px; z-index: 30;
+      display: flex; justify-content: space-between; align-items: center; gap: 18px;
+      padding: 12px 18px; background: #fff; border: 1px solid var(--border-subtle); border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(30,11,51,0.06);
+    }
+    .split-status { display: flex; align-items: center; gap: 8px; }
+    .split-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .split-dot.clean { background: var(--forest-green); }
+    .split-dot.dirty { background: #F59E0B; box-shadow: 0 0 0 4px rgba(245,158,11,0.18); }
+    .split-actions { display: flex; gap: 8px; align-items: center; }
+    .split-actions .icon-btn { padding: 8px 14px; }
+    .split-body {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(560px, 1fr); gap: 20px;
+      align-items: flex-start;
+    }
+    .split-editor {
+      min-width: 0;  /* prevent grid blowout from inputs with long text */
+    }
+    .split-preview {
+      position: sticky; top: 130px;
+      display: flex; flex-direction: column;
+      background: #fff; border: 1px solid var(--border-subtle); border-radius: 12px;
+      overflow: hidden; box-shadow: 0 4px 14px rgba(30,11,51,0.06);
+      height: calc(100vh - 160px); min-height: 600px;
+    }
+    .split-preview-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; border-bottom: 1px solid var(--border-hair); background: var(--bg-muted);
+    }
+    .split-preview-bar code { flex: 1; }
+    .split-iframe {
+      flex: 1; width: 100%; border: none; background: #fff;
+    }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
     .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--midnight-purple); }
     .main .lede { color: var(--fg-secondary); font-size: 14px; margin: 0; }
@@ -383,6 +429,138 @@
     return next;
   }
 
+  // ---- EditorWithPreview ---------------------------------------------------
+  // Wraps a page-editing tab so the user gets a side-by-side editor + live
+  // preview. Edits are kept in a local draft; only the Save button commits
+  // them to the parent `content` state (which then triggers the existing
+  // autosave to KV). Discard reverts the draft.
+  //
+  // Preview rendering: an iframe loads `${previewPath}?preview=1`. The public
+  // site's content-store recognizes that flag, skips its own server fetch,
+  // and applies whatever content the parent posts via window.postMessage.
+  // The iframe pings `dp-preview-ready` once it's loaded so we know when to
+  // send the initial draft (otherwise our first message could land before
+  // the listener is attached).
+  function EditorWithPreview({ tabId, previewPath, content, onSave, onDirtyChange, addItem, removeItem, children }) {
+    const [draft, setDraft] = useState(() => structuredClone(content));
+    const [dirty, setDirty] = useState(false);
+    const [iframeReady, setIframeReady] = useState(false);
+    const [previewKey, setPreviewKey] = useState(0);
+    const iframeRef = useRef(null);
+
+    // Reset draft when parent content changes externally (after Save) — but
+    // only if we're not currently editing. Otherwise we'd nuke the user's work.
+    useEffect(() => {
+      if (!dirty) setDraft(structuredClone(content));
+    }, [content]);
+
+    // Reset draft completely when switching to a different page tab.
+    useEffect(() => {
+      setDraft(structuredClone(content));
+      setDirty(false);
+      setIframeReady(false);
+      setPreviewKey(k => k + 1);  // force iframe reload at the new previewPath
+    }, [tabId, previewPath]);
+
+    useEffect(() => { onDirtyChange && onDirtyChange(dirty); }, [dirty]);
+
+    // Listen for the iframe's ready ping so we know when to push initial draft.
+    useEffect(() => {
+      function onMsg(e) {
+        if (e.source !== iframeRef.current?.contentWindow) return;
+        if (e.data && e.data.type === 'dp-preview-ready') setIframeReady(true);
+      }
+      window.addEventListener('message', onMsg);
+      return () => window.removeEventListener('message', onMsg);
+    }, []);
+
+    // Push the latest draft to the iframe whenever it changes (and after ready).
+    useEffect(() => {
+      if (!iframeReady) return;
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      try { win.postMessage({ type: 'dp-preview-content', content: draft }, '*'); } catch {}
+    }, [draft, iframeReady]);
+
+    function draftSet(pathArr, val) {
+      setDraft(prev => setDeep(prev, pathArr, val));
+      setDirty(true);
+    }
+    function draftAddItem(pathArr, item) {
+      setDraft(prev => {
+        const arr = pathArr.reduce((a, k) => a[k], prev) || [];
+        return setDeep(prev, pathArr, arr.concat([item]));
+      });
+      setDirty(true);
+    }
+    function draftRemoveItem(pathArr, i) {
+      setDraft(prev => {
+        const arr = pathArr.reduce((a, k) => a[k], prev) || [];
+        return setDeep(prev, pathArr, arr.filter((_, idx) => idx !== i));
+      });
+      setDirty(true);
+    }
+
+    function save() {
+      if (!dirty) return;
+      onSave(draft);
+      setDirty(false);
+    }
+    function discard() {
+      if (!dirty) return;
+      if (!confirm('Discard unsaved changes? This cannot be undone.')) return;
+      setDraft(structuredClone(content));
+      setDirty(false);
+      setPreviewKey(k => k + 1);  // reload iframe to flush stale draft
+    }
+    function reloadPreview() {
+      setIframeReady(false);
+      setPreviewKey(k => k + 1);
+    }
+
+    const iframeUrl = previewPath + (previewPath.includes('?') ? '&' : '?') + 'preview=1';
+
+    return (
+      <div className="splitpane">
+        <div className="split-toolbar">
+          <div className="split-status">
+            <span className={'split-dot ' + (dirty ? 'dirty' : 'clean')} aria-hidden="true" />
+            <span style={{fontSize:13,fontWeight:600,color:dirty?'#92400E':'var(--forest-green)'}}>
+              {dirty ? 'Unsaved changes' : 'No changes'}
+            </span>
+            <span style={{fontSize:11,color:'var(--fg-muted)',marginLeft:8}}>
+              Edits stay local until you press Save.
+            </span>
+          </div>
+          <div className="split-actions">
+            <button type="button" className="icon-btn" onClick={reloadPreview} title="Reload preview iframe">↻ Reload preview</button>
+            <button type="button" className="icon-btn danger" onClick={discard} disabled={!dirty}>Discard</button>
+            <button type="button" className="btn-add" onClick={save} disabled={!dirty} style={{padding:'10px 22px'}}>Save changes</button>
+          </div>
+        </div>
+        <div className="split-body">
+          <div className="split-editor">
+            {children({ c: draft, set: draftSet, addItem: draftAddItem, removeItem: draftRemoveItem })}
+          </div>
+          <div className="split-preview">
+            <div className="split-preview-bar">
+              <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)'}}>Live preview</span>
+              <code style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--scouting-purple)'}}>{previewPath}</code>
+              <a className="icon-btn" href={previewPath} target="_blank" rel="noopener" title="Open in a new tab (without preview)">Open ↗</a>
+            </div>
+            <iframe
+              key={previewKey}
+              ref={iframeRef}
+              src={iframeUrl}
+              className="split-iframe"
+              title={'Preview · ' + previewPath}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ---- i18n ----------------------------------------------------------------
   // All admin chrome (sidebar groups, tab labels, topbar, headings) is
   // bilingual. Toggle with the KO/EN switch in the topbar.
@@ -457,6 +635,43 @@
   //   Wiki      — internal docs (KMS / color / design)
   //   Tools     — admin-only utilities (translations / design system / error preview)
   //   Data      — backend records (applications / inquiries / analytics)
+  // Tabs that should consume the full available content width (no 1280px cap).
+  // Split-pane previews need it for the side-by-side layout. The Programs board,
+  // Members directory, and analytics dashboards earn it because they're tables
+  // / boards / charts where horizontal headroom directly improves usability.
+  const WIDE_TABS = new Set([
+    'hero','how','cta',
+    'about','pageheros','partner_cta','team',
+    'programs','program_detail',
+    'partners','stories','faq',
+    'members','member_roles',
+    'analytics','apps','inquiries','error_logs','consent_log',
+    'dashboard',
+  ]);
+
+  // Tabs that edit content visible on a public page get a side-by-side
+  // editor + live-preview iframe. The value is the public route to load
+  // for the preview. Edits don't autosave — the user must click Save.
+  // Tabs not in this map render as plain editors with the existing autosave.
+  const PREVIEW_PATHS = {
+    // Homepage sections
+    hero:           '/',
+    how:            '/',
+    cta:            '/',
+    // Pages
+    about:          '/about',
+    pageheros:      '/programs',     // page heros are visible across multiple page headers; /programs is a representative one
+    partner_cta:    '/partners',
+    team:           '/team',
+    // Programs
+    programs:       '/programs',
+    program_detail: '/program/korean-studies',
+    // Content lists
+    partners:       '/partners',
+    stories:        '/stories',
+    faq:            '/contact',      // FAQ section lives on /contact
+  };
+
   // Lucide icon for each top-level sidebar group. Pick names that are
   // present in the LUCIDE_ICONS allowlist above; falls back to 'circle'.
   const GROUP_ICONS = {
@@ -3840,8 +4055,32 @@
     const savedTimer = useRef(null);
     const dirtyRef = useRef(false);
     const debounceTimer = useRef(null);
+    // Tracks whether the active EditorWithPreview wrapper has unsaved draft
+    // edits. Used by setTabSafe / selectGroupSafe to confirm before navigating.
+    const editorDirtyRef = useRef(false);
 
     useEffect(() => { localStorage.setItem('dp_admin_tab', tab); }, [tab]);
+
+    // Guard against losing unsaved draft edits when the user closes the tab
+    // or refreshes mid-edit. Modern browsers ignore the message but show a
+    // generic "Leave site?" prompt as long as preventDefault() is called.
+    useEffect(() => {
+      function onBeforeUnload(e) {
+        if (editorDirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+      }
+      window.addEventListener('beforeunload', onBeforeUnload);
+      return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, []);
+
+    // Wrap setTab so we confirm before navigating away from a dirty draft.
+    const setTabSafe = (next) => {
+      if (next === tab) return;
+      if (editorDirtyRef.current) {
+        if (!confirm('You have unsaved changes on this tab. Discard them and switch?')) return;
+        editorDirtyRef.current = false;
+      }
+      setTab(next);
+    };
 
     // Pull latest content from server on mount (overwrites local cache)
     useEffect(() => {
@@ -3947,7 +4186,7 @@
       const remembered = localStorage.getItem(memKey);
       const groupTabIds = TABS.filter(tt => tt.group === g).map(tt => tt.id);
       const next = remembered && groupTabIds.includes(remembered) ? remembered : groupTabIds[0];
-      if (next) setTab(next);
+      if (next) setTabSafe(next);
     }
     useEffect(() => {
       // Remember the active sub-tab for the active group.
@@ -3991,7 +4230,7 @@
                       {childTabs.map(tt => (
                         <button key={tt.id} type="button"
                           className={'subtab-side' + (tab === tt.id ? ' active' : '')}
-                          onClick={() => setTab(tt.id)}
+                          onClick={() => setTabSafe(tt.id)}
                           aria-current={tab === tt.id ? 'page' : undefined}>
                           {t.tab[tt.id] || tt.id}
                         </button>
@@ -4033,21 +4272,38 @@
               {groupTabs.map(tt => (
                 <button key={tt.id} type="button"
                   className={'subtab' + (tab === tt.id ? ' active' : '')}
-                  onClick={() => setTab(tt.id)}
+                  onClick={() => setTabSafe(tt.id)}
                   aria-current={tab === tt.id ? 'page' : undefined}>
                   {t.tab[tt.id] || tt.id}
                 </button>
               ))}
             </nav>
           )}
-          <div className="main-inner">
+          <div className={'main-inner' + (WIDE_TABS.has(tab) ? ' wide' : '')}>
             <div className="page-head">
               <div>
                 <h1>{activeLabel}</h1>
                 <p className="lede">{t.lede}</p>
               </div>
             </div>
-            <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} setTab={setTab} />
+            {(() => {
+              if (!TabComp) return null;
+              const previewPath = PREVIEW_PATHS[tab];
+              if (!previewPath) {
+                return <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} setTab={setTabSafe} />;
+              }
+              return (
+                <EditorWithPreview
+                  tabId={tab}
+                  previewPath={previewPath}
+                  content={content}
+                  onSave={(draft) => { dirtyRef.current = true; setContent(draft); }}
+                  onDirtyChange={(isDirty) => { editorDirtyRef.current = isDirty; }}
+                >
+                  {(api) => <TabComp c={api.c} set={api.set} addItem={api.addItem} removeItem={api.removeItem} setTab={setTabSafe} />}
+                </EditorWithPreview>
+              );
+            })()}
           </div>
         </div>
       </div>

@@ -36,9 +36,14 @@
     const v = localStorage.getItem('dp_consent_analytics');
     return v !== '0';  // null (undecided) defaults to allow first-party-only tracking
   }
+  // Admin preview iframes load with ?preview=1 — never count those as real traffic.
+  function isPreview() {
+    try { return new URLSearchParams(location.search).get('preview') === '1'; }
+    catch { return false; }
+  }
 
   function push(ev) {
-    if (!consented()) return;
+    if (!consented() || isPreview()) return;
     queue.push({
       session_id: sessionId(),
       ts: new Date().toISOString(),

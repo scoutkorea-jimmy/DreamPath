@@ -640,13 +640,45 @@
     if (e.key === STORAGE_KEY) window.dispatchEvent(new CustomEvent('dp-content-changed'));
   });
 
+  // ── Preview mode ────────────────────────────────────────────────────────
+  // The admin renders an iframe with `?preview=1` and pushes the editor's
+  // unsaved draft over postMessage. In preview mode we:
+  //   1. skip the background fetchRemote — otherwise it would race the parent's
+  //      pushes and overwrite the live draft;
+  //   2. accept `dp-preview-content` messages and apply them as the new content;
+  //   3. broadcast `dp-preview-ready` once, so the parent knows when to send
+  //      its initial state (the iframe could still be loading when the user
+  //      first edits).
+  const PREVIEW_MODE = (() => {
+    try { return new URLSearchParams(location.search).get('preview') === '1'; }
+    catch { return false; }
+  })();
+
+  if (PREVIEW_MODE) {
+    window.addEventListener('message', (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type !== 'dp-preview-content' || !e.data.content) return;
+      try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(e.data.content)); } catch {}
+      window.dispatchEvent(new CustomEvent('dp-content-changed'));
+    });
+    // Tell the parent we're ready to receive content — covers the case where
+    // the parent already had a draft before the iframe finished loading.
+    function ping() {
+      try { window.parent && window.parent.postMessage({ type: 'dp-preview-ready' }, '*'); } catch {}
+    }
+    if (document.readyState === 'complete') ping();
+    else window.addEventListener('load', ping);
+  }
+
   window.DreamPathContent = {
     DEFAULT: DEFAULT_CONTENT,
     load, save, reset, fetchRemote,
     STORAGE_KEY, TOKEN_KEY,
     API_URL,
+    PREVIEW_MODE,
   };
 
   // Kick off remote fetch on page load so site shows latest server content.
-  fetchRemote();
+  // Skip in preview mode — we want the parent's draft, not the saved server copy.
+  if (!PREVIEW_MODE) fetchRemote();
 })();

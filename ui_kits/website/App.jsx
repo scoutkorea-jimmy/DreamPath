@@ -145,28 +145,41 @@ function App() {
     return () => window.removeEventListener('offline', onOffline);
   }, [view]);
 
+  // Safe render — Babel-in-browser parses each .jsx file lazily, so on a
+  // cold load (especially over flaky networks where /offline triggers
+  // before the bundle is parsed) the per-route component might still be
+  // undefined. Without this guard we crash with React error #130 instead
+  // of just showing a placeholder for a few hundred ms.
+  function safe(Comp, props) {
+    if (!Comp) {
+      return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'var(--fg-muted)'}}>Loading…</div>;
+    }
+    return <Comp {...props} />;
+  }
+
+  const baseProps = { go, lang, c: content };
   let content_view;
   switch (view) {
-    case 'home':     content_view = <window.Home go={go} lang={lang} c={content} />; break;
-    case 'about':    content_view = <window.About lang={lang} c={content} />; break;
-    case 'programs': content_view = <window.Programs go={go} lang={lang} c={content} />; break;
-    case 'program':  content_view = <window.ProgramDetail go={go} lang={lang} programId={programId} c={content} />; break;
-    case 'apply':    content_view = <window.Apply lang={lang} c={content} />; break;
-    case 'partners': content_view = <window.Partners lang={lang} c={content} />; break;
-    case 'stories':  content_view = <window.Stories lang={lang} c={content} />; break;
-    case 'news':     content_view = <window.News lang={lang} c={content} />; break;
-    case 'contact':  content_view = <window.Contact lang={lang} c={content} />; break;
-    case 'team':     content_view = <window.Team go={go} lang={lang} c={content} />; break;
-    case 'scholarships': content_view = <window.Scholarships go={go} lang={lang} c={content} />; break;
-    case 'member':   content_view = <window.Member go={go} lang={lang} c={content} />; break;
-    case 'receipt':  content_view = <window.Receipt lang={lang} c={content} />; break;
-    case 'err401':   content_view = <window.Error401 go={go} lang={lang} c={content} />; break;
-    case 'err403':   content_view = <window.Error403 go={go} lang={lang} c={content} />; break;
-    case 'err404':   content_view = <window.Error404 go={go} lang={lang} c={content} />; break;
-    case 'err500':   content_view = <window.Error500 go={go} lang={lang} c={content} />; break;
-    case 'err503':   content_view = <window.Error503 go={go} lang={lang} c={content} />; break;
-    case 'offline':  content_view = <window.ErrorOffline go={go} lang={lang} c={content} />; break;
-    default:         content_view = <window.Home go={go} lang={lang} c={content} />;
+    case 'home':         content_view = safe(window.Home, baseProps); break;
+    case 'about':        content_view = safe(window.About, { lang, c: content }); break;
+    case 'programs':     content_view = safe(window.Programs, baseProps); break;
+    case 'program':      content_view = safe(window.ProgramDetail, { ...baseProps, programId }); break;
+    case 'apply':        content_view = safe(window.Apply, { lang, c: content }); break;
+    case 'partners':     content_view = safe(window.Partners, { lang, c: content }); break;
+    case 'stories':      content_view = safe(window.Stories, { lang, c: content }); break;
+    case 'news':         content_view = safe(window.News, { lang, c: content }); break;
+    case 'contact':      content_view = safe(window.Contact, { lang, c: content }); break;
+    case 'team':         content_view = safe(window.Team, baseProps); break;
+    case 'scholarships': content_view = safe(window.Scholarships, baseProps); break;
+    case 'member':       content_view = safe(window.Member, baseProps); break;
+    case 'receipt':      content_view = safe(window.Receipt, { lang, c: content }); break;
+    case 'err401':       content_view = safe(window.Error401, baseProps); break;
+    case 'err403':       content_view = safe(window.Error403, baseProps); break;
+    case 'err404':       content_view = safe(window.Error404, baseProps); break;
+    case 'err500':       content_view = safe(window.Error500, baseProps); break;
+    case 'err503':       content_view = safe(window.Error503, baseProps); break;
+    case 'offline':      content_view = safe(window.ErrorOffline, baseProps); break;
+    default:             content_view = safe(window.Home, baseProps);
   }
 
   // Top notice banner (dev / launch / maintenance) — stripe across the top

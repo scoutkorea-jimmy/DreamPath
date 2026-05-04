@@ -272,7 +272,10 @@ body {
 .prog-media::after { content:''; position:absolute; top:20px; right:20px; width:56px; height:56px; border-radius:50%; background: var(--accent); opacity:0.85; }
 .prog-icon { position: absolute; top: 28px; left: 28px; color: #fff; z-index: 2; opacity: 0.95; }
 .prog-chips { display: flex; gap: 6px; flex-wrap: wrap; position: relative; z-index: 2; }
-.prog-chips .pc { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.92); color: var(--fg-primary); font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
+/* Chips sit on a coloured card hero with an opaque-white pill bg, so text
+   stays fixed dark in BOTH themes — fg-primary would flip near-white and
+   vanish on the white pill in dark mode. */
+.prog-chips .pc { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.92); color: var(--gray-900); font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
 .prog-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--scouting-purple); }
 .prog-title { font-family: var(--font-kr); font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; color: var(--fg-primary); }
 .prog-title.en { font-family: var(--font-en); }

@@ -219,6 +219,13 @@
   /* Brand wordmark accent yellow boosts a touch for dark surfaces. */
   --sunshine-yellow:  #FFE600;
 
+  /* Scouting-purple is also used as a *text* color on kicker labels, partner
+     roles, team roles, prog-kicker, sec-kicker, FAQ icons, etc. The light-mode
+     value (#622599) reads at ~2.4:1 on the dark canvas — fails even AA Large.
+     Lighten it to a lavender that hits ~7:1 on dark and still reads as the
+     same hue. Stays usable as a background / border tint too. */
+  --scouting-purple:  #B695E8;
+
   /* Borders barely visible against canvas — but do exist. */
   --border-hair:      rgba(242, 240, 247, 0.06);
   --border-subtle:    #2A2832;

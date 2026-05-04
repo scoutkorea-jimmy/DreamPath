@@ -156,6 +156,25 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Wiki (admin-only) — slugs: 'kms', 'design' ───────────────────────────
+  const wikiM = path.match(/^\/api\/wiki\/([a-z0-9_-]{1,32})$/);
+  if (wikiM) {
+    const slug = wikiM[1];
+    const key = 'wiki:' + slug;
+    if (method === 'GET') {
+      const raw = await env.CONTENT_KV.get(key);
+      return new Response(raw || '{}', { headers: JSON_HEADERS });
+    }
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (method === 'PUT' || method === 'POST') {
+      const body = await request.text();
+      try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
+      await env.CONTENT_KV.put(key, body);
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
   if (path === '/api/health') return json({ ok: true, ts: Date.now() });
 
   return json({ error: 'not_found' }, 404);

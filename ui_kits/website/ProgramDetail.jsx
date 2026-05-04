@@ -48,7 +48,7 @@ function ProgramDetail({ go, lang, programId, c }) {
           <div className="row"><span className="k">{d.label_language}</span><span className="v">{p.meta[2]}</span></div>
           <div className="row"><span className="k">{d.label_level}</span><span className="v">{p.level}</span></div>
           <div className="row"><span className="k">{d.label_status}</span><span className="v" style={{color:'var(--forest-green)'}}>{p.status}</span></div>
-          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:20}} onClick={() => go('apply')}>
+          <button className="btn btn-primary btn-block" style={{marginTop:20}} onClick={() => go('apply')}>
             {d.apply_cta} →
           </button>
         </aside>

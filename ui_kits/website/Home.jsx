@@ -21,7 +21,7 @@ function Home({ go, lang, c }) {
             <button className="btn btn-lg btn-white" onClick={() => go('programs')} type="button">
               {t.hero.cta1} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
             </button>
-            <button className="btn btn-lg btn-ghost" style={{color:'#fff'}} onClick={() => go('about')} type="button">
+            <button className="btn btn-lg btn-outline" onClick={() => go('about')} type="button">
               {t.hero.cta2}
             </button>
           </div>

@@ -173,6 +173,7 @@
   <script src="content-store.js"></script>
   <script src="editor-loader.js"></script>
   <link rel="stylesheet" href="site.css">
+  <script type="text/babel" src="RichEditor.jsx"></script>
 </head>
 <body>
   <a href="#main" class="skip-link">본문 바로가기</a>
@@ -322,6 +323,9 @@
     // News is now edited inline on the public /news page (D1-backed)
 
     { id: 'translations',  label: 'KO ↔ EN translations', group: 'Tools' },
+
+    { id: 'wiki_kms',      label: 'KMS (코딩)',       group: 'Wiki' },
+    { id: 'wiki_design',   label: '디자인 가이드',    group: 'Wiki' },
 
     { id: 'apps',          label: 'Applications',    group: 'Data' },
   ];
@@ -864,6 +868,165 @@
     );
   }
 
+  // ---- Wiki (KMS / Design Guide) ----------------------------------------
+  // Each wiki is a list of pages. Pages have title, slug, body (HTML from
+  // TipTap), and updated_at. Stored as one KV blob per wiki at wiki:<slug>.
+  function useWiki(slug) {
+    const [data, setData] = useState({ pages: [] });
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState('');
+    const [saving, setSaving] = useState(false);
+    useEffect(() => {
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await fetch('/api/wiki/' + slug);
+          const body = await res.json();
+          setData((body && body.pages) ? body : { pages: [] });
+        } catch (e) { setErr('Load failed: ' + e.message); }
+        setLoading(false);
+      })();
+    }, [slug]);
+    async function persist(next) {
+      setSaving(true); setErr('');
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/wiki/' + slug, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + token },
+          body: JSON.stringify(next),
+        });
+        if (!res.ok) throw new Error('http_' + res.status);
+        setData(next);
+      } catch (e) { setErr('Save failed: ' + e.message); }
+      setSaving(false);
+    }
+    return { data, setData: persist, loading, err, saving };
+  }
+
+  function WikiTab({ slug, title, accent }) {
+    const { data, setData, loading, err, saving } = useWiki(slug);
+    const [activeId, setActiveId] = useState(null);
+    const [draft, setDraft] = useState(null);
+
+    useEffect(() => {
+      if (!activeId && data.pages.length) setActiveId(data.pages[0].id);
+    }, [data.pages, activeId]);
+
+    const active = data.pages.find(p => p.id === activeId);
+
+    function startEdit(p) { setDraft({ ...p }); }
+    function cancelEdit() { setDraft(null); }
+    async function saveEdit() {
+      const next = { ...data, pages: data.pages.map(p => p.id === draft.id
+        ? { ...draft, updated_at: new Date().toISOString() }
+        : p) };
+      await setData(next);
+      setDraft(null);
+    }
+    async function addPage() {
+      const id = 'p-' + Date.now().toString(36);
+      const now = new Date().toISOString();
+      const newPage = { id, title: 'New page', slug_path: '', body: '<p></p>', updated_at: now };
+      const next = { ...data, pages: [newPage, ...data.pages] };
+      await setData(next);
+      setActiveId(id);
+      setDraft(newPage);
+    }
+    async function deletePage(id) {
+      if (!confirm('Delete this page? This cannot be undone.')) return;
+      const next = { ...data, pages: data.pages.filter(p => p.id !== id) };
+      await setData(next);
+      if (activeId === id) setActiveId(next.pages[0]?.id || null);
+      setDraft(null);
+    }
+
+    return (
+      <div className="wiki" style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:20,minHeight:'70vh'}}>
+        <aside className="wiki-side" style={{background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:14,padding:14,height:'fit-content',position:'sticky',top:80}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 12px',borderBottom:'1px solid var(--border-hair)',marginBottom:10}}>
+            <strong style={{fontSize:13,color:'var(--fg-secondary)',letterSpacing:'0.06em',textTransform:'uppercase'}}>{data.pages.length} {data.pages.length === 1 ? 'page' : 'pages'}</strong>
+            <button className="btn-add" style={{padding:'6px 12px',fontSize:12}} onClick={addPage} disabled={saving}>+ New</button>
+          </div>
+          {loading ? (
+            <div style={{padding:14,fontSize:13,color:'var(--fg-muted)'}}>Loading…</div>
+          ) : data.pages.length === 0 ? (
+            <div style={{padding:14,fontSize:13,color:'var(--fg-muted)'}}>No pages yet.<br/>Click <em>+ New</em>.</div>
+          ) : data.pages.map(p => (
+            <button key={p.id} type="button"
+              onClick={() => { setActiveId(p.id); setDraft(null); }}
+              style={{display:'block',width:'100%',textAlign:'left',padding:'8px 10px',border:'none',borderRadius:8,
+                      background: activeId === p.id ? 'rgba(98,37,153,0.10)' : 'transparent',
+                      color: activeId === p.id ? 'var(--midnight-purple)' : 'var(--fg-primary)',
+                      fontFamily:'inherit',fontSize:13,fontWeight: activeId === p.id ? 700 : 500,
+                      cursor:'pointer',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {p.title || '(untitled)'}
+            </button>
+          ))}
+        </aside>
+
+        <main style={{minWidth:0}}>
+          {err && <div role="alert" style={{padding:12,background:'#FEE2E2',color:'#B91C1C',borderRadius:10,marginBottom:14,fontSize:13}}>{err}</div>}
+          {!active ? (
+            <div className="card" style={{textAlign:'center',padding:60,color:'var(--fg-muted)'}}>
+              <h3 style={{margin:'0 0 8px'}}>{title}</h3>
+              <p style={{margin:0}}>Click <strong>+ New</strong> to create your first page.</p>
+            </div>
+          ) : draft ? (
+            <div className="card">
+              <div className="field">
+                <label>Title</label>
+                <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>Slug (optional, lowercase-with-dashes)</label>
+                <input value={draft.slug_path || ''} onChange={e => setDraft({ ...draft, slug_path: e.target.value })} placeholder="getting-started" />
+              </div>
+              <div className="field">
+                <label>Body</label>
+                <window.RichEditor
+                  value={draft.body || ''}
+                  onChange={(html) => setDraft({ ...draft, body: html })}
+                  placeholder="Write your wiki page…"
+                  minHeight={400}
+                />
+              </div>
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:16}}>
+                <button className="btn btn-secondary btn-sm" type="button" onClick={cancelEdit}>Cancel</button>
+                <button className="btn btn-primary btn-sm" type="button" onClick={saveEdit} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="card">
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:16,marginBottom:14}}>
+                <div>
+                  <div className="sec-kicker" style={{margin:0,color: accent || 'var(--scouting-purple)'}}>{title}</div>
+                  <h2 style={{margin:'4px 0 6px',fontSize:24,fontFamily:'var(--font-en)'}}>{active.title}</h2>
+                  <div style={{fontSize:12,color:'var(--fg-muted)'}}>
+                    {active.slug_path && <span style={{fontFamily:'var(--font-mono)'}}>{active.slug_path}</span>}
+                    {active.updated_at && <span style={{marginLeft: active.slug_path ? 12 : 0}}>updated {new Date(active.updated_at).toLocaleString()}</span>}
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button className="icon-btn" type="button" onClick={() => startEdit(active)}>Edit</button>
+                  <button className="icon-btn danger" type="button" onClick={() => deletePage(active.id)}>Delete</button>
+                </div>
+              </div>
+              <div className="rt-content" style={{padding:0,minHeight:0}}>
+                <div className="ProseMirror" dangerouslySetInnerHTML={{ __html: active.body || '<p style="color:#999;">(empty)</p>' }} />
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  function KmsTab() { return <WikiTab slug="kms" title="KMS · 코딩 위키" accent="#0094B4" />; }
+  function DesignGuideTab() { return <WikiTab slug="design" title="디자인 가이드" accent="#FF8DFF" />; }
+
   // ---- Translations (1:1 KO/EN side-by-side) -----------------------------
   // Walks the content tree and emits one row per matching KO/EN pair.
   // Detects three patterns:
@@ -1387,6 +1550,7 @@
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
       translations: TranslationsTab,
+      wiki_kms: KmsTab, wiki_design: DesignGuideTab,
       apps: ApplicationsTab,
     }[tab];
 

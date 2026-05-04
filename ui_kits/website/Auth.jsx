@@ -87,7 +87,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
           </label>
           {err && <div className="auth-err" role="alert">{err}</div>}
-          <button type="submit" className="btn btn-primary" disabled={busy} style={{width:'100%',justifyContent:'center'}}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
             {busy ? (isKo ? '처리 중…' : 'Working…') : (mode === 'signup' ? (isKo ? '가입하기' : 'Create account') : (isKo ? '로그인' : 'Log in'))}
           </button>
         </form>

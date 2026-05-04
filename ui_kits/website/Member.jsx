@@ -4,7 +4,12 @@ const { useState: useStateM, useEffect: useEffectM } = React;
 function Member({ go, lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth();
-  const [section, setSection] = useStateM('overview'); // overview | career | recommendations
+  const [section, setSection] = useStateM('overview'); // overview | applications | career | recommendations
+  useEffectM(() => {
+    const h = (e) => setSection(e.detail);
+    window.addEventListener('dp-member-section', h);
+    return () => window.removeEventListener('dp-member-section', h);
+  }, []);
 
   if (!auth.ready) {
     return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'#666'}}>{isKo ? '로딩 중…' : 'Loading…'}</div>;
@@ -17,10 +22,10 @@ function Member({ go, lang, c }) {
           <h1 className={isKo ? '' : 'en'}>{isKo ? '로그인이 필요합니다.' : 'Please log in.'}</h1>
           <p>{isKo ? '회원 페이지를 이용하려면 로그인하거나 회원가입을 진행해주세요.' : 'Log in or create an account to access member features.'}</p>
           <div style={{marginTop:24,display:'flex',gap:12}}>
-            <button className="btn btn-primary" onClick={() => window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode: 'login' } }))}>
+            <button className="btn btn-primary btn-lg" onClick={() => window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode: 'login' } }))}>
               {isKo ? '로그인' : 'Log in'}
             </button>
-            <button className="btn btn-secondary" onClick={() => window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode: 'signup' } }))}>
+            <button className="btn btn-secondary btn-lg" onClick={() => window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode: 'signup' } }))}>
               {isKo ? '회원가입' : 'Sign up'}
             </button>
           </div>
@@ -79,13 +84,13 @@ function MemberOverview({ go, isKo, c }) {
         <div className="sec-kicker">{isKo ? '02 · 커리어' : '02 · CAREER'}</div>
         <h3>{isKo ? '커리어 등록' : 'Career profile'}</h3>
         <p>{isKo ? '학력·관심사·언어 능력을 등록해 두면 추천 정확도가 올라갑니다.' : 'Register your background, interests, and language levels.'}</p>
-        <button className="btn btn-secondary">{isKo ? '입력하기' : 'Edit'} →</button>
+        <button className="btn btn-secondary" onClick={() => window.dispatchEvent(new CustomEvent('dp-member-section', { detail: 'career' }))}>{isKo ? '입력하기' : 'Edit'} →</button>
       </div>
       <div className="member-card">
         <div className="sec-kicker">{isKo ? '03 · 추천' : '03 · MATCH'}</div>
         <h3>{isKo ? '맞춤형 프로그램 추천' : 'Personalized recommendations'}</h3>
         <p>{isKo ? '커리어 정보 기반으로 가장 잘 맞는 프로그램을 제안합니다.' : 'Get programs ranked by fit, based on your profile.'}</p>
-        <button className="btn btn-secondary">{isKo ? '확인' : 'View'} →</button>
+        <button className="btn btn-secondary" onClick={() => window.dispatchEvent(new CustomEvent('dp-member-section', { detail: 'recommendations' }))}>{isKo ? '확인' : 'View'} →</button>
       </div>
     </div>
   );

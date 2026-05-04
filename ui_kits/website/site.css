@@ -81,25 +81,77 @@ body {
 .lang-toggle button.on { color: var(--fg-primary); font-weight: 700; }
 .nav-logo { background: none; border: none; font: inherit; color: inherit; cursor: pointer; padding: 0; }
 
-/* ============ BUTTONS ============ */
+/* ============ BUTTONS ============
+   Single base + 4 variants + 3 sizes. No variant overrides padding;
+   sizing comes only from .btn-sm / .btn-md (default) / .btn-lg.
+*/
 .btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-en); font-weight: 600; font-size: 15px;
-  padding: 12px 22px; border-radius: var(--radius-pill);
-  border: none; cursor: pointer; text-decoration: none;
-  transition: all var(--duration-fast) var(--ease-standard);
-  line-height: 1;
+  /* layout */
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  /* sizing — default = md */
+  padding: 12px 22px; font-size: 15px; line-height: 1;
+  /* shape & type */
+  border-radius: var(--radius-pill); border: 1px solid transparent;
+  font-family: var(--font-en); font-weight: 600; text-decoration: none;
+  /* interaction */
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color       var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              transform   var(--duration-fast) var(--ease-standard),
+              box-shadow  var(--duration-fast) var(--ease-standard);
+  /* reset native button defaults */
+  appearance: none; -webkit-appearance: none;
 }
-.btn-primary { background: var(--scouting-purple); color: #fff; box-shadow: var(--shadow-brand); }
-.btn-primary:hover { background: var(--midnight-purple); transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid var(--scouting-purple); outline-offset: 3px; }
+.btn:disabled, .btn[aria-disabled="true"] {
+  opacity: 0.45; cursor: not-allowed; pointer-events: none; box-shadow: none; transform: none;
+}
+
+/* ── Sizes ───────────────────────────────────────────────────────────── */
+.btn-sm  { padding: 8px 16px;  font-size: 13px; gap: 6px; }
+.btn-lg  { padding: 16px 28px; font-size: 17px; gap: 10px; }
+
+/* ── Variants ────────────────────────────────────────────────────────── */
+/* primary — solid purple, the only filled brand button */
+.btn-primary {
+  background: var(--scouting-purple); color: #fff;
+  box-shadow: var(--shadow-brand);
+}
+.btn-primary:hover  { background: var(--midnight-purple); transform: translateY(-1px); }
 .btn-primary:active { transform: scale(0.98); }
-.btn-secondary { background: #fff; color: var(--fg-primary); border: 1px solid var(--gray-300); }
-.btn-secondary:hover { border-color: var(--fg-primary); }
-.btn-ghost { background: transparent; color: var(--scouting-purple); padding: 12px 16px; }
-.btn-ghost:hover { color: var(--midnight-purple); }
-.btn-sm { padding: 8px 14px; font-size: 13px; }
-.btn-lg { padding: 16px 28px; font-size: 17px; }
-.btn-white { background: #fff; color: var(--midnight-purple); }
+
+/* secondary — outlined neutral button on light backgrounds */
+.btn-secondary {
+  background: #fff; color: var(--fg-primary);
+  border-color: var(--gray-300);
+}
+.btn-secondary:hover  { border-color: var(--fg-primary); background: var(--bg-muted); }
+.btn-secondary:active { transform: scale(0.98); }
+
+/* ghost — flat text-link button (no fill, no border) */
+.btn-ghost {
+  background: transparent; color: var(--scouting-purple);
+}
+.btn-ghost:hover { background: rgba(98,37,153,0.08); color: var(--midnight-purple); }
+
+/* white — solid white on dark backgrounds (e.g. hero) */
+.btn-white {
+  background: #fff; color: var(--midnight-purple);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.btn-white:hover  { background: #FFE600; color: var(--midnight-purple); transform: translateY(-1px); }
+.btn-white:active { transform: scale(0.98); }
+
+/* outline — transparent w/ light border, paired with btn-white on dark hero */
+.btn-outline {
+  background: transparent; color: #fff; border-color: rgba(255,255,255,0.45);
+}
+.btn-outline:hover  { background: rgba(255,255,255,0.10); border-color: #fff; }
+.btn-outline:active { transform: scale(0.98); }
+
+/* ── Misc ───────────────────────────────────────────────────────────── */
+.btn-block { width: 100%; }
 
 /* ============ HERO ============ */
 .hero {
@@ -240,8 +292,7 @@ body {
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--scouting-purple); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-hair); }
-.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary:disabled:hover { background: var(--midnight-purple); transform: none; }
+/* (disabled rule is now on .btn) */
 
 /* ============ APPLY — TRACKS & PAYMENT ============ */
 .apply-desc { color: var(--fg-secondary); font-size: 15px; line-height: 1.6; margin: 0 0 24px; }

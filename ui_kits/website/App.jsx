@@ -78,6 +78,8 @@ function App() {
     }
     if (window.location.pathname !== newPath || qs !== window.location.search) {
       window.history.pushState({ v, arg }, '', newPath + qs);
+      // Notify analytics-store of the route change
+      window.dispatchEvent(new CustomEvent('dp-route-change', { detail: { view: v, arg } }));
     }
   };
 
@@ -122,12 +124,12 @@ function App() {
     case 'team':     content_view = <window.Team go={go} lang={lang} c={content} />; break;
     case 'member':   content_view = <window.Member go={go} lang={lang} c={content} />; break;
     case 'receipt':  content_view = <window.Receipt lang={lang} c={content} />; break;
-    case 'err401':   content_view = <window.Error401 go={go} lang={lang} />; break;
-    case 'err403':   content_view = <window.Error403 go={go} lang={lang} />; break;
-    case 'err404':   content_view = <window.Error404 go={go} lang={lang} />; break;
-    case 'err500':   content_view = <window.Error500 go={go} lang={lang} />; break;
-    case 'err503':   content_view = <window.Error503 go={go} lang={lang} />; break;
-    case 'offline':  content_view = <window.ErrorOffline go={go} lang={lang} />; break;
+    case 'err401':   content_view = <window.Error401 go={go} lang={lang} c={content} />; break;
+    case 'err403':   content_view = <window.Error403 go={go} lang={lang} c={content} />; break;
+    case 'err404':   content_view = <window.Error404 go={go} lang={lang} c={content} />; break;
+    case 'err500':   content_view = <window.Error500 go={go} lang={lang} c={content} />; break;
+    case 'err503':   content_view = <window.Error503 go={go} lang={lang} c={content} />; break;
+    case 'offline':  content_view = <window.ErrorOffline go={go} lang={lang} c={content} />; break;
     default:         content_view = <window.Home go={go} lang={lang} c={content} />;
   }
 

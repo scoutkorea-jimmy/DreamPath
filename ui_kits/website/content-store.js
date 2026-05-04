@@ -169,6 +169,37 @@
       news_arrow: 'arrow-up-right',
       faq_toggle: 'plus',
     },
+    // ─── Error page copy (per code × language) ──────────────────────────
+    // Each entry: { title, body, primary_label, secondary_label, helpful_note }.
+    // Errors.jsx reads c.errors[code][lang] with fallback to the hardcoded
+    // defaults inside the component, so removing keys is safe.
+    errors: {
+      '401': {
+        ko: { title: '로그인이 필요합니다.', body: '이 페이지에 접근하려면 로그인이 필요합니다.', primary_label: '로그인', secondary_label: '홈으로', helpful_note: '도움이 필요하신가요? hello@koreadreampath.com 으로 연락주세요.' },
+        en: { title: 'Please log in\nto continue.', body: 'You need to be signed in to access this page.', primary_label: 'Log in', secondary_label: 'Go to home', helpful_note: 'Need help? Contact us at hello@koreadreampath.com' },
+      },
+      '403': {
+        ko: { title: '접근 권한이 없습니다.', body: '죄송합니다. 이 페이지에 접근할 권한이 없습니다.', primary_label: '홈으로', secondary_label: '뒤로 가기', helpful_note: '' },
+        en: { title: "You don't have\npermission.", body: 'Sorry, you are not authorized to access this page.', primary_label: 'Go to home', secondary_label: 'Go back', helpful_note: '' },
+      },
+      '404': {
+        ko: { title: '페이지를 찾을 수 없습니다.', body: '찾으시는 페이지가 존재하지 않거나 이동되었습니다.', primary_label: '홈으로', secondary_label: '프로그램 보기', helpful_note: '' },
+        en: { title: 'Page not found.', body: "The page you're looking for doesn't exist or has been moved.", primary_label: 'Go to home', secondary_label: 'Browse programs', helpful_note: '' },
+      },
+      '500': {
+        ko: { title: '문제가 발생했습니다.', body: '문제를 해결하는 중입니다. 잠시 후 다시 시도해주세요.', primary_label: '다시 시도', secondary_label: '홈으로', helpful_note: '' },
+        en: { title: 'Something went\nwrong on our end.', body: "We're working to fix the issue. Please try again later.", primary_label: 'Try again', secondary_label: 'Go to home', helpful_note: '' },
+      },
+      '503': {
+        ko: { title: '일시적으로 이용할 수 없습니다.', body: '점검 중이거나 트래픽이 많습니다. 잠시 후 다시 시도해주세요.', primary_label: '잠시 후 다시 시도', secondary_label: '홈으로', helpful_note: '' },
+        en: { title: 'Temporarily\nunavailable.', body: "We're performing maintenance or experiencing high traffic. Please try again soon.", primary_label: 'Try again later', secondary_label: 'Go to home', helpful_note: '' },
+      },
+      'offline': {
+        ko: { title: '네트워크 연결 안 됨', body: '인터넷 연결을 확인하고 다시 시도해주세요.', primary_label: '다시 시도', secondary_label: '홈으로', helpful_note: '' },
+        en: { title: "You're offline.", body: 'Please check your internet connection and try again.', primary_label: 'Try again', secondary_label: 'Go to home', helpful_note: '' },
+      },
+    },
+
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
       enabled: true,

@@ -273,6 +273,19 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Analytics ────────────────────────────────────────────────────────────
+  if (path === '/api/analytics' && method === 'POST') {
+    return ingestEvents(request, env);
+  }
+  if (path === '/api/analytics/summary' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    return analyticsSummary(env, url);
+  }
+  if (path === '/api/analytics/journeys' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    return analyticsJourneys(env, url);
+  }
+
   // ── Program details (long-form body per program) ────────────────────────
   const pdM = path.match(/^\/api\/programs\/([A-Za-z0-9_-]+)\/details$/);
   if (pdM) {
@@ -484,6 +497,171 @@ async function saveProfile(env, userId, body) {
   await env.DB.prepare(sql).bind(...values).run();
   const row = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(userId).first();
   return json(row);
+}
+
+// ── Analytics ──────────────────────────────────────────────────────────────
+// Public ingest: client posts a small batch of events. Worker enriches with
+// IP / country / UA / source classification and inserts into D1.
+async function ingestEvents(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body || !Array.isArray(body.events)) return json({ error: 'invalid_body' }, 400);
+
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const country = request.headers.get('cf-ipcountry') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+  const referer = request.headers.get('referer') || '';
+
+  const user = await currentUser(request, env);
+  const user_id = user ? user.id : null;
+
+  const stmt = env.DB.prepare(
+    `INSERT INTO analytics_events
+      (ts, day, session_id, user_id, type, view, path, target,
+       referrer, source, utm_source, utm_medium, utm_campaign,
+       lang, country, device, ip, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const ops = [];
+
+  for (const e of body.events.slice(0, 50)) { // hard cap per request
+    const ts = e.ts ? new Date(e.ts).toISOString() : now.toISOString();
+    const day = ts.slice(0, 10);
+    const ev_referrer = e.referrer || referer || '';
+    const source = classifySource(e.path || '/', ev_referrer, e.utm_source);
+    const device = classifyDevice(ua);
+
+    ops.push(stmt.bind(
+      ts, day,
+      String(e.session_id || ''), user_id,
+      String(e.type || 'event'), str(e.view), String(e.path || '/'), str(e.target),
+      ev_referrer, source, str(e.utm_source), str(e.utm_medium), str(e.utm_campaign),
+      str(e.lang), country, device, ip, ua
+    ));
+  }
+  if (ops.length === 0) return json({ ok: true, inserted: 0 });
+
+  await env.DB.batch(ops);
+  return json({ ok: true, inserted: ops.length });
+}
+
+function classifySource(path, referrer, utm) {
+  if (utm) return 'campaign';
+  if (!referrer) return 'direct';
+  try {
+    const u = new URL(referrer);
+    const host = u.hostname.toLowerCase();
+    if (host.endsWith('koreadreampath.com')) return 'internal';
+    if (/google\.|naver\.|bing\.|yahoo\.|duckduckgo\.|baidu\./.test(host)) return 'search';
+    if (/facebook\.|twitter\.|x\.com|instagram\.|linkedin\.|reddit\.|kakao\.|threads\./.test(host)) return 'social';
+    return 'external';
+  } catch {
+    return 'external';
+  }
+}
+function classifyDevice(ua) {
+  const u = (ua || '').toLowerCase();
+  if (/iphone|android.*mobile|windows phone/.test(u)) return 'mobile';
+  if (/ipad|tablet/.test(u)) return 'tablet';
+  return 'desktop';
+}
+
+async function analyticsSummary(env, url) {
+  // Range: ?days=N (default 30)
+  const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10) || 30, 365);
+  const since = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10);
+
+  // Totals
+  const totals = await env.DB.prepare(
+    `SELECT
+       COUNT(*) FILTER (WHERE type='pageview') AS pageviews,
+       COUNT(DISTINCT session_id) AS sessions,
+       COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL) AS users
+     FROM analytics_events WHERE day >= ?`
+  ).bind(since).first();
+
+  // Daily series (pageviews + sessions)
+  const { results: daily } = await env.DB.prepare(
+    `SELECT day,
+       COUNT(*) FILTER (WHERE type='pageview') AS pageviews,
+       COUNT(DISTINCT session_id) AS sessions
+     FROM analytics_events
+     WHERE day >= ?
+     GROUP BY day ORDER BY day ASC`
+  ).bind(since).all();
+
+  // Top paths
+  const { results: top_paths } = await env.DB.prepare(
+    `SELECT path, COUNT(*) AS hits, COUNT(DISTINCT session_id) AS sessions
+     FROM analytics_events
+     WHERE day >= ? AND type='pageview'
+     GROUP BY path ORDER BY hits DESC LIMIT 25`
+  ).bind(since).all();
+
+  // Sources (direct / search / social / etc.)
+  const { results: sources } = await env.DB.prepare(
+    `SELECT COALESCE(source,'direct') AS source, COUNT(*) AS hits, COUNT(DISTINCT session_id) AS sessions
+     FROM analytics_events
+     WHERE day >= ? AND type='pageview'
+     GROUP BY source ORDER BY hits DESC`
+  ).bind(since).all();
+
+  // Top referrers (excluding internal/empty)
+  const { results: referrers } = await env.DB.prepare(
+    `SELECT referrer, COUNT(*) AS hits
+     FROM analytics_events
+     WHERE day >= ? AND type='pageview' AND referrer != '' AND source != 'internal'
+     GROUP BY referrer ORDER BY hits DESC LIMIT 20`
+  ).bind(since).all();
+
+  // Devices
+  const { results: devices } = await env.DB.prepare(
+    `SELECT device, COUNT(*) AS hits FROM analytics_events
+     WHERE day >= ? AND type='pageview'
+     GROUP BY device ORDER BY hits DESC`
+  ).bind(since).all();
+
+  // Top click targets
+  const { results: clicks } = await env.DB.prepare(
+    `SELECT target, COUNT(*) AS hits FROM analytics_events
+     WHERE day >= ? AND type='click' AND target != ''
+     GROUP BY target ORDER BY hits DESC LIMIT 25`
+  ).bind(since).all();
+
+  return json({
+    range: { days, since },
+    totals,
+    daily: daily || [],
+    top_paths: top_paths || [],
+    sources: sources || [],
+    referrers: referrers || [],
+    devices: devices || [],
+    clicks: clicks || [],
+  });
+}
+
+async function analyticsJourneys(env, url) {
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10) || 20, 100);
+  // Recent sessions with their event sequence
+  const { results: recent } = await env.DB.prepare(
+    `SELECT session_id, MIN(ts) AS started, MAX(ts) AS ended,
+            COUNT(*) AS events, COUNT(DISTINCT path) AS pages
+     FROM analytics_events
+     GROUP BY session_id ORDER BY started DESC LIMIT ?`
+  ).bind(limit).all();
+
+  const journeys = [];
+  for (const s of (recent || [])) {
+    const { results: trail } = await env.DB.prepare(
+      `SELECT ts, type, path, target, source, country, device, lang
+       FROM analytics_events
+       WHERE session_id = ? ORDER BY ts ASC LIMIT 50`
+    ).bind(s.session_id).all();
+    journeys.push({ ...s, trail: trail || [] });
+  }
+  return json({ items: journeys });
 }
 
 // ── Inquiries (public submission) ──────────────────────────────────────────

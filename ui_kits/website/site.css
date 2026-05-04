@@ -405,6 +405,17 @@ body {
 .pd-side .row .k { color: var(--fg-muted); }
 .pd-side .row .v { font-weight: 600; }
 
+/* ============ PROGRAMS BOARD (admin) ============
+   Small inline override; admin-specific table styling is here so we can
+   swap layouts without touching the admin script. */
+.programs-board { width: 100%; border-collapse: collapse; font-size: 14px; }
+.programs-board th { text-align: left; padding: 11px 14px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); font-weight: 700; border-bottom: 1px solid var(--border-default); background: var(--bg-muted); }
+.programs-board td { padding: 12px 14px; border-bottom: 1px solid var(--border-hair); vertical-align: middle; }
+.programs-board tr:hover td { background: var(--bg-muted); cursor: pointer; }
+.programs-board tr.sel td { background: rgba(98,37,153,0.06); }
+.programs-board tr:last-child td { border-bottom: none; }
+.programs-board input[type="checkbox"] { cursor: pointer; }
+
 /* ============ TOP NOTICE BANNER ============
    Diagonal stripe pattern for "under development" / launch warnings. */
 .topnotice {

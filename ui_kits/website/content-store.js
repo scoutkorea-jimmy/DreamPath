@@ -52,12 +52,6 @@
         { color: '#FFAE80', label: 'Orange' },
       ],
     },
-    stats: [
-      { n: '170+', ko: '국가의 스카우트 네트워크', en: 'Countries in the scout network' },
-      { n: '57M',  ko: '전 세계 스카우트 멤버',     en: 'Scout members worldwide' },
-      { n: '1',    ko: '첫 파트너 기관 · CUFS',      en: 'First partner · CUFS' },
-      { n: '4',    ko: '운영 중인 프로그램',        en: 'Programs live' },
-    ],
     how: {
       ko: { kicker: 'HOW IT WORKS', title: '기존 네트워크를 학습자 파이프라인으로.' },
       en: { kicker: 'HOW IT WORKS', title: 'Turning an existing network into a learner pipeline.' },

@@ -1,7 +1,7 @@
 // Home.jsx
 function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
-  const t = { hero: c.hero[lang], stats: c.stats, how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
+  const t = { hero: c.hero[lang], how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
   return (
     <div>
       {/* HERO */}
@@ -27,22 +27,6 @@ function Home({ go, lang, c }) {
           </div>
         </div>
       </section>
-
-      {/* STATS */}
-      {Array.isArray(t.stats) && t.stats.length > 0 && (
-        <section className="stats" data-screen-label="Stats" aria-label={isKo ? '주요 지표' : 'Key stats'}>
-          <div className="container">
-            <div className="stats-inner">
-              {t.stats.map((s, i) => (
-                <div key={i} className="stat">
-                  <div className="stat-n">{s.n}</div>
-                  <div className="stat-l">{isKo ? s.ko : s.en}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* HOW IT WORKS */}
       <section className="section" data-screen-label="How it works" aria-labelledby="how-title">

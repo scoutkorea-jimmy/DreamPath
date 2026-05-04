@@ -21,6 +21,7 @@ function Footer({ go, lang, c }) {
           <div className="footer-col">
             <h2 className="fc-h">{f.col_about}</h2>
             <button type="button" onClick={() => go('about')}>{f.link_project}</button>
+            <button type="button" onClick={() => go('team')}>{f.link_team || (isKo ? '프로젝트 팀 소개' : 'Project team')}</button>
             <button type="button" onClick={() => go('partners')}>{f.link_partners}</button>
             <button type="button" onClick={() => go('stories')}>{f.link_stories}</button>
             <button type="button" onClick={() => go('news')}>{f.link_news}</button>

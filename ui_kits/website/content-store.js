@@ -22,8 +22,10 @@
       partners_email: 'partners@koreadreampath.com',
     },
     nav: {
-      ko: { programs: 'Programs', about: 'About', partners: 'Partners', stories: 'Stories', news: 'News', apply: '지원하기' },
-      en: { programs: 'Programs', about: 'About', partners: 'Partners', stories: 'Stories', news: 'News', apply: 'Apply' },
+      // Display order on the public site is fixed in Nav.jsx:
+      //   소개 → 프로그램 → 프로그램 소식 → 프로그램 후기 → 파트너십
+      ko: { about: '소개', programs: '프로그램', news: '프로그램 소식', stories: '프로그램 후기', partners: '파트너십', contact: '문의하기', apply: '지원하기' },
+      en: { about: 'About', programs: 'Programs', news: 'Program news', stories: 'Program reviews', partners: 'Partnerships', contact: 'Contact', apply: 'Apply' },
     },
     hero: {
       ko: {
@@ -206,6 +208,58 @@
         ],
       },
     },
+    // ─── Project team page (footer link) ─────────────────────────────────
+    project_team: {
+      hero: {
+        ko: { kicker: '프로젝트 팀', title_l1: '함께 만드는', title_l2: 'KoreaDreamPath.', sub: '교육·재무·실무·디자인 4개 영역에서 사람들이 모여 운영합니다.' },
+        en: { kicker: 'PROJECT TEAM', title_l1: 'The people behind', title_l2: 'KoreaDreamPath.', sub: 'A team of four functional areas: education, finance, operations, and design.' },
+      },
+      sections: [
+        {
+          kicker_ko: '리드', kicker_en: 'LEAD',
+          members: [
+            { name: '운영 디렉터', name_en: 'Operations Director', role_ko: '총괄 · 파트너십', role_en: 'Operations · Partnerships',
+              bio_ko: '국제 청년 교육 및 스카우트 운영 경험을 바탕으로 프로젝트 전반을 조율합니다.',
+              bio_en: 'Coordinates the project across partners, drawing on international youth education and scouting experience.',
+              image: '/assets/placeholder-student.svg' },
+          ],
+        },
+        {
+          kicker_ko: '교육 트랙', kicker_en: 'EDUCATION',
+          members: [
+            { name: '교육 설계자', name_en: 'Curriculum Designer', role_ko: '커리큘럼 · 학사 연계', role_en: 'Curriculum · Academic liaison',
+              bio_ko: '파트너 대학과 마이크로디그리 커리큘럼을 함께 설계합니다.', bio_en: 'Designs micro-degree curricula with partner universities.',
+              image: '/assets/placeholder-student.svg' },
+            { name: '학습자 지원 매니저', name_en: 'Learner Success', role_ko: '코호트 · 멘토링', role_en: 'Cohorts · Mentoring',
+              bio_ko: '학습자 진척과 멘토 매칭을 운영합니다.', bio_en: 'Runs learner progress tracking and mentor matching.',
+              image: '/assets/placeholder-student.svg' },
+          ],
+        },
+        {
+          kicker_ko: '재무 트랙', kicker_en: 'FINANCE',
+          members: [
+            { name: '재무 매니저', name_en: 'Finance Manager', role_ko: '장학 · 후원 운영', role_en: 'Scholarship · Sponsorship',
+              bio_ko: '장학 구조 설계와 파트너 기여 모델을 운영합니다.', bio_en: 'Manages scholarship structure and partner contributions.',
+              image: '/assets/placeholder-student.svg' },
+          ],
+        },
+        {
+          kicker_ko: '운영 / 디자인', kicker_en: 'OPERATIONS / DESIGN',
+          members: [
+            { name: '커뮤니티 매니저', name_en: 'Community Manager', role_ko: 'NSO 커뮤니케이션', role_en: 'NSO communications',
+              bio_ko: '국가별 스카우트 조직과의 정기 커뮤니케이션을 담당합니다.', bio_en: 'Maintains regular communication with national scout organizations.',
+              image: '/assets/placeholder-student.svg' },
+            { name: '제품 디자이너', name_en: 'Product Designer', role_ko: '브랜드 · 사이트 디자인', role_en: 'Brand · Site design',
+              bio_ko: '디자인 시스템과 사이트 UI를 운영합니다.', bio_en: 'Owns the design system and the site UI.',
+              image: '/assets/placeholder-student.svg' },
+          ],
+        },
+      ],
+      cta: {
+        ko: { kicker: '함께하실래요?', title: '프로젝트 팀에 합류하기', sub: '교육·운영·디자인·기술 영역에서 함께할 분을 찾고 있습니다.', button: '지원 / 문의', email: 'team@koreadreampath.com' },
+        en: { kicker: 'Want to join us?', title: 'Join the project team', sub: "We're looking for collaborators in education, operations, design, and engineering.", button: 'Reach out', email: 'team@koreadreampath.com' },
+      },
+    },
     // ─── Page heros (Partners / Stories / News / Contact / Programs) ────
     page_heros: {
       partners: {
@@ -279,17 +333,18 @@
         col_programs: '프로그램',
         col_about: '소개',
         col_contact: '문의',
-        link_all: '전체 보기',
+        link_all: '전체 프로그램',
         link_micro: 'Micro-degrees',
         link_bachelor: 'Online Bachelor',
         link_apply: '지원 방법',
         link_project: '프로젝트',
-        link_partners: '파트너',
-        link_stories: '스토리',
-        link_news: '소식',
+        link_team: '프로젝트 팀 소개',
+        link_partners: '파트너십',
+        link_stories: '프로그램 후기',
+        link_news: '프로그램 소식',
         link_faq: 'FAQ',
-        link_partners_inquiry: '파트너 문의',
-        rights: '© 2025 DreamPath TF. 모든 권리 보유.',
+        link_partners_inquiry: '파트너십 문의',
+        rights: '© 2025 KoreaDreamPath. 모든 권리 보유.',
       },
       en: {
         col_programs: 'Programs',
@@ -300,12 +355,13 @@
         link_bachelor: 'Online Bachelor',
         link_apply: 'How to apply',
         link_project: 'The project',
-        link_partners: 'Partners',
-        link_stories: 'Stories',
-        link_news: 'News',
+        link_team: 'Project team',
+        link_partners: 'Partnerships',
+        link_stories: 'Program reviews',
+        link_news: 'Program news',
         link_faq: 'FAQ',
         link_partners_inquiry: 'For partners',
-        rights: '© 2025 DreamPath TF. All rights reserved.',
+        rights: '© 2025 KoreaDreamPath. All rights reserved.',
       },
     },
   };

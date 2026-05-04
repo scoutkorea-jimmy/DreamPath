@@ -324,11 +324,14 @@
 
     { id: 'translations',  label: 'KO ↔ EN translations', group: 'Tools' },
 
+    { id: 'design_system', label: 'Design System (live)', group: 'Wiki' },
+    { id: 'error_preview', label: 'Error pages',          group: 'Wiki' },
     { id: 'wiki_kms',      label: 'KMS (코딩)',       group: 'Wiki' },
     { id: 'wiki_color',    label: '컬러 가이드',      group: 'Wiki' },
     { id: 'wiki_design',   label: '디자인 가이드',    group: 'Wiki' },
 
     { id: 'apps',          label: 'Applications',    group: 'Data' },
+    { id: 'inquiries',     label: 'Inquiries',       group: 'Data' },
   ];
 
   // ===== Section editors ====================================================
@@ -478,10 +481,31 @@
   }
 
   function ProgramsTab({ c, set, addItem, removeItem }) {
+    const [editingId, setEditingId] = useState(null);
+    const editing = editingId != null ? c.programs.find(p => p.id === editingId) : null;
+    const editingIndex = editingId != null ? c.programs.findIndex(p => p.id === editingId) : -1;
+
+    if (editing) {
+      return (
+        <ProgramEditor
+          c={c}
+          program={editing}
+          index={editingIndex}
+          set={set}
+          onClose={() => setEditingId(null)}
+          onDelete={() => {
+            if (!confirm('Delete this program? Long-form details in D1 are kept; you can purge them via Reset.')) return;
+            removeItem(['programs'], editingIndex);
+            setEditingId(null);
+          }}
+        />
+      );
+    }
+
     return (
       <>
         <div className="card">
-          <h3>Programs section heading</h3>
+          <h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8}}>(home page teaser)</span></h3>
           <div className="grid-2 tight">
             <Text label="Kicker (KO)" value={c.programs_section.ko.kicker} onChange={v => set(['programs_section','ko','kicker'], v)} lang="ko" />
             <Text label="Kicker (EN)" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
@@ -491,39 +515,195 @@
             <Area label="Subtitle (EN)" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
           </div>
         </div>
+
         <div className="card">
-          <h3>Programs</h3>
-          {c.programs.map((p, i) => (
-            <div className="rep-item" key={i}>
-              <div className="rep-head">
-                <strong>{p.id}</strong>
-                <div className="ctrls">
-                  <button className="icon-btn danger" onClick={() => removeItem(['programs'], i)}>Delete</button>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <h3 style={{margin:0}}>Programs <span style={{fontSize:13,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>{c.programs.length} total</span></h3>
+            <button className="btn-add" onClick={() => {
+              const id = 'new-program-' + Date.now().toString(36).slice(-4);
+              addItem(['programs'], {
+                id, kicker: 'MICRO-DEGREE · CUFS',
+                title_ko: '새 프로그램', title_en: 'New program',
+                sub_ko: '', sub_en: '',
+                meta: ['12 weeks','100% remote','EN'], level: 'Beginner', status: 'open',
+                color: '#622599', accent: '#82E6DE', icon: 'book-open',
+              });
+              setTimeout(() => setEditingId(id), 50);
+            }}>+ New program</button>
+          </div>
+          <div style={{display:'grid',gap:10}}>
+            {c.programs.map(p => (
+              <div key={p.id} style={{
+                display:'flex',alignItems:'center',gap:14,padding:'14px 16px',
+                background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:12,
+                cursor:'pointer',transition:'border-color 120ms'
+              }}
+                onClick={() => setEditingId(p.id)}
+                onMouseOver={e => e.currentTarget.style.borderColor = 'var(--scouting-purple)'}
+                onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}>
+                <div style={{
+                  width:48,height:48,borderRadius:10,flexShrink:0,
+                  background:`linear-gradient(135deg, ${p.color}, ${p.accent || p.color})`,
+                  display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',
+                }}>
+                  <i data-lucide={p.icon} width="24" height="24" strokeWidth="1.75"></i>
                 </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{p.kicker}</div>
+                  <div style={{fontWeight:700,fontSize:15}}>{p.title_ko} · <span style={{color:'var(--fg-secondary)',fontWeight:500}}>{p.title_en}</span></div>
+                  <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
+                    <code style={{fontSize:11}}>{p.id}</code> · {p.level} · {p.status} · {(p.meta || []).join(' / ')}
+                  </div>
+                </div>
+                <button type="button" className="icon-btn">Edit →</button>
               </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  function ProgramEditor({ c, program, index, set, onClose, onDelete }) {
+    const [details, setDetails] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [savingDetails, setSavingDetails] = useState(false);
+    const [savedAt, setSavedAt] = useState(null);
+    const dirty = useRef(false);
+
+    useEffect(() => {
+      (async () => {
+        try {
+          const res = await fetch('/api/programs/' + encodeURIComponent(program.id) + '/details');
+          const data = await res.json();
+          setDetails(data || { program_id: program.id });
+        } catch (e) {
+          setDetails({ program_id: program.id });
+        }
+        setLoading(false);
+      })();
+    }, [program.id]);
+
+    const updDetail = (k, v) => { dirty.current = true; setDetails(d => ({ ...(d || {}), [k]: v })); };
+
+    async function saveDetails() {
+      if (!details) return;
+      setSavingDetails(true);
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/programs/' + encodeURIComponent(program.id) + '/details', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          body: JSON.stringify(details),
+        });
+        if (!res.ok) throw new Error('http_' + res.status);
+        setSavedAt(new Date());
+        dirty.current = false;
+      } catch (e) {
+        alert('Save failed: ' + e.message);
+      }
+      setSavingDetails(false);
+    }
+
+    return (
+      <>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+          <button type="button" className="icon-btn" onClick={onClose}>← Back to list</button>
+          <div style={{flex:1}} />
+          {savedAt && <span style={{fontSize:12,color:'var(--state-success)'}}>✓ Details saved {savedAt.toLocaleTimeString()}</span>}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={saveDetails} disabled={savingDetails || !details}>
+            {savingDetails ? 'Saving…' : 'Save details'}
+          </button>
+          <button type="button" className="icon-btn danger" onClick={onDelete}>Delete program</button>
+        </div>
+
+        <div className="card">
+          <h3>Card / list info <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(auto-saved to KV)</span></h3>
+          <div className="grid-2 tight">
+            <Text label="ID" value={program.id} onChange={v => set(['programs',index,'id'], v)} hint="URL-friendly. Used in /program/:id" />
+            <Text label="Kicker" value={program.kicker} onChange={v => set(['programs',index,'kicker'], v)} />
+            <Text label="Title (KO)" value={program.title_ko} onChange={v => set(['programs',index,'title_ko'], v)} lang="ko" />
+            <Text label="Title (EN)" value={program.title_en} onChange={v => set(['programs',index,'title_en'], v)} lang="en" />
+            <Area label="Short subtitle (KO)" value={program.sub_ko} onChange={v => set(['programs',index,'sub_ko'], v)} lang="ko" rows={2} />
+            <Area label="Short subtitle (EN)" value={program.sub_en} onChange={v => set(['programs',index,'sub_en'], v)} lang="en" rows={2} />
+            <Text label="Meta chips (comma-separated)" value={(program.meta || []).join(', ')} onChange={v => set(['programs',index,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN / KO" />
+            <Text label="Level" value={program.level} onChange={v => set(['programs',index,'level'], v)} hint="Beginner · Intermediate · All" />
+            <Text label="Status" value={program.status} onChange={v => set(['programs',index,'status'], v)} hint="open · closed · opens Fall …" />
+            <IconField label="Icon" value={program.icon} onChange={v => set(['programs',index,'icon'], v)} />
+            <Color label="Primary color" value={program.color} onChange={v => set(['programs',index,'color'], v)} />
+            <Color label="Accent color" value={program.accent} onChange={v => set(['programs',index,'accent'], v)} />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="card" style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>Loading details…</div>
+        ) : (
+          <>
+            <div className="card">
+              <h3>Logistics</h3>
               <div className="grid-2 tight">
-                <Text label="ID" value={p.id} onChange={v => set(['programs',i,'id'], v)} hint="URL-friendly identifier" />
-                <Text label="Kicker" value={p.kicker} onChange={v => set(['programs',i,'kicker'], v)} />
-                <Text label="Title (KO)" value={p.title_ko} onChange={v => set(['programs',i,'title_ko'], v)} lang="ko" />
-                <Text label="Title (EN)" value={p.title_en} onChange={v => set(['programs',i,'title_en'], v)} lang="en" />
-                <Area label="Subtitle (KO)" value={p.sub_ko} onChange={v => set(['programs',i,'sub_ko'], v)} lang="ko" />
-                <Area label="Subtitle (EN)" value={p.sub_en} onChange={v => set(['programs',i,'sub_en'], v)} lang="en" />
-                <Text label="Meta (comma-separated)" value={(p.meta || []).join(', ')} onChange={v => set(['programs',i,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN" />
-                <Text label="Level" value={p.level} onChange={v => set(['programs',i,'level'], v)} hint="Beginner · Intermediate · All" />
-                <Text label="Status" value={p.status} onChange={v => set(['programs',i,'status'], v)} />
-                <IconField label="Icon" value={p.icon} onChange={v => set(['programs',i,'icon'], v)} />
-                <Color label="Primary color" value={p.color} onChange={v => set(['programs',i,'color'], v)} />
-                <Color label="Accent color" value={p.accent} onChange={v => set(['programs',i,'accent'], v)} />
+                <Text label="Duration" value={details?.duration || ''} onChange={v => updDetail('duration', v)} hint="e.g. 12 weeks · 4 semesters" />
+                <Text label="Format" value={details?.format || ''} onChange={v => updDetail('format', v)} hint="online · hybrid · onsite" />
+                <Text label="Language requirement" value={details?.language_required || ''} onChange={v => updDetail('language_required', v)} hint="EN B2 · TOPIK 3 …" />
+                <Text label="Start date" value={details?.start_date || ''} onChange={v => updDetail('start_date', v)} hint="2025 Fall · 2026 Spring" />
+                <Text label="Cohort size (number)" value={details?.cohort_size ?? ''} onChange={v => updDetail('cohort_size', v ? parseInt(v, 10) : null)} />
+                <Text label="Certification" value={details?.certification || ''} onChange={v => updDetail('certification', v)} hint="e.g. Certificate of Completion · Bachelor degree" />
+                <Text label="Cost (USD)" value={details?.cost_full ?? ''} onChange={v => updDetail('cost_full', v ? parseInt(v, 10) : null)} type="number" />
+                <Text label="Currency" value={details?.cost_currency || 'USD'} onChange={v => updDetail('cost_currency', v)} />
               </div>
             </div>
-          ))}
-          <button className="btn-add" onClick={() => addItem(['programs'], {
-            id: 'new-program', kicker: 'MICRO-DEGREE · CUFS',
-            title_ko: '새 프로그램', title_en: 'New program',
-            sub_ko: '', sub_en: '',
-            meta: ['12 weeks','100% remote','EN'], level: 'Beginner', status: 'open',
-            color: '#622599', accent: '#82E6DE', icon: 'book-open'
-          })}>+ Add program</button>
+
+            <div className="card">
+              <h3>Instructor</h3>
+              <div className="grid-2 tight">
+                <Text label="Name" value={details?.instructor_name || ''} onChange={v => updDetail('instructor_name', v)} />
+                <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies, CUFS" />
+                <div className="field span-2">
+                  <label>Bio (KO)</label>
+                  <window.RichEditor value={details?.instructor_bio_ko || ''} onChange={v => updDetail('instructor_bio_ko', v)} lang="ko" minHeight={140} />
+                </div>
+                <div className="field span-2">
+                  <label>Bio (EN)</label>
+                  <window.RichEditor value={details?.instructor_bio_en || ''} onChange={v => updDetail('instructor_bio_en', v)} lang="en" minHeight={140} />
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Long-form content</h3>
+              <p className="desc" style={{marginBottom:14}}>
+                Each section is a rich-text body. Use it to write the full program description. These are stored in D1, separate from the lightweight card data above.
+              </p>
+              {[
+                { k: 'overview',     label: 'Overview',     hint: 'What this program is about' },
+                { k: 'curriculum',   label: 'Curriculum',   hint: 'Modules, weekly breakdown, syllabus' },
+                { k: 'outcomes',     label: 'Learning outcomes', hint: 'What learners will be able to do' },
+                { k: 'prerequisites',label: 'Prerequisites', hint: 'Background, language, and prior coursework expected' },
+              ].map(s => (
+                <div key={s.k} style={{marginBottom:18}}>
+                  <h4 style={{margin:'0 0 4px',fontSize:14}}>{s.label}</h4>
+                  <p className="desc" style={{margin:'0 0 10px'}}>{s.hint}</p>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>한국어</label>
+                      <window.RichEditor value={details?.[s.k + '_ko'] || ''} onChange={v => updDetail(s.k + '_ko', v)} lang="ko" minHeight={180} />
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>English</label>
+                      <window.RichEditor value={details?.[s.k + '_en'] || ''} onChange={v => updDetail(s.k + '_en', v)} lang="en" minHeight={180} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{position:'sticky',bottom:0,padding:'12px 0',background:'rgba(244,244,248,0.95)',backdropFilter:'blur(8px)',borderTop:'1px solid var(--border-hair)',display:'flex',justifyContent:'flex-end',gap:8,marginTop:24}}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Done</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={saveDetails} disabled={savingDetails || !details}>
+            {savingDetails ? 'Saving details…' : 'Save details'}
+          </button>
         </div>
       </>
     );
@@ -1028,6 +1208,581 @@
   function KmsTab() { return <WikiTab slug="kms" title="KMS · 코딩 위키" accent="#0094B4" />; }
   function ColorGuideTab() { return <WikiTab slug="color" title="컬러 가이드" accent="#FFD400" />; }
   function DesignGuideTab() { return <WikiTab slug="design" title="디자인 가이드" accent="#FF8DFF" />; }
+
+  // ---- Design System (live previews) -------------------------------------
+  // Reads CSS variables from the document root so previews always reflect
+  // the *deployed* colors_and_type.css — not a hand-maintained copy.
+  function useCssVar(name) {
+    const [v, setV] = useState('');
+    useEffect(() => {
+      const cs = getComputedStyle(document.documentElement);
+      setV((cs.getPropertyValue(name) || '').trim());
+    }, [name]);
+    return v;
+  }
+
+  function Swatch({ varName, label, note, big }) {
+    const val = useCssVar(varName);
+    const [copied, setCopied] = useState(false);
+    function copy() {
+      navigator.clipboard.writeText(varName).then(() => {
+        setCopied(true); setTimeout(() => setCopied(false), 1200);
+      });
+    }
+    const w = big ? 88 : 56;
+    return (
+      <div onClick={copy} title="Click to copy var()" style={{
+        cursor:'pointer', display:'flex', alignItems:'center', gap:14,
+        padding:'10px 12px', borderRadius:10, transition:'background 120ms',
+        background: copied ? 'rgba(36,135,55,0.06)' : 'transparent'
+      }}
+        onMouseOver={e => e.currentTarget.style.background = copied ? 'rgba(36,135,55,0.06)' : 'var(--bg-muted)'}
+        onMouseOut={e => e.currentTarget.style.background = copied ? 'rgba(36,135,55,0.06)' : 'transparent'}>
+        <div style={{
+          width:w, height:w, flexShrink:0,
+          borderRadius:12, background: val || '#eee',
+          border:'1px solid rgba(0,0,0,0.08)'
+        }} />
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontWeight:700, fontSize:13}}>{label}</div>
+          <div style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--fg-muted)'}}>
+            {varName} · <span style={{textTransform:'uppercase'}}>{val}</span>
+          </div>
+          {note && <div style={{fontSize:12, color:'var(--fg-secondary)', marginTop:2}}>{note}</div>}
+        </div>
+        {copied && <span style={{fontSize:11, color:'var(--state-success)', fontWeight:600}}>✓ copied</span>}
+      </div>
+    );
+  }
+
+  function Swatches({ items, big, cols = 2 }) {
+    return (
+      <div style={{display:'grid', gridTemplateColumns:`repeat(${cols}, 1fr)`, gap:6}}>
+        {items.map(s => <Swatch key={s.var} varName={s.var} label={s.label} note={s.note} big={big} />)}
+      </div>
+    );
+  }
+
+  function Section({ title, kicker, children }) {
+    return (
+      <div className="card" style={{marginBottom:24}}>
+        {kicker && <div className="sec-kicker" style={{margin:'0 0 4px'}}>{kicker}</div>}
+        <h3 style={{margin:'0 0 18px', fontSize:20}}>{title}</h3>
+        {children}
+      </div>
+    );
+  }
+
+  function DesignSystemTab() {
+    return (
+      <>
+        <div className="card" style={{background:'linear-gradient(135deg, #1E0B33 0%, #4D006E 100%)', color:'#fff', marginBottom:24}}>
+          <div className="sec-kicker" style={{color:'rgba(255,228,0,0.9)', margin:0}}>DESIGN SYSTEM</div>
+          <h2 style={{margin:'4px 0 6px', fontSize:28, fontFamily:'var(--font-en)'}}>KoreaDreamPath Design System</h2>
+          <p style={{margin:0, color:'rgba(255,255,255,0.85)', fontSize:14}}>
+            Live preview — every value below is read from <code style={{background:'rgba(0,0,0,0.25)', padding:'2px 6px', borderRadius:4}}>colors_and_type.css</code>. Click any swatch to copy its <code style={{background:'rgba(0,0,0,0.25)', padding:'2px 6px', borderRadius:4}}>var(--name)</code>.
+          </p>
+        </div>
+
+        <Section kicker="01 · Brand" title="Primary brand colors">
+          <Swatches big cols={2} items={[
+            { var:'--midnight-purple', label:'Midnight Purple',  note:'Buttons, hero, dark surfaces' },
+            { var:'--scouting-purple', label:'Scouting Purple',  note:'Links, focus, secondary brand' },
+            { var:'--sunshine-yellow', label:'Sunshine Yellow',  note:'Wordmark accent, highlight' },
+            { var:'--ember-orange',    label:'Ember Orange',     note:'Warm secondary' },
+          ]} />
+        </Section>
+
+        <Section kicker="02 · Brand" title="Secondary palette (categorical)">
+          <Swatches cols={3} items={[
+            { var:'--blossom-pink', label:'Blossom Pink' },
+            { var:'--river-blue',   label:'River Blue' },
+            { var:'--leaf-green',   label:'Leaf Green' },
+            { var:'--forest-green', label:'Forest Green' },
+            { var:'--coral-red',    label:'Coral Red' },
+            { var:'--indigo-deep',  label:'Indigo Deep' },
+          ]} />
+        </Section>
+
+        <Section kicker="03 · Neutrals" title="Gray scale (9-stop)">
+          <Swatches cols={3} items={[
+            { var:'--gray-50',  label:'50' },
+            { var:'--gray-100', label:'100' },
+            { var:'--gray-200', label:'200' },
+            { var:'--gray-300', label:'300' },
+            { var:'--gray-400', label:'400' },
+            { var:'--gray-500', label:'500' },
+            { var:'--gray-600', label:'600' },
+            { var:'--gray-700', label:'700' },
+            { var:'--gray-800', label:'800' },
+            { var:'--gray-900', label:'900' },
+          ]} />
+        </Section>
+
+        <Section kicker="04 · Semantic" title="Foreground / Background / Border">
+          <Swatches cols={2} items={[
+            { var:'--fg-primary',     label:'fg-primary',     note:'Body text, headings' },
+            { var:'--fg-secondary',   label:'fg-secondary',   note:'Sub-headings, descriptions' },
+            { var:'--fg-muted',       label:'fg-muted',       note:'Captions, placeholders' },
+            { var:'--fg-link',        label:'fg-link',        note:'Hyperlinks' },
+            { var:'--canvas-white',   label:'canvas-white',   note:'Page background' },
+            { var:'--bg-muted',       label:'bg-muted',       note:'Section dividers' },
+            { var:'--border-subtle',  label:'border-subtle',  note:'Card borders' },
+            { var:'--border-default', label:'border-default', note:'Form fields' },
+          ]} />
+        </Section>
+
+        <Section kicker="05 · State" title="Status colors">
+          <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12}}>
+            {[
+              { fg:'--state-success', bg:'--state-success-bg', label:'Success' },
+              { fg:'--state-warning', bg:'--state-warning-bg', label:'Warning' },
+              { fg:'--state-danger',  bg:'--state-danger-bg',  label:'Danger' },
+              { fg:'--state-info',    bg:'--state-info-bg',    label:'Info' },
+            ].map(s => (
+              <div key={s.label} style={{
+                padding:'14px 16px', borderRadius:12,
+                background:`var(${s.bg})`, color:`var(${s.fg})`,
+                fontWeight:700, display:'flex', justifyContent:'space-between',
+                alignItems:'center'
+              }}>
+                <span>{s.label}</span>
+                <span style={{fontFamily:'var(--font-mono)', fontSize:11, opacity:0.8}}>{s.fg} / {s.bg}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section kicker="06 · Typography" title="Type scale">
+          <div style={{display:'flex', flexDirection:'column', gap:16, alignItems:'flex-start'}}>
+            {[
+              ['--text-5xl', 'Hero — 한 학습 경로', 'Hero — One learning path', 'tight'],
+              ['--text-4xl', '4xl — 페이지 제목',    '4xl — Page title',         'tight'],
+              ['--text-3xl', '3xl — 섹션 제목',      '3xl — Section title',      'snug'],
+              ['--text-2xl', '2xl — 카드 헤딩',      '2xl — Card heading',       'snug'],
+              ['--text-xl',  'xl — 강조 본문',       'xl — Emphasized body',     'normal'],
+              ['--text-lg',  'lg — 인트로 문단',     'lg — Intro paragraph',     'normal'],
+              ['--text-md',  'md — 본문 강조',       'md — Body emphasized',     'normal'],
+              ['--text-base','base — 본문 기본',     'base — Body default',      'normal'],
+              ['--text-sm',  'sm — 부가 정보',       'sm — Meta info',           'normal'],
+              ['--text-xs',  'xs — 캡션',            'xs — Caption',             'normal'],
+            ].map(([v, ko, en, leading]) => (
+              <div key={v} style={{display:'flex', alignItems:'baseline', gap:24, flexWrap:'wrap'}}>
+                <span style={{
+                  fontFamily:'var(--font-mono)', fontSize:11, color:'var(--fg-muted)',
+                  width:80, flexShrink:0, paddingTop:6
+                }}>{v.replace('--text-', '')}</span>
+                <span style={{
+                  fontSize:`var(${v})`, fontFamily:'var(--font-kr)',
+                  lineHeight:`var(--leading-${leading})`, fontWeight:600,
+                  letterSpacing: v === '--text-5xl' ? '-0.03em' : '-0.01em'
+                }}>{ko}</span>
+                <span style={{
+                  fontSize:`var(${v})`, fontFamily:'var(--font-en)',
+                  lineHeight:`var(--leading-${leading})`, fontWeight:600,
+                  letterSpacing:'-0.02em', color:'var(--fg-secondary)'
+                }}>{en}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section kicker="07 · Typography" title="Font families">
+          <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16}}>
+            {[
+              { v:'--font-kr',   label:'KR (Pretendard)', sample:'다국어 청년을 한국 고등교육으로 연결합니다. 0123456789' },
+              { v:'--font-en',   label:'EN (Inter)',      sample:'KoreaDreamPath connects youth across 170 countries. 0123456789' },
+              { v:'--font-sans', label:'sans (mixed)',    sample:'Pretendard 우선 → Inter 보조. Mixed safe default.' },
+              { v:'--font-mono', label:'mono (JetBrains)', sample:'const wow = "monospace"; // dp_view = home;' },
+            ].map(f => (
+              <div key={f.v} style={{padding:'14px 16px', background:'var(--bg-muted)', borderRadius:12}}>
+                <div style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--fg-muted)', marginBottom:6}}>{f.v}</div>
+                <div style={{fontWeight:700, fontSize:13, marginBottom:8}}>{f.label}</div>
+                <div style={{fontFamily:`var(${f.v})`, fontSize:15, lineHeight:1.5}}>{f.sample}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section kicker="08 · Spacing" title="Spacing scale (4px base)">
+          <div style={{display:'flex', flexDirection:'column', gap:6}}>
+            {['1','2','3','4','5','6','8','10','12','16','20'].map(n => {
+              const v = `--space-${n}`;
+              return (
+                <div key={n} style={{display:'flex', alignItems:'center', gap:14}}>
+                  <span style={{fontFamily:'var(--font-mono)', fontSize:11, color:'var(--fg-muted)', width:80, flexShrink:0}}>{v}</span>
+                  <div style={{height:14, background:'var(--scouting-purple)', borderRadius:3, width:`var(${v})`, flexShrink:0}} />
+                  <span style={{fontSize:12, color:'var(--fg-secondary)'}}>{useCssVar(v)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section kicker="09 · Radii" title="Border radius">
+          <div style={{display:'flex', gap:14, flexWrap:'wrap', alignItems:'flex-end'}}>
+            {[
+              ['--radius-sm', 'sm'], ['--radius-md', 'md'], ['--radius-lg', 'lg'],
+              ['--radius-xl', 'xl'], ['--radius-2xl', '2xl'], ['--radius-pill', 'pill'],
+            ].map(([v, label]) => (
+              <div key={v} style={{textAlign:'center'}}>
+                <div style={{
+                  width:80, height:80, background:'var(--scouting-purple)',
+                  borderRadius:`var(${v})`, marginBottom:6
+                }} />
+                <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)'}}>{v}</div>
+                <div style={{fontSize:12, fontWeight:600}}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section kicker="10 · Shadows" title="Shadow levels">
+          <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:18}}>
+            {[
+              ['--shadow-xs', 'xs'], ['--shadow-sm', 'sm'], ['--shadow-md', 'md'],
+              ['--shadow-lg', 'lg'], ['--shadow-brand', 'brand'],
+            ].map(([v, label]) => (
+              <div key={v} style={{textAlign:'center'}}>
+                <div style={{
+                  width:'100%', height:80, background:'#fff',
+                  borderRadius:14, boxShadow:`var(${v})`, marginBottom:8
+                }} />
+                <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)'}}>{v}</div>
+                <div style={{fontSize:12, fontWeight:600}}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section kicker="11 · Buttons" title="All button variants × sizes">
+          <div style={{display:'grid', gridTemplateColumns:'80px repeat(5, 1fr)', gap:12, alignItems:'center'}}>
+            <div></div>
+            {['primary','secondary','ghost','white','outline'].map(v => (
+              <div key={v} style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', textAlign:'center'}}>btn-{v}</div>
+            ))}
+            {['sm','','lg'].map(size => {
+              const sizeClass = size ? ` btn-${size}` : '';
+              const sizeLabel = size || 'md';
+              const dark = ['white','outline'];
+              return (
+                <React.Fragment key={size}>
+                  <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)'}}>btn-{sizeLabel}</div>
+                  {['primary','secondary','ghost','white','outline'].map(v => (
+                    <div key={v} style={{
+                      padding:14, borderRadius:10,
+                      background: dark.includes(v) ? 'var(--midnight-purple)' : 'var(--bg-muted)',
+                      display:'flex', justifyContent:'center'
+                    }}>
+                      <button type="button" className={`btn btn-${v}${sizeClass}`}>Button</button>
+                    </div>
+                  ))}
+                </React.Fragment>
+              );
+            })}
+          </div>
+          <div style={{marginTop:18, padding:14, background:'var(--bg-muted)', borderRadius:10, display:'flex', gap:10, alignItems:'center'}}>
+            <span style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', width:90}}>states</span>
+            <button type="button" className="btn btn-primary">default</button>
+            <button type="button" className="btn btn-primary" disabled>disabled</button>
+            <button type="button" className="btn btn-primary btn-block" style={{maxWidth:200}}>btn-block</button>
+            <button type="button" className="btn btn-secondary">+ icon</button>
+          </div>
+        </Section>
+
+        <Section kicker="12 · Forms" title="Form fields">
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, maxWidth:600}}>
+            <div className="field"><label>Text input</label><input type="text" placeholder="Placeholder…" /></div>
+            <div className="field"><label>Email</label><input type="email" placeholder="you@example.com" /></div>
+            <div className="field"><label>Select</label><select><option>One</option><option>Two</option></select></div>
+            <div className="field"><label>Date</label><input type="date" /></div>
+            <div className="field" style={{gridColumn:'span 2'}}><label>Textarea</label><textarea rows="3" placeholder="Multi-line text…" /></div>
+          </div>
+        </Section>
+
+        <Section kicker="13 · Badges" title="Pills & status badges">
+          <div style={{display:'flex', flexWrap:'wrap', gap:10}}>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'var(--state-success-bg)', color:'var(--state-success)', fontSize:12, fontWeight:700}}>✓ PAID</span>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'var(--state-warning-bg)', color:'var(--state-warning)', fontSize:12, fontWeight:700}}>PENDING</span>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'var(--state-danger-bg)', color:'var(--state-danger)', fontSize:12, fontWeight:700}}>FAILED</span>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'var(--state-info-bg)', color:'var(--state-info)', fontSize:12, fontWeight:700}}>NEW</span>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'rgba(98,37,153,0.10)', color:'var(--scouting-purple)', fontSize:12, fontWeight:700}}>BRAND</span>
+            <span style={{padding:'4px 12px', borderRadius:999, background:'var(--bg-muted)', color:'var(--fg-secondary)', fontSize:12, fontWeight:700}}>NEUTRAL</span>
+          </div>
+        </Section>
+
+        <Section kicker="14 · Icons" title="Icon sizes (Lucide)">
+          <div style={{display:'flex', gap:24, alignItems:'flex-end', flexWrap:'wrap'}}>
+            {[['--icon-xs','xs',2],['--icon-sm','sm',2],['--icon-md','md',1.75],['--icon-lg','lg',1.75],['--icon-xl','xl',1.5],['--icon-2xl','2xl',1.5]].map(([v, label, sw]) => {
+              const px = useCssVar(v);
+              return (
+                <div key={v} style={{textAlign:'center', minWidth:60}}>
+                  <div style={{height:50, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--midnight-purple)'}}>
+                    <i data-lucide="check-circle-2" width={px} height={px} strokeWidth={sw}></i>
+                  </div>
+                  <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', marginTop:6}}>{v}</div>
+                  <div style={{fontSize:12, fontWeight:600}}>{label} · {px}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section kicker="15 · Motion" title="Duration & easing">
+          <MotionPreview />
+        </Section>
+
+        <Section kicker="16 · Focus" title="Focus ring">
+          <div style={{padding:24, background:'var(--bg-muted)', borderRadius:14}}>
+            <p style={{margin:'0 0 14px', fontSize:13, color:'var(--fg-secondary)'}}>Tab to any of these to see the focus ring (uses <code>--focus-color</code> + <code>--focus-width</code>):</p>
+            <div style={{display:'flex', gap:12, flexWrap:'wrap'}}>
+              <button type="button" className="btn btn-primary">Button</button>
+              <button type="button" className="btn btn-secondary">Button</button>
+              <a href="#" style={{color:'var(--scouting-purple)', padding:'8px 12px'}}>Link</a>
+              <input type="text" placeholder="Input" style={{padding:'10px 12px', borderRadius:8, border:'1px solid var(--border-default)'}} />
+            </div>
+          </div>
+        </Section>
+      </>
+    );
+  }
+
+  // ---- Inquiries (submitted contact-form messages) ----------------------
+  function InquiriesTab() {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState('');
+    const [selected, setSelected] = useState(null);
+    const [filter, setFilter] = useState('all');
+
+    async function load() {
+      setLoading(true); setErr('');
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/inquiries', { headers: { authorization: 'Bearer ' + token } });
+        if (!res.ok) { setErr(res.status === 401 ? 'Unauthorized — re-login required.' : 'HTTP ' + res.status); setItems([]); return; }
+        const data = await res.json();
+        setItems(data.items || []);
+      } catch (e) { setErr(e.message); }
+      setLoading(false);
+    }
+    useEffect(() => { load(); }, []);
+
+    async function setStatus(id, status) {
+      const token = localStorage.getItem('dp_admin_token') || '';
+      await fetch('/api/inquiries/' + id, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify({ status }),
+      });
+      setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+      if (selected && selected.id === id) setSelected({ ...selected, status });
+    }
+    async function deleteOne(id) {
+      if (!confirm('Delete this inquiry?')) return;
+      const token = localStorage.getItem('dp_admin_token') || '';
+      const res = await fetch('/api/inquiries/' + id, { method: 'DELETE', headers: { authorization: 'Bearer ' + token } });
+      if (!res.ok) { alert('Delete failed'); return; }
+      setItems(prev => prev.filter(i => i.id !== id));
+      if (selected && selected.id === id) setSelected(null);
+    }
+
+    const STATUS = {
+      new:     { label: 'New',     bg: '#DBEAFE', fg: '#1D4ED8' },
+      seen:    { label: 'Seen',    bg: '#FEF3C7', fg: '#92400E' },
+      replied: { label: 'Replied', bg: '#DCFCE7', fg: '#166534' },
+      closed:  { label: 'Closed',  bg: '#E5E7EB', fg: '#374151' },
+    };
+    const filtered = filter === 'all' ? items : items.filter(i => i.status === filter);
+
+    return (
+      <>
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginBottom:14}}>
+            <div>
+              <h3 style={{margin:0}}>문의 (Inquiries)</h3>
+              <p className="desc" style={{margin:'4px 0 0'}}>
+                {loading ? 'Loading…' : items.length + ' total · stored in Cloudflare D1'}
+              </p>
+              {err && <p style={{color:'#B91C1C',fontSize:13,margin:'8px 0 0'}}>{err}</p>}
+            </div>
+            <button className="icon-btn" onClick={load}>Refresh</button>
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
+            {['all','new','seen','replied','closed'].map(s => (
+              <button key={s} type="button"
+                onClick={() => setFilter(s)}
+                className="icon-btn"
+                style={filter === s ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+                {s} {s !== 'all' && `(${items.filter(i => i.status === s).length})`}
+              </button>
+            ))}
+          </div>
+          {filtered.length === 0 ? (
+            <div style={{padding:'40px 20px',textAlign:'center',color:'var(--fg-muted)',background:'var(--bg-muted)',borderRadius:12,fontSize:14}}>
+              No inquiries yet.
+            </div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+              <table className="apps-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Received</th><th>Name</th><th>Email</th>
+                    <th>Category</th><th>Subject</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(i => {
+                    const s = STATUS[i.status] || STATUS.new;
+                    return (
+                      <tr key={i.id} style={{cursor:'pointer'}} onClick={() => setSelected(i)}>
+                        <td><span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{i.id.slice(0, 16)}…</span></td>
+                        <td>{new Date(i.created_at).toLocaleString()}</td>
+                        <td>{i.name}</td>
+                        <td>{i.email}</td>
+                        <td>{i.category}</td>
+                        <td style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{i.subject}</td>
+                        <td><span className="pill" style={{background:s.bg,color:s.fg}}>{s.label}</span></td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <button className="icon-btn danger" onClick={() => deleteOne(i.id)}>Del</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {selected && (
+          <div className="app-modal" onClick={() => setSelected(null)}>
+            <div className="app-modal-inner" onClick={e => e.stopPropagation()}>
+              <div className="app-modal-head">
+                <div>
+                  <div className="sec-kicker" style={{margin:0}}>{selected.id}</div>
+                  <h2 style={{margin:'4px 0 0',fontSize:22}}>{selected.subject}</h2>
+                  <div style={{fontSize:13,color:'var(--fg-muted)',marginTop:4}}>
+                    {new Date(selected.created_at).toLocaleString()} · {selected.category}
+                  </div>
+                </div>
+                <button className="icon-btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
+              <div className="app-modal-body">
+                <div className="app-row"><div className="app-k">From</div><div className="app-v">{selected.name} &lt;{selected.email}&gt;</div></div>
+                {selected.phone && <div className="app-row"><div className="app-k">Phone</div><div className="app-v">{selected.phone}</div></div>}
+                {selected.user_id && <div className="app-row"><div className="app-k">User ID</div><div className="app-v"><code>{selected.user_id}</code></div></div>}
+                <h4 className="app-sec">Message</h4>
+                <div className="essay-box">{selected.body}</div>
+                <h4 className="app-sec">Status</h4>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {['new','seen','replied','closed'].map(s => (
+                    <button key={s} type="button" className="icon-btn"
+                      style={selected.status === s ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}
+                      onClick={() => setStatus(selected.id, s)}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="app-modal-foot">
+                <a className="icon-btn" href={'mailto:' + selected.email + '?subject=Re: ' + encodeURIComponent(selected.subject)}>
+                  Reply via email
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ---- Error pages preview (iframes of live routes) ----------------------
+  function ErrorPreviewTab() {
+    const errors = [
+      { code: '401', label: 'Unauthorized', desc: '로그인이 필요한 화면' },
+      { code: '403', label: 'Forbidden',    desc: '권한 없는 접근' },
+      { code: '404', label: 'Not Found',    desc: '존재하지 않는 페이지' },
+      { code: '500', label: 'Server Error', desc: '서버 오류' },
+      { code: '503', label: 'Unavailable',  desc: '점검/혼잡' },
+      { code: 'offline', label: 'Offline',  desc: '네트워크 연결 안됨' },
+    ];
+    const [active, setActive] = useState('401');
+    const path = active === 'offline' ? '/offline' : '/' + active;
+
+    return (
+      <>
+        <div className="card">
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:16, marginBottom:14}}>
+            <div>
+              <h3 style={{margin:0}}>Error pages</h3>
+              <p className="desc" style={{margin:'4px 0 0'}}>Live preview of every error route. The iframe loads the real page from the deployed site.</p>
+            </div>
+            <a className="icon-btn" href={path} target="_blank" rel="noopener">Open in new tab ↗</a>
+          </div>
+          <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:16}}>
+            {errors.map(e => (
+              <button key={e.code} type="button"
+                className="icon-btn"
+                onClick={() => setActive(e.code)}
+                style={active === e.code ? {background:'var(--midnight-purple)', color:'#fff', borderColor:'var(--midnight-purple)'} : {}}>
+                {e.code} · {e.label}
+              </button>
+            ))}
+          </div>
+          <div style={{
+            border:'1px solid var(--border-default)', borderRadius:14, overflow:'hidden',
+            background:'#fff', boxShadow:'var(--shadow-sm)'
+          }}>
+            <div style={{
+              padding:'8px 14px', background:'var(--bg-muted)',
+              borderBottom:'1px solid var(--border-hair)',
+              display:'flex', alignItems:'center', gap:10,
+              fontFamily:'var(--font-mono)', fontSize:12, color:'var(--fg-secondary)'
+            }}>
+              <span style={{display:'inline-flex', gap:4}}>
+                <span style={{width:10, height:10, borderRadius:'50%', background:'#FF5F57'}} />
+                <span style={{width:10, height:10, borderRadius:'50%', background:'#FEBC2E'}} />
+                <span style={{width:10, height:10, borderRadius:'50%', background:'#28C840'}} />
+              </span>
+              <span style={{marginLeft:8}}>koreadreampath.com{path}</span>
+            </div>
+            <iframe key={active} src={path} title={'Error ' + active}
+              style={{width:'100%', height:780, border:0, display:'block'}} />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  function MotionPreview() {
+    const [pulse, setPulse] = useState(0);
+    return (
+      <div>
+        <div style={{display:'flex', gap:12, marginBottom:18, flexWrap:'wrap'}}>
+          {['fast','normal','slow'].map(d => (
+            <button key={d} type="button" className="btn btn-secondary btn-sm" onClick={() => setPulse(p => p + 1)}>
+              Trigger animation
+            </button>
+          ))}
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16}}>
+          {[['--duration-fast','fast'],['--duration-normal','normal'],['--duration-slow','slow']].map(([v, label]) => (
+            <div key={v} style={{padding:18, background:'var(--bg-muted)', borderRadius:12, textAlign:'center'}}>
+              <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', marginBottom:4}}>{v}</div>
+              <div style={{fontSize:12, fontWeight:700, marginBottom:14}}>{label} · {useCssVar(v)}</div>
+              <div key={pulse} style={{
+                width:48, height:48, margin:'0 auto', borderRadius:'50%',
+                background:'var(--scouting-purple)',
+                animation: `dp-pulse var(${v}) var(--ease-standard) forwards`,
+              }} />
+            </div>
+          ))}
+        </div>
+        <style>{`@keyframes dp-pulse { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
+      </div>
+    );
+  }
 
   // ---- Translations (1:1 KO/EN side-by-side) -----------------------------
   // Walks the content tree and emits one row per matching KO/EN pair.
@@ -1552,7 +2307,9 @@
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
       translations: TranslationsTab,
+      design_system: DesignSystemTab, error_preview: ErrorPreviewTab,
       wiki_kms: KmsTab, wiki_color: ColorGuideTab, wiki_design: DesignGuideTab,
+      inquiries: InquiriesTab,
       apps: ApplicationsTab,
     }[tab];
 

@@ -13,7 +13,8 @@ const SPA_PATHS = new Set([
   '/', '/index.html',
   '/about', '/programs', '/apply',
   '/partners', '/stories', '/news', '/contact',
-  '/member', '/receipt',
+  '/team', '/member', '/receipt',
+  '/401', '/403', '/404', '/500', '/503', '/offline',
 ]);
 
 // Friendly URLs for the admin shell.
@@ -187,6 +188,79 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Program details (long-form body per program) ────────────────────────
+  const pdM = path.match(/^\/api\/programs\/([A-Za-z0-9_-]+)\/details$/);
+  if (pdM) {
+    const id = pdM[1];
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT * FROM program_details WHERE program_id = ?').bind(id).first();
+      return json(row || { program_id: id });
+    }
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (method === 'PUT' || method === 'POST') {
+      const body = await request.json().catch(() => null);
+      if (!body) return json({ error: 'invalid_json' }, 400);
+      const cols = ['program_id','overview_ko','overview_en','curriculum_ko','curriculum_en',
+                    'outcomes_ko','outcomes_en','prerequisites_ko','prerequisites_en',
+                    'duration','format','language_required','start_date','cohort_size',
+                    'certification','instructor_name','instructor_title',
+                    'instructor_bio_ko','instructor_bio_en',
+                    'cost_full','cost_currency','updated_at','updated_by'];
+      const values = [id,
+                      str(body.overview_ko), str(body.overview_en),
+                      str(body.curriculum_ko), str(body.curriculum_en),
+                      str(body.outcomes_ko), str(body.outcomes_en),
+                      str(body.prerequisites_ko), str(body.prerequisites_en),
+                      str(body.duration), str(body.format), str(body.language_required),
+                      str(body.start_date), body.cohort_size != null ? Number(body.cohort_size) : null,
+                      str(body.certification), str(body.instructor_name), str(body.instructor_title),
+                      str(body.instructor_bio_ko), str(body.instructor_bio_en),
+                      body.cost_full != null ? Number(body.cost_full) : null,
+                      str(body.cost_currency || 'USD'),
+                      new Date().toISOString(), null];
+      const placeholders = cols.map(() => '?').join(',');
+      const updateSet = cols.slice(1).map(k => `${k} = excluded.${k}`).join(', ');
+      const sql = `INSERT INTO program_details (${cols.join(',')}) VALUES (${placeholders})
+                   ON CONFLICT(program_id) DO UPDATE SET ${updateSet}`;
+      await env.DB.prepare(sql).bind(...values).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM program_details WHERE program_id = ?').bind(id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // ── Inquiries ────────────────────────────────────────────────────────────
+  if (path === '/api/inquiries') {
+    if (method === 'POST') return submitInquiry(request, env);
+    if (method === 'GET') {
+      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      const { results } = await env.DB.prepare(
+        'SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500'
+      ).all();
+      return json({ items: results || [] });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  const inqM = path.match(/^\/api\/inquiries\/([A-Za-z0-9_-]+)$/);
+  if (inqM) {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (method === 'PATCH') {
+      const body = await request.json().catch(() => ({}));
+      if (body.status) {
+        await env.DB.prepare('UPDATE inquiries SET status = ? WHERE id = ?').bind(String(body.status), inqM[1]).run();
+      }
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM inquiries WHERE id = ?').bind(inqM[1]).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
   // ── Wiki (admin-only) — slugs: 'kms', 'design' ───────────────────────────
   const wikiM = path.match(/^\/api\/wiki\/([a-z0-9_-]{1,32})$/);
   if (wikiM) {
@@ -325,6 +399,34 @@ async function saveProfile(env, userId, body) {
   await env.DB.prepare(sql).bind(...values).run();
   const row = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(userId).first();
   return json(row);
+}
+
+// ── Inquiries (public submission) ──────────────────────────────────────────
+async function submitInquiry(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const errs = [];
+  if (!nonEmpty(body.name))    errs.push('name');
+  if (!isEmail(body.email))    errs.push('email');
+  if (!nonEmpty(body.subject)) errs.push('subject');
+  if (!nonEmpty(body.body) || String(body.body).length < 10) errs.push('body');
+  if (errs.length) return json({ error: 'validation', fields: errs }, 400);
+
+  const user = await currentUser(request, env);
+  const id = 'INQ-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const created_at = new Date().toISOString();
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+
+  await env.DB.prepare(
+    `INSERT INTO inquiries (id, created_at, status, name, email, phone, category, subject, body, lang, user_id, ip, user_agent)
+     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, created_at,
+         str(body.name), str(body.email), str(body.phone), str(body.category),
+         str(body.subject), str(body.body), str(body.lang),
+         user ? user.id : null, ip, ua).run();
+
+  return json({ id, created_at });
 }
 
 // ── Recommendations stub ───────────────────────────────────────────────────

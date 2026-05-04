@@ -27,11 +27,12 @@ function Nav({ view, go, lang, setLang, c }) {
           <span className="wm" aria-hidden="true">{c.brand.wordmark_mark || 'KoreaDream'}<span className="pt">{c.brand.wordmark_accent || 'Path'}</span></span>
         </button>
         <div className="nav-links" role="menubar">
-          {link('programs', n.programs)}
           {link('about', n.about)}
-          {link('partners', n.partners)}
-          {link('stories', n.stories)}
+          {link('programs', n.programs)}
           {link('news', n.news)}
+          {link('stories', n.stories)}
+          {link('partners', n.partners)}
+          {link('contact',  n.contact || (lang === 'ko' ? '문의하기' : 'Contact'))}
         </div>
         <div className="nav-right">
           <div className="lang-toggle" role="group" aria-label={isKo ? '언어 선택' : 'Language'}>

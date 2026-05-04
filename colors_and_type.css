@@ -130,12 +130,31 @@
   --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
   --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* ============ ICON SIZES ============
+     Pair with stroke-width: 14–16 → 2.0, 18–24 → 1.75, 28+ → 1.5 */
+  --icon-xs:    14px;
+  --icon-sm:    16px;
+  --icon-md:    18px;   /* default ⭐ */
+  --icon-lg:    24px;
+  --icon-xl:    32px;
+  --icon-2xl:   44px;
+
+  /* ============ FOCUS RING ============ */
+  --focus-color:   var(--scouting-purple);
+  --focus-width:   3px;
+  --focus-offset:  3px;
+  --focus-ring:    0 0 0 var(--focus-width) rgba(98, 37, 153, 0.30);
+
   /* ============ Z-INDEX ============ */
+  --z-base:       0;
+  --z-raised:     10;
   --z-nav:        100;
   --z-dropdown:   200;
   --z-sticky:     500;
+  --z-overlay:    1000;
   --z-modal:      9000;
   --z-toast:      9500;
+  --z-tooltip:    10000;
 }
 
 /* Respect user's reduced-motion preference */

@@ -16,14 +16,16 @@ window.useContent = useContent;
 const VIEW_TO_PATH = {
   home: '/', about: '/about', programs: '/programs', apply: '/apply',
   partners: '/partners', stories: '/stories', news: '/news', contact: '/contact',
-  member: '/member', receipt: '/receipt',
+  team: '/team', member: '/member', receipt: '/receipt',
+  err401: '/401', err403: '/403', err404: '/404', err500: '/500', err503: '/503', offline: '/offline',
 };
 const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]) => [p, v]));
 
 function viewFromLocation() {
   const path = window.location.pathname;
   if (path.startsWith('/program/')) return 'program';
-  return PATH_TO_VIEW[path] || PATH_TO_VIEW[path.replace(/\/$/, '')] || 'home';
+  if (path === '/' || path === '') return 'home';
+  return PATH_TO_VIEW[path] || PATH_TO_VIEW[path.replace(/\/$/, '')] || 'err404';
 }
 
 function App() {
@@ -86,6 +88,19 @@ function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // Offline auto-redirect (only when navigator says offline; user can still
+  // browse cached app shell). When back online, popstate-restores last view.
+  useEffectR(() => {
+    const onOffline = () => {
+      if (view !== 'offline') {
+        setView('offline');
+        window.history.pushState({}, '', '/offline');
+      }
+    };
+    window.addEventListener('offline', onOffline);
+    return () => window.removeEventListener('offline', onOffline);
+  }, [view]);
+
   let content_view;
   switch (view) {
     case 'home':     content_view = <window.Home go={go} lang={lang} c={content} />; break;
@@ -97,8 +112,15 @@ function App() {
     case 'stories':  content_view = <window.Stories lang={lang} c={content} />; break;
     case 'news':     content_view = <window.News lang={lang} c={content} />; break;
     case 'contact':  content_view = <window.Contact lang={lang} c={content} />; break;
+    case 'team':     content_view = <window.Team go={go} lang={lang} c={content} />; break;
     case 'member':   content_view = <window.Member go={go} lang={lang} c={content} />; break;
     case 'receipt':  content_view = <window.Receipt lang={lang} c={content} />; break;
+    case 'err401':   content_view = <window.Error401 go={go} lang={lang} />; break;
+    case 'err403':   content_view = <window.Error403 go={go} lang={lang} />; break;
+    case 'err404':   content_view = <window.Error404 go={go} lang={lang} />; break;
+    case 'err500':   content_view = <window.Error500 go={go} lang={lang} />; break;
+    case 'err503':   content_view = <window.Error503 go={go} lang={lang} />; break;
+    case 'offline':  content_view = <window.ErrorOffline go={go} lang={lang} />; break;
     default:         content_view = <window.Home go={go} lang={lang} c={content} />;
   }
 

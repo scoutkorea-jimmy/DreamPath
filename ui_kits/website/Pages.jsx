@@ -219,11 +219,26 @@ function Contact({ lang, c }) {
   const h = ((c && c.page_heros && c.page_heros.contact && c.page_heros.contact[lang]) || {});
   const cta = ((c && c.partner_cta && c.partner_cta[lang]) || {});
   const [open, setOpen] = React.useState(null);
+  const [tab, setTab] = React.useState('faq'); // 'faq' | 'form'
   return (
     <div data-screen-label="Contact">
       <PageHero h={h} isKo={isKo} />
       <section className="section">
         <div className="container-narrow">
+          <div className="contact-tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'faq'}
+              className={'contact-tab' + (tab === 'faq' ? ' active' : '')}
+              onClick={() => setTab('faq')}>
+              {isKo ? '자주 묻는 질문 (FAQ)' : 'FAQ'}
+            </button>
+            <button role="tab" aria-selected={tab === 'form'}
+              className={'contact-tab' + (tab === 'form' ? ' active' : '')}
+              onClick={() => setTab('form')}>
+              {isKo ? '직접 문의하기' : 'Send a message'}
+            </button>
+          </div>
+          {tab === 'form' && <InquiryForm lang={lang} />}
+          {tab === 'faq' && (
           <div className="faq-list">
             {list.map((f, i) => (
               <div key={i} className={'faq-item' + (open === i ? ' open' : '')}
@@ -239,6 +254,7 @@ function Contact({ lang, c }) {
               </div>
             ))}
           </div>
+          )}
 
           <div style={{marginTop:56,padding:40,background:'var(--bg-muted)',borderRadius:28,textAlign:'center'}}>
             <div className="sec-kicker">{cta.kicker}</div>
@@ -256,6 +272,124 @@ function Contact({ lang, c }) {
   );
 }
 
+function InquiryForm({ lang }) {
+  const isKo = lang === 'ko';
+  const auth = window.useAuth ? window.useAuth() : { user: null };
+  const [form, setForm] = React.useState({
+    name: auth.user ? (auth.user.name || '') : '',
+    email: auth.user ? auth.user.email : '',
+    phone: '',
+    category: 'general',
+    subject: '',
+    body: '',
+  });
+  const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState(null); // null | { id }
+  const [err, setErr] = React.useState('');
+  const upd = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setErr('');
+    try {
+      const headers = { 'content-type': 'application/json' };
+      if (auth.user && window.DreamPathAuth.token) headers['authorization'] = 'Bearer ' + window.DreamPathAuth.token;
+      const res = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...form, lang }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data.error === 'validation'
+          ? (isKo ? '입력 정보를 확인해주세요.' : 'Please check your inputs.')
+          : (isKo ? '제출 실패. 잠시 후 다시 시도해주세요.' : 'Submission failed. Please try again.'));
+        return;
+      }
+      setDone(data);
+    } catch (e) {
+      setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'Network error.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="apply-card" style={{textAlign:'center',padding:40}}>
+        <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(36,135,55,0.12)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
+          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" style={{color:'#248737'}}></i>
+        </div>
+        <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:24,fontWeight:700,margin:'0 0 8px'}}>
+          {isKo ? '문의가 접수되었습니다.' : 'Your message is in.'}
+        </h3>
+        <p style={{color:'var(--fg-secondary)'}}>
+          {isKo
+            ? <>접수 ID: <strong>{done.id}</strong> · 영업일 기준 2~3일 내에 답변 드리겠습니다.</>
+            : <>Reference: <strong>{done.id}</strong> · We'll get back to you within 2–3 business days.</>}
+        </p>
+        <button type="button" className="btn btn-secondary" style={{marginTop:16}} onClick={() => { setDone(null); setForm({ ...form, subject: '', body: '' }); }}>
+          {isKo ? '새 문의 작성' : 'Send another'}
+        </button>
+      </div>
+    );
+  }
+
+  const CATEGORIES = [
+    { v: 'general',     ko: '일반 문의',       en: 'General inquiry' },
+    { v: 'program',     ko: '프로그램 관련',   en: 'About a program' },
+    { v: 'partnership', ko: '파트너십',        en: 'Partnership' },
+    { v: 'media',       ko: '취재 / 미디어',   en: 'Media / press' },
+    { v: 'bug',         ko: '오류 신고',       en: 'Report a bug' },
+  ];
+
+  return (
+    <form className="apply-card" onSubmit={submit} style={{maxWidth:680,margin:'0 auto'}}>
+      <p className="apply-desc">{isKo
+        ? '아래 양식을 작성해주시면 운영팀이 확인 후 답변 드립니다.'
+        : 'Send us a note below — the team will reply by email.'}</p>
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '이름 *' : 'Name *'}</label>
+          <input value={form.name} onChange={upd('name')} required />
+        </div>
+        <div className="field">
+          <label>{isKo ? '이메일 *' : 'Email *'}</label>
+          <input type="email" value={form.email} onChange={upd('email')} required />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '전화 (선택)' : 'Phone (optional)'}</label>
+          <input type="tel" value={form.phone} onChange={upd('phone')} placeholder="+82 10 ..." />
+        </div>
+        <div className="field">
+          <label>{isKo ? '문의 유형' : 'Category'}</label>
+          <select value={form.category} onChange={upd('category')}>
+            {CATEGORIES.map(c => <option key={c.v} value={c.v}>{isKo ? c.ko : c.en}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="field">
+        <label>{isKo ? '제목 *' : 'Subject *'}</label>
+        <input value={form.subject} onChange={upd('subject')} required />
+      </div>
+      <div className="field">
+        <label>{isKo ? '내용 * (10자 이상)' : 'Message * (min 10 chars)'}</label>
+        <textarea rows="6" value={form.body} onChange={upd('body')} required minLength={10} />
+      </div>
+      {err && <div role="alert" style={{color:'#B91C1C',marginTop:8,fontSize:14}}>{err}</div>}
+      <div className="form-actions" style={{marginTop:20,justifyContent:'flex-end',display:'flex',gap:8}}>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
+          {busy ? (isKo ? '제출 중…' : 'Sending…') : (isKo ? '문의 보내기' : 'Send message')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+window.InquiryForm = InquiryForm;
 window.Partners = Partners;
 window.Stories = Stories;
 window.News = News;

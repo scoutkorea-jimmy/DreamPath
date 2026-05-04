@@ -2733,9 +2733,13 @@
   }
 
   // ---- About page ---------------------------------------------------------
-  function AboutTab({ c, set, addItem, removeItem }) {
+  // About page editor.
+  // NOTE: team-related fields used to live here (c.about.team.* / c.about.team.cards[])
+  // but team content moved to its own /team page (Pages → Project team, c.project_team).
+  // Those legacy fields were removed from this tab on 2026-05-04 to stop confusing
+  // operators with knobs that no longer rendered anywhere.
+  function AboutTab({ c, set }) {
     const a = c.about || {};
-    const cards = (a.team && a.team.cards) || [];
     return (
       <>
         <div className="card">
@@ -2764,40 +2768,17 @@
             <Area label="Body (EN)" value={a.mission?.en?.body || ''} onChange={v => set(['about','mission','en','body'], v)} lang="en" rows={5} />
           </div>
         </div>
-        <div className="card">
-          <h3>Team section heading</h3>
-          <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={a.team?.ko?.kicker || ''} onChange={v => set(['about','team','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={a.team?.en?.kicker || ''} onChange={v => set(['about','team','en','kicker'], v)} lang="en" />
-            <Text label="Title line 1 (KO)" value={a.team?.ko?.title_l1 || ''} onChange={v => set(['about','team','ko','title_l1'], v)} lang="ko" />
-            <Text label="Title line 1 (EN)" value={a.team?.en?.title_l1 || ''} onChange={v => set(['about','team','en','title_l1'], v)} lang="en" />
-            <Text label="Title line 2 (KO)" value={a.team?.ko?.title_l2 || ''} onChange={v => set(['about','team','ko','title_l2'], v)} lang="ko" />
-            <Text label="Title line 2 (EN)" value={a.team?.en?.title_l2 || ''} onChange={v => set(['about','team','en','title_l2'], v)} lang="en" />
-            <Area label="Subtitle (KO)" value={a.team?.ko?.sub || ''} onChange={v => set(['about','team','ko','sub'], v)} lang="ko" />
-            <Area label="Subtitle (EN)" value={a.team?.en?.sub || ''} onChange={v => set(['about','team','en','sub'], v)} lang="en" />
-          </div>
-        </div>
-        <div className="card">
-          <h3>Team cards</h3>
-          {cards.map((card, i) => (
-            <div className="rep-item" key={i}>
-              <div className="rep-head">
-                <strong>Card {i+1}</strong>
-                <div className="ctrls">
-                  <button className="icon-btn danger" onClick={() => removeItem(['about','team','cards'], i)}>Delete</button>
-                </div>
-              </div>
-              <div className="grid-2 tight">
-                <Text label="Role (KO)" value={card.role_ko} onChange={v => set(['about','team','cards',i,'role_ko'], v)} lang="ko" />
-                <Text label="Role (EN)" value={card.role_en} onChange={v => set(['about','team','cards',i,'role_en'], v)} lang="en" />
-                <Text label="Name (KO)" value={card.name_ko} onChange={v => set(['about','team','cards',i,'name_ko'], v)} lang="ko" />
-                <Text label="Name (EN)" value={card.name_en} onChange={v => set(['about','team','cards',i,'name_en'], v)} lang="en" />
-                <Area label="Description (KO)" value={card.desc_ko} onChange={v => set(['about','team','cards',i,'desc_ko'], v)} lang="ko" rows={3} />
-                <Area label="Description (EN)" value={card.desc_en} onChange={v => set(['about','team','cards',i,'desc_en'], v)} lang="en" rows={3} />
-              </div>
-            </div>
-          ))}
-          <button className="btn-add" onClick={() => addItem(['about','team','cards'], { role_ko:'역할', role_en:'ROLE', name_ko:'이름', name_en:'Name', desc_ko:'', desc_en:'' })}>+ Add team card</button>
+        <div className="card" style={{background:'#FFFBEB',borderColor:'#FCD34D'}}>
+          <h3 style={{color:'#92400E'}}>Heads up — About page is currently hardcoded</h3>
+          <p className="desc" style={{color:'#92400E'}}>
+            The public <code>/about</code> page currently renders a hardcoded Executive Summary and does
+            not read the fields above. Editing here will not affect the live site until
+            <code> About.jsx</code> is rewired to read <code>c.about.*</code>. Tracked in <code>CLAUDE_TASKS.md</code> P0.
+          </p>
+          <p className="desc" style={{color:'#92400E',margin:'6px 0 0'}}>
+            Looking for the team page? Team members live under <strong>Pages → Project team</strong>
+            (renders on <code>/team</code>).
+          </p>
         </div>
       </>
     );

@@ -79,7 +79,7 @@ function Error401({ go, lang, c }) {
     body: isKo ? '이 페이지에 접근하려면 로그인이 필요합니다.' : 'You need to be signed in to access this page.',
     primary_label: isKo ? '로그인' : 'Log in',
     secondary_label: isKo ? '홈으로' : 'Go to home',
-    helpful_note: isKo ? '도움이 필요하신가요? hello@koreadreampath.com 으로 연락주세요.' : 'Need help? Contact us at hello@koreadreampath.com',
+    helpful_note: isKo ? '도움이 필요하신가요? info@koreadreampath.com 으로 연락주세요.' : 'Need help? Contact us at info@koreadreampath.com',
   });
   return (
     <ErrorPage lang={lang} code="401" icon="lock"

@@ -246,7 +246,7 @@ async function handleApi(request, env, url) {
 
     return json({
       id: row.id,
-      issuer: { name: 'KoreaDreamPath', email: 'hello@koreadreampath.com' },
+      issuer: { name: 'KoreaDreamPath', email: 'info@koreadreampath.com' },
       paid_at: row.paid_at,
       currency: row.currency || 'USD',
       amount: row.amount,

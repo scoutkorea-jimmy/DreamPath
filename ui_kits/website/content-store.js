@@ -18,8 +18,8 @@
       logo_mark: '/assets/logo-dreampath-mark.svg',
       footer_tagline_ko: '월드스카우트 네트워크를 활용해 글로벌 청년을 한국의 고등교육으로 연결하는 독립 이니셔티브.',
       footer_tagline_en: 'An independent initiative connecting global scouting youth to Korean higher education through the World Scout Network.',
-      email: 'hello@koreadreampath.com',
-      partners_email: 'partners@koreadreampath.com',
+      email: 'info@koreadreampath.com',
+      partners_email: 'info@koreadreampath.com',
     },
     nav: {
       // Display order on the public site is fixed in Nav.jsx:
@@ -175,8 +175,8 @@
     // defaults inside the component, so removing keys is safe.
     errors: {
       '401': {
-        ko: { title: '로그인이 필요합니다.', body: '이 페이지에 접근하려면 로그인이 필요합니다.', primary_label: '로그인', secondary_label: '홈으로', helpful_note: '도움이 필요하신가요? hello@koreadreampath.com 으로 연락주세요.' },
-        en: { title: 'Please log in\nto continue.', body: 'You need to be signed in to access this page.', primary_label: 'Log in', secondary_label: 'Go to home', helpful_note: 'Need help? Contact us at hello@koreadreampath.com' },
+        ko: { title: '로그인이 필요합니다.', body: '이 페이지에 접근하려면 로그인이 필요합니다.', primary_label: '로그인', secondary_label: '홈으로', helpful_note: '도움이 필요하신가요? info@koreadreampath.com 으로 연락주세요.' },
+        en: { title: 'Please log in\nto continue.', body: 'You need to be signed in to access this page.', primary_label: 'Log in', secondary_label: 'Go to home', helpful_note: 'Need help? Contact us at info@koreadreampath.com' },
       },
       '403': {
         ko: { title: '접근 권한이 없습니다.', body: '죄송합니다. 이 페이지에 접근할 권한이 없습니다.', primary_label: '홈으로', secondary_label: '뒤로 가기', helpful_note: '' },
@@ -444,8 +444,8 @@
         },
       ],
       cta: {
-        ko: { kicker: '함께하실래요?', title: '프로젝트 팀에 합류하기', sub: '교육·운영·디자인·기술 영역에서 함께할 분을 찾고 있습니다.', button: '지원 / 문의', email: 'team@koreadreampath.com' },
-        en: { kicker: 'Want to join us?', title: 'Join the project team', sub: "We're looking for collaborators in education, operations, design, and engineering.", button: 'Reach out', email: 'team@koreadreampath.com' },
+        ko: { kicker: '함께하실래요?', title: '프로젝트 팀에 합류하기', sub: '교육·운영·디자인·기술 영역에서 함께할 분을 찾고 있습니다.', button: '지원 / 문의', email: 'info@koreadreampath.com' },
+        en: { kicker: 'Want to join us?', title: 'Join the project team', sub: "We're looking for collaborators in education, operations, design, and engineering.", button: 'Reach out', email: 'info@koreadreampath.com' },
       },
     },
     // ─── Scholarships page (placeholder, content TBD) ───────────────────
@@ -484,9 +484,9 @@
       },
       contact: {
         ko: { kicker: 'CONTACT · FAQ', title_l1: '궁금한 건 먼저 FAQ.', title_l2: '',
-              sub: '답이 없으면 언제든 hello@dreampath.org 로 연락주세요.' },
+              sub: '답이 없으면 언제든 info@koreadreampath.com 로 연락주세요.' },
         en: { kicker: 'CONTACT · FAQ', title_l1: 'Start with the FAQ.', title_l2: '',
-              sub: "If you don't see the answer, reach us at hello@dreampath.org." },
+              sub: "If you don't see the answer, reach us at info@koreadreampath.com." },
       },
       programs: {
         ko: { kicker: 'PROGRAMS', title_l1: '4개의 학습 경로.', title_l2: '모두 온라인.',
@@ -498,9 +498,9 @@
     // ─── Contact page extras ───────────────────────────────────────────
     partner_cta: {
       ko: { kicker: '파트너 기관', title: '파트너십을 제안하고 싶으신가요?',
-            sub: '교육기관, NSO, 후원기관의 문의를 환영합니다.', cta: 'partners@dreampath.org →' },
+            sub: '교육기관, NSO, 후원기관의 문의를 환영합니다.', cta: 'info@koreadreampath.com →' },
       en: { kicker: 'For partner institutions', title: 'Interested in partnering with us?',
-            sub: 'We welcome inquiries from universities, NSOs, and supporting institutions.', cta: 'partners@dreampath.org →' },
+            sub: 'We welcome inquiries from universities, NSOs, and supporting institutions.', cta: 'info@koreadreampath.com →' },
     },
     // ─── Program detail page (shared copy across all programs) ─────────
     program_detail: {
@@ -531,40 +531,41 @@
     },
     // ─── Footer ────────────────────────────────────────────────────────
     footer: {
-      ko: {
-        col_programs: '프로그램',
-        col_about: '소개',
-        col_contact: '문의',
-        link_all: '전체 프로그램',
-        link_micro: 'Micro-degrees',
-        link_bachelor: 'Online Bachelor',
-        link_apply: '지원 방법',
-        link_project: '프로젝트',
-        link_team: '프로젝트 팀 소개',
-        link_partners: '파트너십',
-        link_stories: '프로그램 후기',
-        link_news: '프로그램 소식',
-        link_faq: 'FAQ',
-        link_partners_inquiry: '파트너십 문의',
-        rights: '© 2025 KoreaDreamPath. 모든 권리 보유.',
-      },
-      en: {
-        col_programs: 'Programs',
-        col_about: 'About',
-        col_contact: 'Contact',
-        link_all: 'All programs',
-        link_micro: 'Micro-degrees',
-        link_bachelor: 'Online Bachelor',
-        link_apply: 'How to apply',
-        link_project: 'The project',
-        link_team: 'Project team',
-        link_partners: 'Partnerships',
-        link_stories: 'Program reviews',
-        link_news: 'Program news',
-        link_faq: 'FAQ',
-        link_partners_inquiry: 'For partners',
-        rights: '© 2025 KoreaDreamPath. All rights reserved.',
-      },
+      ko: { rights: '© 2025 KoreaDreamPath. 모든 권리 보유.' },
+      en: { rights: '© 2025 KoreaDreamPath. All rights reserved.' },
+      // Footer columns. Add/remove/reorder via admin Setup → Footer.
+      // item.kind: 'view' (SPA route via go), 'url' (external href), 'email' (mailto:).
+      // item.icon: any Lucide icon name; renders next to the label.
+      columns: [
+        {
+          id: 'programs',
+          title_ko: '프로그램', title_en: 'Programs',
+          items: [
+            { label_ko: '전체 프로그램', label_en: 'All programs', icon: 'list',  kind: 'view', target: 'programs' },
+            { label_ko: '지원 방법',   label_en: 'How to apply',  icon: 'send',  kind: 'view', target: 'apply' },
+          ],
+        },
+        {
+          id: 'about',
+          title_ko: '소개', title_en: 'About',
+          items: [
+            { label_ko: '프로젝트',         label_en: 'The project',     icon: 'info',           kind: 'view', target: 'about' },
+            { label_ko: '프로젝트 팀 소개', label_en: 'Project team',    icon: 'users',          kind: 'view', target: 'team' },
+            { label_ko: '파트너십',         label_en: 'Partnerships',    icon: 'handshake',      kind: 'view', target: 'partners' },
+            { label_ko: '프로그램 후기',    label_en: 'Program reviews', icon: 'message-circle', kind: 'view', target: 'stories' },
+            { label_ko: '프로그램 소식',    label_en: 'Program news',    icon: 'newspaper',      kind: 'view', target: 'news' },
+          ],
+        },
+        {
+          id: 'contact',
+          title_ko: '문의', title_en: 'Contact',
+          items: [
+            { label_ko: 'info@koreadreampath.com', label_en: 'info@koreadreampath.com', icon: 'mail',         kind: 'email', target: 'info@koreadreampath.com' },
+            { label_ko: 'FAQ',                     label_en: 'FAQ',                     icon: 'help-circle',  kind: 'view',  target: 'contact' },
+            { label_ko: '파트너십 문의',           label_en: 'For partners',            icon: 'handshake',    kind: 'email', target: 'info@koreadreampath.com' },
+          ],
+        },
+      ],
     },
   };
 

@@ -49,7 +49,7 @@ function Team({ go, lang, c }) {
               <p>{cta.sub}</p>
             </div>
             <div className="btn-wrap">
-              <a className="btn btn-lg btn-white" href={`mailto:${cta.email || 'team@koreadreampath.com'}`}>
+              <a className="btn btn-lg btn-white" href={`mailto:${cta.email || 'info@koreadreampath.com'}`}>
                 {cta.button} <i data-lucide="arrow-right" width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
               </a>
             </div>

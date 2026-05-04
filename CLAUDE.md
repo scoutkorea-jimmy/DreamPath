@@ -171,8 +171,8 @@ KV (other keys):
   word starts: KoreaDreamPath). Wordmark is split as
   `c.brand.wordmark_mark` ("KoreaDream") + `c.brand.wordmark_accent`
   ("Path", in yellow).
-- Email: `hello@koreadreampath.com`, `partners@koreadreampath.com`,
-  `team@koreadreampath.com`.
+- Single contact email: `info@koreadreampath.com` (unified 2026-05-04;
+  `hello@`, `partners@`, `team@` are legacy aliases).
 - Old "DreamPath" / "DreamPath TF" mentions are **legacy** — they were
   renamed 2026-05-04. If you see one, fix it and note in the change log.
 

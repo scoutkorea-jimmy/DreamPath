@@ -1,25 +1,29 @@
-// Footer.jsx — content-driven via c.footer
+// Footer.jsx — content-driven via c.footer.columns (admin-editable).
+// Each column has { title_ko, title_en, items[] }. Items are { label_ko,
+// label_en, icon, kind, target } where kind ∈ {'view','url','email'} and
+// target is the SPA view id, the absolute URL, or the email address.
+// Bottom-row "rights" text and version stamp render below the columns.
 function Footer({ go, lang, c }) {
   const isKo = lang === 'ko';
-  const f = ((c && c.footer && c.footer[lang]) || {});
+  const f = (c && c.footer) || {};
+  const rights = (f[lang] && f[lang].rights) || '';
+  const columns = Array.isArray(f.columns) ? f.columns : [];
 
-  // Build the Programs column dynamically:
-  //   1) "전체 보기" — always
-  //   2) one entry per unique category found in c.programs
-  //      (category derives from program.category if set, otherwise the
-  //       first segment of program.kicker — e.g. 'MICRO-DEGREE · CUFS' → 'MICRO-DEGREE')
-  //   3) "지원 방법" — always
-  const programs = (c && Array.isArray(c.programs)) ? c.programs : [];
-  const categories = [];
-  const seen = new Set();
-  programs.forEach(p => {
-    const raw = p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '');
-    if (!raw) return;
-    const key = raw.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    categories.push({ key, label: raw });
-  });
+  function activate(item, e) {
+    if (!item) return;
+    const k = item.kind || 'view';
+    if (k === 'view') {
+      if (e) e.preventDefault();
+      if (item.target && go) go(item.target);
+    }
+    // 'url' and 'email' use the native <a> href; nothing to do.
+  }
+  function hrefFor(item) {
+    const k = item.kind || 'view';
+    if (k === 'email') return 'mailto:' + (item.target || '');
+    if (k === 'url')   return item.target || '#';
+    return '#';
+  }
 
   return (
     <footer className="footer" role="contentinfo">
@@ -30,33 +34,32 @@ function Footer({ go, lang, c }) {
             <div className="wm" aria-hidden="true">{c.brand.wordmark_mark || 'KoreaDream'}<span className="pt">{c.brand.wordmark_accent || 'Path'}</span></div>
             <p>{isKo ? c.brand.footer_tagline_ko : c.brand.footer_tagline_en}</p>
           </div>
-          <div className="footer-col">
-            <h2 className="fc-h">{f.col_programs}</h2>
-            <button type="button" onClick={() => go('programs')}>{f.link_all}</button>
-            {categories.map(cat => (
-              <button key={cat.key} type="button" onClick={() => go('programs', null, { cat: cat.key })}>
-                {cat.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => go('apply')}>{f.link_apply}</button>
-          </div>
-          <div className="footer-col">
-            <h2 className="fc-h">{f.col_about}</h2>
-            <button type="button" onClick={() => go('about')}>{f.link_project}</button>
-            <button type="button" onClick={() => go('team')}>{f.link_team || (isKo ? '프로젝트 팀 소개' : 'Project team')}</button>
-            <button type="button" onClick={() => go('partners')}>{f.link_partners}</button>
-            <button type="button" onClick={() => go('stories')}>{f.link_stories}</button>
-            <button type="button" onClick={() => go('news')}>{f.link_news}</button>
-          </div>
-          <div className="footer-col">
-            <h2 className="fc-h">{f.col_contact}</h2>
-            <a href={`mailto:${c.brand.email}`}>{c.brand.email}</a>
-            <button type="button" onClick={() => go('contact')}>{f.link_faq}</button>
-            <a href={`mailto:${c.brand.partners_email}`}>{f.link_partners_inquiry}</a>
-          </div>
+          {columns.map((col, ci) => (
+            <div className="footer-col" key={col.id || ci}>
+              <h2 className="fc-h">{(isKo ? col.title_ko : col.title_en) || col.title_en || col.title_ko || ''}</h2>
+              {(col.items || []).map((it, ii) => {
+                const label = (isKo ? it.label_ko : it.label_en) || it.label_en || it.label_ko || '';
+                const icon = it.icon ? (
+                  <i data-lucide={it.icon} width="14" height="14" strokeWidth="2" style={{marginRight:8,verticalAlign:'-2px',opacity:0.8}} aria-hidden="true"></i>
+                ) : null;
+                if ((it.kind || 'view') === 'view') {
+                  return (
+                    <button key={ii} type="button" onClick={(e) => activate(it, e)}>
+                      {icon}{label}
+                    </button>
+                  );
+                }
+                return (
+                  <a key={ii} href={hrefFor(it)} target={it.kind === 'url' ? '_blank' : undefined} rel={it.kind === 'url' ? 'noopener' : undefined}>
+                    {icon}{label}
+                  </a>
+                );
+              })}
+            </div>
+          ))}
         </div>
         <div className="footer-bot">
-          <div>{f.rights}</div>
+          <div>{rights}</div>
           <div className="footer-ver" title="Site version (AA.bbb.cc)">
             v {window.DREAMPATH_VERSION || '00.000.00'}
           </div>

@@ -2891,28 +2891,134 @@
   }
 
   // ---- Footer -------------------------------------------------------------
-  function FooterTab({ c, set }) {
+  // ---- Footer editor ------------------------------------------------------
+  // Authors the columns and items rendered by Footer.jsx. Operators add /
+  // delete / reorder columns and items, set per-item icon (Lucide) and
+  // navigation target (SPA view, external URL, or email).
+  function FooterTab({ c, set, addItem, removeItem }) {
     const f = c.footer || {};
-    const groups = [
-      { h: 'Column headings', keys: ['col_programs','col_about','col_contact'] },
-      { h: 'Programs column links', keys: ['link_all','link_micro','link_bachelor','link_apply'] },
-      { h: 'About column links', keys: ['link_project','link_partners','link_stories','link_news'] },
-      { h: 'Contact column links', keys: ['link_faq','link_partners_inquiry'] },
-      { h: 'Bottom row', keys: ['rights'] },
+    const columns = Array.isArray(f.columns) ? f.columns : [];
+
+    // SPA view ids the operator can pick from for kind='view' items.
+    const VIEW_OPTIONS = [
+      'home','about','programs','scholarships','apply','partners','stories','news','contact','team','member','receipt',
     ];
+
+    function addColumn() {
+      addItem(['footer','columns'], {
+        id: 'col_' + Date.now().toString(36),
+        title_ko: '새 컬럼', title_en: 'New column',
+        items: [],
+      });
+    }
+    function moveCol(from, to) {
+      if (to < 0 || to >= columns.length) return;
+      const next = columns.slice();
+      const [m] = next.splice(from, 1);
+      next.splice(to, 0, m);
+      set(['footer','columns'], next);
+    }
+    function moveItem(ci, from, to) {
+      const items = (columns[ci].items || []).slice();
+      if (to < 0 || to >= items.length) return;
+      const [m] = items.splice(from, 1);
+      items.splice(to, 0, m);
+      set(['footer','columns',ci,'items'], items);
+    }
+    function addRow(ci) {
+      addItem(['footer','columns',ci,'items'], {
+        label_ko: '새 항목', label_en: 'New item', icon: 'arrow-right',
+        kind: 'view', target: 'home',
+      });
+    }
+
     return (
       <>
-        {groups.map(g => (
-          <div className="card" key={g.h}>
-            <h3>{g.h}</h3>
-            <div className="grid-2 tight">
-              {g.keys.map(k => (
-                <React.Fragment key={k}>
-                  <Text label={k + ' (KO)'} value={f.ko?.[k] || ''} onChange={v => set(['footer','ko',k], v)} lang="ko" />
-                  <Text label={k + ' (EN)'} value={f.en?.[k] || ''} onChange={v => set(['footer','en',k], v)} lang="en" />
-                </React.Fragment>
-              ))}
+        <div className="card">
+          <h3>Footer columns</h3>
+          <p className="desc">
+            Each column shows a heading and a list of items rendered in the public-site footer.
+            Items can navigate within the SPA (<code>view</code>), open an external URL, or trigger
+            a <code>mailto:</code>. Pick a Lucide icon to display next to the label.
+          </p>
+          <div className="grid-2 tight">
+            <Text label="© line (KO)" value={f.ko?.rights || ''} onChange={v => set(['footer','ko','rights'], v)} lang="ko" />
+            <Text label="© line (EN)" value={f.en?.rights || ''} onChange={v => set(['footer','en','rights'], v)} lang="en" />
+          </div>
+          <div style={{marginTop:14}}>
+            <button type="button" className="btn-add" onClick={addColumn}>+ Add column</button>
+          </div>
+        </div>
+
+        {columns.length === 0 && (
+          <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>
+            No columns yet. Add one to start building the footer.
+          </div>
+        )}
+
+        {columns.map((col, ci) => (
+          <div className="card" key={col.id || ci}>
+            <div className="rep-head" style={{marginBottom:14}}>
+              <strong>Column {ci + 1} · <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{col.id || '—'}</span></strong>
+              <div className="ctrls">
+                <button type="button" className="icon-btn" onClick={() => moveCol(ci, ci - 1)} disabled={ci === 0} title="Move up">↑</button>
+                <button type="button" className="icon-btn" onClick={() => moveCol(ci, ci + 1)} disabled={ci === columns.length - 1} title="Move down">↓</button>
+                <button type="button" className="icon-btn danger" onClick={() => { if (confirm('Delete this column?')) removeItem(['footer','columns'], ci); }}>Delete column</button>
+              </div>
             </div>
+            <div className="grid-3 tight">
+              <Text label="Slug (id)" value={col.id || ''} onChange={v => set(['footer','columns',ci,'id'], v)} hint="machine-readable, no spaces" />
+              <Text label="Title (KO)" value={col.title_ko || ''} onChange={v => set(['footer','columns',ci,'title_ko'], v)} lang="ko" />
+              <Text label="Title (EN)" value={col.title_en || ''} onChange={v => set(['footer','columns',ci,'title_en'], v)} lang="en" />
+            </div>
+
+            <div className="app-sec" style={{marginTop:18}}>Items ({(col.items || []).length})</div>
+            {(col.items || []).map((it, ii) => (
+              <div className="rep-item" key={ii}>
+                <div className="rep-head">
+                  <strong>Item {ii + 1}</strong>
+                  <div className="ctrls">
+                    <button type="button" className="icon-btn" onClick={() => moveItem(ci, ii, ii - 1)} disabled={ii === 0}>↑</button>
+                    <button type="button" className="icon-btn" onClick={() => moveItem(ci, ii, ii + 1)} disabled={ii === (col.items.length - 1)}>↓</button>
+                    <button type="button" className="icon-btn danger" onClick={() => removeItem(['footer','columns',ci,'items'], ii)}>Delete</button>
+                  </div>
+                </div>
+                <div className="grid-2 tight">
+                  <Text label="Label (KO)" value={it.label_ko || ''} onChange={v => set(['footer','columns',ci,'items',ii,'label_ko'], v)} lang="ko" />
+                  <Text label="Label (EN)" value={it.label_en || ''} onChange={v => set(['footer','columns',ci,'items',ii,'label_en'], v)} lang="en" />
+                </div>
+                <div className="grid-3 tight" style={{marginTop:10}}>
+                  <IconField label="Icon" value={it.icon || ''} onChange={v => set(['footer','columns',ci,'items',ii,'icon'], v)} hint="Lucide icon name" />
+                  <div className="field">
+                    <label>Kind</label>
+                    <select value={it.kind || 'view'} onChange={e => set(['footer','columns',ci,'items',ii,'kind'], e.target.value)}>
+                      <option value="view">SPA view (in-app navigation)</option>
+                      <option value="url">External URL</option>
+                      <option value="email">Email (mailto:)</option>
+                    </select>
+                  </div>
+                  {(() => {
+                    const kind = it.kind || 'view';
+                    if (kind === 'view') {
+                      return (
+                        <div className="field">
+                          <label>Target view</label>
+                          <select value={it.target || ''} onChange={e => set(['footer','columns',ci,'items',ii,'target'], e.target.value)}>
+                            <option value="">— choose —</option>
+                            {VIEW_OPTIONS.map(v => <option key={v} value={v}>/{v === 'home' ? '' : v}</option>)}
+                          </select>
+                        </div>
+                      );
+                    }
+                    if (kind === 'email') {
+                      return <Text label="Email address" value={it.target || ''} onChange={v => set(['footer','columns',ci,'items',ii,'target'], v)} hint="user@example.com" />;
+                    }
+                    return <Text label="External URL" value={it.target || ''} onChange={v => set(['footer','columns',ci,'items',ii,'target'], v)} hint="https://…" />;
+                  })()}
+                </div>
+              </div>
+            ))}
+            <button type="button" className="btn-add" onClick={() => addRow(ci)}>+ Add item</button>
           </div>
         ))}
       </>

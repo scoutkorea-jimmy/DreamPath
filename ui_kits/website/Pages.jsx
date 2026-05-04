@@ -264,7 +264,7 @@ function Contact({ lang, c }) {
             <p style={{color:'var(--fg-secondary)',fontSize:16,margin:'0 0 20px'}}>
               {cta.sub}
             </p>
-            <a className="btn btn-primary" href={`mailto:${(c && c.brand && c.brand.partners_email) || 'partners@dreampath.org'}`}>{cta.cta}</a>
+            <a className="btn btn-primary" href={`mailto:${(c && c.brand && c.brand.partners_email) || 'info@koreadreampath.com'}`}>{cta.cta}</a>
           </div>
         </div>
       </section>

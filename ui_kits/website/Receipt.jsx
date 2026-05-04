@@ -114,8 +114,8 @@ function Receipt({ lang, c }) {
 
         <footer className="receipt-foot">
           <p>{isKo
-            ? '본 영수증은 온라인으로 발급된 전자 영수증입니다. 문의는 hello@koreadreampath.com 으로 연락주세요.'
-            : 'This is an electronic receipt issued online. For inquiries, contact hello@koreadreampath.com.'}</p>
+            ? '본 영수증은 온라인으로 발급된 전자 영수증입니다. 문의는 info@koreadreampath.com 으로 연락주세요.'
+            : 'This is an electronic receipt issued online. For inquiries, contact info@koreadreampath.com.'}</p>
           <p style={{marginTop:8,fontSize:11,color:'#999'}}>KoreaDreamPath · Generated {new Date().toISOString()}</p>
         </footer>
       </div>

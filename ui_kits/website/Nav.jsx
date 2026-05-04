@@ -32,10 +32,23 @@ function Nav({ view, go, lang, setLang, c }) {
     return out;
   })();
 
+  // Role-based view permissions: when a user is logged in AND their role's
+  // member_roles entry exists, hide nav links the role can't view. Anonymous
+  // visitors and roles without an entry see everything (fail-open for guests).
+  const roles = (c && c.member_roles && Array.isArray(c.member_roles.roles)) ? c.member_roles.roles : [];
+  const myRole = auth.user ? roles.find(r => r && r.id === auth.user.role) : null;
+  function canView(viewId) {
+    if (!myRole || !myRole.pages) return true;             // no policy → allowed
+    const p = myRole.pages[viewId];
+    if (!p) return true;                                    // page not listed → allowed (don't surprise legacy roles)
+    return p.view !== false && p.view !== 0;                // explicit false hides it
+  }
+
   // Menu structure — top-level items have either `view` (direct link) or
   // `children` (dropdown). Active state highlights the parent if any of
-  // the children's views are active.
-  const MENU = [
+  // the children's views are active. Items the role can't view are filtered
+  // out below; a parent with zero remaining children is dropped entirely.
+  const RAW_MENU = [
     {
       label: n.about, parentViews: ['about','team','partners'],
       children: [
@@ -60,6 +73,14 @@ function Nav({ view, go, lang, setLang, c }) {
     { label: n.scholarships || (isKo ? '장학 프로그램' : 'Scholarships'), view: 'scholarships', parentViews: ['scholarships'] },
     { label: n.contact || (isKo ? '문의하기' : 'Contact'), view: 'contact', parentViews: ['contact'] },
   ];
+  const MENU = RAW_MENU.flatMap(item => {
+    if (item.children) {
+      const kids = item.children.filter(k => k.divider || canView(k.view));
+      if (kids.filter(k => !k.divider).length === 0) return [];
+      return [{ ...item, children: kids }];
+    }
+    return canView(item.view) ? [item] : [];
+  });
 
   function openAuth(mode) {
     window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode } }));

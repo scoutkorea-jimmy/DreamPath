@@ -285,10 +285,14 @@ function Step0({ form, upd, isKo }) {
           <label>{isKo ? '이름 *' : 'Full name *'}</label>
           <input value={form.name} onChange={upd('name')} placeholder={isKo ? '홍길동' : 'Your name'} />
         </div>
-        <div className="field">
-          <label>{isKo ? '이메일 *' : 'Email *'}</label>
-          <input type="email" value={form.email} onChange={upd('email')} placeholder="you@example.com" />
-        </div>
+        {window.EmailField
+          ? <window.EmailField label={isKo ? '이메일 *' : 'Email *'} value={form.email} onChange={(v) => setForm(f => ({ ...f, email: v }))} required lang={lang} />
+          : (
+            <div className="field">
+              <label>{isKo ? '이메일 *' : 'Email *'}</label>
+              <input type="email" value={form.email} onChange={upd('email')} placeholder="you@example.com" />
+            </div>
+          )}
       </div>
       <div className="form-row">
         <div className="field">
@@ -441,18 +445,26 @@ function RecommenderCard({ index, rec, isKo, onChange, onRemove }) {
             placeholder={isKo ? '예: Scouts of Kenya' : 'e.g. Scouts of Kenya'} />
         </div>
       </div>
-      <div className="form-row">
-        <div className="field">
-          <label>{isKo ? '이메일 *' : 'Email *'}</label>
-          <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="leader@scout.org" />
-        </div>
-        <div className="field">
-          <label>{isKo ? '전화번호 (국제번호) *' : 'Phone (international) *'}</label>
-          <input type="tel" value={rec.phone} onChange={e => set('phone', e.target.value)}
-            placeholder="+82 10 1234 5678" />
-          <span className="hint">{isKo ? '+로 시작하는 국제번호 형식 (예: +82, +1, +254)' : 'Must start with + and country code'}</span>
-        </div>
-      </div>
+      {window.EmailField
+        ? <window.EmailField label={isKo ? '이메일 *' : 'Email *'} value={rec.email} onChange={(v) => set('email', v)} required lang={lang} />
+        : (
+          <div className="form-row">
+            <div className="field">
+              <label>{isKo ? '이메일 *' : 'Email *'}</label>
+              <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="leader@scout.org" />
+            </div>
+          </div>
+        )}
+      {window.PhoneField
+        ? <window.PhoneField label={isKo ? '전화번호 *' : 'Phone *'} value={rec.phone} onChange={(v) => set('phone', v)} required lang={lang} hint={isKo ? '국가코드 선택 + 번호 입력' : 'Pick country code + enter number'} />
+        : (
+          <div className="form-row">
+            <div className="field">
+              <label>{isKo ? '전화번호 (국제번호) *' : 'Phone (international) *'}</label>
+              <input type="tel" value={rec.phone} onChange={e => set('phone', e.target.value)} placeholder="+82 10 1234 5678" />
+            </div>
+          </div>
+        )}
       <div className="form-row">
         <div className="field">
           <label>{isKo ? '훈련 수준 *' : 'Training level *'}</label>

@@ -345,35 +345,39 @@ function InquiryForm({ lang }) {
   ];
 
   return (
-    <form className="apply-card" onSubmit={submit} style={{maxWidth:680,margin:'0 auto'}}>
+    <form className="apply-card" onSubmit={submit}>
       <p className="apply-desc">{isKo
         ? '아래 양식을 작성해주시면 운영팀이 확인 후 답변 드립니다.'
         : 'Send us a note below — the team will reply by email.'}</p>
-      <div className="form-row">
-        <div className="field">
-          <label>{isKo ? '이름 *' : 'Name *'}</label>
-          <input value={form.name} onChange={upd('name')} required />
-        </div>
-        <div className="field">
-          <label>{isKo ? '이메일 *' : 'Email *'}</label>
-          <input type="email" value={form.email} onChange={upd('email')} required />
-        </div>
+      {/* Single-column layout: 이름 → 이메일 → 전화 → (문의유형 + 제목) → 내용 */}
+      <div className="field">
+        <label>{isKo ? '이름 *' : 'Name *'}</label>
+        <input value={form.name} onChange={upd('name')} required />
       </div>
+      <window.EmailField
+        label={isKo ? '이메일 *' : 'Email *'}
+        value={form.email}
+        onChange={(v) => setForm(f => ({ ...f, email: v }))}
+        required
+        lang={lang}
+      />
+      <window.PhoneField
+        label={isKo ? '전화 (선택)' : 'Phone (optional)'}
+        value={form.phone}
+        onChange={(v) => setForm(f => ({ ...f, phone: v }))}
+        lang={lang}
+      />
       <div className="form-row">
-        <div className="field">
-          <label>{isKo ? '전화 (선택)' : 'Phone (optional)'}</label>
-          <input type="tel" value={form.phone} onChange={upd('phone')} placeholder="+82 10 ..." />
-        </div>
         <div className="field">
           <label>{isKo ? '문의 유형' : 'Category'}</label>
           <select value={form.category} onChange={upd('category')}>
             {CATEGORIES.map(c => <option key={c.v} value={c.v}>{isKo ? c.ko : c.en}</option>)}
           </select>
         </div>
-      </div>
-      <div className="field">
-        <label>{isKo ? '제목 *' : 'Subject *'}</label>
-        <input value={form.subject} onChange={upd('subject')} required />
+        <div className="field">
+          <label>{isKo ? '제목 *' : 'Subject *'}</label>
+          <input value={form.subject} onChange={upd('subject')} required />
+        </div>
       </div>
       <div className="field">
         <label>{isKo ? '내용 * (10자 이상)' : 'Message * (min 10 chars)'}</label>

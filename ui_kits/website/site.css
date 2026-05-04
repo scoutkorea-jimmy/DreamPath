@@ -537,7 +537,7 @@ body {
   border-bottom: 1px solid rgba(77, 0, 110, 0.15);
 }
 .topnotice.info     { color:#1D4ED8; background-color:#DBEAFE; background-image: repeating-linear-gradient(135deg, rgba(29,78,216,0.04) 0, rgba(29,78,216,0.04) 12px, rgba(29,78,216,0.12) 12px, rgba(29,78,216,0.12) 24px); }
-.topnotice.warning  { color:#92400E; background-color:#FEF3C7; background-image: repeating-linear-gradient(135deg, rgba(180,83,9,0.04) 0, rgba(180,83,9,0.04) 12px, rgba(180,83,9,0.18) 12px, rgba(180,83,9,0.18) 24px); }
+.topnotice.warning  { color: var(--state-warning); background-color:#FEF3C7; background-image: repeating-linear-gradient(135deg, rgba(180,83,9,0.04) 0, rgba(180,83,9,0.04) 12px, rgba(180,83,9,0.18) 12px, rgba(180,83,9,0.18) 24px); }
 
 /* ============ TEAM PAGE ============ */
 .team-page-grid {
@@ -708,7 +708,7 @@ body {
 }
 .auth-field input:focus,
 .auth-field textarea:focus { outline: none; border-color: var(--scouting-purple); }
-.auth-err { color: #B91C1C; font-size: 13px; margin: 0 0 12px; padding: 10px 12px; background: #FEF2F2; border-radius: 8px; }
+.auth-err { color: var(--state-danger); font-size: 13px; margin: 0 0 12px; padding: 10px 12px; background: #FEF2F2; border-radius: 8px; }
 .auth-switch { margin-top: 18px; text-align: center; font-size: 14px; color: var(--fg-secondary); }
 .auth-switch button { background: none; border: none; color: var(--scouting-purple); font-weight: 600; cursor: pointer; padding: 0; font-size: 14px; }
 .auth-switch button:hover { text-decoration: underline; }

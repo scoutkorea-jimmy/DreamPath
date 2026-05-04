@@ -106,10 +106,14 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               <input type="text" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
             </label>
           )}
-          <label className="auth-field">
-            <span>{isKo ? '이메일' : 'Email'}</span>
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
-          </label>
+          {window.EmailField
+            ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={email} onChange={setEmail} required lang={lang} autoComplete="email" />
+            : (
+              <label className="auth-field">
+                <span>{isKo ? '이메일' : 'Email'}</span>
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+              </label>
+            )}
           <label className="auth-field">
             <span>{isKo ? '비밀번호' : 'Password'} {mode === 'signup' && <em style={{color:'var(--fg-muted)',fontWeight:400}}>({isKo ? '최소 8자' : 'min 8 chars'})</em>}</span>
             <input type="password" required minLength={mode === 'signup' ? 8 : undefined}

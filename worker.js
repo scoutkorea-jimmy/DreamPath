@@ -173,7 +173,18 @@ async function handleApi(request, env, url) {
 
   // ── Applications ─────────────────────────────────────────────────────────
   if (path === '/api/applications') {
-    if (method === 'POST') return submitApplication(request, env);
+    if (method === 'POST') {
+      // Anonymous applies (visitor without an account) are still allowed,
+      // matching the existing public Apply form. Authenticated applies are
+      // gated by the role's pages.apply.apply permission so the operator can
+      // shut off applications for a role without taking the public form down.
+      const u = await currentUser(request, env);
+      if (u) {
+        const allowed = await canRole(env, u.role, 'apply', 'apply');
+        if (!allowed) return json({ error: 'forbidden', detail: `${u.role} is not allowed to apply` }, 403);
+      }
+      return submitApplication(request, env);
+    }
     if (method === 'GET') {
       if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
       return listApplications(env, url);
@@ -212,6 +223,10 @@ async function handleApi(request, env, url) {
       return json(row || {});
     }
     if (method === 'PUT' || method === 'POST') {
+      // Edit-own gate. The operator can revoke profile editing for a role
+      // without changing any UI by clearing pages.member.edit_own.
+      const allowed = await canRole(env, user.role, 'member', 'edit_own');
+      if (!allowed) return json({ error: 'forbidden', detail: `${user.role} is not allowed to edit own profile` }, 403);
       const body = await request.json().catch(() => ({}));
       return saveProfile(env, user.id, body);
     }
@@ -348,17 +363,52 @@ async function handleApi(request, env, url) {
   // application count. Used by the admin Members → Member directory tab.
   if (path === '/api/admin/users' && method === 'GET') {
     if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
-    const { results } = await env.DB.prepare(
-      `SELECT u.id, u.email, u.name, u.role, u.created_at, u.updated_at,
-              (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_login,
-              (SELECT COUNT(*) FROM applications a WHERE a.user_id = u.id) AS app_count
-       FROM users u
-       ORDER BY u.created_at DESC
-       LIMIT 1000`
-    ).all();
-    return json({ items: results || [] });
+    const limit  = Math.min(Math.max(parseInt(url.searchParams.get('limit')  || '20', 10) || 20, 1), 100);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    const role = (url.searchParams.get('role') || '').trim();
+    const where = [];
+    const binds = [];
+    if (q)    { where.push('(LOWER(u.email) LIKE ? OR LOWER(COALESCE(u.name,\'\')) LIKE ?)'); binds.push('%' + q + '%', '%' + q + '%'); }
+    if (role) { where.push('u.role = ?'); binds.push(role); }
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM users u ' + whereSql).bind(...binds).first();
+    const sql =
+      'SELECT u.id, u.email, u.name, u.role, u.created_at, u.updated_at,' +
+      '       (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_login,' +
+      '       (SELECT COUNT(*) FROM applications a WHERE a.user_id = u.id) AS app_count ' +
+      'FROM users u ' + whereSql + ' ORDER BY u.created_at DESC LIMIT ? OFFSET ?';
+    const { results } = await env.DB.prepare(sql).bind(...binds, limit, offset).all();
+    return json({ items: results || [], total: total?.n || 0, limit, offset });
   }
-  // Single member detail (basic profile + recent consents)
+  // Admin: create a new member directly. Bypasses the public signup form so
+  // the operator can pre-provision accounts (e.g. for a new admin teammate).
+  if (path === '/api/admin/users' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const email    = String(body.email || '').trim().toLowerCase();
+    const name     = String(body.name || '').trim();
+    const role     = ['member','admin'].includes(body.role) ? body.role : 'member';
+    const password = String(body.password || '');
+    const note     = body.note ? String(body.note).slice(0, 500) : null;
+    if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+    if (password.length < 8) return json({ error: 'password_too_short' }, 400);
+    const dupe = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    if (dupe) return json({ error: 'email_taken' }, 409);
+    const id   = 'U-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+    const salt = randomHex(16);
+    const hash = await hashPassword(password, salt);
+    const now  = new Date().toISOString();
+    await env.DB.prepare(
+      'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, email, hash, salt, name || null, role, now, now).run();
+    await env.DB.prepare(
+      'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?)'
+    ).bind(id, now, 'admin', 'create', note).run();
+    return json({ user: { id, email, name: name || null, role, created_at: now, updated_at: now } });
+  }
+  // Single member detail (basic profile + recent consents + audit log)
   const memM = path.match(/^\/api\/admin\/users\/([A-Za-z0-9_-]+)$/);
   if (memM && method === 'GET') {
     if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
@@ -374,7 +424,87 @@ async function handleApi(request, env, url) {
     const { results: consents } = await env.DB.prepare(
       'SELECT * FROM consents WHERE user_id = ? OR email = ? ORDER BY ts DESC LIMIT 100'
     ).bind(id, user.email).all();
-    return json({ user: { ...user, last_login: lastLogin?.last_login || null }, profile: profile || null, consents: consents || [] });
+    const { results: audits } = await env.DB.prepare(
+      'SELECT * FROM member_audits WHERE user_id = ? ORDER BY ts DESC LIMIT 200'
+    ).bind(id).all().catch(() => ({ results: [] }));
+    return json({
+      user: { ...user, last_login: lastLogin?.last_login || null },
+      profile: profile || null,
+      consents: consents || [],
+      audits: audits || [],
+    });
+  }
+  // PATCH /api/admin/users/:id — update name / role / email; optional password reset.
+  // Each changed column writes one member_audits row for the trail.
+  if (memM && method === 'PATCH') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const id = memM[1];
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const cur = await env.DB.prepare('SELECT id, email, name, role FROM users WHERE id = ?').bind(id).first();
+    if (!cur) return json({ error: 'not_found' }, 404);
+    const now = new Date().toISOString();
+    const note = body.note ? String(body.note).slice(0, 500) : null;
+    const sets = [];
+    const binds = [];
+    const audits = [];  // [{ field, old, new }]
+    if (typeof body.name === 'string' && body.name !== (cur.name || '')) {
+      const v = body.name.trim() || null;
+      sets.push('name = ?'); binds.push(v);
+      audits.push({ field: 'name', old: cur.name, new: v });
+    }
+    if (typeof body.role === 'string' && ['member','admin'].includes(body.role) && body.role !== cur.role) {
+      sets.push('role = ?'); binds.push(body.role);
+      audits.push({ field: 'role', old: cur.role, new: body.role });
+    }
+    if (typeof body.email === 'string') {
+      const e = body.email.trim().toLowerCase();
+      if (e && e !== cur.email) {
+        if (!isEmail(e)) return json({ error: 'invalid_email' }, 400);
+        const dupe = await env.DB.prepare('SELECT id FROM users WHERE email = ? AND id != ?').bind(e, id).first();
+        if (dupe) return json({ error: 'email_taken' }, 409);
+        sets.push('email = ?'); binds.push(e);
+        audits.push({ field: 'email', old: cur.email, new: e });
+      }
+    }
+    let passwordReset = false;
+    if (typeof body.password === 'string' && body.password) {
+      if (body.password.length < 8) return json({ error: 'password_too_short' }, 400);
+      const salt = randomHex(16);
+      const hash = await hashPassword(body.password, salt);
+      sets.push('password_hash = ?', 'password_salt = ?'); binds.push(hash, salt);
+      passwordReset = true;
+    }
+    if (!sets.length && !passwordReset) return json({ ok: true, changed: 0 });
+    sets.push('updated_at = ?'); binds.push(now);
+    binds.push(id);
+    await env.DB.prepare('UPDATE users SET ' + sets.join(', ') + ' WHERE id = ?').bind(...binds).run();
+    for (const a of audits) {
+      await env.DB.prepare(
+        'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(id, now, 'admin', 'update', a.field, a.old || null, a.new || null, note).run();
+    }
+    if (passwordReset) {
+      await env.DB.prepare(
+        'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?)'
+      ).bind(id, now, 'admin', 'password_reset', note).run();
+      // Invalidate every session for this user so the new password takes effect immediately.
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
+    }
+    return json({ ok: true, changed: audits.length + (passwordReset ? 1 : 0) });
+  }
+  if (memM && method === 'DELETE') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const id = memM[1];
+    const cur = await env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(id).first();
+    if (!cur) return json({ error: 'not_found' }, 404);
+    const now = new Date().toISOString();
+    // Audit FIRST while user_id still references a real row, then delete.
+    await env.DB.prepare(
+      'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, NULL, ?, NULL, NULL)'
+    ).bind(id, now, 'admin', 'delete', cur.email).run();
+    await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+    return json({ ok: true });
   }
 
   // ── Errors (client report + admin list) ──────────────────────────────────
@@ -383,12 +513,15 @@ async function handleApi(request, env, url) {
     if (method === 'GET') {
       if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1000);
-      const level  = url.searchParams.get('level');
-      const source = url.searchParams.get('source');
+      const level    = url.searchParams.get('level');
+      const source   = url.searchParams.get('source');
+      const resolved = url.searchParams.get('resolved');  // '0' | '1' | '' (all)
       let sql = 'SELECT * FROM error_logs WHERE 1=1';
       const binds = [];
-      if (level)  { sql += ' AND level = ?';  binds.push(level); }
-      if (source) { sql += ' AND source = ?'; binds.push(source); }
+      if (level)    { sql += ' AND level = ?';    binds.push(level); }
+      if (source)   { sql += ' AND source = ?';   binds.push(source); }
+      if (resolved === '0') sql += ' AND COALESCE(resolved, 0) = 0';
+      if (resolved === '1') sql += ' AND COALESCE(resolved, 0) = 1';
       sql += ' ORDER BY ts DESC LIMIT ?';
       binds.push(limit);
       const { results } = await env.DB.prepare(sql).bind(...binds).all();
@@ -399,6 +532,24 @@ async function handleApi(request, env, url) {
   if (path === '/api/errors/clear' && method === 'POST') {
     if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
     await env.DB.prepare('DELETE FROM error_logs').run();
+    return json({ ok: true });
+  }
+  // PATCH /api/errors/:id — toggle resolved + optional note. Body shape:
+  //   { resolved: true|false, note?: string }
+  // Used by the admin Errors → Error logs tab to mark fixes without leaving
+  // the dashboard. Resolved rows still appear unless filtered out.
+  const errResM = path.match(/^\/api\/errors\/(\d+)$/);
+  if (errResM && method === 'PATCH') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const id = parseInt(errResM[1], 10);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const resolved = body.resolved ? 1 : 0;
+    const now = resolved ? new Date().toISOString() : null;
+    const note = body.note ? String(body.note).slice(0, 500) : null;
+    await env.DB.prepare(
+      'UPDATE error_logs SET resolved = ?, resolved_at = ?, resolved_note = ? WHERE id = ?'
+    ).bind(resolved, now, note, id).run();
     return json({ ok: true });
   }
 
@@ -1022,6 +1173,47 @@ function safeEqual(a, b) {
   let r = 0;
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
+}
+
+// ── Role-based access control ────────────────────────────────────────────
+// Reads c.member_roles from the KV content blob and answers
+//   canRole(env, roleId, pageId, action) → boolean
+// admin Bearer token bypasses all checks (can do anything). Roles that
+// aren't defined in c.member_roles fail closed (deny). The matrix is
+// authored under admin → Members → Roles & permissions.
+//
+// Cached at module scope per worker instance so the hot path doesn't
+// re-fetch KV on every request — 60s TTL is fine for policy edits.
+let _roleCache = { ts: 0, roles: null };
+async function loadRoles(env) {
+  const fresh = Date.now() - _roleCache.ts < 60_000;
+  if (fresh && _roleCache.roles) return _roleCache.roles;
+  try {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    const c = raw ? JSON.parse(raw) : {};
+    const roles = (c && c.member_roles && Array.isArray(c.member_roles.roles)) ? c.member_roles.roles : [];
+    _roleCache = { ts: Date.now(), roles };
+    return roles;
+  } catch { return []; }
+}
+async function canRole(env, roleId, pageId, action) {
+  if (!roleId) return false;
+  const roles = await loadRoles(env);
+  const r = roles.find(x => x && x.id === roleId);
+  if (!r || !r.pages) return false;
+  const page = r.pages[pageId];
+  if (!page) return false;
+  return page[action] === true;
+}
+// Convenience: gate an HTTP handler. Returns null on allow, or a 403 Response on deny.
+// Admin token always allows.
+async function requireRole(request, env, pageId, action) {
+  if (isAdmin(request, env)) return null;
+  const u = await currentUser(request, env);
+  if (!u) return json({ error: 'unauthorized' }, 401);
+  const ok = await canRole(env, u.role, pageId, action);
+  if (!ok) return json({ error: 'forbidden', detail: `${u.role} is not allowed to '${action}' on '${pageId}'` }, 403);
+  return null;
 }
 
 // ── Applications ───────────────────────────────────────────────────────────

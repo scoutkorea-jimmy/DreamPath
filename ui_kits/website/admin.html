@@ -325,6 +325,7 @@
     { id: 'translations',  label: 'KO ↔ EN translations', group: 'Tools' },
 
     { id: 'wiki_kms',      label: 'KMS (코딩)',       group: 'Wiki' },
+    { id: 'wiki_color',    label: '컬러 가이드',      group: 'Wiki' },
     { id: 'wiki_design',   label: '디자인 가이드',    group: 'Wiki' },
 
     { id: 'apps',          label: 'Applications',    group: 'Data' },
@@ -1025,6 +1026,7 @@
   }
 
   function KmsTab() { return <WikiTab slug="kms" title="KMS · 코딩 위키" accent="#0094B4" />; }
+  function ColorGuideTab() { return <WikiTab slug="color" title="컬러 가이드" accent="#FFD400" />; }
   function DesignGuideTab() { return <WikiTab slug="design" title="디자인 가이드" accent="#FF8DFF" />; }
 
   // ---- Translations (1:1 KO/EN side-by-side) -----------------------------
@@ -1550,7 +1552,7 @@
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
       translations: TranslationsTab,
-      wiki_kms: KmsTab, wiki_design: DesignGuideTab,
+      wiki_kms: KmsTab, wiki_color: ColorGuideTab, wiki_design: DesignGuideTab,
       apps: ApplicationsTab,
     }[tab];
 

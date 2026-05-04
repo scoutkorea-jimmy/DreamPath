@@ -1,46 +1,116 @@
-/* DreamPath — Design tokens (colors + type + radii + shadows + motion).
-   This file is the single source of truth that ui_kits/website/site.css
-   layers on top of via @import url('../../colors_and_type.css').
+/* KoreaDreamPath — Design tokens (colors + type + radii + shadows + motion).
+   Single source of truth; site.css and admin.html layer on top.
    If a value here changes, the entire site re-skins. */
 
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 @import url('https://rsms.me/inter/inter.css');
 
 :root {
-  /* ============ BRAND ============ */
-  --midnight-purple:  #4D006E;   /* primary */
-  --scouting-purple:  #622599;   /* accent / WOSM */
-  --sunshine-yellow:  #FFD400;   /* highlight */
+  /* ============ BRAND PRIMARY ============
+     The four colors anyone reaching for "the brand" should reach for. */
+  --midnight-purple:  #4D006E;   /* primary — buttons, hero, dark surfaces */
+  --scouting-purple:  #622599;   /* accent — links, focus, secondary brand */
+  --sunshine-yellow:  #FFD400;   /* highlight / wordmark accent */
+  --ember-orange:     #FFAE80;   /* warm secondary */
 
-  /* Hero / accent palette (matches hero dots + program accents) */
+  /* ============ BRAND SECONDARY (palette) ============
+     Used for hero dots, program accents, story tags, news tags. */
   --blossom-pink:     #FF8DFF;
   --river-blue:       #0094B4;
   --leaf-green:       #9FED8F;
-  --ember-orange:     #FFAE80;
   --forest-green:     #248737;
+  --coral-red:        #FF5655;
+  --indigo-deep:      #3D2E8E;
 
-  /* ============ SURFACE ============ */
+  /* Aliases used by JS components and program data
+     (kept stable so admin-edited program color values stay consistent) */
+  --brand:            var(--midnight-purple);
+  --brand-2:          var(--scouting-purple);
+  --brand-accent:     var(--sunshine-yellow);
+
+  /* ============ NEUTRALS ============
+     Full 9-stop scale. Use semantic tokens (fg/bg/border) below for UI. */
+  --gray-50:          #FAFAFB;
+  --gray-100:         #F4F3F6;
+  --gray-200:         #E8E6EB;
+  --gray-300:         #D7D5DA;
+  --gray-400:         #B5B2BB;
+  --gray-500:         #8A8A93;
+  --gray-600:         #5E5C66;
+  --gray-700:         #3A3942;
+  --gray-800:         #22212A;
+  --gray-900:         #15131A;
+
+  /* ============ SURFACE / BACKGROUND ============ */
   --canvas-white:     #FFFFFF;
   --bg-muted:         #F6F4F8;   /* soft purple-tinted gray for muted sections */
+  --bg-elevated:      #FFFFFF;   /* cards on white pages */
+  --bg-overlay:       rgba(15, 15, 18, 0.45);
 
-  /* ============ TEXT ============ */
+  /* ============ TEXT (foreground) ============ */
   --fg-primary:       #0F0F12;
   --fg-secondary:     #4A4A52;
   --fg-muted:         #8A8A93;
+  --fg-inverse:       #FFFFFF;
+  --fg-link:          var(--scouting-purple);
 
-  /* ============ NEUTRALS / BORDERS ============ */
-  --gray-300:         #D7D5DA;
-  --gray-900:         #15131A;   /* footer dark */
-  --border-hair:      rgba(15, 15, 18, 0.08);
-  --border-default:   #E4E2E8;
+  /* ============ BORDERS ============ */
+  --border-hair:      rgba(15, 15, 18, 0.08);   /* lightest divider */
+  --border-subtle:    #ECEAEF;                  /* soft neutral border */
+  --border-default:   #E4E2E8;                  /* form fields, cards */
+  --border-strong:    #B5B2BB;                  /* hover / active borders */
 
-  /* ============ TYPOGRAPHY ============ */
+  /* ============ STATE / SEMANTIC ============ */
+  --state-success:    #248737;
+  --state-success-bg: #DCFCE7;
+  --state-warning:    #B45309;
+  --state-warning-bg: #FEF3C7;
+  --state-danger:     #B91C1C;
+  --state-danger-bg:  #FEE2E2;
+  --state-info:       #1D4ED8;
+  --state-info-bg:    #DBEAFE;
+
+  /* ============ TYPOGRAPHY ============
+     KR + EN paired. Use --font-kr for Hangul-heavy copy, --font-en for
+     wordmarks / English headings, --font-sans as the safe default. */
   --font-kr:    "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif;
   --font-en:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-sans:  "Pretendard Variable", "Pretendard", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono:  "JetBrains Mono", "SF Mono", "Menlo", ui-monospace, monospace;
 
+  /* Type scale (use as font-size or paired with line-height below) */
+  --text-xs:    12px;
+  --text-sm:    13px;
+  --text-base:  15px;
+  --text-md:    16px;
+  --text-lg:    18px;
+  --text-xl:    22px;
+  --text-2xl:   28px;
+  --text-3xl:   36px;
+  --text-4xl:   48px;
+  --text-5xl:   clamp(40px, 6vw, 80px);  /* hero */
+
+  --leading-tight:    1.15;
+  --leading-snug:     1.35;
+  --leading-normal:   1.55;
+  --leading-relaxed:  1.7;
+
+  /* ============ SPACING ============ */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+
   /* ============ RADII ============ */
+  --radius-sm:    6px;
+  --radius-md:    10px;
   --radius-lg:    14px;
   --radius-xl:    20px;
   --radius-2xl:   28px;
@@ -50,6 +120,7 @@
   --shadow-xs:     0 1px 2px rgba(15, 15, 18, 0.04);
   --shadow-sm:     0 4px 12px rgba(15, 15, 18, 0.06);
   --shadow-md:     0 14px 36px rgba(15, 15, 18, 0.10);
+  --shadow-lg:     0 24px 64px rgba(15, 15, 18, 0.14);
   --shadow-brand:  0 16px 48px rgba(77, 0, 110, 0.22);
 
   /* ============ MOTION ============ */
@@ -57,4 +128,21 @@
   --duration-normal:  220ms;
   --duration-slow:    360ms;
   --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ============ Z-INDEX ============ */
+  --z-nav:        100;
+  --z-dropdown:   200;
+  --z-sticky:     500;
+  --z-modal:      9000;
+  --z-toast:      9500;
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast:   0ms;
+    --duration-normal: 0ms;
+    --duration-slow:   0ms;
+  }
 }

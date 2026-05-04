@@ -333,10 +333,48 @@ async function handleApi(request, env, url) {
     if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
     const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10) || 30, 365);
     const since = new Date(Date.now() - days * 86400 * 1000).toISOString();
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM consents WHERE ts >= ? ORDER BY ts DESC LIMIT 500'
-    ).bind(since).all();
+    const userId = url.searchParams.get('user_id');
+    const email  = url.searchParams.get('email');
+    let q, binds;
+    if (userId) { q = 'SELECT * FROM consents WHERE user_id = ? ORDER BY ts DESC LIMIT 200'; binds = [userId]; }
+    else if (email) { q = 'SELECT * FROM consents WHERE email = ? ORDER BY ts DESC LIMIT 200'; binds = [email]; }
+    else { q = 'SELECT * FROM consents WHERE ts >= ? ORDER BY ts DESC LIMIT 500'; binds = [since]; }
+    const { results } = await env.DB.prepare(q).bind(...binds).all();
     return json({ items: results || [] });
+  }
+
+  // ── Admin: member directory ──────────────────────────────────────────────
+  // Lists every registered user with last-login (latest session.created_at) and
+  // application count. Used by the admin Members → Member directory tab.
+  if (path === '/api/admin/users' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const { results } = await env.DB.prepare(
+      `SELECT u.id, u.email, u.name, u.role, u.created_at, u.updated_at,
+              (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_login,
+              (SELECT COUNT(*) FROM applications a WHERE a.user_id = u.id) AS app_count
+       FROM users u
+       ORDER BY u.created_at DESC
+       LIMIT 1000`
+    ).all();
+    return json({ items: results || [] });
+  }
+  // Single member detail (basic profile + recent consents)
+  const memM = path.match(/^\/api\/admin\/users\/([A-Za-z0-9_-]+)$/);
+  if (memM && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const id = memM[1];
+    const user = await env.DB.prepare(
+      'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?'
+    ).bind(id).first();
+    if (!user) return json({ error: 'not_found' }, 404);
+    const lastLogin = await env.DB.prepare(
+      'SELECT MAX(created_at) AS last_login FROM sessions WHERE user_id = ?'
+    ).bind(id).first();
+    const profile = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(id).first().catch(() => null);
+    const { results: consents } = await env.DB.prepare(
+      'SELECT * FROM consents WHERE user_id = ? OR email = ? ORDER BY ts DESC LIMIT 100'
+    ).bind(id, user.email).all();
+    return json({ user: { ...user, last_login: lastLogin?.last_login || null }, profile: profile || null, consents: consents || [] });
   }
 
   // ── Errors (client report + admin list) ──────────────────────────────────

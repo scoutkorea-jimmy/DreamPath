@@ -52,8 +52,9 @@
       font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
       color: #FFE600; letter-spacing: 0.04em;
     }
-    /* Top-level groups (sidebar nav) */
+    /* Sidebar groups (accordion: active group expands to show its sub-tabs) */
     .side nav.groups { display: flex; flex-direction: column; gap: 2px; }
+    .side .grp { display: flex; flex-direction: column; }
     .side button.group {
       display: flex; align-items: center; gap: 10px;
       width: 100%; text-align: left; background: none; border: none;
@@ -61,9 +62,40 @@
       border-radius: 8px; cursor: pointer; transition: all 120ms;
     }
     .side button.group:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .side button.group .gicon {
+      width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7;
+    }
+    .side button.group .glabel { flex: 1; }
+    .side button.group .gcount {
+      font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.55);
+      font-family: var(--font-mono, monospace);
+    }
     .side button.group.active {
       background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 700;
       box-shadow: inset 3px 0 0 #FFE600;
+    }
+    .side button.group.active .gicon { opacity: 1; }
+    .side button.group.active .gcount {
+      background: rgba(255,228,0,0.20); color: #FFE600;
+    }
+    /* Sub-tab list nested under active group */
+    .side .subnav {
+      display: flex; flex-direction: column; gap: 1px;
+      padding: 4px 0 8px 14px; margin-bottom: 2px;
+      border-left: 1px solid rgba(255,255,255,0.10);
+      margin-left: 22px;
+    }
+    .side button.subtab-side {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.65); padding: 6px 12px;
+      font: inherit; font-size: 12.5px; font-weight: 500;
+      border-radius: 6px; transition: all 120ms;
+    }
+    .side button.subtab-side:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .side button.subtab-side.active {
+      background: rgba(255,255,255,0.10); color: #fff; font-weight: 700;
     }
     .side .actions {
       margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.10);
@@ -358,9 +390,12 @@
     en: {
       console: 'Admin Console',
       group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
-               Content:'Content', Errors:'Errors', Data:'Data', Wiki:'Wiki', Tools:'Tools' },
+               Content:'Content', Errors:'Errors',
+               Marketing:'Marketing', StudentSupport:'Student support', Members:'Members',
+               Wiki:'Wiki', Tools:'Tools' },
       tab: {
         dashboard:'Dashboard',
+        members:'Member directory', member_roles:'Roles & permissions',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images',
         hero:'Hero', how:'How it works', cta:'CTA banner',
@@ -384,9 +419,12 @@
     ko: {
       console: '관리자 콘솔',
       group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
-               Content:'콘텐츠', Errors:'에러 페이지', Data:'데이터', Wiki:'위키', Tools:'도구' },
+               Content:'콘텐츠', Errors:'에러 페이지',
+               Marketing:'마케팅', StudentSupport:'학생 지원', Members:'회원 정보',
+               Wiki:'위키', Tools:'도구' },
       tab: {
         dashboard:'대시보드',
+        members:'회원 목록', member_roles:'등급 / 권한',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
@@ -419,6 +457,23 @@
   //   Wiki      — internal docs (KMS / color / design)
   //   Tools     — admin-only utilities (translations / design system / error preview)
   //   Data      — backend records (applications / inquiries / analytics)
+  // Lucide icon for each top-level sidebar group. Pick names that are
+  // present in the LUCIDE_ICONS allowlist above; falls back to 'circle'.
+  const GROUP_ICONS = {
+    Overview:       'layout-dashboard',
+    Setup:          'settings',
+    Homepage:       'home',
+    Pages:          'file-text',
+    Programs:       'graduation-cap',
+    Content:        'layers',
+    Errors:         'alert-triangle',
+    Marketing:      'megaphone',
+    StudentSupport: 'inbox',
+    Members:        'users',
+    Wiki:           'book-open',
+    Tools:          'wrench',
+  };
+
   // Group order = sidebar order. Tab order within a group = sub-tab strip order.
   // The first tab in TABS is the landing tab when you sign in.
   const TABS = [
@@ -453,10 +508,19 @@
     { id: 'error_preview', group: 'Errors' },
     { id: 'error_logs',    group: 'Errors' },
 
-    { id: 'analytics',     group: 'Data' },
-    { id: 'apps',          group: 'Data' },
-    { id: 'inquiries',     group: 'Data' },
-    { id: 'consent_log',   group: 'Data' },
+    // Marketing — visitor-facing metrics. Analytics summary lives here so it
+    // sits near "what marketing decisions need" rather than buried in Data.
+    { id: 'analytics',     group: 'Marketing' },
+
+    // Student support — incoming requests from prospective students.
+    { id: 'apps',          group: 'StudentSupport' },
+    { id: 'inquiries',     group: 'StudentSupport' },
+
+    // Members — registered users, their consent trails, and the role/permission
+    // matrix that governs what each role can do.
+    { id: 'members',       group: 'Members' },
+    { id: 'member_roles',  group: 'Members' },
+    { id: 'consent_log',   group: 'Members' },
 
     { id: 'wiki_kms',      group: 'Wiki' },
     { id: 'wiki_color',    group: 'Wiki' },
@@ -1466,6 +1530,218 @@
   }
 
   // ---- Consent log -------------------------------------------------------
+  // ---- Members directory (회원 목록) ---------------------------------------
+  // Lists every registered user with last-login + app count. Click a row for
+  // a detail panel showing the consent trail tied to that account.
+  function MembersTab() {
+    const [members, setMembers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);
+    const [detail, setDetail] = useState(null);
+    const [filter, setFilter] = useState('');
+
+    useEffect(() => {
+      const token = localStorage.getItem('dp_admin_token') || '';
+      fetch('/api/admin/users', { headers: { authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(d => { setMembers(d.items || []); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+      if (!selected) { setDetail(null); return; }
+      const token = localStorage.getItem('dp_admin_token') || '';
+      setDetail(null);
+      fetch('/api/admin/users/' + encodeURIComponent(selected), { headers: { authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : null)
+        .then(setDetail)
+        .catch(() => setDetail(null));
+    }, [selected]);
+
+    const filtered = filter
+      ? members.filter(m => (m.email||'').toLowerCase().includes(filter.toLowerCase()) || (m.name||'').toLowerCase().includes(filter.toLowerCase()))
+      : members;
+
+    return (
+      <>
+        <div className="card">
+          <h3>Member directory</h3>
+          <p className="desc">All registered users. Click a row to see consent records and full profile.</p>
+          <div className="grid-2 tight">
+            <Text label="Search (name / email)" value={filter} onChange={setFilter} />
+            <div className="field">
+              <label>Total</label>
+              <div style={{padding:'10px 0',fontSize:14,color:'var(--fg-secondary)'}}>{loading ? 'Loading…' : `${filtered.length} of ${members.length} member${members.length===1?'':'s'}`}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          <table className="apps-table">
+            <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Joined</th><th>Last login</th><th>Apps</th></tr></thead>
+            <tbody>
+              {filtered.map(m => (
+                <tr key={m.id} style={{cursor:'pointer'}} onClick={() => setSelected(m.id)}>
+                  <td>{m.email}</td>
+                  <td>{m.name || <span style={{color:'var(--fg-muted)'}}>—</span>}</td>
+                  <td><span className="pill" style={{background:m.role==='admin'?'#FFE600':'#E5E7EB',color:m.role==='admin'?'var(--midnight-purple)':'var(--fg-secondary)'}}>{m.role}</span></td>
+                  <td><span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--fg-muted)'}}>{m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</span></td>
+                  <td><span style={{fontSize:11,fontFamily:'var(--font-mono)',color:m.last_login?'var(--fg-secondary)':'var(--fg-muted)'}}>{m.last_login ? new Date(m.last_login).toLocaleString() : 'never'}</span></td>
+                  <td>{m.app_count || 0}</td>
+                </tr>
+              ))}
+              {!loading && filtered.length === 0 && (
+                <tr><td colSpan={6} style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>{filter ? 'No matches.' : 'No members yet.'}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {selected && (
+          <div className="app-modal" onClick={() => setSelected(null)}>
+            <div className="app-modal-inner" onClick={e => e.stopPropagation()}>
+              <div className="app-modal-head">
+                <div>
+                  <div style={{fontSize:11,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>Member detail</div>
+                  <h2 style={{margin:'4px 0 0',fontSize:20}}>{detail?.user?.email || selected}</h2>
+                </div>
+                <button className="icon-btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
+              <div className="app-modal-body">
+                {!detail ? <p style={{color:'var(--fg-muted)'}}>Loading…</p> : (
+                  <>
+                    <div className="app-sec">Profile</div>
+                    <div className="app-row"><div className="app-k">ID</div><div className="app-v" style={{fontFamily:'var(--font-mono)'}}>{detail.user.id}</div></div>
+                    <div className="app-row"><div className="app-k">Name</div><div className="app-v">{detail.user.name || '—'}</div></div>
+                    <div className="app-row"><div className="app-k">Role</div><div className="app-v">{detail.user.role}</div></div>
+                    <div className="app-row"><div className="app-k">Joined</div><div className="app-v">{new Date(detail.user.created_at).toLocaleString()}</div></div>
+                    <div className="app-row"><div className="app-k">Last login</div><div className="app-v">{detail.user.last_login ? new Date(detail.user.last_login).toLocaleString() : 'never'}</div></div>
+                    {detail.profile && (
+                      <>
+                        <div className="app-sec">Career profile</div>
+                        {Object.entries(detail.profile).filter(([k]) => !['user_id','created_at','updated_at'].includes(k) && detail.profile[k]).map(([k, v]) => (
+                          <div className="app-row" key={k}><div className="app-k">{k}</div><div className="app-v">{String(v)}</div></div>
+                        ))}
+                      </>
+                    )}
+                    <div className="app-sec">Consent records ({detail.consents.length})</div>
+                    {detail.consents.length === 0 ? <p style={{color:'var(--fg-muted)',fontSize:13}}>No consent records.</p> : (
+                      <table className="apps-table" style={{fontSize:12}}>
+                        <thead><tr><th>Time</th><th>Type</th><th>Version</th><th>Granted</th></tr></thead>
+                        <tbody>
+                          {detail.consents.map(c => (
+                            <tr key={c.id}>
+                              <td><span style={{fontFamily:'var(--font-mono)',fontSize:11}}>{new Date(c.ts).toLocaleString()}</span></td>
+                              <td>{c.consent_type}</td>
+                              <td>{c.version}</td>
+                              <td><span className="pill" style={{background:c.granted?'#DCFCE7':'#FEE2E2',color:c.granted?'#166534':'#B91C1C'}}>{c.granted ? '✓' : '✗'}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ---- Member roles & permissions (등급 / 권한) ----------------------------
+  // Editor for role definitions stored in c.member_roles. Each role lists which
+  // pages it can access plus per-page action toggles. Backend enforcement of
+  // these rules is a follow-up — for now this tab persists the matrix into
+  // KV so the operator can author the policy that we'll wire to the worker.
+  function MemberRolesTab({ c, set, addItem, removeItem }) {
+    const roles = c.member_roles?.roles || [];
+    const PAGES = [
+      { id: 'home',         label: 'Home' },
+      { id: 'about',        label: 'About' },
+      { id: 'programs',     label: 'Programs' },
+      { id: 'scholarships', label: 'Scholarships' },
+      { id: 'apply',        label: 'Apply' },
+      { id: 'partners',     label: 'Partners' },
+      { id: 'stories',      label: 'Stories' },
+      { id: 'news',         label: 'News' },
+      { id: 'contact',      label: 'Contact' },
+      { id: 'team',         label: 'Project team' },
+      { id: 'member',       label: 'Member dashboard' },
+      { id: 'receipt',      label: 'Receipts' },
+    ];
+    const ACTIONS = ['view', 'apply', 'comment', 'edit_own', 'edit_others'];
+
+    function newRole() {
+      addItem(['member_roles','roles'], {
+        id: 'role_' + Date.now().toString(36),
+        label_ko: '새 등급',
+        label_en: 'New role',
+        pages: {},
+      });
+    }
+
+    return (
+      <>
+        <div className="card">
+          <h3>Roles & permissions</h3>
+          <p className="desc">
+            Define which pages each member role can access and what they can do on each page.
+            <strong> Note:</strong> the public site does not yet enforce these rules — this tab persists the policy
+            you intend to apply. Backend enforcement is a follow-up task.
+          </p>
+          <button type="button" className="btn-add" onClick={newRole}>+ Add role</button>
+        </div>
+
+        {roles.length === 0 && (
+          <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>
+            No roles defined yet. Add one to start mapping permissions.
+          </div>
+        )}
+
+        {roles.map((r, i) => (
+          <div className="card" key={r.id || i}>
+            <div className="rep-head" style={{marginBottom:14}}>
+              <strong>{r.label_ko || r.label_en || r.id}</strong>
+              <div className="ctrls">
+                <button type="button" className="icon-btn danger" onClick={() => removeItem(['member_roles','roles'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-3 tight">
+              <Text label="ID (slug)" value={r.id || ''} onChange={v => set(['member_roles','roles',i,'id'], v)} hint="machine-readable, e.g. member, alumni, partner" />
+              <Text label="Label (KO)" value={r.label_ko || ''} onChange={v => set(['member_roles','roles',i,'label_ko'], v)} lang="ko" />
+              <Text label="Label (EN)" value={r.label_en || ''} onChange={v => set(['member_roles','roles',i,'label_en'], v)} lang="en" />
+            </div>
+            <div className="app-sec" style={{marginTop:18}}>Page access matrix</div>
+            <table className="apps-table" style={{fontSize:12}}>
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  {ACTIONS.map(a => <th key={a} style={{textAlign:'center',textTransform:'lowercase'}}>{a.replace('_',' ')}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {PAGES.map(p => {
+                  const perm = (r.pages && r.pages[p.id]) || {};
+                  return (
+                    <tr key={p.id}>
+                      <td style={{fontWeight:600}}>{p.label} <span style={{color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)',fontSize:11}}>/{p.id}</span></td>
+                      {ACTIONS.map(a => (
+                        <td key={a} style={{textAlign:'center'}}>
+                          <input type="checkbox" checked={!!perm[a]} onChange={e => set(['member_roles','roles',i,'pages',p.id,a], e.target.checked)} aria-label={`${r.id} can ${a} on ${p.id}`} />
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </>
+    );
+  }
+
   function ConsentLogTab() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1744,9 +2020,15 @@
   // At-a-glance overview: site version, key counts, recent activity, and
   // quick links into the most-used tabs. Stays read-only — no editing here.
   function DashboardTab({ c, setTab }) {
-    const [stats, setStats] = useState({ apps: null, inquiries: null, errors: null, sessions: null });
+    const [data, setData] = useState({
+      apps: null, inquiries: null, errors: null, members: null,
+      ana7: null, ana30: null, dailySeries: [], weeklySeries: [],
+      topPaths: [], sources: [], consents: null,
+    });
     const [recentApps, setRecentApps] = useState([]);
+    const [recentInq, setRecentInq] = useState([]);
     const [recentErrors, setRecentErrors] = useState([]);
+    const [recentMembers, setRecentMembers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -1758,65 +2040,244 @@
         get('/api/inquiries'),
         get('/api/errors?limit=100'),
         get('/api/analytics/summary?days=7'),
-      ]).then(([apps, inq, errs, ana]) => {
-        setStats({
+        get('/api/analytics/summary?days=30'),
+        get('/api/admin/users'),
+        get('/api/consents?days=30'),
+      ]).then(([apps, inq, errs, ana7, ana30, users, cons]) => {
+        const daily = ana30?.daily || [];
+        // Build week-over-week series: total sessions per ISO week (last 8 weeks)
+        const weekMap = new Map();
+        daily.forEach(d => {
+          const dt = new Date(d.day + 'T00:00:00Z');
+          const monday = new Date(dt);
+          monday.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+          const key = monday.toISOString().slice(0, 10);
+          weekMap.set(key, (weekMap.get(key) || 0) + (d.sessions || 0));
+        });
+        const weeks = [...weekMap.entries()].sort().slice(-8).map(([day, sessions]) => ({ day, sessions }));
+
+        setData({
           apps: apps?.items?.length ?? 0,
           inquiries: inq?.items?.length ?? 0,
           errors: errs?.items?.length ?? 0,
-          sessions: ana?.totals?.sessions ?? 0,
+          members: users?.items?.length ?? 0,
+          ana7: ana7?.totals || null,
+          ana30: ana30?.totals || null,
+          dailySeries: daily.slice(-14),
+          weeklySeries: weeks,
+          topPaths: (ana30?.top_paths || []).slice(0, 6),
+          sources: ana30?.sources || [],
+          consents: cons?.items?.length ?? 0,
         });
         setRecentApps((apps?.items || []).slice(0, 5));
+        setRecentInq((inq?.items || []).slice(0, 5));
         setRecentErrors((errs?.items || []).slice(0, 5));
+        setRecentMembers((users?.items || []).slice(0, 5));
         setLoading(false);
       });
     }, []);
 
-    const Card = ({ label, value, accent = 'var(--midnight-purple)' }) => (
-      <div className="card" style={{margin:0,padding:'18px 22px',display:'flex',flexDirection:'column',gap:6}}>
+    // Compute trend % between last 7 days and prior 7 days from daily series
+    const trend = (() => {
+      if (data.dailySeries.length < 14) return null;
+      const last7 = data.dailySeries.slice(-7).reduce((s, d) => s + (d.sessions || 0), 0);
+      const prev7 = data.dailySeries.slice(-14, -7).reduce((s, d) => s + (d.sessions || 0), 0);
+      if (prev7 === 0) return null;
+      return Math.round(((last7 - prev7) / prev7) * 100);
+    })();
+
+    const Stat = ({ label, value, accent = 'var(--midnight-purple)', sub, onClick }) => (
+      <div className="card" onClick={onClick} style={{margin:0,padding:'18px 22px',display:'flex',flexDirection:'column',gap:4,cursor:onClick?'pointer':'default'}}>
         <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)'}}>{label}</span>
-        <span style={{fontFamily:'var(--font-en)',fontSize:32,fontWeight:700,color:accent,lineHeight:1}}>{value === null ? '…' : value}</span>
+        <span style={{fontFamily:'var(--font-en)',fontSize:30,fontWeight:700,color:accent,lineHeight:1}}>{value === null ? '…' : value.toLocaleString()}</span>
+        {sub && <span style={{fontSize:11,color:'var(--fg-muted)',marginTop:2}}>{sub}</span>}
       </div>
     );
 
-    const Quick = ({ id, label }) => (
-      <button type="button" onClick={() => setTab(id)} style={{textAlign:'left',padding:'14px 18px',background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--fg-primary)',cursor:'pointer',fontFamily:'inherit'}}>
-        {label} <span style={{color:'var(--fg-muted)',fontWeight:400}}>→</span>
+    // Inline SVG sparkline from a series of {day, sessions}
+    function Spark({ series, color = '#622599', height = 36 }) {
+      if (!series.length) return <div style={{height,display:'grid',placeItems:'center',color:'var(--fg-muted)',fontSize:11}}>no data</div>;
+      const w = 200;
+      const max = Math.max(1, ...series.map(d => d.sessions || 0));
+      const step = w / Math.max(1, series.length - 1);
+      const points = series.map((d, i) => `${(i*step).toFixed(1)},${(height - (d.sessions/max)*(height-4) - 2).toFixed(1)}`).join(' ');
+      return (
+        <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{width:'100%',height,display:'block'}}>
+          <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {series.map((d, i) => (
+            <circle key={i} cx={(i*step).toFixed(1)} cy={(height - (d.sessions/max)*(height-4) - 2).toFixed(1)} r="1.6" fill={color} />
+          ))}
+        </svg>
+      );
+    }
+
+    const Quick = ({ id, label, icon }) => (
+      <button type="button" onClick={() => setTab(id)} style={{textAlign:'left',padding:'14px 18px',background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--fg-primary)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:10,transition:'all 120ms'}}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--scouting-purple)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.transform = 'none'; }}>
+        <i data-lucide={icon} width="16" height="16" style={{color:'var(--scouting-purple)'}} />
+        <span style={{flex:1}}>{label}</span>
+        <span style={{color:'var(--fg-muted)',fontWeight:400}}>→</span>
       </button>
     );
 
+    const programsCount = (c.programs || []).length;
+    const partnersCount = (c.partners || []).length;
+    const storiesCount = (c.stories || []).length;
+    const newsCount = 0; // news is in D1; dashboard doesn't fetch — placeholder
+
+    const trendBadge = trend === null ? null : (
+      <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:999,background:trend>=0?'#DCFCE7':'#FEE2E2',color:trend>=0?'#166534':'#B91C1C'}}>
+        {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}% vs prev 7d
+      </span>
+    );
+
+    const errorAccent = data.errors > 5 ? '#B91C1C' : data.errors > 0 ? '#92400E' : 'var(--forest-green)';
+
     return (
       <>
+        {/* Hero — version + sync time + open site */}
         <div className="card" style={{background:'linear-gradient(135deg, #1E0B33 0%, #4D006E 100%)',color:'#fff',border:'none'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:20,flexWrap:'wrap'}}>
             <div>
-              <div style={{fontSize:12,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'rgba(255,255,255,0.6)',marginBottom:6}}>KoreaDreamPath</div>
-              <div style={{fontFamily:'var(--font-en)',fontSize:28,fontWeight:700,letterSpacing:'-0.02em'}}>v {window.DREAMPATH_VERSION || '00.000.00'}</div>
-              <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginTop:6}}>Last sync · {new Date().toLocaleString()}</div>
+              <div style={{fontSize:12,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'rgba(255,255,255,0.6)',marginBottom:6}}>KoreaDreamPath · Admin Console</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:30,fontWeight:700,letterSpacing:'-0.02em'}}>v {window.DREAMPATH_VERSION || '00.000.00'}</div>
+              <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginTop:6}}>
+                {data.errors > 0
+                  ? <span style={{color:'#FFD2D1'}}>● {data.errors} error{data.errors===1?'':'s'} logged in last 100 events</span>
+                  : <span style={{color:'#9FF5C6'}}>● All systems healthy · last 100 events clean</span>}
+              </div>
             </div>
-            <a href="/" target="_blank" rel="noopener" style={{padding:'12px 22px',background:'#FFE600',color:'var(--midnight-purple)',borderRadius:10,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
+            <div style={{display:'flex',gap:10}}>
+              <a href="/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'#FFE600',color:'var(--midnight-purple)',borderRadius:8,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
+              <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'rgba(255,255,255,0.1)',color:'#fff',borderRadius:8,fontWeight:600,textDecoration:'none',fontSize:13,border:'1px solid rgba(255,255,255,0.2)'}}>Cloudflare ↗</a>
+            </div>
           </div>
         </div>
 
+        {/* Top-line counts */}
         <div className="grid-4" style={{marginBottom:18}}>
-          <Card label="Applications" value={stats.apps} />
-          <Card label="Inquiries" value={stats.inquiries} accent="#622599" />
-          <Card label="Sessions (7d)" value={stats.sessions} accent="#0094B4" />
-          <Card label="Error logs" value={stats.errors} accent={stats.errors > 0 ? '#B91C1C' : 'var(--forest-green)'} />
+          <Stat label="Members" value={data.members} sub="Registered users" onClick={() => setTab('members')} />
+          <Stat label="Applications" value={data.apps} accent="#622599" sub="All-time submissions" onClick={() => setTab('apps')} />
+          <Stat label="Inquiries" value={data.inquiries} accent="#0094B4" sub="Contact-form messages" onClick={() => setTab('inquiries')} />
+          <Stat label="Error logs" value={data.errors} accent={errorAccent} sub="Last 100 reports" onClick={() => setTab('error_logs')} />
         </div>
 
+        {/* Marketing block — daily/weekly visitors + trend */}
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:14,gap:14}}>
+            <h3 style={{margin:0}}>Marketing snapshot</h3>
+            {trendBadge}
+          </div>
+          <div className="grid-4" style={{marginBottom:14}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Sessions · 7d</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--midnight-purple)',lineHeight:1}}>{(data.ana7?.sessions ?? 0).toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Pageviews · 7d</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--midnight-purple)',lineHeight:1}}>{(data.ana7?.pageviews ?? 0).toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Sessions · 30d</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--scouting-purple)',lineHeight:1}}>{(data.ana30?.sessions ?? 0).toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Logged-in users · 30d</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--scouting-purple)',lineHeight:1}}>{(data.ana30?.users ?? 0).toLocaleString()}</div>
+            </div>
+          </div>
+          <div className="grid-2" style={{gap:14}}>
+            <div style={{padding:14,background:'var(--bg-muted)',borderRadius:10}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:8}}>Daily sessions · last 14 days</div>
+              <Spark series={data.dailySeries} color="#622599" height={48} />
+              <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
+                <span>{data.dailySeries[0]?.day || ''}</span>
+                <span>{data.dailySeries[data.dailySeries.length-1]?.day || ''}</span>
+              </div>
+            </div>
+            <div style={{padding:14,background:'var(--bg-muted)',borderRadius:10}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:8}}>Weekly sessions · last 8 weeks</div>
+              <Spark series={data.weeklySeries} color="#0094B4" height={48} />
+              <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
+                <span>w/c {data.weeklySeries[0]?.day || ''}</span>
+                <span>w/c {data.weeklySeries[data.weeklySeries.length-1]?.day || ''}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{marginTop:14,textAlign:'right'}}>
+            <button type="button" className="icon-btn" onClick={() => setTab('analytics')}>Open analytics →</button>
+          </div>
+        </div>
+
+        {/* Top pages + traffic sources */}
+        <div className="grid-2">
+          <div className="card">
+            <h3>Top pages · 30d</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : data.topPaths.length === 0 ? <p className="desc">No pageviews yet.</p>
+             : (
+              <table className="apps-table" style={{fontSize:12}}>
+                <thead><tr><th>Path</th><th style={{textAlign:'right'}}>Hits</th><th style={{textAlign:'right'}}>Sessions</th></tr></thead>
+                <tbody>
+                  {data.topPaths.map((p, i) => (
+                    <tr key={i}>
+                      <td><code style={{fontFamily:'var(--font-mono)',fontSize:11}}>{p.path}</code></td>
+                      <td style={{textAlign:'right',fontFamily:'var(--font-mono)'}}>{(p.hits||0).toLocaleString()}</td>
+                      <td style={{textAlign:'right',fontFamily:'var(--font-mono)'}}>{(p.sessions||0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div className="card">
+            <h3>Traffic sources · 30d</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : data.sources.length === 0 ? <p className="desc">No data yet.</p>
+             : (
+              <table className="apps-table" style={{fontSize:12}}>
+                <thead><tr><th>Source</th><th style={{textAlign:'right'}}>Hits</th><th style={{textAlign:'right'}}>Sessions</th></tr></thead>
+                <tbody>
+                  {data.sources.slice(0,8).map((s, i) => (
+                    <tr key={i}>
+                      <td style={{fontWeight:600}}>{s.source || 'direct'}</td>
+                      <td style={{textAlign:'right',fontFamily:'var(--font-mono)'}}>{(s.hits||0).toLocaleString()}</td>
+                      <td style={{textAlign:'right',fontFamily:'var(--font-mono)'}}>{(s.sessions||0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* Content inventory + GDPR */}
+        <div className="grid-4" style={{marginBottom:18}}>
+          <Stat label="Programs" value={programsCount} accent="#248737" sub="Editable in CMS" onClick={() => setTab('programs')} />
+          <Stat label="Partners" value={partnersCount} accent="#248737" sub="Logos & names" onClick={() => setTab('partners')} />
+          <Stat label="Stories" value={storiesCount} accent="#248737" sub="Learner testimonials" onClick={() => setTab('stories')} />
+          <Stat label="Consents · 30d" value={data.consents} accent="#0094B4" sub="GDPR audit trail" onClick={() => setTab('consent_log')} />
+        </div>
+
+        {/* Quick actions */}
         <div className="card">
           <h3>Quick actions</h3>
           <p className="desc">Jump into the things you most often manage.</p>
           <div className="grid-3">
-            <Quick id="apps" label="📋 Review applications" />
-            <Quick id="inquiries" label="✉️ Read inquiries" />
-            <Quick id="programs" label="🎓 Edit programs" />
-            <Quick id="og_images" label="🖼️ OG / SEO images" />
-            <Quick id="errors_copy" label="⚠️ Error pages" />
-            <Quick id="analytics" label="📈 Analytics" />
+            <Quick id="apps" label="Review applications" icon="clipboard-check" />
+            <Quick id="inquiries" label="Read inquiries" icon="mail" />
+            <Quick id="members" label="Member directory" icon="users" />
+            <Quick id="programs" label="Edit programs" icon="graduation-cap" />
+            <Quick id="og_images" label="OG / SEO images" icon="image" />
+            <Quick id="errors_copy" label="Error pages" icon="alert-triangle" />
+            <Quick id="analytics" label="Analytics deep-dive" icon="bar-chart-3" />
+            <Quick id="member_roles" label="Roles & permissions" icon="shield-check" />
+            <Quick id="wiki_kms" label="KMS wiki" icon="book-open" />
           </div>
         </div>
 
+        {/* Recent activity — 4 columns */}
         <div className="grid-2">
           <div className="card">
             <h3>Recent applications</h3>
@@ -1835,6 +2296,48 @@
                 ))}
               </ul>
             )}
+            <div style={{textAlign:'right',marginTop:8}}>
+              <button type="button" className="icon-btn" onClick={() => setTab('apps')}>View all →</button>
+            </div>
+          </div>
+          <div className="card">
+            <h3>Recent inquiries</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : recentInq.length === 0 ? <p className="desc">No inquiries yet.</p>
+             : (
+              <ul style={{listStyle:'none',margin:0,padding:0}}>
+                {recentInq.map(i => (
+                  <li key={i.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-hair)'}}>
+                    <div style={{fontWeight:600,fontSize:13}}>{i.subject || i.topic || '—'}</div>
+                    <div style={{fontSize:12,color:'var(--fg-muted)'}}>{i.email || '—'} · {i.created_at ? new Date(i.created_at).toLocaleString() : ''}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{textAlign:'right',marginTop:8}}>
+              <button type="button" className="icon-btn" onClick={() => setTab('inquiries')}>View all →</button>
+            </div>
+          </div>
+          <div className="card">
+            <h3>Newest members</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : recentMembers.length === 0 ? <p className="desc">No members yet.</p>
+             : (
+              <ul style={{listStyle:'none',margin:0,padding:0}}>
+                {recentMembers.map(m => (
+                  <li key={m.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-hair)',display:'flex',justifyContent:'space-between',gap:12}}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:13}}>{m.name || m.email}</div>
+                      <div style={{fontSize:11,color:'var(--fg-muted)'}}>{m.role} · {m.email}</div>
+                    </div>
+                    <div style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap'}}>{m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{textAlign:'right',marginTop:8}}>
+              <button type="button" className="icon-btn" onClick={() => setTab('members')}>View all →</button>
+            </div>
           </div>
           <div className="card">
             <h3>Recent error logs</h3>
@@ -1850,6 +2353,9 @@
                 ))}
               </ul>
             )}
+            <div style={{textAlign:'right',marginTop:8}}>
+              <button type="button" className="icon-btn" onClick={() => setTab('error_logs')}>View all →</button>
+            </div>
           </div>
         </div>
       </>
@@ -3415,6 +3921,7 @@
       error_logs: ErrorLogsTab, consent_log: ConsentLogTab,
       legal: LegalTab, api_dir: ApiDirectoryTab,
       apps: ApplicationsTab,
+      members: MembersTab, member_roles: MemberRolesTab,
     }[tab];
 
     const activeTab = TABS.find(tt => tt.id === tab);
@@ -3464,14 +3971,36 @@
             <span className="ver-num">{version}</span>
           </div>
           <nav className="groups" aria-label="Admin groups">
-            {groups.map(g => (
-              <button key={g} type="button"
-                className={'group' + (g === activeGroupId ? ' active' : '')}
-                onClick={() => selectGroup(g)}
-                aria-current={g === activeGroupId ? 'page' : undefined}>
-                {t.group[g] || g}
-              </button>
-            ))}
+            {groups.map(g => {
+              const active = g === activeGroupId;
+              const childTabs = TABS.filter(tt => tt.group === g);
+              const icon = GROUP_ICONS[g] || 'circle';
+              return (
+                <div className="grp" key={g}>
+                  <button type="button"
+                    className={'group' + (active ? ' active' : '')}
+                    onClick={() => selectGroup(g)}
+                    aria-current={active ? 'page' : undefined}
+                    aria-expanded={active ? 'true' : 'false'}>
+                    <i data-lucide={icon} className="gicon" />
+                    <span className="glabel">{t.group[g] || g}</span>
+                    <span className="gcount">{childTabs.length}</span>
+                  </button>
+                  {active && childTabs.length > 1 && (
+                    <div className="subnav" role="group" aria-label={`${t.group[g] || g} sub-tabs`}>
+                      {childTabs.map(tt => (
+                        <button key={tt.id} type="button"
+                          className={'subtab-side' + (tab === tt.id ? ' active' : '')}
+                          onClick={() => setTab(tt.id)}
+                          aria-current={tab === tt.id ? 'page' : undefined}>
+                          {t.tab[tt.id] || tt.id}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
           <div className="actions">
             <button type="button" className="danger" onClick={onReset}>{t.action.reset}</button>

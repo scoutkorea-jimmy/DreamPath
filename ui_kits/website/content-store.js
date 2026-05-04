@@ -287,6 +287,51 @@
 `<p>We collect entry source, pageviews, and click patterns under an anonymous session id. This data is never combined with identifying details (name/email). IP addresses are used only to estimate country; the last octet is masked after 7 days.</p>` },
       },
     },
+    // ─── Member roles & permissions matrix ──────────────────────────────
+    // Authored in admin → Members → Roles & permissions. Backend
+    // enforcement is a follow-up; today this is policy-only.
+    member_roles: {
+      roles: [
+        {
+          id: 'member',
+          label_ko: '회원',
+          label_en: 'Member',
+          pages: {
+            home: { view: true },
+            about: { view: true },
+            programs: { view: true, apply: true },
+            scholarships: { view: true, apply: true },
+            apply: { view: true, apply: true },
+            partners: { view: true },
+            stories: { view: true, comment: true },
+            news: { view: true },
+            contact: { view: true },
+            team: { view: true },
+            member: { view: true, edit_own: true },
+            receipt: { view: true },
+          },
+        },
+        {
+          id: 'admin',
+          label_ko: '관리자',
+          label_en: 'Admin',
+          pages: {
+            home: { view: true, edit_others: true },
+            about: { view: true, edit_others: true },
+            programs: { view: true, apply: true, edit_others: true },
+            scholarships: { view: true, apply: true, edit_others: true },
+            apply: { view: true, apply: true, edit_others: true },
+            partners: { view: true, edit_others: true },
+            stories: { view: true, comment: true, edit_others: true },
+            news: { view: true, edit_others: true },
+            contact: { view: true, edit_others: true },
+            team: { view: true, edit_others: true },
+            member: { view: true, edit_own: true, edit_others: true },
+            receipt: { view: true, edit_others: true },
+          },
+        },
+      ],
+    },
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
       enabled: true,

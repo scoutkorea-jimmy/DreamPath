@@ -42,6 +42,10 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
   const c = useContentForLegal();
   const tosDoc = c && c.legal && c.legal.tos;
   const privacyDoc = c && c.legal && c.legal.privacy_signup;
+  // Only gate signup on consents that actually have a document to consent TO.
+  // If a legal doc is missing (KV mis-save, schema in flux), don't deadlock the
+  // user behind a checkbox that was never rendered.
+  const consentsOk = (!tosDoc || agreeTos) && (!privacyDoc || agreePrivacy);
 
   useEffectAu(() => {
     if (open) {
@@ -56,7 +60,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
-    if (mode === 'signup' && (!agreeTos || !agreePrivacy)) {
+    if (mode === 'signup' && !consentsOk) {
       setErr(isKo ? '필수 약관에 모두 동의해 주세요.' : 'Please agree to all required terms.');
       return;
     }
@@ -119,7 +123,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
             </div>
           )}
           {err && <div className="auth-err" role="alert">{err}</div>}
-          <button type="submit" className="btn btn-primary btn-block" disabled={busy || (mode === 'signup' && (!agreeTos || !agreePrivacy))}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
             {busy ? (isKo ? '처리 중…' : 'Working…') : (mode === 'signup' ? (isKo ? '가입하기' : 'Create account') : (isKo ? '로그인' : 'Log in'))}
           </button>
         </form>

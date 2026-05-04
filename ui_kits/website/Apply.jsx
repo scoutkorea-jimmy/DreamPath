@@ -8,13 +8,34 @@ function blankRecommender() {
 //   2) basic info + academic
 //   3) essays (2 questions) + scout recommender (optional, with PDF upload)
 //   4) track + payment
-const { useState: useStateA } = React;
+const { useState: useStateA, useEffect: useEffectA } = React;
+
+// Apply form draft persistence — sessionStorage so a refresh / accidental
+// navigation doesn't wipe the user's work mid-application. Cleared after
+// successful submit. Per-tab (sessionStorage) so one tab's draft doesn't
+// leak into another visitor on a shared device.
+const APPLY_DRAFT_KEY = 'dp_apply_draft_v1';
+function loadApplyDraft() {
+  try {
+    const raw = sessionStorage.getItem(APPLY_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+function saveApplyDraft(form, step) {
+  try { sessionStorage.setItem(APPLY_DRAFT_KEY, JSON.stringify({ form, step, ts: Date.now() })); }
+  catch {}
+}
+function clearApplyDraft() {
+  try { sessionStorage.removeItem(APPLY_DRAFT_KEY); } catch {}
+}
 
 function Apply({ lang, c }) {
   const isKo = lang === 'ko';
-  const [step, setStep] = useStateA(0);
+  const _restored = loadApplyDraft();
+  const [step, setStep] = useStateA(_restored?.step || 0);
   const [docOpen, setDocOpen] = useStateA(null);
-  const [form, setForm] = useStateA({
+  const [form, setForm] = useStateA(_restored?.form || {
     // step 0 — consent
     consent_personal: false,
     consent_third_party: false,
@@ -38,6 +59,15 @@ function Apply({ lang, c }) {
     program: (c && c.programs && c.programs[0] && c.programs[0].id) || 'korean-studies',
     payment_method: 'card', card_last4: '',
   });
+  // Auto-save draft to sessionStorage on every form / step change.
+  useEffectA(() => { saveApplyDraft(form, step); }, [form, step]);
+  // One-time toast: tell the visitor their draft was restored.
+  const [draftToast, setDraftToast] = useStateA(!!_restored);
+  useEffectA(() => {
+    if (!draftToast) return;
+    const t = setTimeout(() => setDraftToast(false), 5000);
+    return () => clearTimeout(t);
+  }, [draftToast]);
   const [submitted, setSubmitted] = useStateA(false);
   const [appId, setAppId] = useStateA('');
   const [receiptUrl, setReceiptUrl] = useStateA('');
@@ -112,6 +142,9 @@ function Apply({ lang, c }) {
       setReceiptUrl(data.receipt_url || '');
       setSubmitted(true);
       setStep(5);
+      // Application submitted — wipe the local draft so a refresh on the
+      // success screen doesn't put the user back at step 0 with stale data.
+      clearApplyDraft();
 
       // GDPR audit trail — record both consents tied to this application
       const privacyDoc = c && c.legal && c.legal.privacy_apply;
@@ -195,6 +228,16 @@ function Apply({ lang, c }) {
 
       <section className="section">
         <div className="container-narrow">
+          {draftToast && (
+            <div role="status" aria-live="polite"
+              style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 16px',marginBottom:14,background:'var(--state-info-bg)',color:'var(--state-info)',borderRadius:10,fontSize:14,fontWeight:600}}>
+              <span>{isKo ? '↻ 작성 중이던 지원서를 복원했습니다.' : '↻ Restored your in-progress application.'}</span>
+              <button type="button" onClick={() => { clearApplyDraft(); window.location.reload(); }}
+                style={{background:'none',border:'1px solid currentColor',borderRadius:6,padding:'4px 10px',color:'inherit',cursor:'pointer',fontSize:12,fontWeight:600}}>
+                {isKo ? '처음부터 다시' : 'Start over'}
+              </button>
+            </div>
+          )}
           <div className="apply-card">
             <div className="step-indicator" aria-hidden="true">
               {steps.map((s, i) => (

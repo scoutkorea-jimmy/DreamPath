@@ -85,7 +85,22 @@ function Nav({ view, go, lang, setLang, c }) {
   function openAuth(mode) {
     window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode } }));
     setMenuOpen(false);
+    setMobileOpen(false);
   }
+
+  // Mobile slide-in panel state. Opens on hamburger tap; closes on link
+  // navigation, on overlay click, or on Esc.
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileOpen(false); };
+    document.addEventListener('keydown', onKey);
+    // Lock body scroll while the panel is up.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [mobileOpen]);
+  function mobileGo(viewId, opts) { setMobileOpen(false); go(viewId, null, opts); }
 
   return (
     <nav className="nav" aria-label={isKo ? '주요 메뉴' : 'Primary navigation'}>
@@ -147,8 +162,73 @@ function Nav({ view, go, lang, setLang, c }) {
               )}
             </div>
           )}
+
+          {/* Hamburger — only visible below 900px (CSS-driven). */}
+          <button
+            type="button"
+            className="nav-burger"
+            aria-label={isKo ? '메뉴 열기' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(true)}>
+            <i data-lucide="menu" width="22" height="22" strokeWidth="2" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
+
+      {/* Mobile slide-in panel — mirrors the desktop MENU structure. */}
+      {mobileOpen && (
+        <div className="mobile-nav-overlay" onClick={() => setMobileOpen(false)} role="presentation">
+          <div className="mobile-nav-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={isKo ? '주요 메뉴' : 'Primary navigation'}>
+            <div className="mobile-nav-head">
+              <strong style={{fontFamily:'var(--font-en)',fontSize:18,letterSpacing:'-0.01em'}}>{c.brand.wordmark_mark || 'KoreaDream'}<span style={{color:'var(--scouting-purple)'}}>{c.brand.wordmark_accent || 'Path'}</span></strong>
+              <button type="button" className="mobile-nav-close" onClick={() => setMobileOpen(false)} aria-label={isKo ? '메뉴 닫기' : 'Close menu'}>
+                <i data-lucide="x" width="22" height="22" strokeWidth="2" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div className="mobile-nav-body">
+              {MENU.map((item, i) => {
+                if (item.children) {
+                  return (
+                    <React.Fragment key={i}>
+                      <div className="mobile-nav-section">{item.label}</div>
+                      {item.children.filter(k => !k.divider).map((kid, j) => (
+                        <button key={j} type="button"
+                          className={'mobile-nav-link' + (kid.view === view ? ' active' : '')}
+                          onClick={() => mobileGo(kid.view, kid.opts)}>
+                          {kid.label}
+                          <i data-lucide="chevron-right" width="16" height="16" style={{color:'var(--fg-muted)'}} aria-hidden="true"></i>
+                        </button>
+                      ))}
+                    </React.Fragment>
+                  );
+                }
+                return (
+                  <button key={i} type="button"
+                    className={'mobile-nav-link' + (item.parentViews.includes(view) ? ' active' : '')}
+                    onClick={() => mobileGo(item.view)}>
+                    {item.label}
+                    <i data-lucide="chevron-right" width="16" height="16" style={{color:'var(--fg-muted)'}} aria-hidden="true"></i>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mobile-nav-foot">
+              {auth.ready && !auth.user && (
+                <>
+                  <button type="button" className="btn btn-secondary btn-block" onClick={() => openAuth('login')}>{isKo ? '로그인' : 'Log in'}</button>
+                  <button type="button" className="btn btn-primary btn-block" onClick={() => openAuth('signup')}>{isKo ? '회원가입' : 'Sign up'}</button>
+                </>
+              )}
+              {auth.ready && auth.user && (
+                <>
+                  <button type="button" className="btn btn-secondary btn-block" onClick={() => mobileGo('member')}>{isKo ? '내 페이지' : 'My page'}</button>
+                  <button type="button" className="btn btn-ghost btn-block" onClick={async () => { setMobileOpen(false); await auth.logout(); }}>{isKo ? '로그아웃' : 'Log out'}</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

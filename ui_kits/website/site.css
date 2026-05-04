@@ -842,3 +842,61 @@ body {
   .news-item { grid-template-columns: auto 1fr; }
   .news-date { display: none; }
 }
+
+/* ============ MOBILE NAV (hamburger + slide-in panel) ============
+   Below 900px the desktop .nav-links is hidden (rule above). The hamburger
+   button appears, and tapping it overlays a panel mirroring the desktop
+   menu structure. The panel is 100vw on phones, 360px max on landscape /
+   wide phones so it doesn't fully hide the page underneath. */
+.nav-burger { display: none; background: none; border: none; cursor: pointer; padding: 6px; color: var(--fg-primary); border-radius: 8px; }
+.nav-burger:hover { background: var(--bg-muted); }
+@media (max-width: 900px) {
+  .nav-burger { display: inline-flex; align-items: center; justify-content: center; }
+}
+
+.mobile-nav-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.42);
+  animation: dp-fade-in 160ms var(--ease-out);
+}
+.mobile-nav-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(360px, 100vw);
+  background: var(--bg-elevated); color: var(--fg-primary);
+  display: flex; flex-direction: column;
+  box-shadow: -16px 0 40px rgba(0,0,0,0.20);
+  animation: dp-slide-in 220ms var(--ease-out);
+  overflow-y: auto;
+}
+.mobile-nav-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--border-hair);
+}
+.mobile-nav-close {
+  background: none; border: none; cursor: pointer; padding: 8px;
+  color: var(--fg-secondary); border-radius: 8px;
+}
+.mobile-nav-close:hover { background: var(--bg-muted); color: var(--fg-primary); }
+.mobile-nav-body { flex: 1; padding: 12px 0; }
+.mobile-nav-section { padding: 14px 8px 6px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-muted); }
+.mobile-nav-link {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer; font: inherit;
+  padding: 13px 20px; font-size: 16px; color: var(--fg-primary); text-align: left;
+  border-radius: 0;
+}
+.mobile-nav-link:hover { background: var(--bg-muted); }
+.mobile-nav-link.active { color: var(--brand-text); font-weight: 700; }
+.mobile-nav-foot {
+  padding: 18px 20px; border-top: 1px solid var(--border-hair);
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+@keyframes dp-slide-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes dp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

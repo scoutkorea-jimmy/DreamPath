@@ -24,9 +24,12 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    const isHead = request.method.toUpperCase() === 'HEAD';
+    const headStrip = (resp) => isHead ? new Response(null, { status: resp.status, headers: resp.headers }) : resp;
+
     if (url.pathname.startsWith('/api/')) {
       try {
-        return await handleApi(request, env, url);
+        return headStrip(await handleApi(request, env, url));
       } catch (err) {
         // Log every uncaught server error to D1 for the admin error console
         ctx.waitUntil(logError(env, {
@@ -43,11 +46,11 @@ export default {
     }
 
     // SEO endpoints
-    if (url.pathname === '/sitemap.xml')  return sitemapXml(env, url);
-    if (url.pathname === '/robots.txt')   return robotsTxt(url);
+    if (url.pathname === '/sitemap.xml')  return headStrip(await sitemapXml(env, url));
+    if (url.pathname === '/robots.txt')   return headStrip(await robotsTxt(url));
 
     // Friendly URL → real asset path. Use the same Request (preserves headers,
-    // method) but with a rewritten URL.
+    // method) but with a rewritten URL. ASSETS binding handles HEAD natively.
     if (ADMIN_PATHS.has(url.pathname)) {
       return env.ASSETS.fetch(rewriteRequest(request, SITE_ADMIN));
     }
@@ -148,7 +151,27 @@ function robotsTxt(url) {
 
 async function handleApi(request, env, url) {
   const path = url.pathname;
-  const method = request.method.toUpperCase();
+  let method = request.method.toUpperCase();
+
+  // HEAD === GET with no body (RFC 9110 §9.3.2). Treat HEAD as GET while
+  // routing, then strip the body in the entry-point wrapper. Without this
+  // we 404/405 health monitors, link checkers, and `curl -I`.
+  if (method === 'HEAD') method = 'GET';
+
+  // Permissive OPTIONS preflight on every /api/* path so external pages can
+  // hit our public endpoints from the browser. The /api/public/* handlers
+  // further down keep their own returns as a defensive belt-and-braces.
+  if (method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD',
+        'access-control-allow-headers': 'authorization, content-type',
+        'access-control-max-age': '86400',
+      },
+    });
+  }
 
   // ── Content ──────────────────────────────────────────────────────────────
   if (path === '/api/content') {

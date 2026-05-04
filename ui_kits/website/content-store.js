@@ -376,6 +376,92 @@
     },
     // ─── About page ────────────────────────────────────────────────────
     about: {
+      // === Executive Summary structure (the layout the public /about page actually renders).
+      // Each piece is editable from admin → Pages → About 페이지. Legacy mission/team
+      // fields below are kept for backward compatibility with old KV blobs but
+      // no longer rendered by About.jsx.
+      exec: {
+        hero: {
+          kicker_ko: '프로젝트 소개 · Executive Summary',
+          kicker_en: 'ABOUT · EXECUTIVE SUMMARY',
+          title_ko: 'Dream Path는 한국어 교육 접근성을\n넓히기 위해 설계된 구조적 국제교육 이니셔티브입니다.',
+          title_en: 'A structured international education initiative\ndesigned to expand access to Korean language education.',
+          body_ko: 'Dream Path는 한국어 교육에 대한 접근성을 확대하고, 글로벌 차원의 참여를 강화하기 위해 설계된 구조적 국제교육 이니셔티브입니다.',
+          body_en: 'Dream Path is a structured international education initiative designed to expand access to Korean language education and enhance global engagement.',
+        },
+        blocks: [
+          {
+            kicker_ko: '정책 정합성', kicker_en: 'POLICY ALIGNMENT',
+            heading_ko: '국가 교육 정책과의 정합성', heading_en: 'Aligned with national education policy',
+            items_ko: [
+              '한국 교육의 국제화를 지원',
+              '한국어 학습의 글로벌 확산',
+              'K-컬처를 통한 소프트파워 기여',
+              '평생학습 및 디지털 교육 정책과 정합',
+            ],
+            items_en: [
+              'Supports internationalization of Korean education',
+              'Expands Korean language learning globally',
+              'Contributes to soft power through K-culture',
+              'Aligns with lifelong learning and digital education policies',
+            ],
+          },
+          {
+            kicker_ko: '핵심 특징', kicker_en: 'KEY FEATURES',
+            heading_ko: '운영 원칙', heading_en: 'Operating principles',
+            items_ko: [
+              '정부가 인정하는 학술 파트너',
+              '구조화된 마이크로 디그리 시스템',
+              '투명한 커뮤니케이션 (보장 표현 사용 금지)',
+              '학습자 보호 프레임워크',
+            ],
+            items_en: [
+              'Government-recognized academic partner',
+              'Structured micro-degree system',
+              'Transparent communication (no guarantee claims)',
+              'Learner protection framework',
+            ],
+          },
+          {
+            kicker_ko: '기대 효과', kicker_en: 'EXPECTED IMPACT',
+            heading_ko: '장기적 임팩트', heading_en: 'Long-term impact',
+            items_ko: [
+              '글로벌 한국어 학습자 확대',
+              '한국 연계 교육 생태계 강화',
+              '국제 학생 파이프라인 확장',
+              '인력 이동성에 대한 장기적 기여',
+            ],
+            items_en: [
+              'Increased global Korean language adoption',
+              'Strengthened Korea-linked education ecosystem',
+              'Expanded international student pipeline',
+              'Long-term contribution to workforce mobility',
+            ],
+          },
+          {
+            kicker_ko: '컴플라이언스 접근', kicker_en: 'COMPLIANCE APPROACH',
+            heading_ko: '경계의 명확화', heading_en: 'Clear boundaries',
+            items_ko: [
+              '비자/취업 보장과의 명확한 분리',
+              '공식 채널과의 정합 (EPS, Study in Korea)',
+              '투명한 학습자 커뮤니케이션',
+            ],
+            items_en: [
+              'Clear separation from visa/employment guarantees',
+              'Alignment with official channels (EPS, Study in Korea)',
+              'Transparent learner communication',
+            ],
+          },
+        ],
+        closing: {
+          kicker_ko: '전략적 가치', kicker_en: 'STRATEGIC VALUE',
+          title_ko: 'Dream Path는 글로벌 학습자가\n한국과 만나는 준비된 생태계입니다.',
+          title_en: 'Dream Path is a preparatory ecosystem\nfor global learners to engage with Korea.',
+          body_ko: 'Dream Path는 글로벌 학습자가 구조화된 교육 경로를 통해 한국과 연결될 수 있도록 돕는 준비 생태계(preparatory ecosystem) 역할을 수행합니다.',
+          body_en: 'Dream Path serves as a preparatory ecosystem that enables global learners to engage with Korea through structured educational pathways.',
+        },
+      },
+      // === Legacy fields (no longer rendered, kept for KV migration safety) ===
       hero: {
         ko: { kicker: '프로젝트 소개', title_l1: '교육 접근성은, 이미', title_l2: '존재하는 네트워크 위에서.',
               sub: 'DreamPath TF는 월드스카우트 네트워크를 학습자 파이프라인으로 전환하는 독립 이니셔티브입니다. CUFS와 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },

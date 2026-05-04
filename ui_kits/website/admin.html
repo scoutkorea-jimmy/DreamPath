@@ -3066,47 +3066,117 @@
   // but team content moved to its own /team page (Pages → Project team, c.project_team).
   // Those legacy fields were removed from this tab on 2026-05-04 to stop confusing
   // operators with knobs that no longer rendered anywhere.
-  function AboutTab({ c, set }) {
-    const a = c.about || {};
+  // About page editor — Executive Summary structure (c.about.exec).
+  // Hero on top, four content blocks (kicker + heading + bullet items),
+  // and a closing strategic-value section. Each block's items are stored
+  // as parallel ko/en arrays so adding a bullet adds one to both.
+  function AboutTab({ c, set, addItem, removeItem }) {
+    const ex = (c.about && c.about.exec) || {};
+    const blocks = Array.isArray(ex.blocks) ? ex.blocks : [];
+
+    function addBlock() {
+      addItem(['about','exec','blocks'], {
+        kicker_ko: '새 섹션', kicker_en: 'NEW SECTION',
+        heading_ko: '제목', heading_en: 'Heading',
+        items_ko: [], items_en: [],
+      });
+    }
+    function moveBlock(from, to) {
+      if (to < 0 || to >= blocks.length) return;
+      const next = blocks.slice();
+      const [m] = next.splice(from, 1);
+      next.splice(to, 0, m);
+      set(['about','exec','blocks'], next);
+    }
+    function addItemToBoth(bi) {
+      const b = blocks[bi];
+      set(['about','exec','blocks',bi,'items_ko'], [...(b.items_ko || []), '새 항목']);
+      set(['about','exec','blocks',bi,'items_en'], [...(b.items_en || []), 'New item']);
+    }
+    function removeRow(bi, ri) {
+      const b = blocks[bi];
+      set(['about','exec','blocks',bi,'items_ko'], (b.items_ko || []).filter((_, i) => i !== ri));
+      set(['about','exec','blocks',bi,'items_en'], (b.items_en || []).filter((_, i) => i !== ri));
+    }
+    function setRow(bi, ri, langKey, value) {
+      const b = blocks[bi];
+      const arr = (b['items_' + langKey] || []).slice();
+      arr[ri] = value;
+      set(['about','exec','blocks',bi,'items_' + langKey], arr);
+    }
+
     return (
       <>
+        {/* Hero band */}
         <div className="card">
           <h3>Hero (top of About page)</h3>
           <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={a.hero?.ko?.kicker || ''} onChange={v => set(['about','hero','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={a.hero?.en?.kicker || ''} onChange={v => set(['about','hero','en','kicker'], v)} lang="en" />
-            <Text label="Title line 1 (KO)" value={a.hero?.ko?.title_l1 || ''} onChange={v => set(['about','hero','ko','title_l1'], v)} lang="ko" />
-            <Text label="Title line 1 (EN)" value={a.hero?.en?.title_l1 || ''} onChange={v => set(['about','hero','en','title_l1'], v)} lang="en" />
-            <Text label="Title line 2 (KO)" value={a.hero?.ko?.title_l2 || ''} onChange={v => set(['about','hero','ko','title_l2'], v)} lang="ko" />
-            <Text label="Title line 2 (EN)" value={a.hero?.en?.title_l2 || ''} onChange={v => set(['about','hero','en','title_l2'], v)} lang="en" />
-            <Area label="Subtitle (KO)" value={a.hero?.ko?.sub || ''} onChange={v => set(['about','hero','ko','sub'], v)} lang="ko" rows={4} />
-            <Area label="Subtitle (EN)" value={a.hero?.en?.sub || ''} onChange={v => set(['about','hero','en','sub'], v)} lang="en" rows={4} />
+            <Text label="Kicker (KO)" value={ex.hero?.kicker_ko || ''} onChange={v => set(['about','exec','hero','kicker_ko'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={ex.hero?.kicker_en || ''} onChange={v => set(['about','exec','hero','kicker_en'], v)} lang="en" />
+            <Area label="Title (KO)" value={ex.hero?.title_ko || ''} onChange={v => set(['about','exec','hero','title_ko'], v)} lang="ko" rows={3} hint="Use \\n for line break" />
+            <Area label="Title (EN)" value={ex.hero?.title_en || ''} onChange={v => set(['about','exec','hero','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
+            <Area label="Body (KO)" value={ex.hero?.body_ko || ''} onChange={v => set(['about','exec','hero','body_ko'], v)} lang="ko" rows={4} />
+            <Area label="Body (EN)" value={ex.hero?.body_en || ''} onChange={v => set(['about','exec','hero','body_en'], v)} lang="en" rows={4} />
           </div>
         </div>
+
+        {/* Content blocks */}
         <div className="card">
-          <h3>Mission section</h3>
-          <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={a.mission?.ko?.kicker || ''} onChange={v => set(['about','mission','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={a.mission?.en?.kicker || ''} onChange={v => set(['about','mission','en','kicker'], v)} lang="en" />
-            <Text label="Title line 1 (KO)" value={a.mission?.ko?.title_l1 || ''} onChange={v => set(['about','mission','ko','title_l1'], v)} lang="ko" />
-            <Text label="Title line 1 (EN)" value={a.mission?.en?.title_l1 || ''} onChange={v => set(['about','mission','en','title_l1'], v)} lang="en" />
-            <Text label="Title line 2 (KO)" value={a.mission?.ko?.title_l2 || ''} onChange={v => set(['about','mission','ko','title_l2'], v)} lang="ko" />
-            <Text label="Title line 2 (EN)" value={a.mission?.en?.title_l2 || ''} onChange={v => set(['about','mission','en','title_l2'], v)} lang="en" />
-            <Area label="Body (KO)" value={a.mission?.ko?.body || ''} onChange={v => set(['about','mission','ko','body'], v)} lang="ko" rows={5} />
-            <Area label="Body (EN)" value={a.mission?.en?.body || ''} onChange={v => set(['about','mission','en','body'], v)} lang="en" rows={5} />
-          </div>
+          <h3>Content blocks</h3>
+          <p className="desc">A grid of cards (default: 정책 정합성 / 핵심 특징 / 기대 효과 / 컴플라이언스). Each block has its own kicker, heading, and bullet list.</p>
+          <button type="button" className="btn-add" onClick={addBlock}>+ Add block</button>
         </div>
-        <div className="card" style={{background:'var(--state-warning-bg)',borderColor:'var(--state-warning)'}}>
-          <h3 style={{color:'var(--state-warning)'}}>Heads up — About page is currently hardcoded</h3>
-          <p className="desc" style={{color:'var(--state-warning)'}}>
-            The public <code>/about</code> page currently renders a hardcoded Executive Summary and does
-            not read the fields above. Editing here will not affect the live site until
-            <code> About.jsx</code> is rewired to read <code>c.about.*</code>. Tracked in <code>CLAUDE_TASKS.md</code> P0.
-          </p>
-          <p className="desc" style={{color:'var(--state-warning)',margin:'6px 0 0'}}>
-            Looking for the team page? Team members live under <strong>Pages → Project team</strong>
-            (renders on <code>/team</code>).
-          </p>
+
+        {blocks.map((b, bi) => {
+          const itemsKo = b.items_ko || [];
+          const itemsEn = b.items_en || [];
+          const maxLen = Math.max(itemsKo.length, itemsEn.length);
+          return (
+            <div className="card" key={bi}>
+              <div className="rep-head" style={{marginBottom:14}}>
+                <strong>Block {bi + 1} — {b.kicker_ko || b.kicker_en}</strong>
+                <div className="ctrls">
+                  <button type="button" className="icon-btn" onClick={() => moveBlock(bi, bi - 1)} disabled={bi === 0}>↑</button>
+                  <button type="button" className="icon-btn" onClick={() => moveBlock(bi, bi + 1)} disabled={bi === blocks.length - 1}>↓</button>
+                  <button type="button" className="icon-btn danger" onClick={() => { if (confirm('Delete this block?')) removeItem(['about','exec','blocks'], bi); }}>Delete block</button>
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                <Text label="Kicker (KO)" value={b.kicker_ko || ''} onChange={v => set(['about','exec','blocks',bi,'kicker_ko'], v)} lang="ko" />
+                <Text label="Kicker (EN)" value={b.kicker_en || ''} onChange={v => set(['about','exec','blocks',bi,'kicker_en'], v)} lang="en" />
+                <Text label="Heading (KO)" value={b.heading_ko || ''} onChange={v => set(['about','exec','blocks',bi,'heading_ko'], v)} lang="ko" />
+                <Text label="Heading (EN)" value={b.heading_en || ''} onChange={v => set(['about','exec','blocks',bi,'heading_en'], v)} lang="en" />
+              </div>
+              <div className="app-sec" style={{marginTop:18}}>Bullet list ({maxLen})</div>
+              {Array.from({ length: maxLen }).map((_, ri) => (
+                <div className="rep-item" key={ri} style={{padding:'12px 14px'}}>
+                  <div className="rep-head">
+                    <strong>· {ri + 1}</strong>
+                    <button type="button" className="icon-btn danger" onClick={() => removeRow(bi, ri)}>Remove</button>
+                  </div>
+                  <div className="grid-2 tight">
+                    <Text label="KO" value={itemsKo[ri] || ''} onChange={v => setRow(bi, ri, 'ko', v)} lang="ko" />
+                    <Text label="EN" value={itemsEn[ri] || ''} onChange={v => setRow(bi, ri, 'en', v)} lang="en" />
+                  </div>
+                </div>
+              ))}
+              <button type="button" className="btn-add" onClick={() => addItemToBoth(bi)}>+ Add bullet</button>
+            </div>
+          );
+        })}
+
+        {/* Closing strategic-value band */}
+        <div className="card">
+          <h3>Closing — Strategic Value</h3>
+          <p className="desc">The grey panel at the bottom of /about. One kicker + one big title + one body paragraph.</p>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={ex.closing?.kicker_ko || ''} onChange={v => set(['about','exec','closing','kicker_ko'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={ex.closing?.kicker_en || ''} onChange={v => set(['about','exec','closing','kicker_en'], v)} lang="en" />
+            <Area label="Title (KO)" value={ex.closing?.title_ko || ''} onChange={v => set(['about','exec','closing','title_ko'], v)} lang="ko" rows={3} hint="Use \\n for line break" />
+            <Area label="Title (EN)" value={ex.closing?.title_en || ''} onChange={v => set(['about','exec','closing','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
+            <Area label="Body (KO)" value={ex.closing?.body_ko || ''} onChange={v => set(['about','exec','closing','body_ko'], v)} lang="ko" rows={3} />
+            <Area label="Body (EN)" value={ex.closing?.body_en || ''} onChange={v => set(['about','exec','closing','body_en'], v)} lang="en" rows={3} />
+          </div>
         </div>
       </>
     );

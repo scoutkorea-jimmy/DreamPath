@@ -17,7 +17,7 @@
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
     /* Desktop-first admin shell. Min-width enforces PC layout; content scrolls horizontally on narrower screens. */
-    body { min-width: 1280px; overflow-x: auto; background: #F4F4F8; }
+    body { min-width: 1280px; overflow-x: auto; background: var(--bg-muted); color: var(--fg-primary); }
     .admin { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
     .side {
       background: linear-gradient(180deg, #1E0B33 0%, #2D1147 50%, #4D006E 100%);
@@ -120,10 +120,30 @@
     .main:has(.main-inner.wide) { max-width: none; }
     .topbar {
       position: sticky; top: 0; z-index: 50;
-      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      background: var(--topbar-bg, rgba(255,255,255,0.92)); backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border-hair);
       padding: 14px 56px; display: flex; justify-content: space-between; align-items: center;
     }
+    [data-theme="dark"] .topbar { --topbar-bg: rgba(15, 14, 20, 0.88); }
+    /* Theme toggle in admin topbar (sun / system / moon) */
+    .topbar .theme-toggle {
+      display: inline-flex; align-items: center;
+      background: var(--bg-muted); border: 1px solid var(--border-default);
+      border-radius: 999px; padding: 2px;
+      color: var(--fg-muted);
+    }
+    .topbar .theme-toggle button {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 24px; padding: 0;
+      background: none; border: none; cursor: pointer; color: inherit;
+      border-radius: 999px; transition: color 120ms, background 120ms;
+    }
+    .topbar .theme-toggle button:hover { color: var(--fg-primary); }
+    .topbar .theme-toggle button.on {
+      background: var(--bg-elevated); color: var(--scouting-purple);
+      box-shadow: var(--shadow-xs);
+    }
+    [data-theme="dark"] .topbar .theme-toggle button.on { color: var(--sunshine-yellow); }
     .topbar .crumbs { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-secondary); }
     .topbar .crumbs strong { color: var(--fg-primary); font-weight: 700; }
     .topbar .crumbs .sep { color: var(--fg-muted); }
@@ -137,15 +157,15 @@
       font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
       background: var(--bg-muted); color: var(--fg-secondary);
     }
-    .topbar .savebadge.saving { background: #FEF3C7; color: #92400E; }
-    .topbar .savebadge.saved { background: #DCFCE7; color: #166534; }
-    .topbar .savebadge.error { background: #FEE2E2; color: #B91C1C; }
+    .topbar .savebadge.saving { background: var(--state-warning-bg); color: var(--state-warning); }
+    .topbar .savebadge.saved  { background: var(--state-success-bg); color: var(--state-success); }
+    .topbar .savebadge.error  { background: var(--state-danger-bg);  color: var(--state-danger); }
     .topbar .savebadge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     /* Topbar action buttons (Open site / Export JSON) */
     .topbar .topact {
       display: inline-flex; align-items: center; gap: 6px;
       font: inherit; font-size: 12.5px; font-weight: 600;
-      padding: 7px 14px; border: 1px solid var(--border-default); background: #fff;
+      padding: 7px 14px; border: 1px solid var(--border-default); background: var(--bg-elevated);
       color: var(--fg-primary); border-radius: 8px; cursor: pointer; text-decoration: none;
     }
     .topbar .topact:hover { border-color: var(--fg-muted); background: var(--bg-muted); }
@@ -157,7 +177,7 @@
     /* Sub-tab strip (horizontal pills under topbar, inside the active group) */
     .subtabs {
       position: sticky; top: 60px; z-index: 40;
-      background: #fff; border-bottom: 1px solid var(--border-hair);
+      background: var(--bg-elevated); border-bottom: 1px solid var(--border-hair);
       padding: 0 56px; display: flex; gap: 2px;
       overflow-x: auto; white-space: nowrap;
     }
@@ -188,7 +208,7 @@
     .split-toolbar {
       position: sticky; top: 60px; z-index: 30;
       display: flex; justify-content: space-between; align-items: center; gap: 18px;
-      padding: 12px 18px; background: #fff; border: 1px solid var(--border-subtle); border-radius: 12px;
+      padding: 12px 18px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px;
       box-shadow: 0 4px 14px rgba(30,11,51,0.06);
     }
     .split-status { display: flex; align-items: center; gap: 8px; }
@@ -207,7 +227,7 @@
     .split-preview {
       position: sticky; top: 130px;
       display: flex; flex-direction: column;
-      background: #fff; border: 1px solid var(--border-subtle); border-radius: 12px;
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px;
       overflow: hidden; box-shadow: 0 4px 14px rgba(30,11,51,0.06);
       height: calc(100vh - 160px); min-height: 600px;
     }
@@ -220,7 +240,7 @@
     /* Device viewport toggle (PC / Tablet / Mobile) */
     .device-toggle {
       display: inline-flex; align-items: center; gap: 2px;
-      background: #fff; border: 1px solid var(--border-default); border-radius: 8px;
+      background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 8px;
       padding: 2px;
     }
     .device-toggle .device-btn {
@@ -243,7 +263,7 @@
     }
     .split-preview-stage.device-desktop { padding: 0; }
     .device-frame {
-      background: #fff; border-radius: 12px; overflow: hidden;
+      background: var(--bg-elevated); border-radius: 12px; overflow: hidden;
       box-shadow: 0 16px 40px rgba(30,11,51,0.18), 0 4px 10px rgba(30,11,51,0.10);
       flex-shrink: 0;
     }
@@ -252,7 +272,7 @@
       border-radius: 0; box-shadow: none;
     }
     .split-iframe {
-      flex: 1; width: 100%; height: 100%; border: none; background: #fff; display: block;
+      flex: 1; width: 100%; height: 100%; border: none; background: var(--bg-elevated); display: block;
     }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
     .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--midnight-purple); }
@@ -263,7 +283,7 @@
     .status.on { opacity: 1; transform: translateY(0); }
 
     /* Form surfaces */
-    .card { background: #fff; border: 1px solid var(--border-subtle); border-radius: 14px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: border-color 120ms; }
+    .card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: border-color 120ms; }
     .card:hover { border-color: var(--border-default); }
     .card h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
     .card .desc { color: var(--fg-muted); font-size: 13px; margin: 0 0 20px; }
@@ -275,7 +295,7 @@
     .field.span-2 { grid-column: span 2; }
     .field.span-3 { grid-column: span 3; }
     .field label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-secondary); }
-    .field input, .field select, .field textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: #fff; color: var(--fg-primary); transition: border-color 160ms; font-family: var(--font-sans); }
+    .field input, .field select, .field textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--bg-elevated); color: var(--fg-primary); transition: border-color 160ms; font-family: var(--font-sans); }
     .field input:hover, .field select:hover, .field textarea:hover { border-color: var(--fg-muted); }
     .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--scouting-purple); box-shadow: 0 0 0 3px rgba(98,37,153,0.18); }
     .field textarea { resize: vertical; min-height: 64px; }
@@ -286,7 +306,7 @@
     .rep-item .rep-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; }
     .rep-item .rep-head strong { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-secondary); }
     .rep-item .rep-head .ctrls { display: flex; gap: 4px; }
-    .icon-btn { background: #fff; border: 1px solid var(--border-default); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--fg-secondary); font-family: inherit; }
+    .icon-btn { background: var(--bg-elevated); border: 1px solid var(--border-default); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--fg-secondary); font-family: inherit; }
     .icon-btn:hover { color: var(--fg-primary); border-color: var(--fg-muted); }
     .icon-btn.danger:hover { background: #FFF0F0; color: var(--state-danger); border-color: var(--state-danger); }
     .btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--midnight-purple); color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; }
@@ -299,15 +319,15 @@
 
     /* Icon picker */
     .icon-picker-wrap { position: relative; }
-    .icon-picker-wrap .current { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: #fff; cursor: pointer; font-size: 14px; width: 100%; font-family: inherit; color: var(--fg-primary); }
+    .icon-picker-wrap .current { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--bg-elevated); cursor: pointer; font-size: 14px; width: 100%; font-family: inherit; color: var(--fg-primary); }
     .icon-picker-wrap .current:hover { border-color: var(--fg-muted); }
     .icon-picker-wrap .current .glyph { width: 32px; height: 32px; background: var(--bg-muted); border-radius: 6px; display: grid; place-items: center; color: var(--scouting-purple); }
     .icon-picker-wrap .current .name { flex: 1; text-align: left; font-family: var(--font-mono); font-size: 13px; }
-    .icon-popover { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; background: #fff; border: 1px solid var(--border-default); border-radius: 12px; padding: 12px; box-shadow: var(--shadow-lg); max-height: 360px; overflow-y: auto; }
+    .icon-popover { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 12px; padding: 12px; box-shadow: var(--shadow-lg); max-height: 360px; overflow-y: auto; }
     .icon-popover input { width: 100%; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px; font-family: inherit; }
     .icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
     .icon-cell { aspect-ratio: 1; display: grid; place-items: center; background: var(--bg-muted); border: 2px solid transparent; border-radius: 8px; cursor: pointer; color: var(--fg-secondary); }
-    .icon-cell:hover { background: #fff; border-color: var(--scouting-purple); color: var(--scouting-purple); }
+    .icon-cell:hover { background: var(--bg-elevated); border-color: var(--scouting-purple); color: var(--scouting-purple); }
     .icon-cell.selected { border-color: var(--scouting-purple); background: rgba(98,37,153,0.08); color: var(--scouting-purple); }
     .icon-cell-label { font-size: 9px; font-family: var(--font-mono); color: var(--fg-muted); text-align: center; margin-top: 2px; line-height: 1; }
 
@@ -322,7 +342,7 @@
     .apps-table tr:hover td { background: var(--bg-muted); }
     .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
     .app-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; z-index: 2000; padding: 40px 20px; }
-    .app-modal-inner { background: #fff; border-radius: 16px; width: 100%; max-width: 780px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
+    .app-modal-inner { background: var(--bg-elevated); border-radius: 16px; width: 100%; max-width: 780px; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
     .app-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 24px 28px; border-bottom: 1px solid var(--border-default); }
     .app-modal-body { padding: 20px 28px; overflow-y: auto; flex: 1; }
     .app-modal-foot { padding: 16px 28px; border-top: 1px solid var(--border-default); display: flex; justify-content: flex-end; }
@@ -339,6 +359,8 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/lucide@0.461.0"></script>
   <script src="/ui_kits/website/version.js"></script>
+  <!-- theme-store applies data-theme to <html> before paint to avoid a flash. -->
+  <script src="/ui_kits/website/theme-store.js"></script>
   <script src="/ui_kits/website/content-store.js"></script>
   <script src="/ui_kits/website/editor-loader.js"></script>
   <link rel="stylesheet" href="/ui_kits/website/site.css">
@@ -1101,17 +1123,17 @@
               value={query} onChange={e => setQuery(e.target.value)}
               style={{flex:'1 1 220px',minWidth:220,padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:14}} />
             <select value={fCategory} onChange={e => setFCategory(e.target.value)}
-              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
               <option value="all">All categories</option>
               {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
             <select value={fLevel} onChange={e => setFLevel(e.target.value)}
-              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
               <option value="all">All levels</option>
               {levels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
             <select value={fStatus} onChange={e => setFStatus(e.target.value)}
-              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
               <option value="all">All status</option>
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -1544,7 +1566,7 @@
 
     function Stat({ label, value, hint }) {
       return (
-        <div style={{padding:'18px 20px',background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:14}}>
+        <div style={{padding:'18px 20px',background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',borderRadius:14}}>
           <div style={{fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>{label}</div>
           <div style={{fontFamily:'var(--font-en)',fontSize:32,fontWeight:800,color:'var(--midnight-purple)',margin:'4px 0 0'}}>{value}</div>
           {hint && <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{hint}</div>}
@@ -1752,11 +1774,11 @@
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               <select value={filter.level} onChange={e => setFilter({ ...filter, level: e.target.value })}
-                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
                 <option value="">All levels</option><option value="error">error</option><option value="warn">warn</option><option value="info">info</option>
               </select>
               <select value={filter.source} onChange={e => setFilter({ ...filter, source: e.target.value })}
-                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
                 <option value="">All sources</option><option>server</option><option>client</option><option>unhandled</option><option>rejection</option><option>manual</option>
               </select>
               <button className="icon-btn" onClick={load}>Refresh</button>
@@ -2399,7 +2421,7 @@
     }
 
     const Quick = ({ id, label, icon }) => (
-      <button type="button" onClick={() => setTab(id)} style={{textAlign:'left',padding:'14px 18px',background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--fg-primary)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:10,transition:'all 120ms'}}
+      <button type="button" onClick={() => setTab(id)} style={{textAlign:'left',padding:'14px 18px',background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--fg-primary)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:10,transition:'all 120ms'}}
         onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--scouting-purple)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.transform = 'none'; }}>
         <i data-lucide={icon} width="16" height="16" style={{color:'var(--scouting-purple)'}} />
@@ -2686,7 +2708,7 @@
               </div>
               <h4 style={{margin:'8px 0',fontSize:13,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>Members</h4>
               {(s.members || []).map((m, mi) => (
-                <div key={mi} style={{padding:'14px',background:'#fff',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+                <div key={mi} style={{padding:'14px',background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                     <strong style={{fontSize:13,color:'var(--fg-secondary)'}}>Member {mi + 1}</strong>
                     <button className="icon-btn danger" onClick={() => {
@@ -3100,7 +3122,7 @@
 
     return (
       <div className="wiki" style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:20,minHeight:'70vh'}}>
-        <aside className="wiki-side" style={{background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:14,padding:14,height:'fit-content',position:'sticky',top:80}}>
+        <aside className="wiki-side" style={{background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',borderRadius:14,padding:14,height:'fit-content',position:'sticky',top:80}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 12px',borderBottom:'1px solid var(--border-hair)',marginBottom:10}}>
             <strong style={{fontSize:13,color:'var(--fg-secondary)',letterSpacing:'0.06em',textTransform:'uppercase'}}>{data.pages.length} {data.pages.length === 1 ? 'page' : 'pages'}</strong>
             <button className="btn-add" style={{padding:'6px 12px',fontSize:12}} onClick={addPage} disabled={saving}>+ New</button>
@@ -3421,7 +3443,7 @@
             ].map(([v, label]) => (
               <div key={v} style={{textAlign:'center'}}>
                 <div style={{
-                  width:'100%', height:80, background:'#fff',
+                  width:'100%', height:80, background:'var(--bg-elevated)',
                   borderRadius:14, boxShadow:`var(${v})`, marginBottom:8
                 }} />
                 <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)'}}>{v}</div>
@@ -3708,7 +3730,7 @@
           </div>
           <div style={{
             border:'1px solid var(--border-default)', borderRadius:14, overflow:'hidden',
-            background:'#fff', boxShadow:'var(--shadow-sm)'
+            background:'var(--bg-elevated)', boxShadow:'var(--shadow-sm)'
           }}>
             <div style={{
               padding:'8px 14px', background:'var(--bg-muted)',
@@ -4209,6 +4231,14 @@
     const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
     const t = I18N[adminLang] || I18N.en;
     useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
+    // Theme toggle (light / dark / system) — synced with the global store
+    // so changing it here flips the public site too on the same device.
+    const [themeChoice, setThemeChoice] = useState(() => (window.DreamPathTheme && window.DreamPathTheme.choice) || 'system');
+    useEffect(() => {
+      if (!window.DreamPathTheme) return;
+      const unsub = window.DreamPathTheme.subscribe(() => setThemeChoice(window.DreamPathTheme.choice));
+      return () => unsub();
+    }, []);
     const [savedState, setSavedState] = useState('idle'); // idle | saving | saved | error
     const [saveError, setSaveError] = useState('');
     const savedTimer = useRef(null);
@@ -4415,6 +4445,17 @@
             <div className="meta">
               <a className="topact primary" href="/" target="_blank" rel="noopener">{t.action.open_site}</a>
               <button type="button" className="topact" onClick={onExport}>{t.action.export}</button>
+              <div className="theme-toggle" role="group" aria-label="Theme">
+                <button type="button" className={themeChoice === 'light' ? 'on' : ''} onClick={() => window.DreamPathTheme && window.DreamPathTheme.set('light')} aria-pressed={themeChoice === 'light'} title="Light mode">
+                  <i data-lucide="sun" width="13" height="13" strokeWidth="2" aria-hidden="true"></i>
+                </button>
+                <button type="button" className={themeChoice === 'system' ? 'on' : ''} onClick={() => window.DreamPathTheme && window.DreamPathTheme.set('system')} aria-pressed={themeChoice === 'system'} title="Match system">
+                  <i data-lucide="monitor" width="13" height="13" strokeWidth="2" aria-hidden="true"></i>
+                </button>
+                <button type="button" className={themeChoice === 'dark' ? 'on' : ''} onClick={() => window.DreamPathTheme && window.DreamPathTheme.set('dark')} aria-pressed={themeChoice === 'dark'} title="Dark mode">
+                  <i data-lucide="moon" width="13" height="13" strokeWidth="2" aria-hidden="true"></i>
+                </button>
+              </div>
               <div className="adminlang" role="group" aria-label="Admin language">
                 <button type="button" className={adminLang === 'ko' ? 'on' : ''} onClick={() => setAdminLang('ko')} aria-pressed={adminLang === 'ko'}>KO</button>
                 <span aria-hidden="true">·</span>
@@ -4523,7 +4564,7 @@
     if (!authed) {
       return (
         <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--canvas-white)',padding:24}}>
-          <form onSubmit={login} style={{width:'100%',maxWidth:380,background:'#fff',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #eee'}}>
+          <form onSubmit={login} style={{width:'100%',maxWidth:380,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #eee'}}>
             <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--midnight-purple)'}}>DreamPath Admin</h1>
             <p style={{margin:'0 0 20px',color:'#666',fontSize:14}}>Enter the admin token to continue.</p>
             <input

@@ -4,6 +4,17 @@ function Nav({ view, go, lang, setLang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
   const [menuOpen, setMenuOpen] = React.useState(false);
+  // Theme toggle state — re-render when the theme store fires.
+  const [themeChoice, setThemeChoice] = React.useState(() => (window.DreamPathTheme && window.DreamPathTheme.choice) || 'system');
+  React.useEffect(() => {
+    if (!window.DreamPathTheme) return;
+    const unsub = window.DreamPathTheme.subscribe(() => setThemeChoice(window.DreamPathTheme.choice));
+    return () => unsub();
+  }, []);
+  function setTheme(next) {
+    if (window.DreamPathTheme) window.DreamPathTheme.set(next);
+    else setThemeChoice(next);
+  }
 
   // Build the "프로그램" submenu by category from current c.programs
   const programs = (c && Array.isArray(c.programs)) ? c.programs : [];
@@ -77,6 +88,17 @@ function Nav({ view, go, lang, setLang, c }) {
         </div>
 
         <div className="nav-right">
+          <div className="theme-toggle" role="group" aria-label={isKo ? '테마' : 'Theme'}>
+            <button type="button" className={themeChoice === 'light' ? 'on' : ''} onClick={() => setTheme('light')} aria-pressed={themeChoice === 'light'} title={isKo ? '라이트 모드' : 'Light mode'}>
+              <i data-lucide="sun" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
+            </button>
+            <button type="button" className={themeChoice === 'system' ? 'on' : ''} onClick={() => setTheme('system')} aria-pressed={themeChoice === 'system'} title={isKo ? '시스템 설정 따라감' : 'Match system'}>
+              <i data-lucide="monitor" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
+            </button>
+            <button type="button" className={themeChoice === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} aria-pressed={themeChoice === 'dark'} title={isKo ? '다크 모드' : 'Dark mode'}>
+              <i data-lucide="moon" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
+            </button>
+          </div>
           <div className="lang-toggle" role="group" aria-label={isKo ? '언어 선택' : 'Language'}>
             <button type="button" className={lang === 'ko' ? 'on' : ''} onClick={() => setLang('ko')} aria-pressed={lang === 'ko'} lang="ko">KO</button>
             <span aria-hidden="true">·</span>

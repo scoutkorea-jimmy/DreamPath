@@ -147,7 +147,7 @@ function Apply({ lang, c }) {
           <div className="container-narrow">
             <div className="apply-card" style={{textAlign:'center'}}>
               <div style={{width:72,height:72,borderRadius:'50%',background:'rgba(36,135,55,0.12)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
-                <i data-lucide="check-circle-2" width="36" height="36" strokeWidth="1.75" style={{color:'#248737'}}></i>
+                <i data-lucide="check-circle-2" width="36" height="36" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
               </div>
               <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:28,fontWeight:700,margin:'0 0 12px'}}>
                 {isKo ? '감사합니다, ' : 'Thanks, '}{form.name}.
@@ -232,7 +232,7 @@ function Apply({ lang, c }) {
               )}
             </div>
             {submitError && (
-              <div role="alert" style={{marginTop:12,color:'#B91C1C',fontSize:14}}>{submitError}</div>
+              <div role="alert" style={{marginTop:12,color:'var(--state-danger)',fontSize:14}}>{submitError}</div>
             )}
             {docOpen && <window.LegalModal doc={docOpen} lang={lang} onClose={() => setDocOpen(null)} />}
           </div>
@@ -470,7 +470,7 @@ function RecommenderCard({ index, rec, isKo, onChange, onRemove }) {
           <label>{isKo ? '추천서 (PDF, 선택)' : 'Recommendation letter (PDF, optional)'}</label>
           <input type="file" accept="application/pdf" onChange={onPdf} style={{padding:'10px 0'}} />
           {rec.letter_filename && (
-            <span className="hint" style={{color:'#248737'}}>✓ {rec.letter_filename}</span>
+            <span className="hint" style={{color:'var(--state-success)'}}>✓ {rec.letter_filename}</span>
           )}
         </div>
       </div>

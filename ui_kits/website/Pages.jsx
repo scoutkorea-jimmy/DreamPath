@@ -137,11 +137,11 @@ function News({ lang, c }) {
               </button>
             </div>
           )}
-          {err && <div role="alert" style={{color:'#B91C1C',marginBottom:16}}>{err}</div>}
+          {err && <div role="alert" style={{color:'var(--state-danger)',marginBottom:16}}>{err}</div>}
           {loading ? (
-            <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>
+            <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>
           ) : items.length === 0 ? (
-            <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '등록된 소식이 없습니다.' : 'No posts yet.'}</div>
+            <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '등록된 소식이 없습니다.' : 'No posts yet.'}</div>
           ) : (
             <div className="news-list">
               {items.map(n => <NewsRow key={n.id} n={n} isKo={isKo} canEdit={canEdit} onEdit={() => setEditing(n)} onDelete={() => deletePost(n.id)} />)}
@@ -160,11 +160,11 @@ function NewsRow({ n, isKo, canEdit, onEdit, onDelete }) {
   const hasBody = body && body.replace(/<[^>]+>/g, '').trim().length > 0;
   return (
     <div className={'news-item' + (open ? ' open' : '')}
-      style={{display:'block',padding:'16px 20px',borderRadius:14,marginBottom:8,background:'#fff',border:'1px solid var(--border-hair)'}}>
+      style={{display:'block',padding:'16px 20px',borderRadius:14,marginBottom:8,background:'var(--bg-elevated)',border:'1px solid var(--border-hair)'}}>
       <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}
         onClick={() => hasBody && setOpen(o => !o)}
         role={hasBody ? 'button' : undefined} tabIndex={hasBody ? 0 : undefined}>
-        <span className="news-tag" style={{background: (n.tag_color || '#666') + '22', color: n.tag_color || '#666'}}>{n.tag}</span>
+        <span className="news-tag" style={{background: (n.tag_color || 'var(--fg-muted)') + '22', color: n.tag_color || 'var(--fg-muted)'}}>{n.tag}</span>
         <span className="news-date">{n.date}</span>
         <span className={'news-title' + (isKo ? '' : ' en')} style={{flex:1,minWidth:0}}>{isKo ? n.title_ko : n.title_en}</span>
         {canEdit && (
@@ -319,7 +319,7 @@ function InquiryForm({ lang }) {
     return (
       <div className="apply-card" style={{textAlign:'center',padding:40}}>
         <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(36,135,55,0.12)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
-          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" style={{color:'#248737'}}></i>
+          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
         </div>
         <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:24,fontWeight:700,margin:'0 0 8px'}}>
           {isKo ? '문의가 접수되었습니다.' : 'Your message is in.'}
@@ -379,7 +379,7 @@ function InquiryForm({ lang }) {
         <label>{isKo ? '내용 * (10자 이상)' : 'Message * (min 10 chars)'}</label>
         <textarea rows="6" value={form.body} onChange={upd('body')} required minLength={10} />
       </div>
-      {err && <div role="alert" style={{color:'#B91C1C',marginTop:8,fontSize:14}}>{err}</div>}
+      {err && <div role="alert" style={{color:'var(--state-danger)',marginTop:8,fontSize:14}}>{err}</div>}
       <div className="form-actions" style={{marginTop:20,justifyContent:'flex-end',display:'flex',gap:8}}>
         <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? (isKo ? '제출 중…' : 'Sending…') : (isKo ? '문의 보내기' : 'Send message')}

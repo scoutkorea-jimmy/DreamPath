@@ -12,7 +12,7 @@ function Member({ go, lang, c }) {
   }, []);
 
   if (!auth.ready) {
-    return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'#666'}}>{isKo ? '로딩 중…' : 'Loading…'}</div>;
+    return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '로딩 중…' : 'Loading…'}</div>;
   }
   if (!auth.user) {
     return (
@@ -116,8 +116,8 @@ function MemberApplications({ isKo, c }) {
     })();
   }, []);
 
-  if (loading) return <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
-  if (err) return <div role="alert" style={{padding:24,color:'#B91C1C'}}>{err}</div>;
+  if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+  if (err) return <div role="alert" style={{padding:24,color:'var(--state-danger)'}}>{err}</div>;
   if (items.length === 0) return (
     <div style={{padding:'40px 24px',textAlign:'center',background:'var(--bg-muted)',borderRadius:14,color:'var(--fg-secondary)'}}>
       {isKo ? '아직 제출한 지원이 없습니다. 로그인 상태에서 지원하면 여기에 표시됩니다.' : 'No applications yet. Submit one while logged in to see it here.'}
@@ -140,7 +140,7 @@ function MemberApplications({ isKo, c }) {
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
-                <div style={{padding:'4px 10px',borderRadius:999,background:a.status === 'paid' ? '#DCFCE7' : '#E0E7FF',color:a.status === 'paid' ? '#166534' : '#3730A3',fontSize:12,fontWeight:700,display:'inline-block'}}>
+                <div style={{padding:'4px 10px',borderRadius:999,background:a.status === 'paid' ? '#DCFCE7' : '#E0E7FF',color:a.status === 'paid' ? 'var(--state-success)' : '#3730A3',fontSize:12,fontWeight:700,display:'inline-block'}}>
                   {a.status === 'paid' ? (isKo ? '결제 완료' : 'PAID') : (a.status || '').toUpperCase()}
                 </div>
                 {a.amount > 0 && <div style={{fontSize:18,fontWeight:700,marginTop:8}}>${a.amount}.00</div>}
@@ -198,7 +198,7 @@ function MemberCareer({ isKo }) {
     }
   }
 
-  if (loading) return <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+  if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
 
   const F = ({ k, label, type = 'text', area = false }) => (
     <label className="apply-field">
@@ -234,10 +234,10 @@ function MemberCareer({ isKo }) {
       <h3 className="apply-sub">{isKo ? '간단 자기소개' : 'Short summary'}</h3>
       <F k="career_summary" label={isKo ? '한 단락으로 자신을 소개해주세요.' : 'A short paragraph about yourself.'} area />
 
-      {err && <div role="alert" style={{color:'#B91C1C',marginTop:12}}>{err}</div>}
+      {err && <div role="alert" style={{color:'var(--state-danger)',marginTop:12}}>{err}</div>}
       <div className="form-actions" style={{marginTop:24}}>
         <button type="submit" className="btn btn-primary">{isKo ? '저장' : 'Save'}</button>
-        {savedAt && <span style={{color:'#248737',fontSize:13,marginLeft:12}}>✓ {isKo ? '저장됨' : 'Saved'} {savedAt.toLocaleTimeString()}</span>}
+        {savedAt && <span style={{color:'var(--state-success)',fontSize:13,marginLeft:12}}>✓ {isKo ? '저장됨' : 'Saved'} {savedAt.toLocaleTimeString()}</span>}
       </div>
     </form>
   );
@@ -261,7 +261,7 @@ function MemberRecommendations({ isKo, c, go }) {
     })();
   }, []);
 
-  if (loading) return <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '추천 생성 중…' : 'Generating recommendations…'}</div>;
+  if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '추천 생성 중…' : 'Generating recommendations…'}</div>;
 
   return (
     <div>
@@ -352,7 +352,7 @@ function MemberPrivacy({ isKo, go }) {
             ? '계정과 커리어 프로필이 즉시 삭제됩니다. 지원서는 학교 입학 기록 처리를 위해 제출자 정보(user_id)만 분리되며 익명 통계 형태로 남을 수 있습니다.'
             : 'Your account and career profile are deleted immediately. Submitted applications keep their record but are detached from your account and may remain as anonymous statistics.'}
         </p>
-        {err && <div role="alert" style={{color:'#B91C1C',fontSize:13,marginBottom:10}}>{err}</div>}
+        {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:10}}>{err}</div>}
         <button type="button" className="btn btn-secondary" disabled={busy} onClick={deleteAccount}
           style={{borderColor:'var(--state-danger)',color:'var(--state-danger)'}}>
           {isKo ? '계정 삭제' : 'Delete my account'}

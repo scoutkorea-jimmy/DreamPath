@@ -33,11 +33,11 @@ function Receipt({ lang, c }) {
     })();
   }, []);
 
-  if (loading) return <div style={{padding:80,textAlign:'center',color:'#666'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+  if (loading) return <div style={{padding:80,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
   if (err) return (
     <div style={{padding:80,textAlign:'center',maxWidth:520,margin:'0 auto'}}>
       <h1 style={{fontFamily:'var(--font-en)',color:'var(--midnight-purple)'}}>{isKo ? '영수증' : 'Receipt'}</h1>
-      <p style={{color:'#B91C1C',marginTop:16}}>{err}</p>
+      <p style={{color:'var(--state-danger)',marginTop:16}}>{err}</p>
     </div>
   );
   if (!data) return null;
@@ -89,7 +89,7 @@ function Receipt({ lang, c }) {
               <tr>
                 <td>
                   <div><strong>{data.program || '—'}</strong></div>
-                  <div style={{color:'#666',fontSize:13}}>{isKo ? '트랙' : 'Track'}: {data.track || '—'}</div>
+                  <div style={{color:'var(--fg-muted)',fontSize:13}}>{isKo ? '트랙' : 'Track'}: {data.track || '—'}</div>
                 </td>
                 <td style={{textAlign:'right'}}>{symbol}{amount}.00 {currency !== 'USD' && currency}</td>
               </tr>
@@ -108,7 +108,7 @@ function Receipt({ lang, c }) {
           <div>
             <div>{isKo ? '결제 수단' : 'Method'}: {data.payment.method === 'card' ? (isKo ? '신용카드' : 'Credit card') : data.payment.method}</div>
             {data.payment.card_last4 && <div>{isKo ? '카드' : 'Card'}: •••• {data.payment.card_last4}</div>}
-            <div>{isKo ? '상태' : 'Status'}: <span style={{color:'#248737',fontWeight:700}}>{isKo ? '결제 완료' : 'PAID'}</span></div>
+            <div>{isKo ? '상태' : 'Status'}: <span style={{color:'var(--state-success)',fontWeight:700}}>{isKo ? '결제 완료' : 'PAID'}</span></div>
           </div>
         </section>
 
@@ -116,7 +116,7 @@ function Receipt({ lang, c }) {
           <p>{isKo
             ? '본 영수증은 온라인으로 발급된 전자 영수증입니다. 문의는 info@koreadreampath.com 으로 연락주세요.'
             : 'This is an electronic receipt issued online. For inquiries, contact info@koreadreampath.com.'}</p>
-          <p style={{marginTop:8,fontSize:11,color:'#999'}}>KoreaDreamPath · Generated {new Date().toISOString()}</p>
+          <p style={{marginTop:8,fontSize:11,color:'var(--fg-muted)'}}>KoreaDreamPath · Generated {new Date().toISOString()}</p>
         </footer>
       </div>
     </div>

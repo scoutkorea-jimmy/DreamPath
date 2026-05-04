@@ -114,6 +114,10 @@
 
     /* Main content */
     .main { padding: 0 0 96px; max-width: 1440px; }
+    /* Wide-mode tabs (split-pane previews, programs board, members table, etc.)
+       lift the 1440px cap so big monitors don't waste the right half of the
+       screen. We use :has() so we don't need to plumb the wide flag up to .main. */
+    .main:has(.main-inner.wide) { max-width: none; }
     .topbar {
       position: sticky; top: 0; z-index: 50;
       background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
@@ -211,9 +215,44 @@
       display: flex; align-items: center; gap: 12px;
       padding: 10px 14px; border-bottom: 1px solid var(--border-hair); background: var(--bg-muted);
     }
-    .split-preview-bar code { flex: 1; }
+    .split-preview-bar code { flex: 0 1 auto; min-width: 0; }
+    .split-preview-bar .device-toggle { margin-left: auto; }
+    /* Device viewport toggle (PC / Tablet / Mobile) */
+    .device-toggle {
+      display: inline-flex; align-items: center; gap: 2px;
+      background: #fff; border: 1px solid var(--border-default); border-radius: 8px;
+      padding: 2px;
+    }
+    .device-toggle .device-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      font: inherit; font-size: 11.5px; font-weight: 600;
+      padding: 5px 10px; border: none; background: transparent;
+      color: var(--fg-secondary); border-radius: 6px; cursor: pointer;
+    }
+    .device-toggle .device-btn:hover { color: var(--fg-primary); background: var(--bg-muted); }
+    .device-toggle .device-btn.active {
+      background: var(--midnight-purple); color: #fff;
+    }
+    /* Stage that holds the iframe. For PC the iframe fills the stage; for
+       tablet/mobile the iframe is constrained inside a centered, scrollable
+       device frame so the operator sees the actual mobile breakpoint. */
+    .split-preview-stage {
+      flex: 1; min-height: 0; background: var(--bg-muted);
+      display: flex; align-items: flex-start; justify-content: center;
+      overflow: auto; padding: 20px;
+    }
+    .split-preview-stage.device-desktop { padding: 0; }
+    .device-frame {
+      background: #fff; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 16px 40px rgba(30,11,51,0.18), 0 4px 10px rgba(30,11,51,0.10);
+      flex-shrink: 0;
+    }
+    .split-preview-stage.device-desktop .device-frame {
+      width: 100% !important; height: 100% !important;
+      border-radius: 0; box-shadow: none;
+    }
     .split-iframe {
-      flex: 1; width: 100%; border: none; background: #fff;
+      flex: 1; width: 100%; height: 100%; border: none; background: #fff; display: block;
     }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
     .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--midnight-purple); }
@@ -441,12 +480,25 @@
   // The iframe pings `dp-preview-ready` once it's loaded so we know when to
   // send the initial draft (otherwise our first message could land before
   // the listener is attached).
+  // Available preview viewports. Numbers chosen for common real devices so what
+  // the operator sees in the iframe matches what real visitors see.
+  // Values are CSS pixel widths the iframe is rendered at; the public site's
+  // own responsive breakpoints take care of the rest.
+  const PREVIEW_DEVICES = {
+    desktop: { label: 'PC',     icon: 'monitor',     width: null,  height: null }, // null = fill available space
+    tablet:  { label: 'Tablet', icon: 'tablet',      width: 820,   height: 1180 }, // iPad Air
+    mobile:  { label: 'Mobile', icon: 'smartphone',  width: 390,   height: 844 },  // iPhone 14
+  };
+
   function EditorWithPreview({ tabId, previewPath, content, onSave, onDirtyChange, addItem, removeItem, children }) {
     const [draft, setDraft] = useState(() => structuredClone(content));
     const [dirty, setDirty] = useState(false);
     const [iframeReady, setIframeReady] = useState(false);
     const [previewKey, setPreviewKey] = useState(0);
+    const [device, setDevice] = useState(() => localStorage.getItem('dp_admin_preview_device') || 'desktop');
     const iframeRef = useRef(null);
+
+    useEffect(() => { localStorage.setItem('dp_admin_preview_device', device); }, [device]);
 
     // Reset draft when parent content changes externally (after Save) — but
     // only if we're not currently editing. Otherwise we'd nuke the user's work.
@@ -546,15 +598,35 @@
             <div className="split-preview-bar">
               <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)'}}>Live preview</span>
               <code style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--scouting-purple)'}}>{previewPath}</code>
+              <div className="device-toggle" role="group" aria-label="Preview viewport">
+                {Object.entries(PREVIEW_DEVICES).map(([key, d]) => (
+                  <button key={key} type="button"
+                    className={'device-btn' + (device === key ? ' active' : '')}
+                    onClick={() => setDevice(key)}
+                    aria-pressed={device === key}
+                    title={d.width ? `${d.label} · ${d.width}×${d.height}` : d.label}>
+                    <i data-lucide={d.icon} width="14" height="14" />
+                    <span>{d.label}</span>
+                  </button>
+                ))}
+              </div>
               <a className="icon-btn" href={previewPath} target="_blank" rel="noopener" title="Open in a new tab (without preview)">Open ↗</a>
             </div>
-            <iframe
-              key={previewKey}
-              ref={iframeRef}
-              src={iframeUrl}
-              className="split-iframe"
-              title={'Preview · ' + previewPath}
-            />
+            <div className={'split-preview-stage device-' + device}>
+              <div className="device-frame" style={(() => {
+                const d = PREVIEW_DEVICES[device];
+                if (!d.width) return { width: '100%', height: '100%' };
+                return { width: d.width, height: d.height };
+              })()}>
+                <iframe
+                  key={previewKey}
+                  ref={iframeRef}
+                  src={iframeUrl}
+                  className="split-iframe"
+                  title={'Preview · ' + previewPath}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

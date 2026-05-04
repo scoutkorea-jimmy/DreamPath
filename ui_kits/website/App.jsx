@@ -52,6 +52,41 @@ function App() {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  // Per-route SEO meta. Reads c.og.{default, pages[view]} and updates
+  // <title>, <meta name=description>, og:title, og:description, og:image,
+  // og:url. Empty fields cascade: page → default → static <head> values.
+  useEffectR(() => {
+    if (!content || !content.og) return;
+    const og = content.og;
+    const pageKey = view === 'program' ? 'programs' : view;  // /program/:id reuses Programs OG
+    const page = (og.pages && og.pages[pageKey]) || {};
+    const def = og.default || {};
+    const pickLang = (k) => (lang === 'ko' ? page[k + '_ko'] || def[k + '_ko'] : page[k + '_en'] || def[k + '_en']) || '';
+    const title = pickLang('title');
+    const desc = pickLang('desc');
+    const image = page.image || def.image || '';
+    const url = window.location.origin + window.location.pathname;
+
+    function setMeta(selector, attr, value) {
+      if (!value) return;
+      let el = document.head.querySelector(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        const [, prop] = selector.match(/\[([^=]+)="([^"]+)"\]/) || [];
+        const m = selector.match(/\[([a-z]+)="([^"]+)"\]/);
+        if (m) el.setAttribute(m[1], m[2]);
+        document.head.appendChild(el);
+      }
+      el.setAttribute(attr, value);
+    }
+    if (title) document.title = title;
+    setMeta('meta[name="description"]', 'content', desc);
+    setMeta('meta[property="og:title"]', 'content', title || document.title);
+    setMeta('meta[property="og:description"]', 'content', desc);
+    setMeta('meta[property="og:image"]', 'content', image);
+    setMeta('meta[property="og:url"]', 'content', url);
+  }, [view, lang, content]);
+
   // Listen for "open auth" events from anywhere in the tree
   useEffectR(() => {
     const onOpen = (e) => {

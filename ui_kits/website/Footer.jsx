@@ -57,6 +57,9 @@ function Footer({ go, lang, c }) {
         </div>
         <div className="footer-bot">
           <div>{f.rights}</div>
+          <div className="footer-ver" title="Site version (AA.bbb.cc)">
+            v {window.DREAMPATH_VERSION || '00.000.00'}
+          </div>
         </div>
       </div>
     </footer>

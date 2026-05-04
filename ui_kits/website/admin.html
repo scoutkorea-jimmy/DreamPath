@@ -37,15 +37,32 @@
       font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
       color: rgba(255,255,255,0.45); margin: 18px 0 6px 12px; font-weight: 700;
     }
-    .side button.tab {
+    /* Version pill (top of sidebar, just under brand) */
+    .side .ver-pill {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; margin-bottom: 16px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+    }
+    .side .ver-pill .ver-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.16em;
+      color: rgba(255,255,255,0.5); text-transform: uppercase;
+    }
+    .side .ver-pill .ver-num {
+      font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
+      color: #FFE600; letter-spacing: 0.04em;
+    }
+    /* Top-level groups (sidebar nav) */
+    .side nav.groups { display: flex; flex-direction: column; gap: 2px; }
+    .side button.group {
       display: flex; align-items: center; gap: 10px;
       width: 100%; text-align: left; background: none; border: none;
-      color: rgba(255,255,255,0.78); padding: 9px 12px; font: inherit; font-size: 13.5px;
-      border-radius: 8px; cursor: pointer; margin-bottom: 1px; transition: all 120ms;
+      color: rgba(255,255,255,0.82); padding: 11px 14px; font: inherit; font-size: 14px; font-weight: 500;
+      border-radius: 8px; cursor: pointer; transition: all 120ms;
     }
-    .side button.tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .side button.tab.active {
-      background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 600;
+    .side button.group:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .side button.group.active {
+      background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 700;
       box-shadow: inset 3px 0 0 #FFE600;
     }
     .side .actions {
@@ -88,6 +105,36 @@
     .topbar .savebadge.saved { background: #DCFCE7; color: #166534; }
     .topbar .savebadge.error { background: #FEE2E2; color: #B91C1C; }
     .topbar .savebadge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    /* Topbar action buttons (Open site / Export JSON) */
+    .topbar .topact {
+      display: inline-flex; align-items: center; gap: 6px;
+      font: inherit; font-size: 12.5px; font-weight: 600;
+      padding: 7px 14px; border: 1px solid var(--border-default); background: #fff;
+      color: var(--fg-primary); border-radius: 8px; cursor: pointer; text-decoration: none;
+    }
+    .topbar .topact:hover { border-color: var(--fg-muted); background: var(--bg-muted); }
+    .topbar .topact.primary {
+      background: var(--midnight-purple); color: #fff; border-color: var(--midnight-purple);
+    }
+    .topbar .topact.primary:hover { background: var(--scouting-purple); border-color: var(--scouting-purple); color: #fff; }
+
+    /* Sub-tab strip (horizontal pills under topbar, inside the active group) */
+    .subtabs {
+      position: sticky; top: 60px; z-index: 40;
+      background: #fff; border-bottom: 1px solid var(--border-hair);
+      padding: 0 56px; display: flex; gap: 2px;
+      overflow-x: auto; white-space: nowrap;
+    }
+    .subtabs button.subtab {
+      font: inherit; font-size: 13px; font-weight: 600;
+      padding: 14px 14px 12px; background: transparent; border: none;
+      color: var(--fg-secondary); cursor: pointer;
+      border-bottom: 2px solid transparent; transition: color 120ms, border-color 120ms;
+    }
+    .subtabs button.subtab:hover { color: var(--fg-primary); }
+    .subtabs button.subtab.active {
+      color: var(--scouting-purple); border-bottom-color: var(--scouting-purple);
+    }
 
     .main-inner { padding: 32px 56px; max-width: 1280px; }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
@@ -174,6 +221,7 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/lucide@0.461.0"></script>
+  <script src="/ui_kits/website/version.js"></script>
   <script src="/ui_kits/website/content-store.js"></script>
   <script src="/ui_kits/website/editor-loader.js"></script>
   <link rel="stylesheet" href="/ui_kits/website/site.css">
@@ -309,11 +357,12 @@
   const I18N = {
     en: {
       console: 'Admin Console',
-      group: { Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
-               Content:'Content', Wiki:'Wiki', Tools:'Tools', Data:'Data' },
+      group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
+               Content:'Content', Errors:'Errors', Data:'Data', Wiki:'Wiki', Tools:'Tools' },
       tab: {
+        dashboard:'Dashboard',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
-        notice:'Top notice banner',
+        notice:'Top notice banner', og_images:'OG / SEO images',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
@@ -334,11 +383,12 @@
     },
     ko: {
       console: '관리자 콘솔',
-      group: { Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
-               Content:'콘텐츠', Wiki:'위키', Tools:'도구', Data:'데이터' },
+      group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
+               Content:'콘텐츠', Errors:'에러 페이지', Data:'데이터', Wiki:'위키', Tools:'도구' },
       tab: {
+        dashboard:'대시보드',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
-        notice:'상단 공지 배너',
+        notice:'상단 공지 배너', og_images:'OG / SEO 이미지',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
@@ -369,11 +419,17 @@
   //   Wiki      — internal docs (KMS / color / design)
   //   Tools     — admin-only utilities (translations / design system / error preview)
   //   Data      — backend records (applications / inquiries / analytics)
+  // Group order = sidebar order. Tab order within a group = sub-tab strip order.
+  // The first tab in TABS is the landing tab when you sign in.
   const TABS = [
+    { id: 'dashboard',     group: 'Overview' },
+
     { id: 'brand',         group: 'Setup' },
     { id: 'footer',        group: 'Setup' },
     { id: 'icons',         group: 'Setup' },
     { id: 'notice',        group: 'Setup' },
+    { id: 'og_images',     group: 'Setup' },
+    { id: 'legal',         group: 'Setup' },
 
     { id: 'hero',          group: 'Homepage' },
     { id: 'how',           group: 'Homepage' },
@@ -383,7 +439,6 @@
     { id: 'pageheros',     group: 'Pages' },
     { id: 'partner_cta',   group: 'Pages' },
     { id: 'team',          group: 'Pages' },
-    { id: 'errors_copy',   group: 'Pages' },
 
     { id: 'programs',      group: 'Programs' },
     { id: 'program_detail',group: 'Programs' },
@@ -392,22 +447,23 @@
     { id: 'stories',       group: 'Content' },
     { id: 'faq',           group: 'Content' },
 
+    // All error-related editing in one place: copy + live preview + log of recent
+    // production errors. Previously these were scattered across Pages / Tools / Data.
+    { id: 'errors_copy',   group: 'Errors' },
+    { id: 'error_preview', group: 'Errors' },
+    { id: 'error_logs',    group: 'Errors' },
+
+    { id: 'analytics',     group: 'Data' },
+    { id: 'apps',          group: 'Data' },
+    { id: 'inquiries',     group: 'Data' },
+    { id: 'consent_log',   group: 'Data' },
+
     { id: 'wiki_kms',      group: 'Wiki' },
     { id: 'wiki_color',    group: 'Wiki' },
     { id: 'wiki_design',   group: 'Wiki' },
 
     { id: 'translations',  group: 'Tools' },
     { id: 'design_system', group: 'Tools' },
-    { id: 'error_preview', group: 'Tools' },
-
-    { id: 'analytics',     group: 'Data' },
-    { id: 'apps',          group: 'Data' },
-    { id: 'inquiries',     group: 'Data' },
-    { id: 'error_logs',    group: 'Data' },
-    { id: 'consent_log',   group: 'Data' },
-
-    { id: 'legal',         group: 'Setup' },
-
     { id: 'api_dir',       group: 'Tools' },
   ];
 
@@ -1610,6 +1666,193 @@
           <Text label="Message (EN)" value={n.en || ''} onChange={v => set(['notice','en'], v)} lang="en" />
         </div>
       </div>
+    );
+  }
+
+  // ---- OG / SEO images ----------------------------------------------------
+  // Manages the social-card meta (og:image, og:title, og:description) for
+  // every public route. Empty per-page fields fall back to og.default;
+  // empty default falls back to the static <head> values in index.html.
+  function OgImagesTab({ c, set }) {
+    const og = c.og || { default: {}, pages: {} };
+    const PAGES = [
+      { id: 'home',         label: 'Homepage',     path: '/' },
+      { id: 'about',        label: 'About',        path: '/about' },
+      { id: 'programs',     label: 'Programs',     path: '/programs' },
+      { id: 'scholarships', label: 'Scholarships', path: '/scholarships' },
+      { id: 'apply',        label: 'Apply',        path: '/apply' },
+      { id: 'partners',     label: 'Partners',     path: '/partners' },
+      { id: 'stories',      label: 'Stories',      path: '/stories' },
+      { id: 'news',         label: 'News',         path: '/news' },
+      { id: 'contact',      label: 'Contact',      path: '/contact' },
+      { id: 'team',         label: 'Project team', path: '/team' },
+    ];
+    function ImagePreview({ url }) {
+      if (!url) return <div style={{padding:'14px 0',fontSize:12,color:'var(--fg-muted)'}}>No image set — fallback applies.</div>;
+      return (
+        <div style={{margin:'10px 0 4px'}}>
+          <img src={url} alt="OG preview" style={{maxWidth:'100%',maxHeight:200,borderRadius:8,border:'1px solid var(--border-default)',background:'var(--bg-muted)',objectFit:'cover'}} onError={e => { e.target.style.opacity = '0.3'; }} />
+        </div>
+      );
+    }
+    return (
+      <>
+        <div className="card">
+          <h3>How it works</h3>
+          <p className="desc">
+            Set a default OG image and per-route overrides. The public site updates&nbsp;
+            <code>&lt;title&gt;</code>, <code>og:title</code>, <code>og:description</code>, and <code>og:image</code> on every navigation.
+            Recommended dimensions: <strong>1200 × 630</strong> px (1.91:1) under 5&nbsp;MB.
+            Upload images to Cloudflare R2 / Images / any CDN and paste the URL below — relative paths like <code>/assets/og-home.jpg</code> work too.
+          </p>
+        </div>
+
+        <div className="card">
+          <h3>Default (site-wide fallback)</h3>
+          <p className="desc">Used on any page that doesn't set its own OG image. Leave fields empty to keep the static defaults from <code>index.html</code>.</p>
+          <Text label="Image URL" value={og.default?.image || ''} onChange={v => set(['og','default','image'], v)} hint="Absolute https URL or path starting with /" />
+          <ImagePreview url={og.default?.image} />
+          <div className="grid-2 tight">
+            <Text label="Title (KO)" value={og.default?.title_ko || ''} onChange={v => set(['og','default','title_ko'], v)} lang="ko" />
+            <Text label="Title (EN)" value={og.default?.title_en || ''} onChange={v => set(['og','default','title_en'], v)} lang="en" />
+            <Area label="Description (KO)" value={og.default?.desc_ko || ''} onChange={v => set(['og','default','desc_ko'], v)} lang="ko" rows={2} />
+            <Area label="Description (EN)" value={og.default?.desc_en || ''} onChange={v => set(['og','default','desc_en'], v)} lang="en" rows={2} />
+          </div>
+        </div>
+
+        {PAGES.map(p => {
+          const pg = (og.pages && og.pages[p.id]) || {};
+          return (
+            <div className="card" key={p.id}>
+              <h3>{p.label} <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>· {p.path}</span></h3>
+              <Text label="Image URL (override)" value={pg.image || ''} onChange={v => set(['og','pages',p.id,'image'], v)} hint="Empty = use default image" />
+              <ImagePreview url={pg.image || og.default?.image || ''} />
+              <div className="grid-2 tight">
+                <Text label="Title (KO)" value={pg.title_ko || ''} onChange={v => set(['og','pages',p.id,'title_ko'], v)} lang="ko" hint="Empty = page <title>" />
+                <Text label="Title (EN)" value={pg.title_en || ''} onChange={v => set(['og','pages',p.id,'title_en'], v)} lang="en" hint="Empty = page <title>" />
+                <Area label="Description (KO)" value={pg.desc_ko || ''} onChange={v => set(['og','pages',p.id,'desc_ko'], v)} lang="ko" rows={2} />
+                <Area label="Description (EN)" value={pg.desc_en || ''} onChange={v => set(['og','pages',p.id,'desc_en'], v)} lang="en" rows={2} />
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  // ---- Dashboard ----------------------------------------------------------
+  // At-a-glance overview: site version, key counts, recent activity, and
+  // quick links into the most-used tabs. Stays read-only — no editing here.
+  function DashboardTab({ c, setTab }) {
+    const [stats, setStats] = useState({ apps: null, inquiries: null, errors: null, sessions: null });
+    const [recentApps, setRecentApps] = useState([]);
+    const [recentErrors, setRecentErrors] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const token = localStorage.getItem('dp_admin_token') || '';
+      const auth = { 'authorization': 'Bearer ' + token };
+      const get = (u) => fetch(u, { headers: auth }).then(r => r.ok ? r.json() : null).catch(() => null);
+      Promise.all([
+        get('/api/applications?limit=500'),
+        get('/api/inquiries'),
+        get('/api/errors?limit=100'),
+        get('/api/analytics/summary?days=7'),
+      ]).then(([apps, inq, errs, ana]) => {
+        setStats({
+          apps: apps?.items?.length ?? 0,
+          inquiries: inq?.items?.length ?? 0,
+          errors: errs?.items?.length ?? 0,
+          sessions: ana?.totals?.sessions ?? 0,
+        });
+        setRecentApps((apps?.items || []).slice(0, 5));
+        setRecentErrors((errs?.items || []).slice(0, 5));
+        setLoading(false);
+      });
+    }, []);
+
+    const Card = ({ label, value, accent = 'var(--midnight-purple)' }) => (
+      <div className="card" style={{margin:0,padding:'18px 22px',display:'flex',flexDirection:'column',gap:6}}>
+        <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)'}}>{label}</span>
+        <span style={{fontFamily:'var(--font-en)',fontSize:32,fontWeight:700,color:accent,lineHeight:1}}>{value === null ? '…' : value}</span>
+      </div>
+    );
+
+    const Quick = ({ id, label }) => (
+      <button type="button" onClick={() => setTab(id)} style={{textAlign:'left',padding:'14px 18px',background:'#fff',border:'1px solid var(--border-subtle)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--fg-primary)',cursor:'pointer',fontFamily:'inherit'}}>
+        {label} <span style={{color:'var(--fg-muted)',fontWeight:400}}>→</span>
+      </button>
+    );
+
+    return (
+      <>
+        <div className="card" style={{background:'linear-gradient(135deg, #1E0B33 0%, #4D006E 100%)',color:'#fff',border:'none'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:20,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'rgba(255,255,255,0.6)',marginBottom:6}}>KoreaDreamPath</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:28,fontWeight:700,letterSpacing:'-0.02em'}}>v {window.DREAMPATH_VERSION || '00.000.00'}</div>
+              <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginTop:6}}>Last sync · {new Date().toLocaleString()}</div>
+            </div>
+            <a href="/" target="_blank" rel="noopener" style={{padding:'12px 22px',background:'#FFE600',color:'var(--midnight-purple)',borderRadius:10,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
+          </div>
+        </div>
+
+        <div className="grid-4" style={{marginBottom:18}}>
+          <Card label="Applications" value={stats.apps} />
+          <Card label="Inquiries" value={stats.inquiries} accent="#622599" />
+          <Card label="Sessions (7d)" value={stats.sessions} accent="#0094B4" />
+          <Card label="Error logs" value={stats.errors} accent={stats.errors > 0 ? '#B91C1C' : 'var(--forest-green)'} />
+        </div>
+
+        <div className="card">
+          <h3>Quick actions</h3>
+          <p className="desc">Jump into the things you most often manage.</p>
+          <div className="grid-3">
+            <Quick id="apps" label="📋 Review applications" />
+            <Quick id="inquiries" label="✉️ Read inquiries" />
+            <Quick id="programs" label="🎓 Edit programs" />
+            <Quick id="og_images" label="🖼️ OG / SEO images" />
+            <Quick id="errors_copy" label="⚠️ Error pages" />
+            <Quick id="analytics" label="📈 Analytics" />
+          </div>
+        </div>
+
+        <div className="grid-2">
+          <div className="card">
+            <h3>Recent applications</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : recentApps.length === 0 ? <p className="desc">No applications yet.</p>
+             : (
+              <ul style={{listStyle:'none',margin:0,padding:0}}>
+                {recentApps.map(a => (
+                  <li key={a.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-hair)',display:'flex',justifyContent:'space-between',gap:12}}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:14}}>{a.name || '—'}</div>
+                      <div style={{fontSize:12,color:'var(--fg-muted)'}}>{a.program || '—'} · {a.country || '—'}</div>
+                    </div>
+                    <div style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap'}}>{a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : ''}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="card">
+            <h3>Recent error logs</h3>
+            {loading ? <p className="desc">Loading…</p>
+             : recentErrors.length === 0 ? <p className="desc" style={{color:'var(--forest-green)'}}>✓ No errors logged.</p>
+             : (
+              <ul style={{listStyle:'none',margin:0,padding:0}}>
+                {recentErrors.map(e => (
+                  <li key={e.id} style={{padding:'10px 0',borderBottom:'1px solid var(--border-hair)'}}>
+                    <div style={{fontSize:13,fontWeight:600,color:'#B91C1C'}}>{e.message || e.status || 'Error'}</div>
+                    <div style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{e.path || ''} · {e.created_at ? new Date(e.created_at).toLocaleString() : ''}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -3082,7 +3325,7 @@
   // ---- Main admin shell ----------------------------------------------------
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
-    const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'brand');
+    const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'dashboard');
     const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
     const t = I18N[adminLang] || I18N.en;
     useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
@@ -3157,7 +3400,9 @@
     }
 
     const TabComp = {
+      dashboard: DashboardTab,
       brand: BrandTab, footer: FooterTab, icons: IconsTab, notice: NoticeTab,
+      og_images: OgImagesTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,
@@ -3180,6 +3425,30 @@
                     : savedState === 'error' ? t.save.error
                     : t.save.idle;
 
+    // Build group list in TABS-defined order; current group is derived from
+    // the active tab so navigating sub-tabs keeps the sidebar in sync.
+    const groups = [];
+    const seenGroup = new Set();
+    TABS.forEach(tt => { if (!seenGroup.has(tt.group)) { groups.push(tt.group); seenGroup.add(tt.group); } });
+    const activeGroupId = activeTab?.group || groups[0];
+    const groupTabs = TABS.filter(tt => tt.group === activeGroupId);
+
+    function selectGroup(g) {
+      // Sticky sub-tab memory per group: returning to a group restores the
+      // last sub-tab the user was on. Otherwise jump to the group's first tab.
+      const memKey = 'dp_admin_subtab__' + g;
+      const remembered = localStorage.getItem(memKey);
+      const groupTabIds = TABS.filter(tt => tt.group === g).map(tt => tt.id);
+      const next = remembered && groupTabIds.includes(remembered) ? remembered : groupTabIds[0];
+      if (next) setTab(next);
+    }
+    useEffect(() => {
+      // Remember the active sub-tab for the active group.
+      if (activeTab) localStorage.setItem('dp_admin_subtab__' + activeTab.group, activeTab.id);
+    }, [tab]);
+
+    const version = window.DREAMPATH_VERSION || '00.000.00';
+
     return (
       <div className="admin">
         <aside className="side" aria-label="Admin navigation">
@@ -3190,27 +3459,21 @@
               <div className="sub">{t.console}</div>
             </div>
           </div>
-          {(() => {
-            const groups = [];
-            const seen = new Set();
-            TABS.forEach(tt => { if (!seen.has(tt.group)) { groups.push(tt.group); seen.add(tt.group); } });
-            return groups.map(g => (
-              <React.Fragment key={g}>
-                <h2>{t.group[g] || g}</h2>
-                {TABS.filter(tt => tt.group === g).map(tt => (
-                  <button key={tt.id} type="button"
-                    className={'tab' + (tab === tt.id ? ' active' : '')}
-                    onClick={() => setTab(tt.id)}
-                    aria-current={tab === tt.id ? 'page' : undefined}>
-                    {t.tab[tt.id] || tt.id}
-                  </button>
-                ))}
-              </React.Fragment>
-            ));
-          })()}
+          <div className="ver-pill" title="Site version (AA.bbb.cc)">
+            <span className="ver-label">VERSION</span>
+            <span className="ver-num">{version}</span>
+          </div>
+          <nav className="groups" aria-label="Admin groups">
+            {groups.map(g => (
+              <button key={g} type="button"
+                className={'group' + (g === activeGroupId ? ' active' : '')}
+                onClick={() => selectGroup(g)}
+                aria-current={g === activeGroupId ? 'page' : undefined}>
+                {t.group[g] || g}
+              </button>
+            ))}
+          </nav>
           <div className="actions">
-            <a className="primary" href="/" target="_blank" rel="noopener">{t.action.open_site}</a>
-            <button type="button" onClick={onExport}>{t.action.export}</button>
             <button type="button" className="danger" onClick={onReset}>{t.action.reset}</button>
             <button type="button" onClick={onLogout}>{t.action.logout}</button>
           </div>
@@ -3223,6 +3486,8 @@
               <strong>{activeLabel}</strong>
             </div>
             <div className="meta">
+              <a className="topact primary" href="/" target="_blank" rel="noopener">{t.action.open_site}</a>
+              <button type="button" className="topact" onClick={onExport}>{t.action.export}</button>
               <div className="adminlang" role="group" aria-label="Admin language">
                 <button type="button" className={adminLang === 'ko' ? 'on' : ''} onClick={() => setAdminLang('ko')} aria-pressed={adminLang === 'ko'}>KO</button>
                 <span aria-hidden="true">·</span>
@@ -3234,6 +3499,18 @@
               </div>
             </div>
           </div>
+          {groupTabs.length > 1 && (
+            <nav className="subtabs" aria-label="Section tabs">
+              {groupTabs.map(tt => (
+                <button key={tt.id} type="button"
+                  className={'subtab' + (tab === tt.id ? ' active' : '')}
+                  onClick={() => setTab(tt.id)}
+                  aria-current={tab === tt.id ? 'page' : undefined}>
+                  {t.tab[tt.id] || tt.id}
+                </button>
+              ))}
+            </nav>
+          )}
           <div className="main-inner">
             <div className="page-head">
               <div>
@@ -3241,7 +3518,7 @@
                 <p className="lede">{t.lede}</p>
               </div>
             </div>
-            <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />
+            <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} setTab={setTab} />
           </div>
         </div>
       </div>

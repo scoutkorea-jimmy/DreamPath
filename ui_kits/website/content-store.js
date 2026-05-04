@@ -294,6 +294,30 @@
       ko: '🚧 개발중입니다 · 정식 오픈은 5월 말 예정',
       en: '🚧 Under development · Official launch end of May',
     },
+    // ─── OG / SEO meta (per-route social-card overrides) ────────────────
+    // App.jsx reads these on every view change to update <title>,
+    // <meta name="description">, og:title, og:description, og:image.
+    // Empty fields fall back to og.default; if og.default fields are also
+    // empty, the static <head> values from index.html stay in place.
+    og: {
+      default: {
+        image: '',
+        title_ko: '', title_en: '',
+        desc_ko: '', desc_en: '',
+      },
+      pages: {
+        home:         { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        about:        { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        programs:     { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        scholarships: { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        apply:        { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        partners:     { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        stories:      { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        news:         { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        contact:      { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+        team:         { image: '', title_ko: '', title_en: '', desc_ko: '', desc_en: '' },
+      },
+    },
     // ─── About page ────────────────────────────────────────────────────
     about: {
       hero: {

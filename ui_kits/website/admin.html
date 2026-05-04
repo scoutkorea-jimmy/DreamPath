@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>KoreaDreamPath · Admin</title>
-  <link rel="icon" href="../../assets/logo-dreampath-mark.svg">
-  <link rel="stylesheet" href="../../colors_and_type.css">
+  <link rel="icon" href="/assets/logo-dreampath-mark.svg">
+  <link rel="stylesheet" href="/colors_and_type.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: var(--canvas-white); color: var(--fg-primary); font-family: var(--font-sans); min-height: 100vh; }
@@ -170,10 +170,10 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/lucide@0.461.0"></script>
-  <script src="content-store.js"></script>
-  <script src="editor-loader.js"></script>
-  <link rel="stylesheet" href="site.css">
-  <script type="text/babel" src="RichEditor.jsx"></script>
+  <script src="/ui_kits/website/content-store.js"></script>
+  <script src="/ui_kits/website/editor-loader.js"></script>
+  <link rel="stylesheet" href="/ui_kits/website/site.css">
+  <script type="text/babel" src="/ui_kits/website/RichEditor.jsx"></script>
 </head>
 <body>
   <a href="#main" class="skip-link">본문 바로가기</a>
@@ -1367,7 +1367,7 @@
 
           {filtered.length === 0 ? (
             <div style={{padding:'40px 20px',textAlign:'center',color:'var(--fg-muted)',background:'var(--bg-muted)',borderRadius:12,fontSize:14}}>
-              No applications yet. Submit one from <a href="index.html#apply" target="_blank" rel="noopener">the Apply page</a>.
+              No applications yet. Submit one from <a href="/apply" target="_blank" rel="noopener">the Apply page</a>.
             </div>
           ) : (
             <div style={{overflowX:'auto'}}>
@@ -1568,7 +1568,7 @@
       <div className="admin">
         <aside className="side" aria-label="Admin navigation">
           <div className="brand">
-            <img src="../../assets/logo-dreampath-mark.svg" alt="" />
+            <img src="/assets/logo-dreampath-mark.svg" alt="" />
             <div>
               <div className="wm">KoreaDream<span className="pt">Path</span></div>
               <div className="sub">Admin Console</div>
@@ -1593,7 +1593,7 @@
             ));
           })()}
           <div className="actions">
-            <a className="primary" href="index.html" target="_blank" rel="noopener">Open site ↗</a>
+            <a className="primary" href="/" target="_blank" rel="noopener">Open site ↗</a>
             <button type="button" onClick={onExport}>Export JSON</button>
             <button type="button" className="danger" onClick={onReset}>Reset all</button>
             <button type="button" onClick={onLogout}>Log out</button>

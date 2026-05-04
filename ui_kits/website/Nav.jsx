@@ -42,7 +42,7 @@ function Nav({ view, go, lang, setLang, c }) {
 
           {auth.ready && !auth.user && (
             <>
-              <button type="button" className="nlink" onClick={() => openAuth('login')}>{isKo ? '로그인' : 'Log in'}</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAuth('login')}>{isKo ? '로그인' : 'Log in'}</button>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => openAuth('signup')}>{isKo ? '회원가입' : 'Sign up'}</button>
             </>
           )}

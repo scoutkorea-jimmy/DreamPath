@@ -223,7 +223,8 @@ body {
 
 /* ============ CTA BANNER ============ */
 .cta-banner { background: var(--midnight-purple); color: #fff; border-radius: var(--radius-2xl); padding: 72px 56px; margin: 0 auto; max-width: 1200px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: center; position: relative; overflow: hidden; }
-.cta-banner::after { content:''; position:absolute; right:-80px; top:-80px; width:320px; height:320px; border-radius:50%; background: var(--scouting-purple); opacity: 0.5; }
+.cta-banner::after { content:''; position:absolute; right:-80px; top:-80px; width:320px; height:320px; border-radius:50%; background: var(--scouting-purple); opacity: 0.5; z-index: 0; pointer-events: none; }
+.cta-banner > * { position: relative; z-index: 1; }
 .cta-banner h2 { font-family: var(--font-kr); font-size: 44px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 700; margin: 0 0 12px; position: relative; }
 .cta-banner p { color: rgba(255,255,255,0.82); font-size: 17px; margin: 0; position: relative; }
 .cta-banner .btn-wrap { justify-self: end; position: relative; }

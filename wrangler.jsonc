@@ -8,7 +8,11 @@
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // Don't auto-canonicalize index.html URLs — the Worker rewrites
+    // friendly paths (/, /admin, /about, ...) into actual asset paths
+    // and we want to serve them as-is at the original URL.
+    "html_handling": "none"
   },
 
   "kv_namespaces": [

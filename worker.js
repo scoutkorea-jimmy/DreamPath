@@ -1,7 +1,23 @@
-// DreamPath Worker — serves /api/* and falls through to static assets.
+// KoreaDreamPath Worker — handles /api/*, friendly URL rewrites,
+// and falls through to static assets for everything else.
 
 const CONTENT_KEY = 'dp_content_v1';
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
+
+const SITE_INDEX  = '/ui_kits/website/index.html';
+const SITE_ADMIN  = '/ui_kits/website/admin.html';
+
+// Friendly URLs that should serve the public SPA shell.
+// The SPA reads location.pathname on boot and shows the matching view.
+const SPA_PATHS = new Set([
+  '/', '/index.html',
+  '/about', '/programs', '/apply',
+  '/partners', '/stories', '/news', '/contact',
+  '/member', '/receipt',
+]);
+
+// Friendly URLs for the admin shell.
+const ADMIN_PATHS = new Set(['/admin', '/admin/', '/admin.html']);
 
 export default {
   async fetch(request, env, ctx) {
@@ -15,9 +31,24 @@ export default {
       }
     }
 
+    // Friendly URL → real asset path. Use the same Request (preserves headers,
+    // method) but with a rewritten URL.
+    if (ADMIN_PATHS.has(url.pathname)) {
+      return env.ASSETS.fetch(rewriteRequest(request, SITE_ADMIN));
+    }
+    if (SPA_PATHS.has(url.pathname) || url.pathname.startsWith('/program/')) {
+      return env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX));
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
+
+function rewriteRequest(request, newPath) {
+  const u = new URL(request.url);
+  u.pathname = newPath;
+  return new Request(u.toString(), request);
+}
 
 async function handleApi(request, env, url) {
   const path = url.pathname;

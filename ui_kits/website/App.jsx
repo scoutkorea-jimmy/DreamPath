@@ -12,15 +12,27 @@ function useContent() {
 }
 window.useContent = useContent;
 
+// Friendly URL <-> view-state mapping. Update both when navigating.
+const VIEW_TO_PATH = {
+  home: '/', about: '/about', programs: '/programs', apply: '/apply',
+  partners: '/partners', stories: '/stories', news: '/news', contact: '/contact',
+  member: '/member', receipt: '/receipt',
+};
+const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]) => [p, v]));
+
+function viewFromLocation() {
+  const path = window.location.pathname;
+  if (path.startsWith('/program/')) return 'program';
+  return PATH_TO_VIEW[path] || PATH_TO_VIEW[path.replace(/\/$/, '')] || 'home';
+}
+
 function App() {
-  const initialView = (() => {
+  const [view, setView] = useStateR(viewFromLocation);
+  const [programId, setProgramId] = useStateR(() => {
     const p = window.location.pathname;
-    if (p === '/receipt' || p.startsWith('/receipt/')) return 'receipt';
-    if (p === '/member') return 'member';
-    return localStorage.getItem('dp_view') || 'home';
-  })();
-  const [view, setView] = useStateR(initialView);
-  const [programId, setProgramId] = useStateR(() => localStorage.getItem('dp_prog') || 'korean-studies');
+    if (p.startsWith('/program/')) return decodeURIComponent(p.slice('/program/'.length).replace(/\/$/, ''));
+    return localStorage.getItem('dp_prog') || 'korean-studies';
+  });
   const [lang, setLang] = useStateR(() => localStorage.getItem('dp_lang') || 'ko');
   const [authOpen, setAuthOpen] = useStateR(false);
   const [authMode, setAuthMode] = useStateR('login');
@@ -51,7 +63,28 @@ function App() {
   const go = (v, arg) => {
     if (v === 'program' && arg) setProgramId(arg);
     setView(v);
+    // Push a real URL so back-button + sharing work
+    const newPath = v === 'program' && arg
+      ? '/program/' + encodeURIComponent(arg)
+      : (VIEW_TO_PATH[v] || '/');
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({ v, arg }, '', newPath + window.location.search);
+    }
   };
+
+  // Handle browser back/forward
+  useEffectR(() => {
+    const onPop = () => {
+      const v = viewFromLocation();
+      setView(v);
+      if (v === 'program') {
+        const id = decodeURIComponent(window.location.pathname.slice('/program/'.length).replace(/\/$/, ''));
+        if (id) setProgramId(id);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   let content_view;
   switch (view) {

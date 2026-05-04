@@ -3,6 +3,10 @@
 > **READ THIS FIRST.** Every coding session on this repo must start by re-reading
 > this file. Rules and conventions below have been earned through real
 > incidents — ignoring them costs hours.
+>
+> **Then read [`CLAUDE_TASKS.md`](./CLAUDE_TASKS.md)** for the prioritized
+> backlog. Pick from the top of P0 unless the user has asked for something
+> specific. Don't pick from the middle of the list without a reason.
 
 ---
 

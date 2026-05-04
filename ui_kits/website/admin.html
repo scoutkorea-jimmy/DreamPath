@@ -52,9 +52,25 @@
       font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
       color: #FFE600; letter-spacing: 0.04em;
     }
-    /* Sidebar groups (accordion: active group expands to show its sub-tabs) */
+    /* Sidebar groups (accordion: active group always open; others toggle via
+       the caret on the right of each row). */
     .side nav.groups { display: flex; flex-direction: column; gap: 2px; }
     .side .grp { display: flex; flex-direction: column; }
+    /* Row holds the main group button + an optional caret toggle. */
+    .side .group-row { display: flex; align-items: stretch; gap: 2px; }
+    .side .group-row > button.group { flex: 1; min-width: 0; }
+    /* Caret button — collapses / expands a non-active group without
+       navigating. Hidden on the active group (it's always open). */
+    .side button.group-caret {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; flex: 0 0 32px;
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.55); border-radius: 8px; padding: 0;
+      transition: all 120ms;
+    }
+    .side button.group-caret:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .side button.group-caret i { width: 14px; height: 14px; transition: transform 160ms; }
+    .side button.group-caret.open i { transform: rotate(180deg); }
     .side button.group {
       display: flex; align-items: center; gap: 10px;
       width: 100%; text-align: left; background: none; border: none;
@@ -704,6 +720,7 @@
       tab: {
         dashboard:'Dashboard',
         members:'Member directory', member_roles:'Roles & permissions',
+        inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images',
         hero:'Hero', how:'How it works', cta:'CTA banner',
@@ -733,6 +750,7 @@
       tab: {
         dashboard:'대시보드',
         members:'회원 목록', member_roles:'등급 / 권한',
+        inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
@@ -858,8 +876,9 @@
     { id: 'analytics',     group: 'Marketing' },
 
     // Student support — incoming requests from prospective students.
-    { id: 'apps',          group: 'StudentSupport' },
-    { id: 'inquiries',     group: 'StudentSupport' },
+    { id: 'apps',                group: 'StudentSupport' },
+    { id: 'inquiries',           group: 'StudentSupport' },
+    { id: 'inquiry_categories',  group: 'StudentSupport' },
 
     // Members — registered users, their consent trails, and the role/permission
     // matrix that governs what each role can do.
@@ -2286,6 +2305,52 @@
                 })}
               </tbody>
             </table>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ---- Inquiry categories CRUD --------------------------------------------
+  // Drives the 문의 유형 dropdown on the public Contact form. Operator can
+  // add / rename / reorder / delete categories. Stored as c.inquiry_categories.
+  function InquiryCategoriesTab({ c, set, addItem, removeItem }) {
+    const cats = Array.isArray(c.inquiry_categories) ? c.inquiry_categories : [];
+    function move(from, to) {
+      if (to < 0 || to >= cats.length) return;
+      const next = cats.slice();
+      const [m] = next.splice(from, 1);
+      next.splice(to, 0, m);
+      set(['inquiry_categories'], next);
+    }
+    return (
+      <>
+        <div className="card">
+          <h3>문의 유형 · Inquiry categories</h3>
+          <p className="desc">
+            공개 사이트 Contact 폼의 \"문의 유형\" 드롭다운 항목입니다. <code>value</code>는 DB에 저장되는 슬러그
+            (영문/숫자/언더스코어), 라벨은 KO/EN 양쪽을 채워주세요.
+          </p>
+          <button type="button" className="btn-add" onClick={() => addItem(['inquiry_categories'], { value: 'cat_' + Date.now().toString(36), label_ko: '새 유형', label_en: 'New category' })}>+ Add category</button>
+        </div>
+        {cats.length === 0 && (
+          <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>No categories yet. Add one to start.</div>
+        )}
+        {cats.map((cat, i) => (
+          <div className="card" key={i}>
+            <div className="rep-head" style={{marginBottom:14}}>
+              <strong>{cat.label_ko || cat.label_en || cat.value || '—'}</strong>
+              <div className="ctrls">
+                <button type="button" className="icon-btn" onClick={() => move(i, i - 1)} disabled={i === 0}>↑</button>
+                <button type="button" className="icon-btn" onClick={() => move(i, i + 1)} disabled={i === cats.length - 1}>↓</button>
+                <button type="button" className="icon-btn danger" onClick={() => { if (confirm('Delete this category?')) removeItem(['inquiry_categories'], i); }}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-3 tight">
+              <Text label="Value (slug)" value={cat.value || ''} onChange={v => set(['inquiry_categories',i,'value'], v)} hint="Stored on the inquiry row. Lowercase, no spaces." />
+              <Text label="Label (KO)" value={cat.label_ko || ''} onChange={v => set(['inquiry_categories',i,'label_ko'], v)} lang="ko" />
+              <Text label="Label (EN)" value={cat.label_en || ''} onChange={v => set(['inquiry_categories',i,'label_en'], v)} lang="en" />
+            </div>
           </div>
         ))}
       </>
@@ -4591,6 +4656,7 @@
       legal: LegalTab, api_dir: ApiDirectoryTab,
       apps: ApplicationsTab,
       members: MembersTab, member_roles: MemberRolesTab,
+      inquiry_categories: InquiryCategoriesTab,
     }[tab];
 
     const activeTab = TABS.find(tt => tt.id === tab);
@@ -4609,6 +4675,26 @@
     const activeGroupId = activeTab?.group || groups[0];
     const groupTabs = TABS.filter(tt => tt.group === activeGroupId);
 
+    // Manually-expanded groups (operator clicked the group header to peek
+    // without navigating). Stored as a Set in localStorage. The active group
+    // is ALWAYS rendered expanded regardless of this set so the current tab
+    // stays in context. Default state is empty → only the active group is
+    // open, every other group is collapsed → much shorter sidebar.
+    const [expandedGroups, setExpandedGroups] = useState(() => {
+      try { return new Set(JSON.parse(localStorage.getItem('dp_admin_expanded_groups') || '[]')); }
+      catch { return new Set(); }
+    });
+    useEffect(() => {
+      try { localStorage.setItem('dp_admin_expanded_groups', JSON.stringify([...expandedGroups])); } catch {}
+    }, [expandedGroups]);
+
+    function toggleGroup(g) {
+      setExpandedGroups(prev => {
+        const next = new Set(prev);
+        if (next.has(g)) next.delete(g); else next.add(g);
+        return next;
+      });
+    }
     function selectGroup(g) {
       // Sticky sub-tab memory per group: returning to a group restores the
       // last sub-tab the user was on. Otherwise jump to the group's first tab.
@@ -4644,18 +4730,36 @@
               const active = g === activeGroupId;
               const childTabs = TABS.filter(tt => tt.group === g);
               const icon = GROUP_ICONS[g] || 'circle';
+              // The active group is always shown expanded; others honor the
+              // operator's manual expansion choice. Default is collapsed
+              // (expandedGroups starts empty).
+              const open = active || expandedGroups.has(g);
               return (
                 <div className="grp" key={g}>
-                  <button type="button"
-                    className={'group' + (active ? ' active' : '')}
-                    onClick={() => selectGroup(g)}
-                    aria-current={active ? 'page' : undefined}
-                    aria-expanded={active ? 'true' : 'false'}>
-                    <i data-lucide={icon} className="gicon" />
-                    <span className="glabel">{t.group[g] || g}</span>
-                    <span className="gcount">{childTabs.length}</span>
-                  </button>
-                  {active && childTabs.length > 1 && (
+                  <div className={'group-row' + (active ? ' active' : '')}>
+                    {/* Main click: navigate into the group (jumps to last-active sub-tab). */}
+                    <button type="button"
+                      className={'group' + (active ? ' active' : '')}
+                      onClick={() => selectGroup(g)}
+                      aria-current={active ? 'page' : undefined}>
+                      <i data-lucide={icon} className="gicon" />
+                      <span className="glabel">{t.group[g] || g}</span>
+                      <span className="gcount">{childTabs.length}</span>
+                    </button>
+                    {/* Caret: toggle expansion without navigating. The active
+                        group's caret is hidden — it's always open. */}
+                    {!active && childTabs.length > 1 && (
+                      <button type="button"
+                        className={'group-caret' + (open ? ' open' : '')}
+                        onClick={(e) => { e.stopPropagation(); toggleGroup(g); }}
+                        aria-expanded={open ? 'true' : 'false'}
+                        aria-label={(t.group[g] || g) + (open ? ' collapse' : ' expand')}
+                        title={open ? 'Collapse' : 'Expand'}>
+                        <i data-lucide="chevron-down" />
+                      </button>
+                    )}
+                  </div>
+                  {open && childTabs.length > 1 && (
                     <div className="subnav" role="group" aria-label={`${t.group[g] || g} sub-tabs`}>
                       {childTabs.map(tt => (
                         <button key={tt.id} type="button"

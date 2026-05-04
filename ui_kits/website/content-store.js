@@ -332,6 +332,17 @@
         },
       ],
     },
+    // ─── Inquiry categories (Contact form 문의 유형) ────────────────────
+    // Read by Pages.jsx → InquiryForm dropdown. Operator authors the list
+    // under admin → 학생 지원 → 문의 유형. `value` is what gets stored on
+    // the inquiries row; ko/en is the label visitors see.
+    inquiry_categories: [
+      { value: 'general',     label_ko: '일반 문의',     label_en: 'General inquiry' },
+      { value: 'program',     label_ko: '프로그램 관련', label_en: 'About a program' },
+      { value: 'partnership', label_ko: '파트너십',      label_en: 'Partnership' },
+      { value: 'media',       label_ko: '취재 / 미디어', label_en: 'Media / press' },
+      { value: 'bug',         label_ko: '오류 신고',     label_en: 'Report a bug' },
+    ],
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
       enabled: true,

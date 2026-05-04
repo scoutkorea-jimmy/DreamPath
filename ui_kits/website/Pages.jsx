@@ -237,7 +237,7 @@ function Contact({ lang, c }) {
               {isKo ? '직접 문의하기' : 'Send a message'}
             </button>
           </div>
-          {tab === 'form' && <InquiryForm lang={lang} />}
+          {tab === 'form' && <InquiryForm lang={lang} c={c} />}
           {tab === 'faq' && (
           <div className="faq-list">
             {list.map((f, i) => (
@@ -272,14 +272,24 @@ function Contact({ lang, c }) {
   );
 }
 
-function InquiryForm({ lang }) {
+function InquiryForm({ lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null };
+  // Categories sourced from c.inquiry_categories (admin-editable). Falls
+  // back to a hardcoded set so the form still works on a stale cache.
+  const FALLBACK_CATS = [
+    { value: 'general',     label_ko: '일반 문의',     label_en: 'General inquiry' },
+    { value: 'program',     label_ko: '프로그램 관련', label_en: 'About a program' },
+    { value: 'partnership', label_ko: '파트너십',      label_en: 'Partnership' },
+    { value: 'media',       label_ko: '취재 / 미디어', label_en: 'Media / press' },
+    { value: 'bug',         label_ko: '오류 신고',     label_en: 'Report a bug' },
+  ];
+  const CATS = (c && Array.isArray(c.inquiry_categories) && c.inquiry_categories.length) ? c.inquiry_categories : FALLBACK_CATS;
   const [form, setForm] = React.useState({
     name: auth.user ? (auth.user.name || '') : '',
     email: auth.user ? auth.user.email : '',
     phone: '',
-    category: 'general',
+    category: CATS[0].value,
     subject: '',
     body: '',
   });
@@ -336,14 +346,6 @@ function InquiryForm({ lang }) {
     );
   }
 
-  const CATEGORIES = [
-    { v: 'general',     ko: '일반 문의',       en: 'General inquiry' },
-    { v: 'program',     ko: '프로그램 관련',   en: 'About a program' },
-    { v: 'partnership', ko: '파트너십',        en: 'Partnership' },
-    { v: 'media',       ko: '취재 / 미디어',   en: 'Media / press' },
-    { v: 'bug',         ko: '오류 신고',       en: 'Report a bug' },
-  ];
-
   return (
     <form className="apply-card" onSubmit={submit}>
       <p className="apply-desc">{isKo
@@ -371,7 +373,7 @@ function InquiryForm({ lang }) {
         <div className="field">
           <label>{isKo ? '문의 유형' : 'Category'}</label>
           <select value={form.category} onChange={upd('category')}>
-            {CATEGORIES.map(c => <option key={c.v} value={c.v}>{isKo ? c.ko : c.en}</option>)}
+            {CATS.map(cat => <option key={cat.value} value={cat.value}>{isKo ? cat.label_ko : cat.label_en}</option>)}
           </select>
         </div>
         <div className="field">

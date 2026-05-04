@@ -323,6 +323,9 @@
         design_system:'Design System (live)', error_preview:'Error pages preview',
         wiki_kms:'KMS (coding)', wiki_color:'Color guide', wiki_design:'Design guide',
         analytics:'Analytics', apps:'Applications', inquiries:'Inquiries',
+        error_logs:'Error logs', consent_log:'Consent log',
+        legal:'Legal documents',
+        api_dir:'API directory',
       },
       action: { open_site:'Open site ↗', export:'Export JSON', reset:'Reset all', logout:'Log out' },
       save: { saving:'Saving…', saved:'✓ Saved', error:'Save failed', idle:'All changes saved' },
@@ -345,6 +348,9 @@
         design_system:'디자인 시스템 (실시간)', error_preview:'에러 페이지 미리보기',
         wiki_kms:'KMS (코딩)', wiki_color:'컬러 가이드', wiki_design:'디자인 가이드',
         analytics:'방문자 분석', apps:'지원서', inquiries:'문의',
+        error_logs:'오류 로그', consent_log:'동의 기록',
+        legal:'법률 문서',
+        api_dir:'API 목록',
       },
       action: { open_site:'사이트 열기 ↗', export:'JSON 내보내기', reset:'전체 초기화', logout:'로그아웃' },
       save: { saving:'저장 중…', saved:'✓ 저장됨', error:'저장 실패', idle:'모든 변경 저장됨' },
@@ -397,6 +403,12 @@
     { id: 'analytics',     group: 'Data' },
     { id: 'apps',          group: 'Data' },
     { id: 'inquiries',     group: 'Data' },
+    { id: 'error_logs',    group: 'Data' },
+    { id: 'consent_log',   group: 'Data' },
+
+    { id: 'legal',         group: 'Setup' },
+
+    { id: 'api_dir',       group: 'Tools' },
   ];
 
   // ===== Section editors ====================================================
@@ -1283,6 +1295,290 @@
             </details>
           ))}
         </Card>
+      </>
+    );
+  }
+
+  // ---- Error logs (Data) -------------------------------------------------
+  function ErrorLogsTab() {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState('');
+    const [filter, setFilter] = useState({ level: '', source: '' });
+    const [selected, setSelected] = useState(null);
+
+    async function load() {
+      setLoading(true); setErr('');
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const usp = new URLSearchParams();
+        usp.set('limit', '200');
+        if (filter.level)  usp.set('level',  filter.level);
+        if (filter.source) usp.set('source', filter.source);
+        const res = await fetch('/api/errors?' + usp.toString(), { headers: { authorization: 'Bearer ' + token } });
+        if (!res.ok) throw new Error('http_' + res.status);
+        setItems((await res.json()).items || []);
+      } catch (e) { setErr(e.message); }
+      setLoading(false);
+    }
+    useEffect(() => { load(); }, [filter]);
+
+    async function clearAll() {
+      if (!confirm('Delete ALL error logs? Cannot be undone.')) return;
+      const token = localStorage.getItem('dp_admin_token') || '';
+      await fetch('/api/errors/clear', { method: 'POST', headers: { authorization: 'Bearer ' + token } });
+      load();
+    }
+
+    const LS = { error:{bg:'#FEE2E2',fg:'#B91C1C'}, warn:{bg:'#FEF3C7',fg:'#92400E'}, info:{bg:'#DBEAFE',fg:'#1D4ED8'} };
+    const SS = { server:{bg:'#E0E7FF',fg:'#3730A3'}, client:{bg:'#DCFCE7',fg:'#166534'},
+                 unhandled:{bg:'#FEE2E2',fg:'#B91C1C'}, rejection:{bg:'#FEE2E2',fg:'#B91C1C'},
+                 manual:{bg:'#E5E7EB',fg:'#374151'} };
+
+    return (
+      <>
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+            <div>
+              <h3 style={{margin:0}}>오류 로그 · Error logs</h3>
+              <p className="desc" style={{margin:'4px 0 0'}}>{loading ? 'Loading…' : items.length + ' rows'}</p>
+            </div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <select value={filter.level} onChange={e => setFilter({ ...filter, level: e.target.value })}
+                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+                <option value="">All levels</option><option value="error">error</option><option value="warn">warn</option><option value="info">info</option>
+              </select>
+              <select value={filter.source} onChange={e => setFilter({ ...filter, source: e.target.value })}
+                style={{padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'#fff'}}>
+                <option value="">All sources</option><option>server</option><option>client</option><option>unhandled</option><option>rejection</option><option>manual</option>
+              </select>
+              <button className="icon-btn" onClick={load}>Refresh</button>
+              <button className="icon-btn danger" onClick={clearAll}>Clear all</button>
+            </div>
+          </div>
+          {err && <p style={{color:'#B91C1C',fontSize:13,marginTop:10}}>{err}</p>}
+        </div>
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          {items.length === 0 ? (
+            <div style={{padding:'60px 20px',textAlign:'center',color:'var(--fg-muted)'}}>No error logs yet 🎉</div>
+          ) : (
+            <table className="apps-table">
+              <thead><tr><th>Time</th><th>Level</th><th>Source</th><th>Message</th><th>Path</th><th>Status</th></tr></thead>
+              <tbody>
+                {items.map(e => {
+                  const ls = LS[e.level] || LS.error; const ss = SS[e.source] || SS.manual;
+                  return (
+                    <tr key={e.id} style={{cursor:'pointer'}} onClick={() => setSelected(e)}>
+                      <td><span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{new Date(e.ts).toLocaleString()}</span></td>
+                      <td><span className="pill" style={{background:ls.bg,color:ls.fg}}>{e.level}</span></td>
+                      <td><span className="pill" style={{background:ss.bg,color:ss.fg}}>{e.source}</span></td>
+                      <td style={{maxWidth:380,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.message}</td>
+                      <td><code style={{fontSize:11,color:'var(--fg-secondary)'}}>{e.method || ''} {e.path || ''}</code></td>
+                      <td>{e.status || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {selected && (
+          <div className="app-modal" onClick={() => setSelected(null)}>
+            <div className="app-modal-inner" onClick={e => e.stopPropagation()}>
+              <div className="app-modal-head">
+                <div>
+                  <div className="sec-kicker" style={{margin:0}}>{selected.level} · {selected.source}</div>
+                  <h2 style={{margin:'4px 0 0',fontSize:18}}>{selected.message}</h2>
+                  <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>{new Date(selected.ts).toLocaleString()} · {selected.method} {selected.path}</div>
+                </div>
+                <button className="icon-btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
+              <div className="app-modal-body">
+                {selected.stack && <><h4 className="app-sec">Stack</h4><pre style={{background:'var(--bg-muted)',padding:12,borderRadius:8,fontSize:11,fontFamily:'var(--font-mono)',overflowX:'auto',whiteSpace:'pre-wrap'}}>{selected.stack}</pre></>}
+                {selected.meta && <><h4 className="app-sec">Meta</h4><pre style={{background:'var(--bg-muted)',padding:12,borderRadius:8,fontSize:11,fontFamily:'var(--font-mono)',overflowX:'auto'}}>{selected.meta}</pre></>}
+                <h4 className="app-sec">Context</h4>
+                <div className="app-row"><div className="app-k">User</div><div className="app-v">{selected.user_id || '—'}</div></div>
+                <div className="app-row"><div className="app-k">Session</div><div className="app-v">{selected.session_id || '—'}</div></div>
+                <div className="app-row"><div className="app-k">IP</div><div className="app-v">{selected.ip || '—'}</div></div>
+                <div className="app-row"><div className="app-k">User agent</div><div className="app-v" style={{fontSize:11,wordBreak:'break-all'}}>{selected.user_agent || '—'}</div></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ---- Consent log -------------------------------------------------------
+  function ConsentLogTab() {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+      (async () => {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/consents?days=90', { headers: { authorization: 'Bearer ' + token } });
+        if (res.ok) setItems((await res.json()).items || []);
+        setLoading(false);
+      })();
+    }, []);
+    if (loading) return <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:40}}>Loading…</div>;
+    return (
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <table className="apps-table">
+          <thead><tr><th>Time</th><th>Type</th><th>Version</th><th>Granted</th><th>User</th><th>Email</th><th>App ID</th><th>IP</th></tr></thead>
+          <tbody>
+            {items.map(c => (
+              <tr key={c.id}>
+                <td><span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--fg-muted)'}}>{new Date(c.ts).toLocaleString()}</span></td>
+                <td><strong style={{fontSize:13}}>{c.consent_type}</strong></td>
+                <td>{c.version}</td>
+                <td>{c.granted ? <span className="pill" style={{background:'#DCFCE7',color:'#166534'}}>YES</span> : <span className="pill" style={{background:'#FEE2E2',color:'#B91C1C'}}>NO</span>}</td>
+                <td><code style={{fontSize:11}}>{(c.user_id || '').slice(0, 14)}</code></td>
+                <td>{c.email || '—'}</td>
+                <td><code style={{fontSize:11}}>{c.application_id || '—'}</code></td>
+                <td><code style={{fontSize:11,color:'var(--fg-muted)'}}>{c.ip}</code></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // ---- Legal documents ----------------------------------------------------
+  function LegalTab({ c, set }) {
+    const docs = c.legal || {};
+    const keys = ['tos','privacy_signup','privacy_apply','third_party','analytics_cookies'];
+    const labels = {
+      tos: '서비스 이용약관 (Terms of Service)',
+      privacy_signup: '개인정보 동의 — 회원가입',
+      privacy_apply: '개인정보 동의 — 지원서',
+      third_party: '제3자 정보 제공 동의',
+      analytics_cookies: '분석 쿠키 동의',
+    };
+    return (
+      <>
+        <div className="card" style={{background:'rgba(180,83,9,0.06)',border:'1px solid rgba(180,83,9,0.20)'}}>
+          <p className="desc" style={{margin:0,fontSize:13}}>
+            <strong>버전(version)을 올리면 모든 사용자에게 다시 동의를 요구</strong>합니다. 사소한 오타는 같은 버전에서 진행하고, 문구·범위·목적이 바뀌면 1.0 → 1.1 식으로 올리세요.
+          </p>
+        </div>
+        {keys.map(k => {
+          const d = docs[k] || {};
+          return (
+            <div className="card" key={k}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,gap:14,flexWrap:'wrap'}}>
+                <div>
+                  <h3 style={{margin:0}}>{labels[k]}</h3>
+                  <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2,fontFamily:'var(--font-mono)'}}>c.legal.{k}</div>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'var(--fg-muted)'}}>v</span>
+                  <input value={d.version || ''} onChange={e => set(['legal',k,'version'], e.target.value)}
+                    style={{width:60,padding:'6px 8px',border:'1px solid var(--border-default)',borderRadius:6,fontSize:13,fontFamily:'var(--font-mono)'}} />
+                  <input type="date" value={d.effective || ''} onChange={e => set(['legal',k,'effective'], e.target.value)}
+                    style={{padding:'6px 8px',border:'1px solid var(--border-default)',borderRadius:6,fontSize:13}} />
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                {['ko','en'].map(L => (
+                  <React.Fragment key={L}>
+                    <Text label={`Title (${L.toUpperCase()})`} value={d[L]?.title || ''} onChange={v => set(['legal',k,L,'title'], v)} lang={L} />
+                    <Area label={`Summary (${L.toUpperCase()})`} value={d[L]?.summary || ''} onChange={v => set(['legal',k,L,'summary'], v)} lang={L} />
+                  </React.Fragment>
+                ))}
+                {['ko','en'].map(L => (
+                  <div key={'b'+L} className="field span-2">
+                    <label>Body ({L.toUpperCase()})</label>
+                    <window.RichEditor value={d[L]?.body || ''} onChange={v => set(['legal',k,L,'body'], v)} lang={L} minHeight={240} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  // ---- API directory -----------------------------------------------------
+  function ApiDirectoryTab() {
+    const ENDPOINTS = [
+      { method: 'GET',  path: '/api/health',                auth: 'public', desc: 'Service health.' },
+      { method: 'GET',  path: '/sitemap.xml',               auth: 'public', desc: 'XML sitemap.' },
+      { method: 'GET',  path: '/robots.txt',                auth: 'public', desc: 'Robots policy.' },
+      { method: 'GET',  path: '/api/public/programs',       auth: 'public · CORS', desc: 'All programs (cards).' },
+      { method: 'GET',  path: '/api/public/categories',     auth: 'public · CORS', desc: 'Unique program categories.' },
+      { method: 'GET',  path: '/api/public/news',           auth: 'public · CORS', desc: 'Latest news posts (HTML body included).' },
+      { method: 'GET',  path: '/api/public/partners',       auth: 'public · CORS', desc: 'Partner organizations.' },
+      { method: 'GET',  path: '/api/public/stories',        auth: 'public · CORS', desc: 'Learner stories.' },
+      { method: 'GET',  path: '/api/content',               auth: 'public', desc: 'Full content blob (KV).' },
+      { method: 'GET',  path: '/api/news',                  auth: 'public', desc: 'News posts (raw, D1).' },
+      { method: 'GET',  path: '/api/programs/:id/details',  auth: 'public', desc: 'Long-form program detail.' },
+      { method: 'POST', path: '/api/applications',          auth: 'public', desc: 'Submit a program application.' },
+      { method: 'POST', path: '/api/inquiries',             auth: 'public', desc: 'Submit a contact-form inquiry.' },
+      { method: 'POST', path: '/api/auth/signup',           auth: 'public', desc: 'Create a member account.' },
+      { method: 'POST', path: '/api/auth/login',            auth: 'public', desc: 'Log in.' },
+      { method: 'POST', path: '/api/auth/logout',           auth: 'session', desc: 'Invalidate session.' },
+      { method: 'GET',  path: '/api/auth/me',               auth: 'session', desc: 'Current user info.' },
+      { method: 'GET',  path: '/api/me/profile',            auth: 'session', desc: 'Career profile.' },
+      { method: 'PUT',  path: '/api/me/profile',            auth: 'session', desc: 'Update career profile.' },
+      { method: 'GET',  path: '/api/me/applications',       auth: 'session', desc: "User's submitted applications." },
+      { method: 'GET',  path: '/api/me/recommendations',    auth: 'session', desc: 'Personalized recommendations (stub).' },
+      { method: 'GET',  path: '/api/me/export',             auth: 'session', desc: 'GDPR Art. 15 — export your data.' },
+      { method: 'DELETE', path: '/api/me',                  auth: 'session', desc: 'GDPR Art. 17 — delete account.' },
+      { method: 'POST', path: '/api/consents',              auth: 'public/session', desc: 'Record a consent.' },
+      { method: 'GET',  path: '/api/applications/:id/receipt', auth: 'admin · session · token', desc: 'Receipt for paid application.' },
+      { method: 'POST', path: '/api/analytics',             auth: 'public', desc: 'Ingest visitor events (batched).' },
+      { method: 'POST', path: '/api/errors',                auth: 'public', desc: 'Report a client-side error.' },
+      { method: 'GET',  path: '/api/wiki/:slug',            auth: 'public', desc: 'Read wiki page.' },
+      { method: 'PUT',  path: '/api/content',               auth: 'admin', desc: 'Save content blob.' },
+      { method: 'PUT',  path: '/api/wiki/:slug',            auth: 'admin', desc: 'Save wiki page.' },
+      { method: 'PUT',  path: '/api/programs/:id/details',  auth: 'admin', desc: 'Save program details.' },
+      { method: 'GET',  path: '/api/applications',          auth: 'admin', desc: 'List applications.' },
+      { method: 'GET',  path: '/api/inquiries',             auth: 'admin', desc: 'List inquiries.' },
+      { method: 'GET',  path: '/api/analytics/summary',     auth: 'admin', desc: 'Aggregate analytics.' },
+      { method: 'GET',  path: '/api/analytics/journeys',    auth: 'admin', desc: 'Recent session journeys.' },
+      { method: 'GET',  path: '/api/errors',                auth: 'admin', desc: 'List error logs.' },
+      { method: 'POST', path: '/api/errors/clear',          auth: 'admin', desc: 'Wipe error logs.' },
+      { method: 'GET',  path: '/api/consents',              auth: 'admin', desc: 'List consent records.' },
+    ];
+
+    const METHOD_COLOR = { GET:'#0094B4', POST:'#248737', PUT:'#622599', PATCH:'#92400E', DELETE:'#B91C1C' };
+    const badgeBg = (a) => a.includes('admin') ? '#FEE2E2' : a.includes('session') ? '#DBEAFE' : '#DCFCE7';
+
+    return (
+      <>
+        <div className="card">
+          <h3 style={{margin:'0 0 4px'}}>API directory</h3>
+          <p className="desc">Worker가 노출하는 모든 HTTP 엔드포인트. <code>/api/public/*</code>는 외부 통합용 CORS 허용. 그 외는 세션 토큰 또는 관리자 Bearer 필요.</p>
+          <p className="desc" style={{marginTop:8}}>Base URL: <code>https://koreadreampath.com</code></p>
+        </div>
+        <div className="card" style={{padding:0,overflow:'hidden'}}>
+          <table className="apps-table">
+            <thead><tr><th style={{width:80}}>Method</th><th>Path</th><th style={{width:160}}>Auth</th><th>Description</th><th style={{width:80,textAlign:'right'}}></th></tr></thead>
+            <tbody>
+              {ENDPOINTS.map((e, i) => (
+                <tr key={i}>
+                  <td><span className="pill" style={{background: METHOD_COLOR[e.method] + '22', color: METHOD_COLOR[e.method]}}>{e.method}</span></td>
+                  <td><code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{e.path}</code></td>
+                  <td><span className="pill" style={{background: badgeBg(e.auth), color:'var(--fg-primary)'}}>{e.auth}</span></td>
+                  <td style={{fontSize:13}}>{e.desc}</td>
+                  <td style={{textAlign:'right'}}>
+                    {e.method === 'GET' && e.auth.includes('public') && !e.path.includes(':') && (
+                      <a className="icon-btn" href={e.path} target="_blank" rel="noopener">Try ↗</a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="card">
+          <h3 style={{margin:'0 0 8px'}}>외부 통합 예시</h3>
+          <pre style={{background:'#1F1B2E',color:'#E0DDFF',padding:14,borderRadius:8,fontSize:12,fontFamily:'var(--font-mono)',overflowX:'auto'}}>{`curl https://koreadreampath.com/api/public/programs
+# → { "items": [{ id, title_ko, title_en, kicker, ... }, ...] }`}</pre>
+        </div>
       </>
     );
   }
@@ -2871,6 +3167,8 @@
       design_system: DesignSystemTab, error_preview: ErrorPreviewTab,
       wiki_kms: KmsTab, wiki_color: ColorGuideTab, wiki_design: DesignGuideTab,
       analytics: AnalyticsTab, inquiries: InquiriesTab,
+      error_logs: ErrorLogsTab, consent_log: ConsentLogTab,
+      legal: LegalTab, api_dir: ApiDirectoryTab,
       apps: ApplicationsTab,
     }[tab];
 

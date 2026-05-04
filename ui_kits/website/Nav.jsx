@@ -46,6 +46,7 @@ function Nav({ view, go, lang, setLang, c }) {
         { view: 'stories', label: isKo ? '프로그램 후기' : 'Program reviews' },
       ],
     },
+    { label: n.scholarships || (isKo ? '장학 프로그램' : 'Scholarships'), view: 'scholarships', parentViews: ['scholarships'] },
     { label: n.contact || (isKo ? '문의하기' : 'Contact'), view: 'contact', parentViews: ['contact'] },
   ];
 

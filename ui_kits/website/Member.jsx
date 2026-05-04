@@ -52,6 +52,7 @@ function Member({ go, lang, c }) {
               { k: 'applications', l_ko: '내 지원 · 영수증', l_en: 'My applications · receipts' },
               { k: 'career',   l_ko: '커리어 등록', l_en: 'Career profile' },
               { k: 'recommendations', l_ko: '추천 프로그램', l_en: 'Recommendations' },
+              { k: 'privacy', l_ko: '개인정보 / GDPR', l_en: 'Privacy / GDPR' },
             ].map(t => (
               <button key={t.k} role="tab" aria-selected={section === t.k}
                 className={'member-tab' + (section === t.k ? ' active' : '')}
@@ -65,6 +66,7 @@ function Member({ go, lang, c }) {
           {section === 'applications' && <MemberApplications isKo={isKo} c={c} />}
           {section === 'career' && <MemberCareer isKo={isKo} />}
           {section === 'recommendations' && <MemberRecommendations isKo={isKo} c={c} go={go} />}
+          {section === 'privacy' && <MemberPrivacy isKo={isKo} go={go} />}
         </div>
       </section>
     </div>
@@ -285,6 +287,76 @@ function MemberRecommendations({ isKo, c, go }) {
             </article>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function MemberPrivacy({ isKo, go }) {
+  const [busy, setBusy] = useStateM(false);
+  const [err, setErr] = useStateM('');
+
+  async function exportData() {
+    setBusy(true); setErr('');
+    try {
+      const res = await window.DreamPathAuth.authFetch('/api/me/export');
+      if (!res.ok) throw new Error('http_' + res.status);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'koreadreampath-my-data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  }
+
+  async function deleteAccount() {
+    const phrase = isKo ? '계정 삭제' : 'DELETE';
+    const input = window.prompt(
+      (isKo
+        ? '계정을 삭제하면 되돌릴 수 없습니다. 개인정보는 익명화되고 30일 이내 완전 파기됩니다.\n\n계속하려면 다음 문구를 정확히 입력하세요: '
+        : 'Deleting your account cannot be undone. Personal data is anonymized and fully removed within 30 days.\n\nType the following to confirm: '
+      ) + phrase
+    );
+    if (input !== phrase) return;
+    setBusy(true); setErr('');
+    try {
+      const res = await window.DreamPathAuth.authFetch('/api/me', { method: 'DELETE' });
+      if (!res.ok) throw new Error('http_' + res.status);
+      await window.DreamPathAuth.logout();
+      go('home');
+      alert(isKo ? '계정이 삭제되었습니다.' : 'Your account has been deleted.');
+    } catch (e) { setErr(e.message); setBusy(false); }
+  }
+
+  return (
+    <div style={{maxWidth:760,margin:'0 auto'}}>
+      <div className="apply-card" style={{marginBottom:16}}>
+        <h3 className="apply-sub" style={{marginTop:0}}>{isKo ? '내 데이터 다운로드' : 'Download my data'}</h3>
+        <p style={{color:'var(--fg-secondary)',fontSize:14,lineHeight:1.6}}>
+          {isKo
+            ? 'GDPR Art. 15에 따라 회사가 보유한 본인의 모든 개인정보를 JSON 형식으로 받아볼 수 있습니다.'
+            : 'Per GDPR Art. 15, you can download all personal data we hold about you, in JSON.'}
+        </p>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={exportData}>
+          {busy ? (isKo ? '내보내는 중…' : 'Exporting…') : (isKo ? 'JSON 다운로드' : 'Download JSON')}
+        </button>
+      </div>
+
+      <div className="apply-card" style={{borderColor:'rgba(185,28,28,0.30)',background:'rgba(185,28,28,0.03)'}}>
+        <h3 className="apply-sub" style={{marginTop:0,color:'var(--state-danger)'}}>{isKo ? '계정 삭제' : 'Delete account'}</h3>
+        <p style={{color:'var(--fg-secondary)',fontSize:14,lineHeight:1.6}}>
+          {isKo
+            ? '계정과 커리어 프로필이 즉시 삭제됩니다. 지원서는 학교 입학 기록 처리를 위해 제출자 정보(user_id)만 분리되며 익명 통계 형태로 남을 수 있습니다.'
+            : 'Your account and career profile are deleted immediately. Submitted applications keep their record but are detached from your account and may remain as anonymous statistics.'}
+        </p>
+        {err && <div role="alert" style={{color:'#B91C1C',fontSize:13,marginBottom:10}}>{err}</div>}
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={deleteAccount}
+          style={{borderColor:'var(--state-danger)',color:'var(--state-danger)'}}>
+          {isKo ? '계정 삭제' : 'Delete my account'}
+        </button>
       </div>
     </div>
   );

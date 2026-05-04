@@ -23,9 +23,9 @@
     },
     nav: {
       // Display order on the public site is fixed in Nav.jsx:
-      //   소개 → 프로그램 → 프로그램 소식 → 프로그램 후기 → 파트너십
-      ko: { about: '소개', programs: '프로그램', news: '프로그램 소식', stories: '프로그램 후기', partners: '파트너십', contact: '문의하기', apply: '지원하기' },
-      en: { about: 'About', programs: 'Programs', news: 'Program news', stories: 'Program reviews', partners: 'Partnerships', contact: 'Contact', apply: 'Apply' },
+      //   소개 → 프로그램 → 장학 프로그램 → 문의하기
+      ko: { about: '소개', programs: '프로그램', scholarships: '장학 프로그램', news: '프로그램 소식', stories: '프로그램 후기', partners: '파트너십', contact: '문의하기', apply: '지원하기' },
+      en: { about: 'About', programs: 'Programs', scholarships: 'Scholarships', news: 'Program news', stories: 'Program reviews', partners: 'Partnerships', contact: 'Contact', apply: 'Apply' },
     },
     hero: {
       ko: {
@@ -200,6 +200,93 @@
       },
     },
 
+    // ─── Legal documents (GDPR / 개인정보보호법) ────────────────────────
+    // Each doc has a `version` string. Bumping the version invalidates
+    // prior consent — users must re-agree. Editable in Setup → Legal.
+    legal: {
+      tos: {
+        version: '1.0',
+        effective: '2026-05-04',
+        ko: { title: '서비스 이용약관', summary: '본 약관은 KoreaDreamPath 회원이 서비스를 이용함에 있어 권리·의무 및 책임사항을 정합니다.', body:
+`<h2>제1조 (목적)</h2><p>본 약관은 KoreaDreamPath(이하 "회사")가 제공하는 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
+<h2>제2조 (정의)</h2><ul><li><strong>"서비스"</strong>란 회사가 koreadreampath.com 및 관련 채널을 통해 제공하는 모든 콘텐츠 및 기능을 말합니다.</li><li><strong>"회원"</strong>이란 본 약관에 동의하고 서비스에 가입한 자를 말합니다.</li></ul>
+<h2>제3조 (약관의 효력 및 변경)</h2><p>본 약관은 사이트에 게시함으로써 효력이 발생합니다. 회사는 합리적인 사유가 발생할 경우 약관을 개정할 수 있으며, 변경된 약관은 시행일 7일 이전에 공지합니다.</p>
+<h2>제4조 (회원가입)</h2><p>회원가입은 회원이 약관 및 개인정보 처리방침에 동의하고, 회사가 정한 가입 양식에 정보를 기재하여 신청합니다.</p>
+<h2>제5조 (서비스 제공 및 변경)</h2><p>회사는 다음과 같은 서비스를 제공합니다: 프로그램 정보 제공, 지원서 접수, 회원 커리어 관리, 추천 프로그램 제안 등.</p>
+<h2>제6조 (회원 의무)</h2><p>회원은 타인의 정보를 도용하지 않으며, 서비스의 안정적 운영을 방해하지 않습니다.</p>
+<h2>제7조 (책임 제한)</h2><p>천재지변 또는 회사의 합리적 통제를 벗어난 사유로 인한 서비스 제공의 지연 또는 중단에 대해 회사는 책임을 지지 않습니다.</p>
+<h2>제8조 (준거법 및 관할)</h2><p>본 약관과 관련된 분쟁은 대한민국 법령에 따르며, 회사 본사 소재지 관할 법원에서 해결합니다.</p>` },
+        en: { title: 'Terms of Service', summary: 'These Terms govern your use of the KoreaDreamPath service.', body:
+`<h2>1. Purpose</h2><p>These Terms set out the rights, obligations, and responsibilities of KoreaDreamPath ("we", "the Service") and members in relation to the use of the Service at koreadreampath.com.</p>
+<h2>2. Definitions</h2><ul><li><strong>Service</strong> means all content and features provided through koreadreampath.com and related channels.</li><li><strong>Member</strong> means a person who agrees to these Terms and creates an account.</li></ul>
+<h2>3. Effect &amp; Changes</h2><p>These Terms take effect upon posting. We may amend them with 7 days' notice published on the site.</p>
+<h2>4. Registration</h2><p>To register, you must agree to these Terms and the Privacy Policy and provide the required information.</p>
+<h2>5. Services Provided</h2><p>The Service includes program information, application intake, member career profiles, and program recommendations.</p>
+<h2>6. Member Obligations</h2><p>You agree not to impersonate others or interfere with the operation of the Service.</p>
+<h2>7. Limitation of Liability</h2><p>We are not liable for delays or interruptions caused by events outside our reasonable control.</p>
+<h2>8. Governing Law &amp; Jurisdiction</h2><p>These Terms are governed by the laws of the Republic of Korea, with exclusive jurisdiction in the courts where our headquarters are located.</p>` },
+      },
+      privacy_signup: {
+        version: '1.0',
+        effective: '2026-05-04',
+        ko: { title: '개인정보 수집 · 이용 동의 (회원가입용)', summary: '회원가입을 위해 최소한의 개인정보를 수집·이용합니다.', body:
+`<h2>1. 수집 항목</h2><p>이메일, 비밀번호(해시), 이름. (선택) 커리어 프로필: 국가, 학교, 전공, 관심사, 언어 능력, 자기소개.</p>
+<h2>2. 수집 목적</h2><ul><li>회원 식별 및 로그인</li><li>지원 / 추천 프로그램 매칭</li><li>주요 공지 발송</li></ul>
+<h2>3. 보유 기간</h2><p>회원 탈퇴 시까지. 탈퇴 후에는 30일 이내 파기. 단, 관련 법령에 따라 보존이 필요한 정보는 해당 법령에서 정한 기간 동안 보관합니다.</p>
+<h2>4. 거부 권리</h2><p>회원가입을 위해 필수 항목 수집·이용에 동의하지 않으실 경우 회원가입이 제한됩니다. 선택 항목은 동의하지 않으셔도 회원가입이 가능합니다.</p>
+<h2>5. 보호 조치</h2><p>비밀번호는 PBKDF2-SHA256으로 단방향 해시 처리되며, 모든 통신은 HTTPS로 암호화됩니다. 데이터는 Cloudflare D1(EU/APAC 리전)에 저장됩니다.</p>` },
+        en: { title: 'Personal Data Consent — Sign up', summary: 'To create an account we collect a minimum set of personal data.', body:
+`<h2>1. What we collect</h2><p>Email, password (hashed), name. Optional career profile: country, school, major, interests, language proficiency, summary.</p>
+<h2>2. Why</h2><ul><li>Authenticate you and operate your account</li><li>Match applications and program recommendations</li><li>Send essential service notices</li></ul>
+<h2>3. Retention</h2><p>Until you delete your account, then deleted within 30 days. Records that we are required by law to keep are retained for the legally required period only.</p>
+<h2>4. Right to refuse</h2><p>You may refuse, but if you do, we cannot create an account for you. Optional fields can be skipped.</p>
+<h2>5. Safeguards</h2><p>Passwords are stored as one-way PBKDF2-SHA256 hashes. All traffic uses HTTPS. Data is stored on Cloudflare D1 (EU / APAC regions).</p>` },
+      },
+      privacy_apply: {
+        version: '1.0',
+        effective: '2026-05-04',
+        ko: { title: '개인정보 수집 · 이용 동의 (지원용)', summary: '지원서 처리를 위해 다음 정보를 수집합니다. 동의해 주셔야 지원이 가능합니다.', body:
+`<h2>1. 수집 항목 (필수)</h2><p>이름, 이메일, 생년월일, 입학 추천인 코드(선택), 국가, 최종 학교, 전공, GPA, 학력 메모, 에세이 2건, 스카우트 추천인 정보(이름, 이메일, 국제 전화번호, 회원국명, 훈련 수준, 추천서 PDF 파일명).</p>
+<h2>2. 수집 항목 (선택)</h2><p>결제용 카드 마지막 4자리. (전체 카드번호는 저장하지 않습니다.)</p>
+<h2>3. 수집 목적</h2><ul><li>지원서 검토 및 평가</li><li>합격 여부 통지</li><li>스카우트 조직과의 추천인 검증 커뮤니케이션</li><li>결제 처리 및 영수증 발급</li></ul>
+<h2>4. 보유 기간</h2><p>최종 합격/불합격 통지 후 1년 (재지원·이의제기 기간). 이후 익명 통계로 전환되며 식별 정보는 파기됩니다.</p>
+<h2>5. 거부 권리</h2><p>본 동의를 거부하실 경우 지원이 불가능합니다.</p>
+<h2>6. 처리 위탁 / 보안</h2><p>데이터는 Cloudflare 플랫폼에서 처리되며, EU GDPR Art. 28 기준의 데이터 처리 계약(DPA)을 따릅니다.</p>` },
+        en: { title: 'Personal Data Consent — Application', summary: 'To process your application we collect the data below. Consent is required to apply.', body:
+`<h2>1. What we collect (required)</h2><p>Name, email, date of birth, admission referrer code (optional), country, most-recent school, major, GPA, transcript note, two essays, scout-recommender details (name, email, international phone, member country, training level, PDF filename).</p>
+<h2>2. What we collect (optional)</h2><p>Last 4 digits of the payment card. We never store the full card number.</p>
+<h2>3. Purpose</h2><ul><li>Review and evaluate the application</li><li>Notify the outcome</li><li>Verify the recommender via the National Scout Organization where applicable</li><li>Process payment and issue receipts</li></ul>
+<h2>4. Retention</h2><p>One year after final notification (covers reapplication and appeal). After that, identifying details are deleted and only anonymous statistics are retained.</p>
+<h2>5. Right to refuse</h2><p>If you refuse, we cannot accept the application.</p>
+<h2>6. Processing &amp; security</h2><p>Data is processed on Cloudflare under a Data Processing Agreement aligned with EU GDPR Art. 28.</p>` },
+      },
+      third_party: {
+        version: '1.0',
+        effective: '2026-05-04',
+        ko: { title: '제3자 개인정보 제공 동의', summary: '지원하신 프로그램의 운영기관(파트너 대학)에 본인의 정보를 제공하는 것에 대한 동의입니다.', body:
+`<h2>1. 제공 받는 자</h2><p>지원자가 선택한 프로그램의 운영 파트너 기관 (예: 사이버한국외국어대학교(CUFS) 등). 향후 추가 파트너 기관이 추가될 수 있으며, 그 경우 별도 고지합니다.</p>
+<h2>2. 제공 항목</h2><p>이름, 이메일, 국가, 생년월일, 학력 정보, 에세이, 추천인 정보, 신청 프로그램, 합격 여부.</p>
+<h2>3. 제공 목적</h2><p>입학 심사, 코호트 등록, 학생 관리.</p>
+<h2>4. 제공 받는 자의 보유 기간</h2><p>해당 기관의 학생 기록 관리 정책에 따름. 통상 졸업 후 5~10년.</p>
+<h2>5. 거부 권리</h2><p>제3자 제공에 동의하지 않으실 경우 합격 후 학적 등록이 불가능합니다.</p>
+<h2>6. 국외 이전 안내 (GDPR)</h2><p>일부 파트너 기관은 EU 외 지역(대한민국)에 소재합니다. 한국은 EU 적정성 결정(2021)에 따라 적정 보호 수준 국가로 인정받았습니다.</p>` },
+        en: { title: 'Third-Party Data Sharing Consent', summary: 'Consent to share your application data with the partner institution that runs the program.', body:
+`<h2>1. Recipient</h2><p>The partner institution that runs your selected program (e.g. Cyber Hankuk University of Foreign Studies). Additional partners may be added with separate notice.</p>
+<h2>2. Data shared</h2><p>Name, email, country, date of birth, academic record, essays, recommender information, selected program, admission decision.</p>
+<h2>3. Purpose</h2><p>Admission review, cohort enrollment, ongoing student records.</p>
+<h2>4. Recipient retention</h2><p>According to the recipient's student-records policy, typically 5–10 years after graduation.</p>
+<h2>5. Right to refuse</h2><p>If you refuse, you will not be able to enroll if admitted.</p>
+<h2>6. Cross-border note (GDPR)</h2><p>Some partner institutions are outside the EU (in the Republic of Korea). Korea is recognised by the EU Adequacy Decision (2021) as providing an adequate level of protection.</p>` },
+      },
+      analytics_cookies: {
+        version: '1.0',
+        effective: '2026-05-04',
+        ko: { title: '분석 쿠키 / 추적 동의', summary: '서비스 개선을 위해 사이트 사용 패턴을 익명으로 수집합니다.', body:
+`<p>접속 경로, 페이지뷰, 클릭 등의 사용 패턴을 익명 세션 ID 기반으로 수집합니다. 식별 정보(이름·이메일)와 결합되지 않습니다. IP는 국가 추정 후 7일 후 마지막 옥텟이 마스킹됩니다.</p>` },
+        en: { title: 'Analytics / tracking consent', summary: 'We collect anonymous usage patterns to improve the service.', body:
+`<p>We collect entry source, pageviews, and click patterns under an anonymous session id. This data is never combined with identifying details (name/email). IP addresses are used only to estimate country; the last octet is masked after 7 days.</p>` },
+      },
+    },
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
       enabled: true,
@@ -291,6 +378,20 @@
         ko: { kicker: '함께하실래요?', title: '프로젝트 팀에 합류하기', sub: '교육·운영·디자인·기술 영역에서 함께할 분을 찾고 있습니다.', button: '지원 / 문의', email: 'team@koreadreampath.com' },
         en: { kicker: 'Want to join us?', title: 'Join the project team', sub: "We're looking for collaborators in education, operations, design, and engineering.", button: 'Reach out', email: 'team@koreadreampath.com' },
       },
+    },
+    // ─── Scholarships page (placeholder, content TBD) ───────────────────
+    scholarships: {
+      hero: {
+        ko: { kicker: '장학 프로그램', title_l1: '학습이 가까워지도록.', title_l2: '', sub: '파트너 기관과 함께 운영하는 장학 트랙을 곧 안내드립니다.' },
+        en: { kicker: 'SCHOLARSHIPS', title_l1: 'Bringing learning closer.', title_l2: '', sub: 'Scholarship tracks run with our partner institutions — details coming soon.' },
+      },
+      items: [
+        { id: 'placeholder-1',
+          title_ko: '준비 중인 장학 프로그램', title_en: 'Scholarship coming soon',
+          summary_ko: '내용은 곧 공개됩니다. 운영팀이 준비되는 대로 이 페이지를 업데이트합니다.',
+          summary_en: 'Details will be published here as soon as the team finalizes the program.',
+          color: '#622599' },
+      ],
     },
     // ─── Page heros (Partners / Stories / News / Contact / Programs) ────
     page_heros: {

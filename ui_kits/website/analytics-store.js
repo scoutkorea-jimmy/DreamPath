@@ -31,7 +31,14 @@
   let queue = [];
   let timer = null;
 
+  // Honor analytics consent. If user explicitly declined, drop everything.
+  function consented() {
+    const v = localStorage.getItem('dp_consent_analytics');
+    return v !== '0';  // null (undecided) defaults to allow first-party-only tracking
+  }
+
   function push(ev) {
+    if (!consented()) return;
     queue.push({
       session_id: sessionId(),
       ts: new Date().toISOString(),

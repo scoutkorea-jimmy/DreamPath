@@ -13,7 +13,7 @@ const SPA_PATHS = new Set([
   '/', '/index.html',
   '/about', '/programs', '/apply',
   '/partners', '/stories', '/news', '/contact',
-  '/team', '/member', '/receipt',
+  '/team', '/scholarships', '/member', '/receipt',
   '/401', '/403', '/404', '/500', '/503', '/offline',
 ]);
 
@@ -28,6 +28,16 @@ export default {
       try {
         return await handleApi(request, env, url);
       } catch (err) {
+        // Log every uncaught server error to D1 for the admin error console
+        ctx.waitUntil(logError(env, {
+          level: 'error', source: 'server',
+          message: String(err && err.message || err),
+          stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
+          path: url.pathname, method: request.method,
+          status: 500,
+          ip: request.headers.get('cf-connecting-ip') || '',
+          user_agent: (request.headers.get('user-agent') || '').slice(0, 500),
+        }));
         return json({ error: 'internal', message: String(err && err.message || err) }, 500);
       }
     }
@@ -273,6 +283,91 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Public read-only APIs (for external integrations) ───────────────────
+  // CORS is intentionally permissive on these GETs only. Anything writable
+  // remains restricted (admin token / session token).
+  if (path === '/api/public/programs' && method === 'GET') {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    let programs = [];
+    try { programs = (raw ? JSON.parse(raw).programs : []) || []; } catch {}
+    return cors(json({ items: programs }));
+  }
+  if (path === '/api/public/categories' && method === 'GET') {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    let cats = [];
+    try {
+      const programs = (raw ? JSON.parse(raw).programs : []) || [];
+      const seen = new Set();
+      programs.forEach(p => {
+        const c = p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '');
+        if (c && !seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); cats.push(c); }
+      });
+    } catch {}
+    return cors(json({ items: cats }));
+  }
+  if (path === '/api/public/news' && method === 'GET') {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10) || 20, 100);
+    const { results } = await env.DB.prepare(
+      'SELECT id, tag, tag_color, date, title_ko, title_en, body_ko, body_en, created_at FROM news_posts ORDER BY date DESC, created_at DESC LIMIT ?'
+    ).bind(limit).all();
+    return cors(json({ items: results || [] }));
+  }
+  if (path === '/api/public/partners' && method === 'GET') {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    let partners = [];
+    try { partners = (raw ? JSON.parse(raw).partners : []) || []; } catch {}
+    return cors(json({ items: partners }));
+  }
+  if (path === '/api/public/stories' && method === 'GET') {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    let stories = [];
+    try { stories = (raw ? JSON.parse(raw).stories : []) || []; } catch {}
+    return cors(json({ items: stories }));
+  }
+  if (path === '/api/public/programs' && method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+  if (path.startsWith('/api/public/') && method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+
+  // ── Consents (GDPR audit trail) ──────────────────────────────────────────
+  if (path === '/api/consents' && method === 'POST') return recordConsent(request, env);
+  if (path === '/api/consents' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10) || 30, 365);
+    const since = new Date(Date.now() - days * 86400 * 1000).toISOString();
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM consents WHERE ts >= ? ORDER BY ts DESC LIMIT 500'
+    ).bind(since).all();
+    return json({ items: results || [] });
+  }
+
+  // ── Errors (client report + admin list) ──────────────────────────────────
+  if (path === '/api/errors') {
+    if (method === 'POST') return reportClientError(request, env);
+    if (method === 'GET') {
+      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1000);
+      const level  = url.searchParams.get('level');
+      const source = url.searchParams.get('source');
+      let sql = 'SELECT * FROM error_logs WHERE 1=1';
+      const binds = [];
+      if (level)  { sql += ' AND level = ?';  binds.push(level); }
+      if (source) { sql += ' AND source = ?'; binds.push(source); }
+      sql += ' ORDER BY ts DESC LIMIT ?';
+      binds.push(limit);
+      const { results } = await env.DB.prepare(sql).bind(...binds).all();
+      return json({ items: results || [] });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  if (path === '/api/errors/clear' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    await env.DB.prepare('DELETE FROM error_logs').run();
+    return json({ ok: true });
+  }
+
+  // ── GDPR self-service (logged-in user) ───────────────────────────────────
+  if (path === '/api/me' && method === 'DELETE') return deleteMyAccount(request, env);
+  if (path === '/api/me/export' && method === 'GET') return exportMyData(request, env);
+
   // ── Analytics ────────────────────────────────────────────────────────────
   if (path === '/api/analytics' && method === 'POST') {
     return ingestEvents(request, env);
@@ -497,6 +592,132 @@ async function saveProfile(env, userId, body) {
   await env.DB.prepare(sql).bind(...values).run();
   const row = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(userId).first();
   return json(row);
+}
+
+// ── Errors / consents / GDPR helpers ───────────────────────────────────────
+function cors(res) {
+  const h = new Headers(res.headers);
+  h.set('access-control-allow-origin', '*');
+  h.set('access-control-allow-methods', 'GET, OPTIONS');
+  h.set('access-control-allow-headers', 'content-type');
+  h.set('cache-control', 'public, max-age=60');
+  return new Response(res.body, { status: res.status, headers: h });
+}
+
+async function logError(env, e) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO error_logs (ts, level, source, message, stack, path, method, status, user_id, session_id, ip, user_agent, meta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      new Date().toISOString(),
+      str(e.level) || 'error',
+      str(e.source) || 'server',
+      String(e.message || '').slice(0, 2000),
+      e.stack ? String(e.stack).slice(0, 4000) : null,
+      str(e.path), str(e.method),
+      e.status != null ? Number(e.status) : null,
+      str(e.user_id), str(e.session_id),
+      str(e.ip), str(e.user_agent),
+      e.meta ? JSON.stringify(e.meta).slice(0, 4000) : null,
+    ).run();
+  } catch {} // never let logging itself crash a request
+}
+
+async function reportClientError(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+  const u = await currentUser(request, env);
+  await logError(env, {
+    level: body.level || 'error',
+    source: body.source || 'client',
+    message: body.message || '',
+    stack: body.stack || null,
+    path: body.path || '',
+    method: 'GET',
+    status: null,
+    user_id: u ? u.id : null,
+    session_id: body.session_id || null,
+    ip, user_agent: ua,
+    meta: body.meta || null,
+  });
+  return json({ ok: true });
+}
+
+async function recordConsent(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body || !body.consent_type) return json({ error: 'invalid_body' }, 400);
+  const u = await currentUser(request, env);
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+
+  const consents = Array.isArray(body.consents) ? body.consents : [body];
+  const stmt = env.DB.prepare(
+    `INSERT INTO consents (ts, user_id, application_id, email, consent_type, version, granted, ip, user_agent, lang)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const ts = new Date().toISOString();
+  const ops = consents.map(c => stmt.bind(
+    ts, u ? u.id : null, str(c.application_id),
+    str(c.email || (u && u.email)),
+    String(c.consent_type), String(c.version || '1.0'),
+    c.granted === false ? 0 : 1,
+    ip, ua, str(c.lang)
+  ));
+  if (ops.length) await env.DB.batch(ops);
+  return json({ ok: true, recorded: ops.length });
+}
+
+async function exportMyData(request, env) {
+  const u = await currentUser(request, env);
+  if (!u) return json({ error: 'unauthorized' }, 401);
+  const [user, profile, apps, inquiries, consentsR] = await Promise.all([
+    env.DB.prepare('SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?').bind(u.id).first(),
+    env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(u.id).first(),
+    env.DB.prepare('SELECT * FROM applications WHERE user_id = ?').bind(u.id).all(),
+    env.DB.prepare('SELECT * FROM inquiries WHERE user_id = ?').bind(u.id).all(),
+    env.DB.prepare('SELECT * FROM consents WHERE user_id = ?').bind(u.id).all(),
+  ]);
+  const out = {
+    exported_at: new Date().toISOString(),
+    note: 'Per GDPR Art. 15. Contains all personal data we hold about you.',
+    user, profile,
+    applications: apps.results || [],
+    inquiries:    inquiries.results || [],
+    consents:     consentsR.results || [],
+  };
+  return new Response(JSON.stringify(out, null, 2), {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': 'attachment; filename="koreadreampath-my-data-' + u.id + '.json"',
+    },
+  });
+}
+
+async function deleteMyAccount(request, env) {
+  const u = await currentUser(request, env);
+  if (!u) return json({ error: 'unauthorized' }, 401);
+
+  // Soft-delete: anonymize PII but keep the row so applications + analytics
+  // counters don't break referential integrity. Hard-deletes happen on a
+  // scheduled job after the legal retention window.
+  const now = new Date().toISOString();
+  const anonEmail = 'deleted-' + u.id + '@invalid.local';
+  await env.DB.prepare(
+    `UPDATE users SET email = ?, name = NULL, password_hash = '', password_salt = '', deleted_at = ?, updated_at = ? WHERE id = ?`
+  ).bind(anonEmail, now, now, u.id).run();
+
+  // Drop any active sessions
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id).run();
+  // Wipe profile (full delete)
+  await env.DB.prepare('DELETE FROM member_profiles WHERE user_id = ?').bind(u.id).run();
+  // Detach applications from the user but keep the application record
+  await env.DB.prepare('UPDATE applications SET user_id = NULL WHERE user_id = ?').bind(u.id).run();
+
+  return json({ ok: true, deleted_at: now });
 }
 
 // ── Analytics ──────────────────────────────────────────────────────────────

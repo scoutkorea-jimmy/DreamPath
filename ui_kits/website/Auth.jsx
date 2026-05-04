@@ -17,6 +17,16 @@ function useAuth() {
 }
 window.useAuth = useAuth;
 
+function useContentForLegal() {
+  const [c, setC] = useStateAu(() => window.DreamPathContent.load());
+  useEffectAu(() => {
+    const h = () => setC(window.DreamPathContent.load());
+    window.addEventListener('dp-content-changed', h);
+    return () => window.removeEventListener('dp-content-changed', h);
+  }, []);
+  return c;
+}
+
 function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
   const isKo = lang === 'ko';
   const [mode, setMode] = useStateAu(defaultMode);
@@ -25,12 +35,19 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
   const [name, setName] = useStateAu('');
   const [err, setErr] = useStateAu('');
   const [busy, setBusy] = useStateAu(false);
+  const [agreeTos, setAgreeTos] = useStateAu(false);
+  const [agreePrivacy, setAgreePrivacy] = useStateAu(false);
+  const [docOpen, setDocOpen] = useStateAu(null);
   const auth = useAuth();
+  const c = useContentForLegal();
+  const tosDoc = c && c.legal && c.legal.tos;
+  const privacyDoc = c && c.legal && c.legal.privacy_signup;
 
   useEffectAu(() => {
     if (open) {
       setMode(defaultMode);
       setEmail(''); setPassword(''); setName(''); setErr(''); setBusy(false);
+      setAgreeTos(false); setAgreePrivacy(false);
     }
   }, [open, defaultMode]);
 
@@ -39,10 +56,19 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
+    if (mode === 'signup' && (!agreeTos || !agreePrivacy)) {
+      setErr(isKo ? '필수 약관에 모두 동의해 주세요.' : 'Please agree to all required terms.');
+      return;
+    }
     setBusy(true); setErr('');
     try {
       if (mode === 'signup') {
         await auth.signup({ email, password, name });
+        // Record consent right after the user exists so it ties to user_id
+        if (window.recordConsent) {
+          if (tosDoc) await window.recordConsent('tos', tosDoc.version, true, { email });
+          if (privacyDoc) await window.recordConsent('privacy_signup', privacyDoc.version, true, { email });
+        }
       } else {
         await auth.login({ email, password });
       }
@@ -86,11 +112,18 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               value={password} onChange={e => setPassword(e.target.value)}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
           </label>
+          {mode === 'signup' && (
+            <div style={{margin:'8px 0 14px'}}>
+              {tosDoc && <window.ConsentRow doc={tosDoc} lang={lang} value={agreeTos} onChange={setAgreeTos} required openDoc={d => setDocOpen(d)} />}
+              {privacyDoc && <window.ConsentRow doc={privacyDoc} lang={lang} value={agreePrivacy} onChange={setAgreePrivacy} required openDoc={d => setDocOpen(d)} />}
+            </div>
+          )}
           {err && <div className="auth-err" role="alert">{err}</div>}
-          <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={busy || (mode === 'signup' && (!agreeTos || !agreePrivacy))}>
             {busy ? (isKo ? '처리 중…' : 'Working…') : (mode === 'signup' ? (isKo ? '가입하기' : 'Create account') : (isKo ? '로그인' : 'Log in'))}
           </button>
         </form>
+        {docOpen && <window.LegalModal doc={docOpen} lang={lang} onClose={() => setDocOpen(null)} />}
         <div className="auth-switch">
           {mode === 'signup' ? (
             <>{isKo ? '이미 계정이 있으신가요?' : 'Already have an account?'} <button type="button" onClick={() => setMode('login')}>{isKo ? '로그인' : 'Log in'}</button></>

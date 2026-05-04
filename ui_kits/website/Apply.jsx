@@ -13,7 +13,11 @@ const { useState: useStateA } = React;
 function Apply({ lang, c }) {
   const isKo = lang === 'ko';
   const [step, setStep] = useStateA(0);
+  const [docOpen, setDocOpen] = useStateA(null);
   const [form, setForm] = useStateA({
+    // step 0 — consent
+    consent_personal: false,
+    consent_third_party: false,
     // step 1 — personal info + admission referrer code
     name: '', email: '', birthdate: '',
     admission_referrer_code: '',
@@ -41,8 +45,8 @@ function Apply({ lang, c }) {
   const [submitError, setSubmitError] = useStateA('');
 
   const steps = isKo
-    ? ['개인정보 · 추천코드', '기본 정보 · 학력', '에세이 · 스카우트 추천인', '트랙 · 결제']
-    : ['Personal · Referrer code', 'Basic · Academic', 'Essays · Scout recommender', 'Track · Payment'];
+    ? ['개인정보 동의', '개인정보 · 추천코드', '기본 정보 · 학력', '에세이 · 스카우트 추천인', '트랙 · 결제']
+    : ['Consent', 'Personal · Referrer code', 'Basic · Academic', 'Essays · Scout recommender', 'Track · Payment'];
 
   const next = () => setStep(Math.min(step + 1, steps.length));
   const back = () => setStep(Math.max(step - 1, 0));
@@ -57,9 +61,10 @@ function Apply({ lang, c }) {
   const amount = trackPrice(form.track, form.partial_tier);
 
   function validateStep(i) {
-    if (i === 0) return form.name && form.email; // referrer code is optional
-    if (i === 1) return form.country && form.prior_school;
-    if (i === 2) {
+    if (i === 0) return form.consent_personal && form.consent_third_party;
+    if (i === 1) return form.name && form.email; // referrer code is optional
+    if (i === 2) return form.country && form.prior_school;
+    if (i === 3) {
       const essaysOK = form.essay_title && form.essay_body && form.essay_body.length >= 50
                     && form.essay_title_2 && form.essay_body_2 && form.essay_body_2.length >= 50;
       const recs = form.recommenders || [];
@@ -70,7 +75,7 @@ function Apply({ lang, c }) {
       );
       return essaysOK && recsOK;
     }
-    if (i === 3) return form.track && (form.track === 'general' || form.card_last4.length === 4);
+    if (i === 4) return form.track && (form.track === 'general' || form.card_last4.length === 4);
     return true;
   }
 
@@ -106,7 +111,15 @@ function Apply({ lang, c }) {
       setAppId(data.id);
       setReceiptUrl(data.receipt_url || '');
       setSubmitted(true);
-      setStep(4);
+      setStep(5);
+
+      // GDPR audit trail — record both consents tied to this application
+      const privacyDoc = c && c.legal && c.legal.privacy_apply;
+      const thirdDoc   = c && c.legal && c.legal.third_party;
+      if (window.recordConsent) {
+        if (privacyDoc) await window.recordConsent('privacy_apply', privacyDoc.version, true, { email: form.email, application_id: data.id });
+        if (thirdDoc)   await window.recordConsent('third_party',   thirdDoc.version,   true, { email: form.email, application_id: data.id });
+      }
     } catch (e) {
       setSubmitError(isKo
         ? '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
@@ -195,20 +208,21 @@ function Apply({ lang, c }) {
               {steps[step]}
             </h2>
 
-            {step === 0 && <Step0 form={form} upd={upd} isKo={isKo} />}
-            {step === 1 && <Step1 form={form} upd={upd} isKo={isKo} />}
-            {step === 2 && <Step2 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
-            {step === 3 && <Step3 form={form} setForm={setForm} upd={upd} isKo={isKo} c={c} amount={amount} />}
+            {step === 0 && <ConsentStep form={form} setForm={setForm} isKo={isKo} c={c} openDoc={d => setDocOpen(d)} />}
+            {step === 1 && <Step0 form={form} upd={upd} isKo={isKo} />}
+            {step === 2 && <Step1 form={form} upd={upd} isKo={isKo} />}
+            {step === 3 && <Step2 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
+            {step === 4 && <Step3 form={form} setForm={setForm} upd={upd} isKo={isKo} c={c} amount={amount} />}
 
             <div className="form-actions">
               {step > 0 && <button type="button" className="btn btn-secondary" onClick={back}>← {isKo ? '이전' : 'Back'}</button>}
-              {step < 3 && (
+              {step < 4 && (
                 <button type="button" className="btn btn-primary" disabled={!validateStep(step)} onClick={next}>
                   {isKo ? '다음' : 'Next'} →
                 </button>
               )}
-              {step === 3 && (
-                <button type="button" className="btn btn-primary" disabled={!validateStep(3) || submitting} onClick={submit}>
+              {step === 4 && (
+                <button type="button" className="btn btn-primary" disabled={!validateStep(4) || submitting} onClick={submit}>
                   {submitting
                     ? (isKo ? '제출 중…' : 'Submitting…')
                     : (form.track === 'general'
@@ -220,10 +234,43 @@ function Apply({ lang, c }) {
             {submitError && (
               <div role="alert" style={{marginTop:12,color:'#B91C1C',fontSize:14}}>{submitError}</div>
             )}
+            {docOpen && <window.LegalModal doc={docOpen} lang={lang} onClose={() => setDocOpen(null)} />}
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+function ConsentStep({ form, setForm, isKo, c, openDoc }) {
+  const privacyDoc = c && c.legal && c.legal.privacy_apply;
+  const thirdDoc   = c && c.legal && c.legal.third_party;
+  return (
+    <>
+      <p className="apply-desc">{isKo
+        ? '지원서 처리를 위해 다음 두 가지 동의가 필요합니다. 각 항목의 전문을 확인하신 뒤 동의해 주세요. 동의하지 않으실 경우 지원이 진행되지 않습니다.'
+        : 'Two consents are required to process your application. Review each document and confirm. Without these, the application cannot proceed.'}</p>
+
+      {privacyDoc && (
+        <window.ConsentRow doc={privacyDoc} lang={isKo ? 'ko' : 'en'}
+          value={form.consent_personal}
+          onChange={v => setForm({ ...form, consent_personal: v })}
+          required openDoc={openDoc} />
+      )}
+
+      {thirdDoc && (
+        <window.ConsentRow doc={thirdDoc} lang={isKo ? 'ko' : 'en'}
+          value={form.consent_third_party}
+          onChange={v => setForm({ ...form, consent_third_party: v })}
+          required openDoc={openDoc} />
+      )}
+
+      <p className="hint" style={{marginTop:14}}>
+        {isKo
+          ? '동의하신 내역은 IP, 브라우저 정보, 시각과 함께 GDPR Art. 7에 따라 기록됩니다.'
+          : 'Your consent is recorded with IP, user agent, and timestamp per GDPR Art. 7.'}
+      </p>
+    </>
   );
 }
 

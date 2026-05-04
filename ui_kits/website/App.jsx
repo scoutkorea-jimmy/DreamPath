@@ -16,7 +16,7 @@ window.useContent = useContent;
 const VIEW_TO_PATH = {
   home: '/', about: '/about', programs: '/programs', apply: '/apply',
   partners: '/partners', stories: '/stories', news: '/news', contact: '/contact',
-  team: '/team', member: '/member', receipt: '/receipt',
+  team: '/team', scholarships: '/scholarships', member: '/member', receipt: '/receipt',
   err401: '/401', err403: '/403', err404: '/404', err500: '/500', err503: '/503', offline: '/offline',
 };
 const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]) => [p, v]));
@@ -122,6 +122,7 @@ function App() {
     case 'news':     content_view = <window.News lang={lang} c={content} />; break;
     case 'contact':  content_view = <window.Contact lang={lang} c={content} />; break;
     case 'team':     content_view = <window.Team go={go} lang={lang} c={content} />; break;
+    case 'scholarships': content_view = <window.Scholarships go={go} lang={lang} c={content} />; break;
     case 'member':   content_view = <window.Member go={go} lang={lang} c={content} />; break;
     case 'receipt':  content_view = <window.Receipt lang={lang} c={content} />; break;
     case 'err401':   content_view = <window.Error401 go={go} lang={lang} c={content} />; break;
@@ -150,6 +151,7 @@ function App() {
       <main id="main" style={{flex: 1}} tabIndex="-1">{content_view}</main>
       <window.Footer go={go} lang={lang} c={content} />
       <window.AuthModal open={authOpen} onClose={() => setAuthOpen(false)} lang={lang} defaultMode={authMode} />
+      {window.CookieBanner && <window.CookieBanner lang={lang} c={content} />}
     </div>
   );
 }

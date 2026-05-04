@@ -21,6 +21,8 @@ function Apply({ lang, c }) {
   });
   const [submitted, setSubmitted] = useStateA(false);
   const [appId, setAppId] = useStateA('');
+  const [submitting, setSubmitting] = useStateA(false);
+  const [submitError, setSubmitError] = useStateA('');
 
   const steps = isKo
     ? ['기본 정보 · 학력', '자기 에세이', '스카우트 추천인', '트랙 · 결제']
@@ -47,25 +49,36 @@ function Apply({ lang, c }) {
     return true;
   }
 
-  function submit() {
-    const id = 'DP-' + Date.now().toString(36).toUpperCase();
-    const record = {
-      id,
-      submittedAt: new Date().toISOString(),
-      status: form.track === 'general' ? 'submitted' : 'paid',
-      amount,
-      lang,
-      ...form,
-    };
+  async function submit() {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
     try {
-      const raw = localStorage.getItem('dp_applications_v1');
-      const list = raw ? JSON.parse(raw) : [];
-      list.unshift(record);
-      localStorage.setItem('dp_applications_v1', JSON.stringify(list));
-    } catch (e) { /* ignore */ }
-    setAppId(id);
-    setSubmitted(true);
-    setStep(4);
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...form, lang }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.error === 'validation'
+          ? (isKo ? '입력 정보를 확인해 주세요.' : 'Please check your inputs.')
+          : (isKo ? '제출에 실패했습니다. 다시 시도해 주세요.' : 'Submission failed. Please try again.');
+        setSubmitError(msg);
+        setSubmitting(false);
+        return;
+      }
+      const data = await res.json();
+      setAppId(data.id);
+      setSubmitted(true);
+      setStep(4);
+    } catch (e) {
+      setSubmitError(isKo
+        ? '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+        : 'A network error occurred. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -150,13 +163,18 @@ function Apply({ lang, c }) {
                 </button>
               )}
               {step === 3 && (
-                <button type="button" className="btn btn-primary" disabled={!validateStep(3)} onClick={submit}>
-                  {form.track === 'general'
-                    ? (isKo ? '제출하기' : 'Submit application')
-                    : (isKo ? `$${amount} 결제하고 제출` : `Pay $${amount} and submit`)} →
+                <button type="button" className="btn btn-primary" disabled={!validateStep(3) || submitting} onClick={submit}>
+                  {submitting
+                    ? (isKo ? '제출 중…' : 'Submitting…')
+                    : (form.track === 'general'
+                      ? (isKo ? '제출하기' : 'Submit application')
+                      : (isKo ? `$${amount} 결제하고 제출` : `Pay $${amount} and submit`))} →
                 </button>
               )}
             </div>
+            {submitError && (
+              <div role="alert" style={{marginTop:12,color:'#B91C1C',fontSize:14}}>{submitError}</div>
+            )}
           </div>
         </div>
       </section>

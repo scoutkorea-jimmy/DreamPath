@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dream-path",
+  "main": "worker.js",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
+  },
+
+  "kv_namespaces": [
+    {
+      "binding": "CONTENT_KV",
+      "id": "e3cb3043b2694cc7aa990b639a2a982c"
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dreampath-db",
+      "database_id": "44da55fa-6728-49bf-80ed-125e04454235",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,9 +1,11 @@
-// content-store.js — admin-editable content store backed by localStorage.
-// All editable strings, images, and icon names live here.
-// The admin page edits these values; the site reads them.
+// content-store.js — admin-editable content store backed by Cloudflare KV.
+// Public site GETs /api/content. Admin saves PUT /api/content with bearer token.
+// SessionStorage holds a per-visitor cache to keep first paint instant.
 
 (function() {
   const STORAGE_KEY = 'dp_content_v1';
+  const API_URL = '/api/content';
+  const TOKEN_KEY = 'dp_admin_token';
 
   // Default content — schema for the entire public site
   const DEFAULT_CONTENT = {
@@ -170,22 +172,62 @@
     },
   };
 
+  // Synchronous load — returns immediately with cached or default content.
+  // The async fetch from /api/content runs in background and dispatches
+  // 'dp-content-changed' when fresh data arrives.
   function load() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredClone(DEFAULT_CONTENT);
       const saved = JSON.parse(raw);
-      // shallow-merge so new schema keys appear after code updates
       return deepMerge(structuredClone(DEFAULT_CONTENT), saved);
     } catch { return structuredClone(DEFAULT_CONTENT); }
   }
-  function save(obj) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-    window.dispatchEvent(new CustomEvent('dp-content-changed'));
+
+  async function fetchRemote() {
+    try {
+      const res = await fetch(API_URL, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const remote = await res.json();
+      if (!remote || typeof remote !== 'object') return null;
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      window.dispatchEvent(new CustomEvent('dp-content-changed'));
+      return remote;
+    } catch { return null; }
   }
-  function reset() {
-    localStorage.removeItem(STORAGE_KEY);
+
+  // Admin save — requires token in localStorage (set via login on admin page).
+  async function save(obj) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) throw new Error('admin token missing');
+    const res = await fetch(API_URL, {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': 'Bearer ' + token,
+      },
+      body: JSON.stringify(obj),
+    });
+    if (!res.ok) {
+      const msg = res.status === 401 ? 'unauthorized' : ('http_' + res.status);
+      throw new Error(msg);
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
     window.dispatchEvent(new CustomEvent('dp-content-changed'));
+    return true;
+  }
+
+  async function reset() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) throw new Error('admin token missing');
+    const res = await fetch(API_URL, {
+      method: 'DELETE',
+      headers: { 'authorization': 'Bearer ' + token },
+    });
+    if (!res.ok) throw new Error('http_' + res.status);
+    sessionStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('dp-content-changed'));
+    return true;
   }
   function deepMerge(base, over) {
     if (Array.isArray(over)) return over; // arrays replace, not merge
@@ -197,14 +239,18 @@
     return over !== undefined ? over : base;
   }
 
-  // Cross-tab sync (admin → site)
+  // Cross-tab sync — only fires when something else updated session cache
   window.addEventListener('storage', e => {
     if (e.key === STORAGE_KEY) window.dispatchEvent(new CustomEvent('dp-content-changed'));
   });
 
   window.DreamPathContent = {
     DEFAULT: DEFAULT_CONTENT,
-    load, save, reset,
-    STORAGE_KEY,
+    load, save, reset, fetchRemote,
+    STORAGE_KEY, TOKEN_KEY,
+    API_URL,
   };
+
+  // Kick off remote fetch on page load so site shows latest server content.
+  fetchRemote();
 })();

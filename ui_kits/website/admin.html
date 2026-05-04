@@ -607,40 +607,62 @@
     );
   }
 
-  // ---- Applications (submitted forms) -------------------------------------
+  // ---- Applications (submitted forms) — server-backed via D1 -------------
   function ApplicationsTab() {
-    const [apps, setApps] = useState(() => {
-      try { return JSON.parse(localStorage.getItem('dp_applications_v1') || '[]'); }
-      catch { return []; }
-    });
+    const [apps, setApps] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [selected, setSelected] = useState(null);
     const [filter, setFilter] = useState('all');
 
-    useEffect(() => {
-      const h = () => {
-        try { setApps(JSON.parse(localStorage.getItem('dp_applications_v1') || '[]')); }
-        catch { setApps([]); }
-      };
-      window.addEventListener('storage', h);
-      return () => window.removeEventListener('storage', h);
-    }, []);
+    async function load() {
+      setLoading(true);
+      setLoadError('');
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/applications?limit=500', {
+          headers: { 'authorization': 'Bearer ' + token },
+        });
+        if (!res.ok) {
+          setLoadError(res.status === 401 ? 'Unauthorized — re-login required.' : 'Failed to load (HTTP ' + res.status + ')');
+          setApps([]);
+          return;
+        }
+        const data = await res.json();
+        // Map snake_case DB rows to the camelCase fields the existing UI expects
+        const items = (data.items || []).map(a => ({
+          ...a,
+          submittedAt: a.submitted_at,
+        }));
+        setApps(items);
+      } catch (e) {
+        setLoadError('Network error: ' + e.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    useEffect(() => { load(); }, []);
 
     const trackLabel = t => t === 'full' ? 'Full scholarship' : t === 'partial' ? 'Partial scholarship' : t === 'general' ? 'Standard' : '—';
     const trackColor = t => t === 'full' ? '#4D006E' : t === 'partial' ? '#622599' : t === 'general' ? '#6B7280' : '#999';
 
     const filtered = filter === 'all' ? apps : apps.filter(a => a.track === filter);
 
-    function refresh() {
-      try { setApps(JSON.parse(localStorage.getItem('dp_applications_v1') || '[]')); }
-      catch { setApps([]); }
-      setSelected(null);
-    }
-    function deleteApp(id) {
+    function refresh() { load(); setSelected(null); }
+    async function deleteApp(id) {
       if (!confirm('Delete this application?')) return;
-      const next = apps.filter(a => a.id !== id);
-      localStorage.setItem('dp_applications_v1', JSON.stringify(next));
-      setApps(next);
-      setSelected(null);
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const res = await fetch('/api/applications/' + encodeURIComponent(id), {
+          method: 'DELETE',
+          headers: { 'authorization': 'Bearer ' + token },
+        });
+        if (!res.ok) { alert('Delete failed: HTTP ' + res.status); return; }
+        setApps(prev => prev.filter(a => a.id !== id));
+        setSelected(null);
+      } catch (e) {
+        alert('Delete failed: ' + e.message);
+      }
     }
     function exportCSV() {
       const cols = ['id','submittedAt','status','track','partial_tier','amount','program','name','email','country','nso','recommender_name','recommender_email','essay_title'];
@@ -659,7 +681,10 @@
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginBottom:16}}>
             <div>
               <h3 style={{margin:0}}>Submitted applications</h3>
-              <p className="desc" style={{margin:'4px 0 0'}}>{apps.length} total · stored locally in the browser</p>
+              <p className="desc" style={{margin:'4px 0 0'}}>
+                {loading ? 'Loading…' : (apps.length + ' total · stored in Cloudflare D1')}
+              </p>
+              {loadError && <p style={{color:'#B91C1C',fontSize:13,margin:'8px 0 0'}}>{loadError}</p>}
             </div>
             <div style={{display:'flex',gap:8}}>
               <button className="icon-btn" onClick={refresh}>Refresh</button>
@@ -789,38 +814,69 @@
   }
 
   // ---- Main admin shell ----------------------------------------------------
-  function Admin() {
+  function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
     const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'brand');
-    const [saved, setSaved] = useState(false);
+    const [savedState, setSavedState] = useState('idle'); // idle | saving | saved | error
+    const [saveError, setSaveError] = useState('');
     const savedTimer = useRef(null);
+    const dirtyRef = useRef(false);
+    const debounceTimer = useRef(null);
 
     useEffect(() => { localStorage.setItem('dp_admin_tab', tab); }, [tab]);
 
-    // Auto-save on every change, with debounced "Saved" indicator
+    // Pull latest content from server on mount (overwrites local cache)
     useEffect(() => {
-      window.DreamPathContent.save(content);
-      setSaved(true);
-      clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => setSaved(false), 1200);
+      (async () => {
+        const remote = await window.DreamPathContent.fetchRemote();
+        if (remote && Object.keys(remote).length) {
+          setContent(window.DreamPathContent.load());
+        }
+      })();
+    }, []);
+
+    // Auto-save (debounced) — only after user has actually edited
+    useEffect(() => {
+      if (!dirtyRef.current) return;
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(async () => {
+        setSavedState('saving');
+        setSaveError('');
+        try {
+          await window.DreamPathContent.save(content);
+          setSavedState('saved');
+          clearTimeout(savedTimer.current);
+          savedTimer.current = setTimeout(() => setSavedState('idle'), 1500);
+        } catch (e) {
+          setSavedState('error');
+          setSaveError(e.message === 'unauthorized' ? 'Session expired — please re-login.' : ('Save failed: ' + e.message));
+          if (e.message === 'unauthorized') onLogout && onLogout();
+        }
+      }, 600);
+      return () => clearTimeout(debounceTimer.current);
     }, [content]);
 
     useEffect(() => { window.lucide && window.lucide.createIcons(); });
 
-    const set = (pathArr, val) => setContent(prev => setDeep(prev, pathArr, val));
-    const addItem = (pathArr, item) => setContent(prev => {
+    const markDirty = () => { dirtyRef.current = true; };
+    const set = (pathArr, val) => { markDirty(); setContent(prev => setDeep(prev, pathArr, val)); };
+    const addItem = (pathArr, item) => { markDirty(); setContent(prev => {
       const arr = pathArr.reduce((a,k) => a[k], prev) || [];
       return setDeep(prev, pathArr, [...arr, item]);
-    });
-    const removeItem = (pathArr, i) => setContent(prev => {
+    }); };
+    const removeItem = (pathArr, i) => { markDirty(); setContent(prev => {
       const arr = pathArr.reduce((a,k) => a[k], prev) || [];
       return setDeep(prev, pathArr, arr.filter((_,idx) => idx !== i));
-    });
+    }); };
 
-    function onReset() {
-      if (confirm('Reset all content to defaults? This cannot be undone.')) {
-        window.DreamPathContent.reset();
+    async function onReset() {
+      if (!confirm('Reset all content to defaults? This will clear server-side overrides.')) return;
+      try {
+        await window.DreamPathContent.reset();
         setContent(window.DreamPathContent.load());
+        dirtyRef.current = false;
+      } catch (e) {
+        alert('Reset failed: ' + e.message);
       }
     }
     function onExport() {
@@ -860,24 +916,104 @@
             <a className="primary" href="index.html" target="_blank" rel="noopener">Open site ↗</a>
             <button type="button" onClick={onExport}>Export JSON</button>
             <button type="button" className="danger" onClick={onReset}>Reset all</button>
+            <button type="button" onClick={onLogout}>Log out</button>
           </div>
         </aside>
         <div id="main" className="main" tabIndex="-1">
           <div className="page-head">
             <div>
               <h1>{activeLabel}</h1>
-              <p className="lede">Changes save automatically and reflect on the live site.</p>
+              <p className="lede">Changes save automatically to Cloudflare and reflect on the live site.</p>
             </div>
           </div>
           <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />
         </div>
-        <div className={'status' + (saved ? ' on' : '')} role="status" aria-live="polite">Saved</div>
+        <div className={'status' + (savedState === 'saved' ? ' on' : '')} role="status" aria-live="polite">
+          {savedState === 'saving' ? 'Saving…' : savedState === 'error' ? saveError : 'Saved'}
+        </div>
       </div>
     );
   }
 
+  // ---- Auth gate -----------------------------------------------------------
+  function Gate() {
+    const [token, setToken] = useState(() => localStorage.getItem('dp_admin_token') || '');
+    const [authed, setAuthed] = useState(null); // null = checking, true/false = result
+    const [input, setInput] = useState('');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    async function verify(t) {
+      try {
+        const res = await fetch('/api/applications?limit=1', {
+          headers: { 'authorization': 'Bearer ' + t },
+        });
+        return res.ok;
+      } catch { return false; }
+    }
+
+    useEffect(() => {
+      if (!token) { setAuthed(false); return; }
+      verify(token).then(ok => {
+        if (ok) { setAuthed(true); }
+        else {
+          localStorage.removeItem('dp_admin_token');
+          setToken('');
+          setAuthed(false);
+        }
+      });
+    }, []);
+
+    async function login(e) {
+      e.preventDefault();
+      if (!input.trim() || busy) return;
+      setBusy(true);
+      setError('');
+      const ok = await verify(input.trim());
+      setBusy(false);
+      if (!ok) { setError('Invalid token.'); return; }
+      localStorage.setItem('dp_admin_token', input.trim());
+      setToken(input.trim());
+      setAuthed(true);
+    }
+
+    function logout() {
+      localStorage.removeItem('dp_admin_token');
+      setToken('');
+      setAuthed(false);
+    }
+
+    if (authed === null) {
+      return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#666'}}>Checking session…</div>;
+    }
+    if (!authed) {
+      return (
+        <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--canvas-white)',padding:24}}>
+          <form onSubmit={login} style={{width:'100%',maxWidth:380,background:'#fff',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #eee'}}>
+            <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--midnight-purple)'}}>DreamPath Admin</h1>
+            <p style={{margin:'0 0 20px',color:'#666',fontSize:14}}>Enter the admin token to continue.</p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Admin token"
+              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid #ddd',borderRadius:8,marginBottom:12,fontFamily:'var(--font-mono, monospace)'}}
+              autoFocus
+            />
+            {error && <div role="alert" style={{color:'#B91C1C',fontSize:13,marginBottom:12}}>{error}</div>}
+            <button type="submit" disabled={busy || !input.trim()} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
+              {busy ? 'Verifying…' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+      );
+    }
+    return <Admin onLogout={logout} />;
+  }
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<Admin />);
+  root.render(<Gate />);
   </script>
 </body>
 </html>

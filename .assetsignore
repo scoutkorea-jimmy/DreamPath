@@ -1,0 +1,15 @@
+.git/
+.gitignore
+.DS_Store
+.assetsignore
+worker.js
+wrangler.jsonc
+wrangler.toml
+migrations/
+node_modules/
+package*.json
+README.md
+ui_kits_README.md
+*.log
+.wrangler/
+.vscode/

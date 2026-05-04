@@ -150,7 +150,7 @@
     .topbar .meta { display: flex; align-items: center; gap: 14px; }
     .topbar .adminlang { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--fg-muted); }
     .topbar .adminlang button { background: none; border: none; font: inherit; font-size: 12px; cursor: pointer; color: var(--fg-muted); padding: 4px 8px; border-radius: 6px; letter-spacing: 0.04em; }
-    .topbar .adminlang button.on { color: var(--midnight-purple); background: var(--bg-muted); }
+    .topbar .adminlang button.on { color: var(--brand-text); background: var(--bg-muted); }
     .topbar .adminlang button:hover { color: var(--fg-primary); }
     .topbar .savebadge {
       display: inline-flex; align-items: center; gap: 6px;
@@ -253,29 +253,37 @@
     .device-toggle .device-btn.active {
       background: var(--midnight-purple); color: #fff;
     }
-    /* Stage that holds the iframe. For PC the iframe fills the stage; for
-       tablet/mobile the iframe is constrained inside a centered, scrollable
-       device frame so the operator sees the actual mobile breakpoint. */
+    /* Stage that holds the iframe. The iframe always renders at the device's
+       *real* CSS-pixel viewport (PC=1440, Tablet=820, Mobile=390) and we scale
+       the wrapper down with transform: scale to fit the available pane width.
+       This guarantees the public site's media queries fire as if it were on
+       that device, not on the (much narrower) preview pane. */
     .split-preview-stage {
       flex: 1; min-height: 0; background: var(--bg-muted);
       display: flex; align-items: flex-start; justify-content: center;
       overflow: auto; padding: 20px;
     }
-    .split-preview-stage.device-desktop { padding: 0; }
+    /* Outer slot reserves the *scaled* footprint so layout doesn't blow out. */
+    .device-slot {
+      flex-shrink: 0;
+      display: block;
+    }
+    /* Inner frame is rendered at the device's real pixel size. transform: scale
+       shrinks the visual size; transform-origin top-left keeps it pinned. */
     .device-frame {
       background: var(--bg-elevated); border-radius: 12px; overflow: hidden;
       box-shadow: 0 16px 40px rgba(30,11,51,0.18), 0 4px 10px rgba(30,11,51,0.10);
-      flex-shrink: 0;
+      flex-shrink: 0; transform-origin: top left;
     }
     .split-preview-stage.device-desktop .device-frame {
-      width: 100% !important; height: 100% !important;
-      border-radius: 0; box-shadow: none;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(30,11,51,0.18);
     }
     .split-iframe {
-      flex: 1; width: 100%; height: 100%; border: none; background: var(--bg-elevated); display: block;
+      width: 100%; height: 100%; border: none; background: var(--bg-elevated); display: block;
     }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
-    .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--midnight-purple); }
+    .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--brand-text); }
     .main .lede { color: var(--fg-secondary); font-size: 14px; margin: 0; }
 
     /* Status banner */
@@ -502,14 +510,18 @@
   // The iframe pings `dp-preview-ready` once it's loaded so we know when to
   // send the initial draft (otherwise our first message could land before
   // the listener is attached).
-  // Available preview viewports. Numbers chosen for common real devices so what
-  // the operator sees in the iframe matches what real visitors see.
-  // Values are CSS pixel widths the iframe is rendered at; the public site's
-  // own responsive breakpoints take care of the rest.
+  // Available preview viewports. Each entry is the *real* CSS-pixel viewport
+  // we want the public site to think it has — the iframe renders at exactly
+  // these dimensions so its own responsive breakpoints fire correctly. The
+  // device frame is then scaled down with transform: scale to fit whatever
+  // space the preview pane has. Without the scale-down, PC mode rendered at
+  // ~600px wide because that's the actual pane width, which made the public
+  // site fall through to tablet/mobile CSS — exactly the bug the operator
+  // reported.
   const PREVIEW_DEVICES = {
-    desktop: { label: 'PC',     icon: 'monitor',     width: null,  height: null }, // null = fill available space
-    tablet:  { label: 'Tablet', icon: 'tablet',      width: 820,   height: 1180 }, // iPad Air
-    mobile:  { label: 'Mobile', icon: 'smartphone',  width: 390,   height: 844 },  // iPhone 14
+    desktop: { label: 'PC',     icon: 'monitor',     width: 1440, height: 900 },  // 16:10 common laptop
+    tablet:  { label: 'Tablet', icon: 'tablet',      width: 820,  height: 1180 }, // iPad Air
+    mobile:  { label: 'Mobile', icon: 'smartphone',  width: 390,  height: 844 },  // iPhone 14
   };
 
   function EditorWithPreview({ tabId, previewPath, content, onSave, onDirtyChange, addItem, removeItem, children }) {
@@ -518,9 +530,31 @@
     const [iframeReady, setIframeReady] = useState(false);
     const [previewKey, setPreviewKey] = useState(0);
     const [device, setDevice] = useState(() => localStorage.getItem('dp_admin_preview_device') || 'desktop');
+    const [deviceScale, setDeviceScale] = useState(1);
     const iframeRef = useRef(null);
+    const stageRef = useRef(null);
 
     useEffect(() => { localStorage.setItem('dp_admin_preview_device', device); }, [device]);
+
+    // Recompute scale whenever the stage resizes or the device changes.
+    // Always scale-to-fit width; don't upscale beyond 1× even if the pane is
+    // huge (operator wants to see the device at its native size or smaller).
+    useEffect(() => {
+      const el = stageRef.current;
+      if (!el) return;
+      const d = PREVIEW_DEVICES[device];
+      function update() {
+        const padding = 40;  // matches .split-preview-stage padding * 2
+        const w = el.clientWidth - padding;
+        const h = el.clientHeight - padding;
+        const scale = Math.min(1, w / d.width, h / d.height);
+        setDeviceScale(Math.max(0.1, scale));
+      }
+      update();
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, [device]);
 
     // Reset draft when parent content changes externally (after Save) — but
     // only if we're not currently editing. Otherwise we'd nuke the user's work.
@@ -634,19 +668,21 @@
               </div>
               <a className="icon-btn" href={previewPath} target="_blank" rel="noopener" title="Open in a new tab (without preview)">Open ↗</a>
             </div>
-            <div className={'split-preview-stage device-' + device}>
-              <div className="device-frame" style={(() => {
-                const d = PREVIEW_DEVICES[device];
-                if (!d.width) return { width: '100%', height: '100%' };
-                return { width: d.width, height: d.height };
-              })()}>
-                <iframe
-                  key={previewKey}
-                  ref={iframeRef}
-                  src={iframeUrl}
-                  className="split-iframe"
-                  title={'Preview · ' + previewPath}
-                />
+            <div className={'split-preview-stage device-' + device} ref={stageRef}>
+              <div className="device-slot" style={{ width: PREVIEW_DEVICES[device].width * deviceScale, height: PREVIEW_DEVICES[device].height * deviceScale }}>
+                <div className="device-frame" style={{
+                  width: PREVIEW_DEVICES[device].width,
+                  height: PREVIEW_DEVICES[device].height,
+                  transform: `scale(${deviceScale})`,
+                }}>
+                  <iframe
+                    key={previewKey}
+                    ref={iframeRef}
+                    src={iframeUrl}
+                    className="split-iframe"
+                    title={'Preview · ' + previewPath}
+                  />
+                </div>
               </div>
             </div>
           </div>

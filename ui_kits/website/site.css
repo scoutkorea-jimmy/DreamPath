@@ -79,9 +79,9 @@ body {
   padding: 8px 4px; display: inline-flex; align-items: center;
   font-size: 15px; font-weight: 500;
 }
-.nav-links .nlink:hover { color: var(--midnight-purple); }
-.nav-links .nlink.active { color: var(--midnight-purple); font-weight: 700; }
-.nav-links .nlink.open { color: var(--midnight-purple); }
+.nav-links .nlink:hover { color: var(--brand-text); }
+.nav-links .nlink.active { color: var(--brand-text); font-weight: 700; }
+.nav-links .nlink.open { color: var(--brand-text); }
 
 /* ============ NAV DROPDOWN ============ */
 .nav-group { position: relative; }
@@ -110,9 +110,9 @@ body {
   transition: background var(--duration-fast), color var(--duration-fast);
 }
 .nav-dropdown-item:hover {
-  background: rgba(98, 37, 153, 0.08); color: var(--midnight-purple);
+  background: rgba(98, 37, 153, 0.12); color: var(--brand-text);
 }
-.nav-dropdown-item.active { color: var(--midnight-purple); font-weight: 700; }
+.nav-dropdown-item.active { color: var(--brand-text); font-weight: 700; }
 .nav-dropdown-sep {
   height: 1px; background: var(--border-hair); margin: 6px 4px;
 }
@@ -193,7 +193,7 @@ body {
 .btn-ghost {
   background: transparent; color: var(--scouting-purple);
 }
-.btn-ghost:hover { background: rgba(98,37,153,0.08); color: var(--midnight-purple); }
+.btn-ghost:hover { background: rgba(98,37,153,0.12); color: var(--brand-text); }
 
 /* white — solid white on dark backgrounds (e.g. hero) */
 .btn-white {
@@ -241,7 +241,7 @@ body {
 }
 .stats-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
 .stat { }
-.stat-n { font-family: var(--font-en); font-size: 56px; font-weight: 700; letter-spacing: -0.03em; color: var(--midnight-purple); line-height: 1; }
+.stat-n { font-family: var(--font-en); font-size: 56px; font-weight: 700; letter-spacing: -0.03em; color: var(--brand-text); line-height: 1; }
 .stat-l { font-size: 14px; color: var(--fg-secondary); margin-top: 10px; line-height: 1.5; }
 
 /* ============ GENERIC SECTION ============ */
@@ -687,7 +687,7 @@ body {
   box-shadow: 0 24px 64px rgba(77,0,110,0.18);
   max-height: 90vh; overflow-y: auto;
 }
-.auth-modal h2 { font-family: var(--font-en); font-size: 28px; font-weight: 700; margin: 0 0 6px; color: var(--midnight-purple); }
+.auth-modal h2 { font-family: var(--font-en); font-size: 28px; font-weight: 700; margin: 0 0 6px; color: var(--brand-text); }
 .auth-sub { color: var(--fg-secondary); font-size: 14px; margin: 0 0 24px; }
 .auth-close {
   position: absolute; top: 16px; right: 16px; width: 36px; height: 36px;
@@ -744,7 +744,7 @@ body {
   cursor: pointer; color: var(--fg-secondary); border-bottom: 2px solid transparent;
   font-weight: 500;
 }
-.member-tab.active { color: var(--midnight-purple); border-bottom-color: var(--midnight-purple); font-weight: 700; }
+.member-tab.active { color: var(--brand-text); border-bottom-color: var(--brand-text); font-weight: 700; }
 .member-tab:hover { color: var(--fg-primary); }
 .member-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;

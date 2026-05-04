@@ -43,6 +43,12 @@
   --brand-2:          var(--scouting-purple);
   --brand-accent:     var(--sunshine-yellow);
 
+  /* Brand-text: use as a *text* color anywhere midnight-purple was being used
+     as type. In dark mode this flips to a lighter purple so headings stay
+     readable against dark surfaces. Keep --midnight-purple for backgrounds /
+     painted surfaces where the hue must not change between modes. */
+  --brand-text:       var(--midnight-purple);   /* light default */
+
   /* ============ COLORBLIND-SAFE PALETTE (Okabe-Ito) ============
      Use these for charts, badges, multi-category visualizations where
      differentiability across color-vision-deficient users matters.
@@ -241,6 +247,11 @@
 
   /* Slightly brighter focus ring against dark backgrounds. */
   --focus-ring:    0 0 0 var(--focus-width) rgba(199, 165, 255, 0.42);
+
+  /* Headings / brand text on dark canvas — midnight-purple (#4D006E) reads
+     as "almost black" against bg-elevated #1F1D29 (~2:1, fails WCAG even at
+     AA Large). Lavender bumps it to ~9:1 against the dark canvas. */
+  --brand-text:    #C7A5FF;
 }
 
 /* Respect user's reduced-motion preference */

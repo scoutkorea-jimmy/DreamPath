@@ -2,6 +2,25 @@
 function Footer({ go, lang, c }) {
   const isKo = lang === 'ko';
   const f = ((c && c.footer && c.footer[lang]) || {});
+
+  // Build the Programs column dynamically:
+  //   1) "전체 보기" — always
+  //   2) one entry per unique category found in c.programs
+  //      (category derives from program.category if set, otherwise the
+  //       first segment of program.kicker — e.g. 'MICRO-DEGREE · CUFS' → 'MICRO-DEGREE')
+  //   3) "지원 방법" — always
+  const programs = (c && Array.isArray(c.programs)) ? c.programs : [];
+  const categories = [];
+  const seen = new Set();
+  programs.forEach(p => {
+    const raw = p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '');
+    if (!raw) return;
+    const key = raw.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    categories.push({ key, label: raw });
+  });
+
   return (
     <footer className="footer" role="contentinfo">
       <div className="footer-bg" aria-hidden="true" />
@@ -14,8 +33,11 @@ function Footer({ go, lang, c }) {
           <div className="footer-col">
             <h2 className="fc-h">{f.col_programs}</h2>
             <button type="button" onClick={() => go('programs')}>{f.link_all}</button>
-            <button type="button" onClick={() => go('programs')}>{f.link_micro}</button>
-            <button type="button" onClick={() => go('programs')}>{f.link_bachelor}</button>
+            {categories.map(cat => (
+              <button key={cat.key} type="button" onClick={() => go('programs', null, { cat: cat.key })}>
+                {cat.label}
+              </button>
+            ))}
             <button type="button" onClick={() => go('apply')}>{f.link_apply}</button>
           </div>
           <div className="footer-col">

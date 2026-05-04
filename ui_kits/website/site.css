@@ -72,9 +72,49 @@ body {
 .nav-logo .wm { font-family: var(--font-en); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .nav-logo .wm .pt { color: var(--scouting-purple); }
 .nav-links { flex: 1; display: flex; gap: 28px; justify-content: center; font-size: 14px; font-weight: 500; color: var(--fg-secondary); }
-.nav-links .nlink { cursor: pointer; transition: color var(--duration-fast) var(--ease-standard); background: none; border: none; font: inherit; color: inherit; padding: 4px 0; }
+.nav-links .nlink {
+  cursor: pointer; transition: color var(--duration-fast) var(--ease-standard);
+  background: none; border: none; font: inherit; color: inherit;
+  padding: 8px 4px; display: inline-flex; align-items: center;
+  font-size: 15px; font-weight: 500;
+}
 .nav-links .nlink:hover { color: var(--midnight-purple); }
-.nav-links .nlink.active { color: var(--fg-primary); font-weight: 700; }
+.nav-links .nlink.active { color: var(--midnight-purple); font-weight: 700; }
+.nav-links .nlink.open { color: var(--midnight-purple); }
+
+/* ============ NAV DROPDOWN ============ */
+.nav-group { position: relative; }
+.nav-dropdown {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 8px; min-width: 220px;
+  background: #fff; border: 1px solid var(--border-subtle);
+  border-radius: 14px; box-shadow: var(--shadow-md);
+  padding: 6px; z-index: var(--z-dropdown);
+  animation: dp-dropdown-in 160ms var(--ease-out);
+}
+@keyframes dp-dropdown-in {
+  from { opacity: 0; transform: translate(-50%, -4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+/* Invisible bridge between trigger and panel so cursor can travel without
+   hover gap closing the dropdown. */
+.nav-dropdown::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -10px; height: 10px;
+}
+.nav-dropdown-item {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 14px; border-radius: 8px;
+  background: transparent; border: none; cursor: pointer; font: inherit;
+  font-size: 14px; color: var(--fg-primary);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.nav-dropdown-item:hover {
+  background: rgba(98, 37, 153, 0.08); color: var(--midnight-purple);
+}
+.nav-dropdown-item.active { color: var(--midnight-purple); font-weight: 700; }
+.nav-dropdown-sep {
+  height: 1px; background: var(--border-hair); margin: 6px 4px;
+}
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .lang-toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--fg-muted); user-select: none; }
 .lang-toggle button { background: none; border: none; font: inherit; color: inherit; cursor: pointer; padding: 4px 6px; border-radius: 4px; }
@@ -364,6 +404,27 @@ body {
 .pd-side .row:last-child { border-bottom: none; }
 .pd-side .row .k { color: var(--fg-muted); }
 .pd-side .row .v { font-weight: 600; }
+
+/* ============ TOP NOTICE BANNER ============
+   Diagonal stripe pattern for "under development" / launch warnings. */
+.topnotice {
+  position: relative;
+  padding: 9px 16px;
+  text-align: center;
+  font-size: 13px; font-weight: 600;
+  color: var(--midnight-purple);
+  letter-spacing: -0.005em;
+  background-image:
+    repeating-linear-gradient(135deg,
+      rgba(77, 0, 110, 0.05) 0,
+      rgba(77, 0, 110, 0.05) 12px,
+      rgba(255, 212, 0, 0.20) 12px,
+      rgba(255, 212, 0, 0.20) 24px);
+  background-color: #FFF7CC;
+  border-bottom: 1px solid rgba(77, 0, 110, 0.15);
+}
+.topnotice.info     { color:#1D4ED8; background-color:#DBEAFE; background-image: repeating-linear-gradient(135deg, rgba(29,78,216,0.04) 0, rgba(29,78,216,0.04) 12px, rgba(29,78,216,0.12) 12px, rgba(29,78,216,0.12) 24px); }
+.topnotice.warning  { color:#92400E; background-color:#FEF3C7; background-image: repeating-linear-gradient(135deg, rgba(180,83,9,0.04) 0, rgba(180,83,9,0.04) 12px, rgba(180,83,9,0.18) 12px, rgba(180,83,9,0.18) 24px); }
 
 /* ============ TEAM PAGE ============ */
 .team-page-grid {

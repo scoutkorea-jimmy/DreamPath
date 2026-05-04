@@ -74,7 +74,11 @@
     .topbar .crumbs { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-secondary); }
     .topbar .crumbs strong { color: var(--fg-primary); font-weight: 700; }
     .topbar .crumbs .sep { color: var(--fg-muted); }
-    .topbar .meta { display: flex; align-items: center; gap: 18px; }
+    .topbar .meta { display: flex; align-items: center; gap: 14px; }
+    .topbar .adminlang { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--fg-muted); }
+    .topbar .adminlang button { background: none; border: none; font: inherit; font-size: 12px; cursor: pointer; color: var(--fg-muted); padding: 4px 8px; border-radius: 6px; letter-spacing: 0.04em; }
+    .topbar .adminlang button.on { color: var(--midnight-purple); background: var(--bg-muted); }
+    .topbar .adminlang button:hover { color: var(--fg-primary); }
     .topbar .savebadge {
       display: inline-flex; align-items: center; gap: 6px;
       font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
@@ -299,38 +303,89 @@
     return next;
   }
 
+  // ---- i18n ----------------------------------------------------------------
+  // All admin chrome (sidebar groups, tab labels, topbar, headings) is
+  // bilingual. Toggle with the KO/EN switch in the topbar.
+  const I18N = {
+    en: {
+      console: 'Admin Console',
+      group: { Site:'Site', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
+               Lists:'Lists', Tools:'Tools', Wiki:'Wiki', Data:'Data' },
+      tab: {
+        brand:'Brand & Nav', footer:'Footer', icons:'Icons',
+        notice:'Top notice banner',
+        hero:'Hero', how:'How it works', cta:'CTA banner',
+        about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
+        programs:'Programs', program_detail:'Program detail',
+        partners:'Partners', stories:'Stories', faq:'FAQ',
+        translations:'KO ↔ EN translations',
+        design_system:'Design System (live)', error_preview:'Error pages',
+        wiki_kms:'KMS (coding)', wiki_color:'Color guide', wiki_design:'Design guide',
+        apps:'Applications', inquiries:'Inquiries',
+      },
+      action: { open_site:'Open site ↗', export:'Export JSON', reset:'Reset all', logout:'Log out' },
+      save: { saving:'Saving…', saved:'✓ Saved', error:'Save failed', idle:'All changes saved' },
+      lede: 'Changes save automatically to Cloudflare and reflect on the live site.',
+      login: { title:'KoreaDreamPath Admin', sub:'Enter the admin token to continue.', placeholder:'Admin token', verify:'Verifying…', signin:'Sign in', invalid:'Invalid token.' },
+    },
+    ko: {
+      console: '관리자 콘솔',
+      group: { Site:'사이트', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
+               Lists:'목록', Tools:'도구', Wiki:'위키', Data:'데이터' },
+      tab: {
+        brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
+        notice:'상단 공지 배너',
+        hero:'히어로', how:'How it works', cta:'CTA 배너',
+        about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
+        programs:'프로그램', program_detail:'프로그램 상세',
+        partners:'파트너', stories:'스토리', faq:'FAQ',
+        translations:'KO ↔ EN 번역',
+        design_system:'디자인 시스템 (실시간)', error_preview:'에러 페이지',
+        wiki_kms:'KMS (코딩)', wiki_color:'컬러 가이드', wiki_design:'디자인 가이드',
+        apps:'지원서', inquiries:'문의',
+      },
+      action: { open_site:'사이트 열기 ↗', export:'JSON 내보내기', reset:'전체 초기화', logout:'로그아웃' },
+      save: { saving:'저장 중…', saved:'✓ 저장됨', error:'저장 실패', idle:'모든 변경 저장됨' },
+      lede: '변경사항은 자동으로 Cloudflare에 저장되어 실시간으로 사이트에 반영됩니다.',
+      login: { title:'KoreaDreamPath 관리자', sub:'관리자 토큰을 입력하세요.', placeholder:'관리자 토큰', verify:'확인 중…', signin:'로그인', invalid:'잘못된 토큰입니다.' },
+    },
+  };
+
   // ---- Tabs ----------------------------------------------------------------
+  // Labels here are KEYS into I18N.{lang}.tab — the rendered text follows
+  // the admin language toggle. Group names go through I18N.{lang}.group.
   const TABS = [
-    { id: 'brand',         label: 'Brand & Nav',     group: 'Site' },
-    { id: 'footer',        label: 'Footer',          group: 'Site' },
-    { id: 'icons',         label: 'Icons',           group: 'Site' },
+    { id: 'brand',         group: 'Site' },
+    { id: 'footer',        group: 'Site' },
+    { id: 'icons',         group: 'Site' },
+    { id: 'notice',        group: 'Site' },
 
-    { id: 'hero',          label: 'Hero',            group: 'Homepage' },
-    { id: 'how',           label: 'How it works',    group: 'Homepage' },
-    { id: 'cta',           label: 'CTA banner',      group: 'Homepage' },
+    { id: 'hero',          group: 'Homepage' },
+    { id: 'how',           group: 'Homepage' },
+    { id: 'cta',           group: 'Homepage' },
 
-    { id: 'about',         label: 'About page',      group: 'Pages' },
-    { id: 'pageheros',     label: 'Page headers',    group: 'Pages' },
-    { id: 'partner_cta',   label: 'Partner CTA',     group: 'Pages' },
+    { id: 'about',         group: 'Pages' },
+    { id: 'pageheros',     group: 'Pages' },
+    { id: 'partner_cta',   group: 'Pages' },
+    { id: 'team',          group: 'Pages' },
 
-    { id: 'programs',      label: 'Programs',        group: 'Programs' },
-    { id: 'program_detail',label: 'Program detail',  group: 'Programs' },
+    { id: 'programs',      group: 'Programs' },
+    { id: 'program_detail',group: 'Programs' },
 
-    { id: 'partners',      label: 'Partners',        group: 'Lists' },
-    { id: 'stories',       label: 'Stories',         group: 'Lists' },
-    { id: 'faq',           label: 'FAQ',             group: 'Lists' },
-    // News is now edited inline on the public /news page (D1-backed)
+    { id: 'partners',      group: 'Lists' },
+    { id: 'stories',       group: 'Lists' },
+    { id: 'faq',           group: 'Lists' },
 
-    { id: 'translations',  label: 'KO ↔ EN translations', group: 'Tools' },
+    { id: 'translations',  group: 'Tools' },
 
-    { id: 'design_system', label: 'Design System (live)', group: 'Wiki' },
-    { id: 'error_preview', label: 'Error pages',          group: 'Wiki' },
-    { id: 'wiki_kms',      label: 'KMS (코딩)',       group: 'Wiki' },
-    { id: 'wiki_color',    label: '컬러 가이드',      group: 'Wiki' },
-    { id: 'wiki_design',   label: '디자인 가이드',    group: 'Wiki' },
+    { id: 'design_system', group: 'Wiki' },
+    { id: 'error_preview', group: 'Wiki' },
+    { id: 'wiki_kms',      group: 'Wiki' },
+    { id: 'wiki_color',    group: 'Wiki' },
+    { id: 'wiki_design',   group: 'Wiki' },
 
-    { id: 'apps',          label: 'Applications',    group: 'Data' },
-    { id: 'inquiries',     label: 'Inquiries',       group: 'Data' },
+    { id: 'apps',          group: 'Data' },
+    { id: 'inquiries',     group: 'Data' },
   ];
 
   // ===== Section editors ====================================================
@@ -839,6 +894,119 @@
         ))}
         <button className="btn-add" onClick={() => addItem(['faq'], { q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
       </div>
+    );
+  }
+
+  // ---- Top notice banner --------------------------------------------------
+  function NoticeTab({ c, set }) {
+    const n = c.notice || {};
+    return (
+      <div className="card">
+        <h3>Top notice banner</h3>
+        <p className="desc">A diagonal-stripe banner shown at the very top of every page on the public site. Use it for "under development" notices, launch countdowns, or maintenance windows.</p>
+        <div className="grid-2 tight">
+          <div className="field">
+            <label>Enabled</label>
+            <select value={n.enabled === false ? 'no' : 'yes'} onChange={e => set(['notice','enabled'], e.target.value === 'yes')}>
+              <option value="yes">Show on all pages</option>
+              <option value="no">Hide</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Style</label>
+            <select value={n.style || 'dev'} onChange={e => set(['notice','style'], e.target.value)}>
+              <option value="dev">dev (yellow stripe — under development)</option>
+              <option value="info">info (blue — announcements)</option>
+              <option value="warning">warning (amber — heads-up)</option>
+            </select>
+          </div>
+          <Text label="Message (KO)" value={n.ko || ''} onChange={v => set(['notice','ko'], v)} lang="ko" />
+          <Text label="Message (EN)" value={n.en || ''} onChange={v => set(['notice','en'], v)} lang="en" />
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Project team page --------------------------------------------------
+  function TeamAdminTab({ c, set, addItem, removeItem }) {
+    const pt = c.project_team || {};
+    const sections = pt.sections || [];
+    const cta = pt.cta || {};
+    return (
+      <>
+        <div className="card">
+          <h3>Hero (top of /team page)</h3>
+          <div className="grid-2 tight">
+            {['ko','en'].map(L => (
+              <React.Fragment key={L}>
+                <Text label={`Kicker (${L.toUpperCase()})`} value={pt.hero?.[L]?.kicker || ''} onChange={v => set(['project_team','hero',L,'kicker'], v)} lang={L} />
+                <Text label={`Title L1 (${L.toUpperCase()})`} value={pt.hero?.[L]?.title_l1 || ''} onChange={v => set(['project_team','hero',L,'title_l1'], v)} lang={L} />
+                <Text label={`Title L2 (${L.toUpperCase()})`} value={pt.hero?.[L]?.title_l2 || ''} onChange={v => set(['project_team','hero',L,'title_l2'], v)} lang={L} />
+                <Area label={`Subtitle (${L.toUpperCase()})`} value={pt.hero?.[L]?.sub || ''} onChange={v => set(['project_team','hero',L,'sub'], v)} lang={L} />
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3>Sections</h3>
+          {sections.map((s, si) => (
+            <div className="rep-item" key={si}>
+              <div className="rep-head">
+                <strong>Section {si + 1}</strong>
+                <div className="ctrls">
+                  <button className="icon-btn danger" onClick={() => removeItem(['project_team','sections'], si)}>Delete section</button>
+                </div>
+              </div>
+              <div className="grid-2 tight" style={{marginBottom:14}}>
+                <Text label="Kicker (KO)" value={s.kicker_ko || ''} onChange={v => set(['project_team','sections',si,'kicker_ko'], v)} lang="ko" />
+                <Text label="Kicker (EN)" value={s.kicker_en || ''} onChange={v => set(['project_team','sections',si,'kicker_en'], v)} lang="en" />
+              </div>
+              <h4 style={{margin:'8px 0',fontSize:13,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>Members</h4>
+              {(s.members || []).map((m, mi) => (
+                <div key={mi} style={{padding:'14px',background:'#fff',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                    <strong style={{fontSize:13,color:'var(--fg-secondary)'}}>Member {mi + 1}</strong>
+                    <button className="icon-btn danger" onClick={() => {
+                      const next = (s.members || []).filter((_, j) => j !== mi);
+                      set(['project_team','sections',si,'members'], next);
+                    }}>Remove</button>
+                  </div>
+                  <div className="grid-2 tight">
+                    <Text label="Name (KO)" value={m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name'], v)} lang="ko" />
+                    <Text label="Name (EN)" value={m.name_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
+                    <Text label="Role (KO)" value={m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_ko'], v)} lang="ko" />
+                    <Text label="Role (EN)" value={m.role_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
+                    <Area label="Bio (KO)" value={m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_ko'], v)} lang="ko" />
+                    <Area label="Bio (EN)" value={m.bio_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" />
+                    <Text label="Image URL (path or absolute)" value={m.image || ''} onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)} hint="e.g. /assets/team/jane.jpg" />
+                  </div>
+                </div>
+              ))}
+              <button className="btn-add" onClick={() => {
+                const next = [...(s.members || []), { name:'', name_en:'', role_ko:'', role_en:'', bio_ko:'', bio_en:'', image:'' }];
+                set(['project_team','sections',si,'members'], next);
+              }}>+ Add member</button>
+            </div>
+          ))}
+          <button className="btn-add" onClick={() => addItem(['project_team','sections'], { kicker_ko:'새 섹션', kicker_en:'NEW SECTION', members:[] })}>+ Add section</button>
+        </div>
+
+        <div className="card">
+          <h3>Join CTA</h3>
+          <div className="grid-2 tight">
+            {['ko','en'].map(L => (
+              <React.Fragment key={L}>
+                <Text label={`Kicker (${L.toUpperCase()})`} value={cta[L]?.kicker || ''} onChange={v => set(['project_team','cta',L,'kicker'], v)} lang={L} />
+                <Text label={`Title (${L.toUpperCase()})`} value={cta[L]?.title || ''} onChange={v => set(['project_team','cta',L,'title'], v)} lang={L} />
+                <Area label={`Sub (${L.toUpperCase()})`} value={cta[L]?.sub || ''} onChange={v => set(['project_team','cta',L,'sub'], v)} lang={L} />
+                <Text label={`Button (${L.toUpperCase()})`} value={cta[L]?.button || ''} onChange={v => set(['project_team','cta',L,'button'], v)} lang={L} />
+                <Text label={`Email (${L.toUpperCase()})`} value={cta[L]?.email || ''} onChange={v => set(['project_team','cta',L,'email'], v)} />
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -2229,6 +2397,9 @@
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
     const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'brand');
+    const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
+    const t = I18N[adminLang] || I18N.en;
+    useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
     const [savedState, setSavedState] = useState('idle'); // idle | saving | saved | error
     const [saveError, setSaveError] = useState('');
     const savedTimer = useRef(null);
@@ -2300,9 +2471,9 @@
     }
 
     const TabComp = {
-      brand: BrandTab, footer: FooterTab, icons: IconsTab,
+      brand: BrandTab, footer: FooterTab, icons: IconsTab, notice: NoticeTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
-      about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab,
+      about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
       translations: TranslationsTab,
@@ -2312,13 +2483,13 @@
       apps: ApplicationsTab,
     }[tab];
 
-    const activeLabel = TABS.find(t => t.id === tab)?.label ?? '';
-
-    const activeGroup = TABS.find(t => t.id === tab)?.group ?? '';
-    const saveLabel = savedState === 'saving' ? 'Saving…'
-                    : savedState === 'saved' ? '✓ Saved'
-                    : savedState === 'error' ? 'Save failed'
-                    : 'All changes saved';
+    const activeTab = TABS.find(tt => tt.id === tab);
+    const activeLabel = activeTab ? (t.tab[activeTab.id] || activeTab.id) : '';
+    const activeGroup = activeTab ? (t.group[activeTab.group] || activeTab.group) : '';
+    const saveLabel = savedState === 'saving' ? t.save.saving
+                    : savedState === 'saved' ? t.save.saved
+                    : savedState === 'error' ? t.save.error
+                    : t.save.idle;
 
     return (
       <div className="admin">
@@ -2327,32 +2498,32 @@
             <img src="/assets/logo-dreampath-mark.svg" alt="" />
             <div>
               <div className="wm">KoreaDream<span className="pt">Path</span></div>
-              <div className="sub">Admin Console</div>
+              <div className="sub">{t.console}</div>
             </div>
           </div>
           {(() => {
             const groups = [];
             const seen = new Set();
-            TABS.forEach(t => { if (!seen.has(t.group)) { groups.push(t.group); seen.add(t.group); } });
+            TABS.forEach(tt => { if (!seen.has(tt.group)) { groups.push(tt.group); seen.add(tt.group); } });
             return groups.map(g => (
               <React.Fragment key={g}>
-                <h2>{g}</h2>
-                {TABS.filter(t => t.group === g).map(t => (
-                  <button key={t.id} type="button"
-                    className={'tab' + (tab === t.id ? ' active' : '')}
-                    onClick={() => setTab(t.id)}
-                    aria-current={tab === t.id ? 'page' : undefined}>
-                    {t.label}
+                <h2>{t.group[g] || g}</h2>
+                {TABS.filter(tt => tt.group === g).map(tt => (
+                  <button key={tt.id} type="button"
+                    className={'tab' + (tab === tt.id ? ' active' : '')}
+                    onClick={() => setTab(tt.id)}
+                    aria-current={tab === tt.id ? 'page' : undefined}>
+                    {t.tab[tt.id] || tt.id}
                   </button>
                 ))}
               </React.Fragment>
             ));
           })()}
           <div className="actions">
-            <a className="primary" href="/" target="_blank" rel="noopener">Open site ↗</a>
-            <button type="button" onClick={onExport}>Export JSON</button>
-            <button type="button" className="danger" onClick={onReset}>Reset all</button>
-            <button type="button" onClick={onLogout}>Log out</button>
+            <a className="primary" href="/" target="_blank" rel="noopener">{t.action.open_site}</a>
+            <button type="button" onClick={onExport}>{t.action.export}</button>
+            <button type="button" className="danger" onClick={onReset}>{t.action.reset}</button>
+            <button type="button" onClick={onLogout}>{t.action.logout}</button>
           </div>
         </aside>
         <div id="main" className="main" tabIndex="-1">
@@ -2363,6 +2534,11 @@
               <strong>{activeLabel}</strong>
             </div>
             <div className="meta">
+              <div className="adminlang" role="group" aria-label="Admin language">
+                <button type="button" className={adminLang === 'ko' ? 'on' : ''} onClick={() => setAdminLang('ko')} aria-pressed={adminLang === 'ko'}>KO</button>
+                <span aria-hidden="true">·</span>
+                <button type="button" className={adminLang === 'en' ? 'on' : ''} onClick={() => setAdminLang('en')} aria-pressed={adminLang === 'en'}>EN</button>
+              </div>
               <div className={'savebadge ' + savedState}>
                 <span className="dot" />
                 {saveLabel}
@@ -2373,7 +2549,7 @@
             <div className="page-head">
               <div>
                 <h1>{activeLabel}</h1>
-                <p className="lede">Changes save automatically to Cloudflare and reflect on the live site.</p>
+                <p className="lede">{t.lede}</p>
               </div>
             </div>
             <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />

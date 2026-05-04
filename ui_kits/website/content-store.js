@@ -169,6 +169,13 @@
       news_arrow: 'arrow-up-right',
       faq_toggle: 'plus',
     },
+    // ─── Top notice banner (development / launch / maintenance) ─────────
+    notice: {
+      enabled: true,
+      style: 'dev',  // 'dev' | 'info' | 'warning' (changes the stripe color)
+      ko: '🚧 개발중입니다 · 정식 오픈은 5월 말 예정',
+      en: '🚧 Under development · Official launch end of May',
+    },
     // ─── About page ────────────────────────────────────────────────────
     about: {
       hero: {

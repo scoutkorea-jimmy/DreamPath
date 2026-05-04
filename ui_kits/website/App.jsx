@@ -62,15 +62,22 @@ function App() {
     return () => window.removeEventListener('dp-open-auth', onOpen);
   }, []);
 
-  const go = (v, arg) => {
+  const go = (v, arg, opts) => {
     if (v === 'program' && arg) setProgramId(arg);
     setView(v);
     // Push a real URL so back-button + sharing work
     const newPath = v === 'program' && arg
       ? '/program/' + encodeURIComponent(arg)
       : (VIEW_TO_PATH[v] || '/');
-    if (window.location.pathname !== newPath) {
-      window.history.pushState({ v, arg }, '', newPath + window.location.search);
+    let qs = '';
+    if (opts && typeof opts === 'object') {
+      const usp = new URLSearchParams();
+      Object.entries(opts).forEach(([k, val]) => { if (val != null && val !== '') usp.set(k, String(val)); });
+      const s = usp.toString();
+      if (s) qs = '?' + s;
+    }
+    if (window.location.pathname !== newPath || qs !== window.location.search) {
+      window.history.pushState({ v, arg }, '', newPath + qs);
     }
   };
 
@@ -124,9 +131,19 @@ function App() {
     default:         content_view = <window.Home go={go} lang={lang} c={content} />;
   }
 
+  // Top notice banner (dev / launch / maintenance) — stripe across the top
+  const notice = content && content.notice;
+  const noticeText = notice && notice[lang];
+  const showNotice = notice && notice.enabled !== false && noticeText;
+
   return (
     <div className="page">
       <a href="#main" className="skip-link">{lang === 'ko' ? '본문 바로가기' : 'Skip to main content'}</a>
+      {showNotice && (
+        <div className={'topnotice ' + (notice.style || 'dev')} role="status" aria-live="polite">
+          <span>{noticeText}</span>
+        </div>
+      )}
       <window.Nav view={view} go={go} lang={lang} setLang={setLang} c={content} />
       <main id="main" style={{flex: 1}} tabIndex="-1">{content_view}</main>
       <window.Footer go={go} lang={lang} c={content} />

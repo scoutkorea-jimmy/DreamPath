@@ -32,6 +32,10 @@ export default {
       }
     }
 
+    // SEO endpoints
+    if (url.pathname === '/sitemap.xml')  return sitemapXml(env, url);
+    if (url.pathname === '/robots.txt')   return robotsTxt(url);
+
     // Friendly URL → real asset path. Use the same Request (preserves headers,
     // method) but with a rewritten URL.
     if (ADMIN_PATHS.has(url.pathname)) {
@@ -49,6 +53,87 @@ function rewriteRequest(request, newPath) {
   const u = new URL(request.url);
   u.pathname = newPath;
   return new Request(u.toString(), request);
+}
+
+// ── SEO: sitemap.xml + robots.txt ─────────────────────────────────────────
+async function sitemapXml(env, url) {
+  const origin = url.origin;
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Static SPA paths (high-priority public pages)
+  const STATIC = [
+    { path: '/',          priority: 1.0, change: 'weekly' },
+    { path: '/about',     priority: 0.8, change: 'monthly' },
+    { path: '/programs',  priority: 0.9, change: 'weekly' },
+    { path: '/news',      priority: 0.8, change: 'weekly' },
+    { path: '/stories',   priority: 0.7, change: 'monthly' },
+    { path: '/partners',  priority: 0.6, change: 'monthly' },
+    { path: '/contact',   priority: 0.6, change: 'monthly' },
+    { path: '/team',      priority: 0.5, change: 'monthly' },
+    { path: '/apply',     priority: 0.9, change: 'monthly' },
+  ];
+
+  // Dynamic: each program detail page from KV content
+  let programPaths = [];
+  try {
+    const raw = await env.CONTENT_KV.get('dp_content_v1');
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (Array.isArray(c.programs)) {
+        programPaths = c.programs
+          .filter(p => p && p.id)
+          .map(p => ({ path: '/program/' + encodeURIComponent(p.id), priority: 0.7, change: 'monthly' }));
+      }
+    }
+  } catch {}
+
+  // Dynamic: each news post
+  let newsPaths = [];
+  try {
+    const { results } = await env.DB.prepare('SELECT id FROM news_posts ORDER BY date DESC LIMIT 200').all();
+    // (no per-post route yet; news lives under /news with anchor — leave for now)
+  } catch {}
+
+  const all = [...STATIC, ...programPaths, ...newsPaths];
+
+  const xml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    all.map(u =>
+      '  <url>\n' +
+      '    <loc>' + origin + u.path + '</loc>\n' +
+      '    <lastmod>' + today + '</lastmod>\n' +
+      '    <changefreq>' + u.change + '</changefreq>\n' +
+      '    <priority>' + u.priority.toFixed(1) + '</priority>\n' +
+      '  </url>'
+    ).join('\n') +
+    '\n</urlset>\n';
+
+  return new Response(xml, {
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    },
+  });
+}
+
+function robotsTxt(url) {
+  const origin = url.origin;
+  const body =
+    'User-agent: *\n' +
+    'Allow: /\n' +
+    'Disallow: /admin\n' +
+    'Disallow: /api/\n' +
+    'Disallow: /receipt\n' +
+    'Disallow: /member\n' +
+    '\n' +
+    'Sitemap: ' + origin + '/sitemap.xml\n';
+  return new Response(body, {
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    },
+  });
 }
 
 async function handleApi(request, env, url) {

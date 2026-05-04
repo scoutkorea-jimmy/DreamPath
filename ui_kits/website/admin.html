@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DreamPath · Admin</title>
+  <title>KoreaDreamPath · Admin</title>
   <link rel="icon" href="../../assets/logo-dreampath-mark.svg">
   <link rel="stylesheet" href="../../colors_and_type.css">
   <style>
@@ -17,27 +17,77 @@
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
     /* Desktop-first admin shell. Min-width enforces PC layout; content scrolls horizontally on narrower screens. */
-    body { min-width: 1280px; overflow-x: auto; }
-    .admin { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
-    .side { background: var(--midnight-purple); color: #fff; padding: 28px 22px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
-    .side .brand { display: flex; gap: 10px; align-items: center; margin-bottom: 28px; }
-    .side .brand img { width: 32px; height: 32px; }
-    .side .brand .wm { font-family: var(--font-en); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+    body { min-width: 1280px; overflow-x: auto; background: #F4F4F8; }
+    .admin { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
+    .side {
+      background: linear-gradient(180deg, #1E0B33 0%, #2D1147 50%, #4D006E 100%);
+      color: #fff; padding: 24px 18px; position: sticky; top: 0; height: 100vh;
+      overflow-y: auto; display: flex; flex-direction: column;
+      box-shadow: 4px 0 20px rgba(30,11,51,0.14);
+    }
+    .side .brand {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+    .side .brand img { width: 36px; height: 36px; background: rgba(255,255,255,0.06); padding: 5px; border-radius: 8px; }
+    .side .brand .wm { font-family: var(--font-en); font-weight: 700; font-size: 17px; letter-spacing: -0.02em; line-height: 1.1; }
     .side .brand .wm .pt { color: #FFE600; }
-    .side h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin: 20px 0 10px; font-weight: 700; }
-    .side button.tab { display: block; width: 100%; text-align: left; background: none; border: none; color: rgba(255,255,255,0.88); padding: 9px 12px; font: inherit; font-size: 14px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+    .side .brand .sub { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-top: 2px; }
+    .side h2 {
+      font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(255,255,255,0.45); margin: 18px 0 6px 12px; font-weight: 700;
+    }
+    .side button.tab {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; text-align: left; background: none; border: none;
+      color: rgba(255,255,255,0.78); padding: 9px 12px; font: inherit; font-size: 13.5px;
+      border-radius: 8px; cursor: pointer; margin-bottom: 1px; transition: all 120ms;
+    }
     .side button.tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .side button.tab.active { background: rgba(255,255,255,0.16); color: #fff; font-weight: 600; }
-    .side .actions { margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.14); display: flex; flex-direction: column; gap: 8px; }
-    .side .actions a, .side .actions button { display: block; width: 100%; text-align: center; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: inherit; }
+    .side button.tab.active {
+      background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 600;
+      box-shadow: inset 3px 0 0 #FFE600;
+    }
+    .side .actions {
+      margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.10);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .side .actions a, .side .actions button {
+      display: block; width: 100%; text-align: center; padding: 9px 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.08); color: #fff; font-size: 12.5px; font-weight: 600;
+      text-decoration: none; border: none; cursor: pointer; font-family: inherit;
+    }
+    .side .actions a:hover, .side .actions button:hover { background: rgba(255,255,255,0.16); }
     .side .actions .primary { background: #FFE600; color: var(--midnight-purple); }
-    .side .actions .primary:hover { filter: brightness(0.96); }
-    .side .actions .danger { background: rgba(255,86,85,0.2); }
-    .side .actions .danger:hover { background: rgba(255,86,85,0.35); }
+    .side .actions .primary:hover { background: #FFE600; filter: brightness(0.94); }
+    .side .actions .danger { background: rgba(255,86,85,0.18); color: #FFD2D1; }
+    .side .actions .danger:hover { background: rgba(255,86,85,0.30); color: #fff; }
 
-    .main { padding: 36px 56px 96px; max-width: 1440px; }
+    /* Main content */
+    .main { padding: 0 0 96px; max-width: 1440px; }
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-hair);
+      padding: 14px 56px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar .crumbs { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-secondary); }
+    .topbar .crumbs strong { color: var(--fg-primary); font-weight: 700; }
+    .topbar .crumbs .sep { color: var(--fg-muted); }
+    .topbar .meta { display: flex; align-items: center; gap: 18px; }
+    .topbar .savebadge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+      background: var(--bg-muted); color: var(--fg-secondary);
+    }
+    .topbar .savebadge.saving { background: #FEF3C7; color: #92400E; }
+    .topbar .savebadge.saved { background: #DCFCE7; color: #166534; }
+    .topbar .savebadge.error { background: #FEE2E2; color: #B91C1C; }
+    .topbar .savebadge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .main-inner { padding: 32px 56px; max-width: 1280px; }
     .main .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
-    .main h1 { font-family: var(--font-en); font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
+    .main h1 { font-family: var(--font-en); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; color: var(--midnight-purple); }
     .main .lede { color: var(--fg-secondary); font-size: 14px; margin: 0; }
 
     /* Status banner */
@@ -45,7 +95,8 @@
     .status.on { opacity: 1; transform: translateY(0); }
 
     /* Form surfaces */
-    .card { background: #fff; border: 1px solid var(--border-subtle); border-radius: 16px; padding: 28px 32px; margin-bottom: 20px; }
+    .card { background: #fff; border: 1px solid var(--border-subtle); border-radius: 14px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: border-color 120ms; }
+    .card:hover { border-color: var(--border-default); }
     .card h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
     .card .desc { color: var(--fg-muted); font-size: 13px; margin: 0 0 20px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
@@ -118,8 +169,10 @@
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@0.461.0"></script>
   <script src="content-store.js"></script>
+  <script src="editor-loader.js"></script>
+  <link rel="stylesheet" href="site.css">
 </head>
 <body>
   <a href="#main" class="skip-link">본문 바로가기</a>
@@ -247,17 +300,30 @@
 
   // ---- Tabs ----------------------------------------------------------------
   const TABS = [
-    { id: 'brand',    label: 'Brand & Nav' },
-    { id: 'hero',     label: 'Hero' },
-    { id: 'how',      label: 'How it works' },
-    { id: 'programs', label: 'Programs' },
-    { id: 'partners', label: 'Partners' },
-    { id: 'stories',  label: 'Stories' },
-    { id: 'news',     label: 'News' },
-    { id: 'cta',      label: 'CTA banner' },
-    { id: 'faq',      label: 'FAQ' },
-    { id: 'icons',    label: 'Icons' },
-    { id: 'apps',     label: 'Applications' },
+    { id: 'brand',         label: 'Brand & Nav',     group: 'Site' },
+    { id: 'footer',        label: 'Footer',          group: 'Site' },
+    { id: 'icons',         label: 'Icons',           group: 'Site' },
+
+    { id: 'hero',          label: 'Hero',            group: 'Homepage' },
+    { id: 'stats',         label: 'Stats',           group: 'Homepage' },
+    { id: 'how',           label: 'How it works',    group: 'Homepage' },
+    { id: 'cta',           label: 'CTA banner',      group: 'Homepage' },
+
+    { id: 'about',         label: 'About page',      group: 'Pages' },
+    { id: 'pageheros',     label: 'Page headers',    group: 'Pages' },
+    { id: 'partner_cta',   label: 'Partner CTA',     group: 'Pages' },
+
+    { id: 'programs',      label: 'Programs',        group: 'Programs' },
+    { id: 'program_detail',label: 'Program detail',  group: 'Programs' },
+
+    { id: 'partners',      label: 'Partners',        group: 'Lists' },
+    { id: 'stories',       label: 'Stories',         group: 'Lists' },
+    { id: 'faq',           label: 'FAQ',             group: 'Lists' },
+    // News is now edited inline on the public /news page (D1-backed)
+
+    { id: 'translations',  label: 'KO ↔ EN translations', group: 'Tools' },
+
+    { id: 'apps',          label: 'Applications',    group: 'Data' },
   ];
 
   // ===== Section editors ====================================================
@@ -592,6 +658,433 @@
     );
   }
 
+  // ---- About page ---------------------------------------------------------
+  function AboutTab({ c, set, addItem, removeItem }) {
+    const a = c.about || {};
+    const cards = (a.team && a.team.cards) || [];
+    return (
+      <>
+        <div className="card">
+          <h3>Hero (top of About page)</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={a.hero?.ko?.kicker || ''} onChange={v => set(['about','hero','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={a.hero?.en?.kicker || ''} onChange={v => set(['about','hero','en','kicker'], v)} lang="en" />
+            <Text label="Title line 1 (KO)" value={a.hero?.ko?.title_l1 || ''} onChange={v => set(['about','hero','ko','title_l1'], v)} lang="ko" />
+            <Text label="Title line 1 (EN)" value={a.hero?.en?.title_l1 || ''} onChange={v => set(['about','hero','en','title_l1'], v)} lang="en" />
+            <Text label="Title line 2 (KO)" value={a.hero?.ko?.title_l2 || ''} onChange={v => set(['about','hero','ko','title_l2'], v)} lang="ko" />
+            <Text label="Title line 2 (EN)" value={a.hero?.en?.title_l2 || ''} onChange={v => set(['about','hero','en','title_l2'], v)} lang="en" />
+            <Area label="Subtitle (KO)" value={a.hero?.ko?.sub || ''} onChange={v => set(['about','hero','ko','sub'], v)} lang="ko" rows={4} />
+            <Area label="Subtitle (EN)" value={a.hero?.en?.sub || ''} onChange={v => set(['about','hero','en','sub'], v)} lang="en" rows={4} />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Mission section</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={a.mission?.ko?.kicker || ''} onChange={v => set(['about','mission','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={a.mission?.en?.kicker || ''} onChange={v => set(['about','mission','en','kicker'], v)} lang="en" />
+            <Text label="Title line 1 (KO)" value={a.mission?.ko?.title_l1 || ''} onChange={v => set(['about','mission','ko','title_l1'], v)} lang="ko" />
+            <Text label="Title line 1 (EN)" value={a.mission?.en?.title_l1 || ''} onChange={v => set(['about','mission','en','title_l1'], v)} lang="en" />
+            <Text label="Title line 2 (KO)" value={a.mission?.ko?.title_l2 || ''} onChange={v => set(['about','mission','ko','title_l2'], v)} lang="ko" />
+            <Text label="Title line 2 (EN)" value={a.mission?.en?.title_l2 || ''} onChange={v => set(['about','mission','en','title_l2'], v)} lang="en" />
+            <Area label="Body (KO)" value={a.mission?.ko?.body || ''} onChange={v => set(['about','mission','ko','body'], v)} lang="ko" rows={5} />
+            <Area label="Body (EN)" value={a.mission?.en?.body || ''} onChange={v => set(['about','mission','en','body'], v)} lang="en" rows={5} />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Team section heading</h3>
+          <div className="grid-2 tight">
+            <Text label="Kicker (KO)" value={a.team?.ko?.kicker || ''} onChange={v => set(['about','team','ko','kicker'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={a.team?.en?.kicker || ''} onChange={v => set(['about','team','en','kicker'], v)} lang="en" />
+            <Text label="Title line 1 (KO)" value={a.team?.ko?.title_l1 || ''} onChange={v => set(['about','team','ko','title_l1'], v)} lang="ko" />
+            <Text label="Title line 1 (EN)" value={a.team?.en?.title_l1 || ''} onChange={v => set(['about','team','en','title_l1'], v)} lang="en" />
+            <Text label="Title line 2 (KO)" value={a.team?.ko?.title_l2 || ''} onChange={v => set(['about','team','ko','title_l2'], v)} lang="ko" />
+            <Text label="Title line 2 (EN)" value={a.team?.en?.title_l2 || ''} onChange={v => set(['about','team','en','title_l2'], v)} lang="en" />
+            <Area label="Subtitle (KO)" value={a.team?.ko?.sub || ''} onChange={v => set(['about','team','ko','sub'], v)} lang="ko" />
+            <Area label="Subtitle (EN)" value={a.team?.en?.sub || ''} onChange={v => set(['about','team','en','sub'], v)} lang="en" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Team cards</h3>
+          {cards.map((card, i) => (
+            <div className="rep-item" key={i}>
+              <div className="rep-head">
+                <strong>Card {i+1}</strong>
+                <div className="ctrls">
+                  <button className="icon-btn danger" onClick={() => removeItem(['about','team','cards'], i)}>Delete</button>
+                </div>
+              </div>
+              <div className="grid-2 tight">
+                <Text label="Role (KO)" value={card.role_ko} onChange={v => set(['about','team','cards',i,'role_ko'], v)} lang="ko" />
+                <Text label="Role (EN)" value={card.role_en} onChange={v => set(['about','team','cards',i,'role_en'], v)} lang="en" />
+                <Text label="Name (KO)" value={card.name_ko} onChange={v => set(['about','team','cards',i,'name_ko'], v)} lang="ko" />
+                <Text label="Name (EN)" value={card.name_en} onChange={v => set(['about','team','cards',i,'name_en'], v)} lang="en" />
+                <Area label="Description (KO)" value={card.desc_ko} onChange={v => set(['about','team','cards',i,'desc_ko'], v)} lang="ko" rows={3} />
+                <Area label="Description (EN)" value={card.desc_en} onChange={v => set(['about','team','cards',i,'desc_en'], v)} lang="en" rows={3} />
+              </div>
+            </div>
+          ))}
+          <button className="btn-add" onClick={() => addItem(['about','team','cards'], { role_ko:'역할', role_en:'ROLE', name_ko:'이름', name_en:'Name', desc_ko:'', desc_en:'' })}>+ Add team card</button>
+        </div>
+      </>
+    );
+  }
+
+  // ---- Page heros (Partners / Stories / News / Contact / Programs) -------
+  function PageHerosTab({ c, set }) {
+    const ph = c.page_heros || {};
+    const pages = [
+      { key: 'partners', label: 'Partners page' },
+      { key: 'stories',  label: 'Stories page' },
+      { key: 'news',     label: 'News page' },
+      { key: 'contact',  label: 'Contact / FAQ page' },
+      { key: 'programs', label: 'Programs page' },
+    ];
+    return (
+      <>
+        {pages.map(({ key, label }) => (
+          <div className="card" key={key}>
+            <h3>{label}</h3>
+            <div className="grid-2 tight">
+              <Text label="Kicker (KO)" value={ph[key]?.ko?.kicker || ''} onChange={v => set(['page_heros',key,'ko','kicker'], v)} lang="ko" />
+              <Text label="Kicker (EN)" value={ph[key]?.en?.kicker || ''} onChange={v => set(['page_heros',key,'en','kicker'], v)} lang="en" />
+              <Text label="Title line 1 (KO)" value={ph[key]?.ko?.title_l1 || ''} onChange={v => set(['page_heros',key,'ko','title_l1'], v)} lang="ko" />
+              <Text label="Title line 1 (EN)" value={ph[key]?.en?.title_l1 || ''} onChange={v => set(['page_heros',key,'en','title_l1'], v)} lang="en" />
+              <Text label="Title line 2 (KO)" value={ph[key]?.ko?.title_l2 || ''} onChange={v => set(['page_heros',key,'ko','title_l2'], v)} lang="ko" />
+              <Text label="Title line 2 (EN)" value={ph[key]?.en?.title_l2 || ''} onChange={v => set(['page_heros',key,'en','title_l2'], v)} lang="en" />
+              <Area label="Subtitle (KO)" value={ph[key]?.ko?.sub || ''} onChange={v => set(['page_heros',key,'ko','sub'], v)} lang="ko" />
+              <Area label="Subtitle (EN)" value={ph[key]?.en?.sub || ''} onChange={v => set(['page_heros',key,'en','sub'], v)} lang="en" />
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ---- Partner CTA (bottom of Contact page) ------------------------------
+  function PartnerCtaTab({ c, set }) {
+    const p = c.partner_cta || {};
+    return (
+      <div className="card">
+        <h3>Partner CTA box (bottom of Contact page)</h3>
+        <div className="grid-2 tight">
+          <Text label="Kicker (KO)" value={p.ko?.kicker || ''} onChange={v => set(['partner_cta','ko','kicker'], v)} lang="ko" />
+          <Text label="Kicker (EN)" value={p.en?.kicker || ''} onChange={v => set(['partner_cta','en','kicker'], v)} lang="en" />
+          <Text label="Title (KO)" value={p.ko?.title || ''} onChange={v => set(['partner_cta','ko','title'], v)} lang="ko" />
+          <Text label="Title (EN)" value={p.en?.title || ''} onChange={v => set(['partner_cta','en','title'], v)} lang="en" />
+          <Area label="Subtitle (KO)" value={p.ko?.sub || ''} onChange={v => set(['partner_cta','ko','sub'], v)} lang="ko" />
+          <Area label="Subtitle (EN)" value={p.en?.sub || ''} onChange={v => set(['partner_cta','en','sub'], v)} lang="en" />
+          <Text label="Button label (KO)" value={p.ko?.cta || ''} onChange={v => set(['partner_cta','ko','cta'], v)} lang="ko" />
+          <Text label="Button label (EN)" value={p.en?.cta || ''} onChange={v => set(['partner_cta','en','cta'], v)} lang="en" />
+        </div>
+        <p className="desc">Button links to the partners email set in <em>Brand & Nav</em>.</p>
+      </div>
+    );
+  }
+
+  // ---- Program detail (shared copy across all program pages) -------------
+  function ProgramDetailTab({ c, set }) {
+    const d = c.program_detail || {};
+    const ko = d.ko || {}, en = d.en || {};
+    const koItems = (ko.learn_items || []).join('\n');
+    const enItems = (en.learn_items || []).join('\n');
+    const setItems = (langKey, raw) => {
+      const arr = raw.split('\n').map(s => s.trim()).filter(Boolean);
+      set(['program_detail', langKey, 'learn_items'], arr);
+    };
+    return (
+      <>
+        <div className="card">
+          <h3>Program detail body — Korean</h3>
+          <Text label="Back link" value={ko.back_link || ''} onChange={v => set(['program_detail','ko','back_link'], v)} lang="ko" />
+          <Text label="Overview heading" value={ko.overview_h || ''} onChange={v => set(['program_detail','ko','overview_h'], v)} lang="ko" />
+          <Area label="Overview body" value={ko.overview_body || ''} onChange={v => set(['program_detail','ko','overview_body'], v)} lang="ko" rows={4} />
+          <Text label="What you'll learn — heading" value={ko.learn_h || ''} onChange={v => set(['program_detail','ko','learn_h'], v)} lang="ko" />
+          <Area label="Learn items (one per line)" value={koItems} onChange={v => setItems('ko', v)} lang="ko" rows={4} />
+          <Text label="Eligibility heading" value={ko.eligibility_h || ''} onChange={v => set(['program_detail','ko','eligibility_h'], v)} lang="ko" />
+          <Area label="Eligibility body" value={ko.eligibility_body || ''} onChange={v => set(['program_detail','ko','eligibility_body'], v)} lang="ko" rows={3} />
+          <Text label="Sidebar info kicker" value={ko.info_kicker || ''} onChange={v => set(['program_detail','ko','info_kicker'], v)} lang="ko" />
+          <div className="grid-2 tight">
+            <Text label="Length label" value={ko.label_length || ''} onChange={v => set(['program_detail','ko','label_length'], v)} lang="ko" />
+            <Text label="Format label" value={ko.label_format || ''} onChange={v => set(['program_detail','ko','label_format'], v)} lang="ko" />
+            <Text label="Language label" value={ko.label_language || ''} onChange={v => set(['program_detail','ko','label_language'], v)} lang="ko" />
+            <Text label="Level label" value={ko.label_level || ''} onChange={v => set(['program_detail','ko','label_level'], v)} lang="ko" />
+            <Text label="Status label" value={ko.label_status || ''} onChange={v => set(['program_detail','ko','label_status'], v)} lang="ko" />
+            <Text label="Apply CTA" value={ko.apply_cta || ''} onChange={v => set(['program_detail','ko','apply_cta'], v)} lang="ko" />
+          </div>
+        </div>
+        <div className="card">
+          <h3>Program detail body — English</h3>
+          <Text label="Back link" value={en.back_link || ''} onChange={v => set(['program_detail','en','back_link'], v)} lang="en" />
+          <Text label="Overview heading" value={en.overview_h || ''} onChange={v => set(['program_detail','en','overview_h'], v)} lang="en" />
+          <Area label="Overview body" value={en.overview_body || ''} onChange={v => set(['program_detail','en','overview_body'], v)} lang="en" rows={4} />
+          <Text label="What you'll learn — heading" value={en.learn_h || ''} onChange={v => set(['program_detail','en','learn_h'], v)} lang="en" />
+          <Area label="Learn items (one per line)" value={enItems} onChange={v => setItems('en', v)} lang="en" rows={4} />
+          <Text label="Eligibility heading" value={en.eligibility_h || ''} onChange={v => set(['program_detail','en','eligibility_h'], v)} lang="en" />
+          <Area label="Eligibility body" value={en.eligibility_body || ''} onChange={v => set(['program_detail','en','eligibility_body'], v)} lang="en" rows={3} />
+          <Text label="Sidebar info kicker" value={en.info_kicker || ''} onChange={v => set(['program_detail','en','info_kicker'], v)} lang="en" />
+          <div className="grid-2 tight">
+            <Text label="Length label" value={en.label_length || ''} onChange={v => set(['program_detail','en','label_length'], v)} lang="en" />
+            <Text label="Format label" value={en.label_format || ''} onChange={v => set(['program_detail','en','label_format'], v)} lang="en" />
+            <Text label="Language label" value={en.label_language || ''} onChange={v => set(['program_detail','en','label_language'], v)} lang="en" />
+            <Text label="Level label" value={en.label_level || ''} onChange={v => set(['program_detail','en','label_level'], v)} lang="en" />
+            <Text label="Status label" value={en.label_status || ''} onChange={v => set(['program_detail','en','label_status'], v)} lang="en" />
+            <Text label="Apply CTA" value={en.apply_cta || ''} onChange={v => set(['program_detail','en','apply_cta'], v)} lang="en" />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ---- Footer -------------------------------------------------------------
+  function FooterTab({ c, set }) {
+    const f = c.footer || {};
+    const groups = [
+      { h: 'Column headings', keys: ['col_programs','col_about','col_contact'] },
+      { h: 'Programs column links', keys: ['link_all','link_micro','link_bachelor','link_apply'] },
+      { h: 'About column links', keys: ['link_project','link_partners','link_stories','link_news'] },
+      { h: 'Contact column links', keys: ['link_faq','link_partners_inquiry'] },
+      { h: 'Bottom row', keys: ['rights'] },
+    ];
+    return (
+      <>
+        {groups.map(g => (
+          <div className="card" key={g.h}>
+            <h3>{g.h}</h3>
+            <div className="grid-2 tight">
+              {g.keys.map(k => (
+                <React.Fragment key={k}>
+                  <Text label={k + ' (KO)'} value={f.ko?.[k] || ''} onChange={v => set(['footer','ko',k], v)} lang="ko" />
+                  <Text label={k + ' (EN)'} value={f.en?.[k] || ''} onChange={v => set(['footer','en',k], v)} lang="en" />
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ---- Translations (1:1 KO/EN side-by-side) -----------------------------
+  // Walks the content tree and emits one row per matching KO/EN pair.
+  // Detects three patterns:
+  //  (a) sibling keys foo_ko / foo_en  (or name_kr / name_en)
+  //  (b) parent object with parallel children under .ko and .en
+  //  (c) array items where each element has those patterns
+  function collectTranslationPairs(node, path, sectionTitle, out) {
+    if (node == null) return;
+    if (Array.isArray(node)) {
+      node.forEach((item, i) => collectTranslationPairs(item, [...path, i], sectionTitle + ' [' + (i+1) + ']', out));
+      return;
+    }
+    if (typeof node !== 'object') return;
+
+    // Pattern (b): parallel ko/en branches with same keys
+    if (node.ko && node.en && typeof node.ko === 'object' && typeof node.en === 'object'
+        && !Array.isArray(node.ko) && !Array.isArray(node.en)) {
+      const koKeys = Object.keys(node.ko);
+      koKeys.forEach(k => {
+        const koVal = node.ko[k];
+        const enVal = node.en?.[k];
+        // Only render leaf strings — recurse into nested objects/arrays
+        if (typeof koVal === 'string' || typeof enVal === 'string') {
+          out.push({
+            section: sectionTitle,
+            label: k,
+            koPath: [...path, 'ko', k],
+            enPath: [...path, 'en', k],
+            koValue: koVal ?? '',
+            enValue: enVal ?? '',
+            multiline: (koVal && koVal.length > 60) || (enVal && enVal.length > 60),
+          });
+        } else if (Array.isArray(koVal)) {
+          koVal.forEach((_, i) => {
+            const koItem = koVal[i];
+            const enItem = enVal?.[i];
+            if (typeof koItem === 'string') {
+              out.push({
+                section: sectionTitle + ' · ' + k,
+                label: '#' + (i+1),
+                koPath: [...path, 'ko', k, i],
+                enPath: [...path, 'en', k, i],
+                koValue: koItem ?? '',
+                enValue: enItem ?? '',
+                multiline: (koItem && koItem.length > 60) || (enItem && enItem.length > 60),
+              });
+            }
+          });
+        } else if (typeof koVal === 'object' && koVal !== null) {
+          // Recurse into nested objects (e.g., team cards inside team)
+          collectTranslationPairs(koVal, [...path, 'ko', k], sectionTitle + ' · ' + k, out);
+          // Note: walks ko side; en parallel is captured by path mirroring in setEnFromKoPath
+        }
+      });
+      // Skip top-level ko/en keys but still recurse into siblings
+      Object.keys(node).forEach(k => {
+        if (k !== 'ko' && k !== 'en') {
+          collectTranslationPairs(node[k], [...path, k], sectionTitle + ' · ' + k, out);
+        }
+      });
+      return;
+    }
+
+    // Pattern (a) and recurse into children
+    const keys = Object.keys(node);
+    const handled = new Set();
+    keys.forEach(k => {
+      if (handled.has(k)) return;
+      const m1 = k.match(/^(.+)_ko$/);
+      const m2 = k.match(/^(.+)_kr$/); // brand uses name_kr
+      if (m1 && Object.prototype.hasOwnProperty.call(node, m1[1] + '_en')) {
+        const enKey = m1[1] + '_en';
+        const koVal = node[k]; const enVal = node[enKey];
+        out.push({
+          section: sectionTitle,
+          label: m1[1],
+          koPath: [...path, k],
+          enPath: [...path, enKey],
+          koValue: typeof koVal === 'string' ? koVal : '',
+          enValue: typeof enVal === 'string' ? enVal : '',
+          multiline: (typeof koVal === 'string' && koVal.length > 60) || (typeof enVal === 'string' && enVal.length > 60),
+        });
+        handled.add(k); handled.add(enKey);
+      } else if (m2 && Object.prototype.hasOwnProperty.call(node, m2[1] + '_en')) {
+        const enKey = m2[1] + '_en';
+        const koVal = node[k]; const enVal = node[enKey];
+        out.push({
+          section: sectionTitle,
+          label: m2[1],
+          koPath: [...path, k],
+          enPath: [...path, enKey],
+          koValue: typeof koVal === 'string' ? koVal : '',
+          enValue: typeof enVal === 'string' ? enVal : '',
+          multiline: false,
+        });
+        handled.add(k); handled.add(enKey);
+      }
+    });
+    keys.forEach(k => {
+      if (handled.has(k)) return;
+      const child = node[k];
+      if (child && typeof child === 'object') {
+        collectTranslationPairs(child, [...path, k], sectionTitle + ' · ' + k, out);
+      }
+    });
+  }
+
+  function TranslationsTab({ c, set }) {
+    // Sections we actually want translations for, in display order
+    const sections = [
+      { key: 'brand',          title: 'Brand' },
+      { key: 'nav',            title: 'Navigation' },
+      { key: 'hero',           title: 'Hero (homepage)' },
+      { key: 'stats',          title: 'Stats (homepage)' },
+      { key: 'how',            title: 'How it works' },
+      { key: 'programs_section', title: 'Programs section heading' },
+      { key: 'programs',       title: 'Programs' },
+      { key: 'partners_section', title: 'Partners section heading' },
+      { key: 'partners',       title: 'Partners' },
+      { key: 'stories_section', title: 'Stories section heading' },
+      { key: 'stories',        title: 'Stories' },
+      { key: 'news',           title: 'News' },
+      { key: 'cta_banner',     title: 'CTA banner' },
+      { key: 'faq',            title: 'FAQ' },
+      { key: 'about',          title: 'About page' },
+      { key: 'page_heros',     title: 'Page headers' },
+      { key: 'partner_cta',    title: 'Partner CTA' },
+      { key: 'program_detail', title: 'Program detail copy' },
+      { key: 'footer',         title: 'Footer' },
+    ];
+
+    const [filter, setFilter] = useState('');
+    const all = [];
+    sections.forEach(s => {
+      if (c[s.key] != null) collectTranslationPairs(c[s.key], [s.key], s.title, all);
+    });
+
+    const q = filter.trim().toLowerCase();
+    const shown = q ? all.filter(r =>
+      r.section.toLowerCase().includes(q) ||
+      r.label.toLowerCase().includes(q) ||
+      r.koValue.toLowerCase().includes(q) ||
+      r.enValue.toLowerCase().includes(q)
+    ) : all;
+
+    // Group rows by section for visual grouping
+    const grouped = [];
+    let last = null;
+    shown.forEach(r => {
+      if (last == null || last.title !== r.section) {
+        last = { title: r.section, rows: [] };
+        grouped.push(last);
+      }
+      last.rows.push(r);
+    });
+
+    return (
+      <>
+        <div className="card" style={{position:'sticky',top:0,zIndex:5,padding:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}>
+            <div>
+              <strong>{shown.length}</strong> of {all.length} translation pairs
+            </div>
+            <input
+              type="search"
+              placeholder="Filter (label, section, or text)…"
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              style={{padding:'8px 12px',border:'1px solid #ddd',borderRadius:8,fontSize:14,width:320}}
+            />
+          </div>
+        </div>
+        {grouped.map((g, gi) => (
+          <div className="card" key={gi}>
+            <h3 style={{margin:'0 0 12px'}}>{g.title}</h3>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead>
+                <tr>
+                  <th style={{width:140,textAlign:'left',padding:'8px 6px',borderBottom:'1px solid #eee',fontSize:12,color:'#666',textTransform:'uppercase',letterSpacing:'0.08em'}}>Field</th>
+                  <th style={{textAlign:'left',padding:'8px 6px',borderBottom:'1px solid #eee',fontSize:12,color:'#666',textTransform:'uppercase',letterSpacing:'0.08em'}}>한국어</th>
+                  <th style={{textAlign:'left',padding:'8px 6px',borderBottom:'1px solid #eee',fontSize:12,color:'#666',textTransform:'uppercase',letterSpacing:'0.08em'}}>English</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.rows.map((r, ri) => (
+                  <tr key={ri} style={{verticalAlign:'top'}}>
+                    <td style={{padding:'10px 6px',borderBottom:'1px solid #f3f3f3',fontSize:13,color:'#444',fontFamily:'var(--font-mono, monospace)'}}>{r.label}</td>
+                    <td style={{padding:'8px 6px',borderBottom:'1px solid #f3f3f3'}}>
+                      {r.multiline ? (
+                        <textarea lang="ko" value={r.koValue}
+                          onChange={e => set(r.koPath, e.target.value)}
+                          rows={3}
+                          style={{width:'100%',padding:'8px 10px',border:'1px solid #e0e0e0',borderRadius:6,fontSize:14,fontFamily:'var(--font-kr)',resize:'vertical'}} />
+                      ) : (
+                        <input type="text" lang="ko" value={r.koValue}
+                          onChange={e => set(r.koPath, e.target.value)}
+                          style={{width:'100%',padding:'8px 10px',border:'1px solid #e0e0e0',borderRadius:6,fontSize:14,fontFamily:'var(--font-kr)'}} />
+                      )}
+                    </td>
+                    <td style={{padding:'8px 6px',borderBottom:'1px solid #f3f3f3'}}>
+                      {r.multiline ? (
+                        <textarea lang="en" value={r.enValue}
+                          onChange={e => set(r.enPath, e.target.value)}
+                          rows={3}
+                          style={{width:'100%',padding:'8px 10px',border:'1px solid #e0e0e0',borderRadius:6,fontSize:14,fontFamily:'var(--font-en)',resize:'vertical'}} />
+                      ) : (
+                        <input type="text" lang="en" value={r.enValue}
+                          onChange={e => set(r.enPath, e.target.value)}
+                          style={{width:'100%',padding:'8px 10px',border:'1px solid #e0e0e0',borderRadius:6,fontSize:14,fontFamily:'var(--font-en)'}} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </>
+    );
+  }
+
   function IconsTab({ c, set }) {
     const keys = Object.keys(c.icons);
     return (
@@ -888,30 +1381,51 @@
     }
 
     const TabComp = {
-      brand: BrandTab, hero: HeroTab, how: HowTab,
-      programs: ProgramsTab, partners: PartnersTab, stories: StoriesTab,
-      news: NewsTab, cta: CtaTab, faq: FaqTab, icons: IconsTab,
+      brand: BrandTab, footer: FooterTab, icons: IconsTab,
+      hero: HeroTab, stats: StatsTab, how: HowTab, cta: CtaTab,
+      about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab,
+      programs: ProgramsTab, program_detail: ProgramDetailTab,
+      partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
+      translations: TranslationsTab,
       apps: ApplicationsTab,
     }[tab];
 
     const activeLabel = TABS.find(t => t.id === tab)?.label ?? '';
 
+    const activeGroup = TABS.find(t => t.id === tab)?.group ?? '';
+    const saveLabel = savedState === 'saving' ? 'Saving…'
+                    : savedState === 'saved' ? '✓ Saved'
+                    : savedState === 'error' ? 'Save failed'
+                    : 'All changes saved';
+
     return (
       <div className="admin">
         <aside className="side" aria-label="Admin navigation">
-          <div className="brand" aria-hidden="true">
+          <div className="brand">
             <img src="../../assets/logo-dreampath-mark.svg" alt="" />
-            <div className="wm">Dream<span className="pt">Path</span></div>
+            <div>
+              <div className="wm">KoreaDream<span className="pt">Path</span></div>
+              <div className="sub">Admin Console</div>
+            </div>
           </div>
-          <h2>Content</h2>
-          {TABS.map(t => (
-            <button key={t.id} type="button"
-              className={'tab' + (tab === t.id ? ' active' : '')}
-              onClick={() => setTab(t.id)}
-              aria-current={tab === t.id ? 'page' : undefined}>
-              {t.label}
-            </button>
-          ))}
+          {(() => {
+            const groups = [];
+            const seen = new Set();
+            TABS.forEach(t => { if (!seen.has(t.group)) { groups.push(t.group); seen.add(t.group); } });
+            return groups.map(g => (
+              <React.Fragment key={g}>
+                <h2>{g}</h2>
+                {TABS.filter(t => t.group === g).map(t => (
+                  <button key={t.id} type="button"
+                    className={'tab' + (tab === t.id ? ' active' : '')}
+                    onClick={() => setTab(t.id)}
+                    aria-current={tab === t.id ? 'page' : undefined}>
+                    {t.label}
+                  </button>
+                ))}
+              </React.Fragment>
+            ));
+          })()}
           <div className="actions">
             <a className="primary" href="index.html" target="_blank" rel="noopener">Open site ↗</a>
             <button type="button" onClick={onExport}>Export JSON</button>
@@ -920,16 +1434,28 @@
           </div>
         </aside>
         <div id="main" className="main" tabIndex="-1">
-          <div className="page-head">
-            <div>
-              <h1>{activeLabel}</h1>
-              <p className="lede">Changes save automatically to Cloudflare and reflect on the live site.</p>
+          <div className="topbar">
+            <div className="crumbs">
+              <span>{activeGroup}</span>
+              <span className="sep">/</span>
+              <strong>{activeLabel}</strong>
+            </div>
+            <div className="meta">
+              <div className={'savebadge ' + savedState}>
+                <span className="dot" />
+                {saveLabel}
+              </div>
             </div>
           </div>
-          <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />
-        </div>
-        <div className={'status' + (savedState === 'saved' ? ' on' : '')} role="status" aria-live="polite">
-          {savedState === 'saving' ? 'Saving…' : savedState === 'error' ? saveError : 'Saved'}
+          <div className="main-inner">
+            <div className="page-head">
+              <div>
+                <h1>{activeLabel}</h1>
+                <p className="lede">Changes save automatically to Cloudflare and reflect on the live site.</p>
+              </div>
+            </div>
+            <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} />
+          </div>
         </div>
       </div>
     );

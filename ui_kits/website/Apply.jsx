@@ -1,38 +1,53 @@
-// Apply.jsx — 4-step application: basic info → essay → recommender → payment
+// Helper used by both Apply state init and the Step2 list controls.
+function blankRecommender() {
+  return { name: '', email: '', phone: '', member_country: '', training_level: '', letter_filename: '' };
+}
+
+// Apply.jsx — 4-step application:
+//   1) personal + admission referrer code
+//   2) basic info + academic
+//   3) essays (2 questions) + scout recommender (optional, with PDF upload)
+//   4) track + payment
 const { useState: useStateA } = React;
 
 function Apply({ lang, c }) {
   const isKo = lang === 'ko';
   const [step, setStep] = useStateA(0);
   const [form, setForm] = useStateA({
-    // step 0 — basic info / academic
-    name: '', email: '', country: '', birthdate: '',
+    // step 1 — personal info + admission referrer code
+    name: '', email: '', birthdate: '',
+    admission_referrer_code: '',
+    // step 2 — basic info + academic
+    country: '',
     prior_school: '', prior_major: '', prior_gpa: '',
     transcript_note: '',
-    // step 1 — essay
+    // step 3 — essays + scout recommenders (>=3)
     essay_title: '', essay_body: '',
-    // step 2 — recommender / scout
-    nso: '', recommender_name: '', recommender_role: '',
-    recommender_email: '', recommender_letter: '',
-    // step 3 — track + payment
+    essay_title_2: '', essay_body_2: '',
+    recommenders: [
+      blankRecommender(),
+      blankRecommender(),
+      blankRecommender(),
+    ],
+    // step 4 — track + payment
     track: '', partial_tier: '70',
     program: (c && c.programs && c.programs[0] && c.programs[0].id) || 'korean-studies',
     payment_method: 'card', card_last4: '',
   });
   const [submitted, setSubmitted] = useStateA(false);
   const [appId, setAppId] = useStateA('');
+  const [receiptUrl, setReceiptUrl] = useStateA('');
   const [submitting, setSubmitting] = useStateA(false);
   const [submitError, setSubmitError] = useStateA('');
 
   const steps = isKo
-    ? ['기본 정보 · 학력', '자기 에세이', '스카우트 추천인', '트랙 · 결제']
-    : ['Basic info · Academic', 'Personal essay', 'Scout recommender', 'Track · Payment'];
+    ? ['개인정보 · 추천코드', '기본 정보 · 학력', '에세이 · 스카우트 추천인', '트랙 · 결제']
+    : ['Personal · Referrer code', 'Basic · Academic', 'Essays · Scout recommender', 'Track · Payment'];
 
   const next = () => setStep(Math.min(step + 1, steps.length));
   const back = () => setStep(Math.max(step - 1, 0));
   const upd = k => e => setForm({ ...form, [k]: e.target.value });
 
-  // Track prices
   const trackPrice = (t, tier) => {
     if (t === 'full') return 10;
     if (t === 'partial') return tier === '70' ? 7 : tier === '50' ? 5 : 3;
@@ -42,9 +57,19 @@ function Apply({ lang, c }) {
   const amount = trackPrice(form.track, form.partial_tier);
 
   function validateStep(i) {
-    if (i === 0) return form.name && form.email && form.country && form.prior_school;
-    if (i === 1) return form.essay_title && form.essay_body && form.essay_body.length >= 50;
-    if (i === 2) return form.nso && form.recommender_name && form.recommender_email;
+    if (i === 0) return form.name && form.email; // referrer code is optional
+    if (i === 1) return form.country && form.prior_school;
+    if (i === 2) {
+      const essaysOK = form.essay_title && form.essay_body && form.essay_body.length >= 50
+                    && form.essay_title_2 && form.essay_body_2 && form.essay_body_2.length >= 50;
+      const recs = form.recommenders || [];
+      const recsOK = recs.length >= 3 && recs.every(r =>
+        r.name && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email || '')
+        && /^\+/.test((r.phone || '').trim())
+        && r.member_country && r.training_level
+      );
+      return essaysOK && recsOK;
+    }
     if (i === 3) return form.track && (form.track === 'general' || form.card_last4.length === 4);
     return true;
   }
@@ -54,10 +79,19 @@ function Apply({ lang, c }) {
     setSubmitting(true);
     setSubmitError('');
     try {
+      const headers = { 'content-type': 'application/json' };
+      const tk = window.DreamPathAuth && window.DreamPathAuth.token;
+      if (tk) headers['authorization'] = 'Bearer ' + tk;
+      const payload = {
+        ...form,
+        recommenders_json: JSON.stringify(form.recommenders || []),
+        lang,
+      };
+      delete payload.recommenders;
       const res = await fetch('/api/applications', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...form, lang }),
+        headers,
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -70,6 +104,7 @@ function Apply({ lang, c }) {
       }
       const data = await res.json();
       setAppId(data.id);
+      setReceiptUrl(data.receipt_url || '');
       setSubmitted(true);
       setStep(4);
     } catch (e) {
@@ -114,6 +149,16 @@ function Apply({ lang, c }) {
                   {isKo ? '결제 완료: ' : 'Payment received: '}<strong>US ${amount}.00</strong>
                 </div>
               )}
+              {receiptUrl && (
+                <div style={{marginTop:24}}>
+                  <a className="btn btn-primary" href={receiptUrl} target="_blank" rel="noopener">
+                    {isKo ? '영수증 보기 / 인쇄' : 'View / print receipt'} →
+                  </a>
+                  <p style={{marginTop:12,fontSize:13,color:'var(--fg-muted)'}}>
+                    {isKo ? '영수증 링크는 결제 확인 이메일에도 포함됩니다.' : 'The receipt link is also included in your confirmation email.'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -152,7 +197,7 @@ function Apply({ lang, c }) {
 
             {step === 0 && <Step0 form={form} upd={upd} isKo={isKo} />}
             {step === 1 && <Step1 form={form} upd={upd} isKo={isKo} />}
-            {step === 2 && <Step2 form={form} upd={upd} isKo={isKo} />}
+            {step === 2 && <Step2 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
             {step === 3 && <Step3 form={form} setForm={setForm} upd={upd} isKo={isKo} c={c} amount={amount} />}
 
             <div className="form-actions">
@@ -186,8 +231,8 @@ function Step0({ form, upd, isKo }) {
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '일반 대학 지원에 필요한 기본 정보와 학력 증명 자료를 입력합니다.'
-        : 'Basic info and academic records required for a university application.'}</p>
+        ? '본인 정보와, 받으신 입학 추천인 코드(있을 경우)를 입력합니다.'
+        : 'Your personal info and the admission referrer code you received (if any).'}</p>
       <div className="form-row">
         <div className="field">
           <label>{isKo ? '이름 *' : 'Full name *'}</label>
@@ -200,6 +245,28 @@ function Step0({ form, upd, isKo }) {
       </div>
       <div className="form-row">
         <div className="field">
+          <label>{isKo ? '생년월일' : 'Date of birth'}</label>
+          <input type="date" value={form.birthdate} onChange={upd('birthdate')} />
+        </div>
+        <div className="field">
+          <label>{isKo ? '입학 추천인 코드 (선택)' : 'Admission referrer code (optional)'}</label>
+          <input value={form.admission_referrer_code} onChange={upd('admission_referrer_code')}
+            placeholder={isKo ? '예: KDP-AB12CD' : 'e.g. KDP-AB12CD'} />
+          <span className="hint">{isKo ? '코드를 받으셨다면 정확히 입력해주세요. 없으면 비워두셔도 됩니다.' : 'Enter exactly as received. Leave blank if you do not have one.'}</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Step1({ form, upd, isKo }) {
+  return (
+    <>
+      <p className="apply-desc">{isKo
+        ? '국가, 학력 정보, 학력 증명 메모를 입력합니다.'
+        : 'Country, academic background, and a transcript note.'}</p>
+      <div className="form-row">
+        <div className="field">
           <label>{isKo ? '국가 *' : 'Country *'}</label>
           <select value={form.country} onChange={upd('country')}>
             <option value="">{isKo ? '선택하세요' : 'Select…'}</option>
@@ -209,86 +276,158 @@ function Step0({ form, upd, isKo }) {
           </select>
         </div>
         <div className="field">
-          <label>{isKo ? '생년월일' : 'Date of birth'}</label>
-          <input type="date" value={form.birthdate} onChange={upd('birthdate')} />
-        </div>
-      </div>
-      <h4 className="apply-sub">{isKo ? '학력' : 'Academic background'}</h4>
-      <div className="form-row">
-        <div className="field">
           <label>{isKo ? '최종 학교 *' : 'Most recent school *'}</label>
           <input value={form.prior_school} onChange={upd('prior_school')} />
         </div>
+      </div>
+      <div className="form-row">
         <div className="field">
           <label>{isKo ? '전공/계열' : 'Major / track'}</label>
           <input value={form.prior_major} onChange={upd('prior_major')} />
         </div>
-      </div>
-      <div className="field">
-        <label>{isKo ? 'GPA 또는 학점' : 'GPA or grade average'}</label>
-        <input value={form.prior_gpa} onChange={upd('prior_gpa')} placeholder={isKo ? '예: 3.7 / 4.0' : 'e.g. 3.7 / 4.0'} />
+        <div className="field">
+          <label>{isKo ? 'GPA 또는 학점' : 'GPA or grade average'}</label>
+          <input value={form.prior_gpa} onChange={upd('prior_gpa')} placeholder={isKo ? '예: 3.7 / 4.0' : 'e.g. 3.7 / 4.0'} />
+        </div>
       </div>
       <div className="field">
         <label>{isKo ? '학력 증명서 메모' : 'Transcript note'}</label>
         <textarea rows="3" value={form.transcript_note} onChange={upd('transcript_note')}
-          placeholder={isKo ? '업로드 대신 메모로 입력하세요. 정식 서류는 이후 이메일로 요청됩니다.' : 'Note here; we\'ll request the official transcript by email later.'} />
-        <span className="hint">{isKo ? '* 이 프로토타입에서는 파일 업로드 대신 메모로 기록합니다.' : '* In this prototype, we record a note instead of a file upload.'}</span>
+          placeholder={isKo ? '업로드 대신 메모로 입력하세요. 정식 서류는 이후 이메일로 요청됩니다.' : "Note here; we'll request the official transcript by email later."} />
       </div>
     </>
   );
 }
 
-function Step1({ form, upd, isKo }) {
-  const count = (form.essay_body || '').length;
+function Step2({ form, setForm, upd, isKo }) {
+  const c1 = (form.essay_body || '').length;
+  const c2 = (form.essay_body_2 || '').length;
+
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '본인의 배경, 관심사, 그리고 DreamPath를 통해 이루고 싶은 것에 대해 써주세요.'
-        : 'Write about your background, interests, and what you hope to achieve through DreamPath.'}</p>
+        ? '두 가지 에세이 문항에 답해주세요. 추천인은 최소 3명을 입력해야 합니다.'
+        : 'Answer both essay questions. At least 3 recommenders are required.'}</p>
+
+      <h4 className="apply-sub">{isKo ? '에세이 1' : 'Essay 1'}</h4>
       <div className="field">
-        <label>{isKo ? '에세이 제목 *' : 'Essay title *'}</label>
-        <input value={form.essay_title} onChange={upd('essay_title')} placeholder={isKo ? '예: 국경 너머의 학습' : 'e.g. Learning across borders'} />
+        <label>{isKo ? '제목 *' : 'Title *'}</label>
+        <input value={form.essay_title} onChange={upd('essay_title')}
+          placeholder={isKo ? '예: 국경 너머의 학습' : 'e.g. Learning across borders'} />
       </div>
       <div className="field">
-        <label>{isKo ? '에세이 본문 * (최소 50자)' : 'Essay body * (min 50 characters)'}</label>
-        <textarea rows="10" value={form.essay_body} onChange={upd('essay_body')}
-          placeholder={isKo ? '여기에 자기 에세이를 작성해주세요. 최대 3,000자 권장.' : 'Write your personal essay here. Up to ~3,000 characters recommended.'} />
-        <span className="hint">{count} {isKo ? '자 입력됨' : 'characters'}</span>
+        <label>{isKo ? '본문 * (최소 50자)' : 'Body * (min 50 characters)'}</label>
+        <textarea rows="6" value={form.essay_body} onChange={upd('essay_body')}
+          placeholder={isKo ? '본인의 배경, 관심사, DreamPath를 통해 이루고 싶은 것에 대해 작성하세요.' : 'Background, interests, and what you hope to achieve through DreamPath.'} />
+        <span className="hint">{c1} {isKo ? '자' : 'characters'}</span>
       </div>
+
+      <h4 className="apply-sub">{isKo ? '에세이 2' : 'Essay 2'}</h4>
+      <div className="field">
+        <label>{isKo ? '제목 *' : 'Title *'}</label>
+        <input value={form.essay_title_2} onChange={upd('essay_title_2')}
+          placeholder={isKo ? '예: 5년 후의 나' : 'e.g. Where I see myself in 5 years'} />
+      </div>
+      <div className="field">
+        <label>{isKo ? '본문 * (최소 50자)' : 'Body * (min 50 characters)'}</label>
+        <textarea rows="6" value={form.essay_body_2} onChange={upd('essay_body_2')}
+          placeholder={isKo ? '학업 계획, 커리어 목표, DreamPath 이후에 대해 작성하세요.' : 'Academic plan, career goals, and your path after DreamPath.'} />
+        <span className="hint">{c2} {isKo ? '자' : 'characters'}</span>
+      </div>
+
+      <h4 className="apply-sub">{isKo ? '스카우트 추천인 (최소 3명)' : 'Scout recommenders (minimum 3)'}</h4>
+      <p className="hint" style={{marginBottom:12}}>{isKo
+        ? '추천인 정보(이름, 이메일, 전화번호 — 국제번호 형식 +국가코드, 회원국명, 훈련 수준)를 최소 3명 입력해주세요. 추천서는 각 추천인별로 PDF 업로드 가능합니다.'
+        : 'Provide at least 3 recommenders with name, email, international phone (+country code), member country, and training level. PDF letter is optional per recommender.'}</p>
+
+      {(form.recommenders || []).map((r, i) => (
+        <RecommenderCard key={i} index={i} rec={r} isKo={isKo}
+          onChange={(next) => {
+            const list = [...(form.recommenders || [])];
+            list[i] = next;
+            setForm({ ...form, recommenders: list });
+          }}
+          onRemove={form.recommenders.length > 3 ? () => {
+            const list = (form.recommenders || []).filter((_, j) => j !== i);
+            setForm({ ...form, recommenders: list });
+          } : null}
+        />
+      ))}
+
+      <button type="button" className="btn btn-secondary btn-sm"
+        onClick={() => setForm({ ...form, recommenders: [...(form.recommenders || []), blankRecommender()] })}>
+        + {isKo ? '추천인 추가' : 'Add recommender'}
+      </button>
     </>
   );
 }
 
-function Step2({ form, upd, isKo }) {
+function RecommenderCard({ index, rec, isKo, onChange, onRemove }) {
+  const set = (k, v) => onChange({ ...rec, [k]: v });
+  function onPdf(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (f.type && f.type !== 'application/pdf') { alert(isKo ? 'PDF만 가능' : 'PDF only.'); e.target.value = ''; return; }
+    if (f.size > 10 * 1024 * 1024) { alert(isKo ? '최대 10MB' : 'Max 10MB.'); e.target.value = ''; return; }
+    set('letter_filename', f.name + ' (' + Math.round(f.size/1024) + ' KB)');
+  }
   return (
-    <>
-      <p className="apply-desc">{isKo
-        ? '소속 스카우트 조직과 추천인 정보를 입력해주세요. 추천서는 본문에 직접 붙여넣을 수 있습니다.'
-        : 'Your scout organization and a recommender. You can paste the recommendation letter directly.'}</p>
-      <div className="field">
-        <label>{isKo ? '소속 스카우트 조직 (NSO) *' : 'National Scout Organization *'}</label>
-        <input value={form.nso} onChange={upd('nso')} placeholder={isKo ? '예: Scouts of Kenya' : 'e.g. Scouts of Kenya'} />
+    <div style={{background:'var(--bg-muted)',borderRadius:14,padding:'18px 20px',marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <strong style={{fontSize:13,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>
+          {isKo ? `추천인 ${index + 1}` : `Recommender ${index + 1}`}
+        </strong>
+        {onRemove && (
+          <button type="button" className="icon-btn danger" onClick={onRemove}>
+            {isKo ? '삭제' : 'Remove'}
+          </button>
+        )}
       </div>
       <div className="form-row">
         <div className="field">
-          <label>{isKo ? '추천인 이름 *' : 'Recommender name *'}</label>
-          <input value={form.recommender_name} onChange={upd('recommender_name')} />
+          <label>{isKo ? '이름 *' : 'Name *'}</label>
+          <input value={rec.name} onChange={e => set('name', e.target.value)} />
         </div>
         <div className="field">
-          <label>{isKo ? '직책/역할' : 'Role'}</label>
-          <input value={form.recommender_role} onChange={upd('recommender_role')} placeholder={isKo ? '예: Scout Leader' : 'e.g. Scout Leader'} />
+          <label>{isKo ? '회원국명 *' : 'Member country *'}</label>
+          <input value={rec.member_country} onChange={e => set('member_country', e.target.value)}
+            placeholder={isKo ? '예: Scouts of Kenya' : 'e.g. Scouts of Kenya'} />
         </div>
       </div>
-      <div className="field">
-        <label>{isKo ? '추천인 이메일 *' : 'Recommender email *'}</label>
-        <input type="email" value={form.recommender_email} onChange={upd('recommender_email')} placeholder="leader@scout.org" />
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '이메일 *' : 'Email *'}</label>
+          <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="leader@scout.org" />
+        </div>
+        <div className="field">
+          <label>{isKo ? '전화번호 (국제번호) *' : 'Phone (international) *'}</label>
+          <input type="tel" value={rec.phone} onChange={e => set('phone', e.target.value)}
+            placeholder="+82 10 1234 5678" />
+          <span className="hint">{isKo ? '+로 시작하는 국제번호 형식 (예: +82, +1, +254)' : 'Must start with + and country code'}</span>
+        </div>
       </div>
-      <div className="field">
-        <label>{isKo ? '추천서 내용 (선택)' : 'Recommendation letter (optional)'}</label>
-        <textarea rows="6" value={form.recommender_letter} onChange={upd('recommender_letter')}
-          placeholder={isKo ? '추천서 본문을 여기에 붙여넣으세요. 비워두면 추천인에게 이메일로 요청됩니다.' : "Paste the letter body here. If blank, we'll request it from the recommender by email."} />
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '훈련 수준 *' : 'Training level *'}</label>
+          <select value={rec.training_level} onChange={e => set('training_level', e.target.value)}>
+            <option value="">{isKo ? '선택' : 'Select…'}</option>
+            <option>Wood Badge</option>
+            <option>ALT (Assistant Leader Trainer)</option>
+            <option>LT (Leader Trainer)</option>
+            <option>Adult Leader</option>
+            <option>Section Leader</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>{isKo ? '추천서 (PDF, 선택)' : 'Recommendation letter (PDF, optional)'}</label>
+          <input type="file" accept="application/pdf" onChange={onPdf} style={{padding:'10px 0'}} />
+          {rec.letter_filename && (
+            <span className="hint" style={{color:'#248737'}}>✓ {rec.letter_filename}</span>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 

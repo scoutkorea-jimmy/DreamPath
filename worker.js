@@ -70,9 +70,266 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
+  if (path === '/api/auth/login'  && method === 'POST') return login(request, env);
+  if (path === '/api/auth/logout' && method === 'POST') return logout(request, env);
+  if (path === '/api/auth/me'     && method === 'GET')  return me(request, env);
+
+  // ── Member profile ───────────────────────────────────────────────────────
+  if (path === '/api/me/profile') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(user.id).first();
+      return json(row || {});
+    }
+    if (method === 'PUT' || method === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      return saveProfile(env, user.id, body);
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // ── My applications (logged-in members) ──────────────────────────────────
+  if (path === '/api/me/applications' && method === 'GET') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    const { results } = await env.DB.prepare(
+      'SELECT id, submitted_at, status, amount, currency, track, program, paid_at, receipt_token FROM applications WHERE user_id = ? ORDER BY submitted_at DESC'
+    ).bind(user.id).all();
+    return json({ items: results || [] });
+  }
+
+  // ── Receipt lookup (paid applications) ───────────────────────────────────
+  // Auth: either (a) admin token, (b) owner is logged in, or (c) URL has matching ?token=
+  const receiptM = path.match(/^\/api\/applications\/([A-Za-z0-9_-]+)\/receipt$/);
+  if (receiptM && method === 'GET') {
+    const id = receiptM[1];
+    const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+    if (!row) return json({ error: 'not_found' }, 404);
+    if (row.status !== 'paid') return json({ error: 'not_paid' }, 400);
+
+    const tokenParam = url.searchParams.get('token') || '';
+    const isAdminAuth = isAdmin(request, env);
+    const u = await currentUser(request, env);
+    const isOwner = u && row.user_id && row.user_id === u.id;
+    const tokenMatch = row.receipt_token && safeEqual(tokenParam, row.receipt_token);
+    if (!isAdminAuth && !isOwner && !tokenMatch) return json({ error: 'unauthorized' }, 401);
+
+    return json({
+      id: row.id,
+      issuer: { name: 'KoreaDreamPath', email: 'hello@koreadreampath.com' },
+      paid_at: row.paid_at,
+      currency: row.currency || 'USD',
+      amount: row.amount,
+      track: row.track,
+      program: row.program,
+      payer: { name: row.name, email: row.email, country: row.country },
+      payment: { method: row.payment_method || 'card', card_last4: row.card_last4 || null },
+    });
+  }
+
+  // ── Recommendations (stub) ───────────────────────────────────────────────
+  if (path === '/api/me/recommendations' && method === 'GET') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    return json({ items: stubRecommendations(env), generated_at: new Date().toISOString() });
+  }
+
+  // ── News (server-side now) ───────────────────────────────────────────────
+  if (path === '/api/news') {
+    if (method === 'GET') return listNews(env);
+    if (method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      return createNews(request, env, user);
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  const newsM = path.match(/^\/api\/news\/([A-Za-z0-9_-]+)$/);
+  if (newsM) {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    if (method === 'PUT')    return updateNews(request, env, user, newsM[1]);
+    if (method === 'DELETE') return deleteNews(env, user, newsM[1]);
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
   if (path === '/api/health') return json({ ok: true, ts: Date.now() });
 
   return json({ error: 'not_found' }, 404);
+}
+
+// ── Auth (members) ─────────────────────────────────────────────────────────
+const SESSION_TTL_DAYS = 30;
+
+async function signup(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  const name = String(body.name || '').trim();
+  if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+  if (password.length < 8) return json({ error: 'password_too_short' }, 400);
+
+  const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (existing) return json({ error: 'email_taken' }, 409);
+
+  const id = 'U-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const salt = randomHex(16);
+  const hash = await hashPassword(password, salt);
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, email, hash, salt, name || null, 'member', now, now).run();
+
+  const session = await createSession(env, id);
+  return json({ user: { id, email, name, role: 'member' }, token: session.token, expires_at: session.expires_at });
+}
+
+async function login(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  if (!u) return json({ error: 'invalid_credentials' }, 401);
+  const hash = await hashPassword(password, u.password_salt);
+  if (!safeEqual(hash, u.password_hash)) return json({ error: 'invalid_credentials' }, 401);
+  const session = await createSession(env, u.id);
+  return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role }, token: session.token, expires_at: session.expires_at });
+}
+
+async function logout(request, env) {
+  const token = bearerToken(request);
+  if (token) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+  return json({ ok: true });
+}
+
+async function me(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'unauthorized' }, 401);
+  return json({ user });
+}
+
+async function currentUser(request, env) {
+  const token = bearerToken(request);
+  if (!token) return null;
+  const row = await env.DB.prepare(`
+    SELECT u.id, u.email, u.name, u.role, s.expires_at
+    FROM sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.token = ?
+  `).bind(token).first();
+  if (!row) return null;
+  if (new Date(row.expires_at) < new Date()) {
+    await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+    return null;
+  }
+  return { id: row.id, email: row.email, name: row.name, role: row.role };
+}
+
+function bearerToken(request) {
+  const auth = request.headers.get('authorization') || '';
+  if (!auth.startsWith('Bearer ')) return null;
+  return auth.slice(7);
+}
+
+async function createSession(env, userId) {
+  const token = randomHex(32);
+  const now = Date.now();
+  const expires = new Date(now + SESSION_TTL_DAYS * 86400 * 1000).toISOString();
+  await env.DB.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
+    .bind(token, userId, new Date(now).toISOString(), expires).run();
+  return { token, expires_at: expires };
+}
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
+    key, 256
+  );
+  return Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function randomHex(bytes) {
+  const a = new Uint8Array(bytes);
+  crypto.getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Member profile ─────────────────────────────────────────────────────────
+const PROFILE_FIELDS = ['country','birthdate','current_school','current_major','goal','interests','korean_level','english_level','career_summary'];
+
+async function saveProfile(env, userId, body) {
+  const now = new Date().toISOString();
+  const cols = ['user_id', ...PROFILE_FIELDS, 'updated_at'];
+  const values = [userId, ...PROFILE_FIELDS.map(k => str(body[k])), now];
+  const placeholders = cols.map(() => '?').join(',');
+  const updateSet = [...PROFILE_FIELDS, 'updated_at'].map(k => `${k} = excluded.${k}`).join(', ');
+  const sql = `INSERT INTO member_profiles (${cols.join(',')}) VALUES (${placeholders})
+               ON CONFLICT(user_id) DO UPDATE SET ${updateSet}`;
+  await env.DB.prepare(sql).bind(...values).run();
+  const row = await env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(userId).first();
+  return json(row);
+}
+
+// ── Recommendations stub ───────────────────────────────────────────────────
+function stubRecommendations() {
+  // TODO: real matching engine. For now, returns a fixed placeholder list.
+  return [
+    { program_id: 'korean-studies', match: 0.82, reason_ko: '관심사와 한국어 입문 트랙이 일치합니다.', reason_en: 'Matches interests + Korean basics track.' },
+    { program_id: 'business-korea', match: 0.64, reason_ko: '학업 배경이 비즈니스 트랙과 잘 맞습니다.', reason_en: 'Academic background fits the business track.' },
+    { program_id: 'digital-media',  match: 0.41, reason_ko: '미디어/제작 관심이 있다면 추천.',          reason_en: 'Recommended if you have media/production interests.' },
+  ];
+}
+
+// ── News (server-side, member-editable) ────────────────────────────────────
+async function listNews(env) {
+  const { results } = await env.DB.prepare('SELECT * FROM news_posts ORDER BY date DESC, created_at DESC LIMIT 200').all();
+  return json({ items: results || [] });
+}
+
+async function createNews(request, env, user) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const id = 'N-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO news_posts (id, tag, tag_color, date, title_ko, title_en, body_ko, body_en, author_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, str(body.tag), str(body.tag_color), str(body.date), str(body.title_ko), str(body.title_en),
+         str(body.body_ko), str(body.body_en), user.id, now, now).run();
+  const row = await env.DB.prepare('SELECT * FROM news_posts WHERE id = ?').bind(id).first();
+  return json(row);
+}
+
+async function updateNews(request, env, user, id) {
+  const existing = await env.DB.prepare('SELECT author_id FROM news_posts WHERE id = ?').bind(id).first();
+  if (!existing) return json({ error: 'not_found' }, 404);
+  if (user.role !== 'admin' && existing.author_id !== user.id) return json({ error: 'forbidden' }, 403);
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE news_posts
+     SET tag=?, tag_color=?, date=?, title_ko=?, title_en=?, body_ko=?, body_en=?, updated_at=?
+     WHERE id=?`
+  ).bind(str(body.tag), str(body.tag_color), str(body.date), str(body.title_ko), str(body.title_en),
+         str(body.body_ko), str(body.body_en), now, id).run();
+  const row = await env.DB.prepare('SELECT * FROM news_posts WHERE id = ?').bind(id).first();
+  return json(row);
+}
+
+async function deleteNews(env, user, id) {
+  const existing = await env.DB.prepare('SELECT author_id FROM news_posts WHERE id = ?').bind(id).first();
+  if (!existing) return json({ error: 'not_found' }, 404);
+  if (user.role !== 'admin' && existing.author_id !== user.id) return json({ error: 'forbidden' }, 403);
+  await env.DB.prepare('DELETE FROM news_posts WHERE id = ?').bind(id).run();
+  return json({ ok: true });
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -95,11 +352,19 @@ function safeEqual(a, b) {
 
 // ── Applications ───────────────────────────────────────────────────────────
 const APP_FIELDS = [
-  'name','email','country','birthdate',
-  'prior_school','prior_major','prior_gpa','transcript_note',
-  'essay_title','essay_body',
-  'nso','recommender_name','recommender_role','recommender_email','recommender_letter',
-  'track','partial_tier','program','payment_method','card_last4','lang'
+  // Step 1
+  'name','email','birthdate','admission_referrer_code',
+  // Step 2
+  'country','prior_school','prior_major','prior_gpa','transcript_note',
+  // Step 3 — essays + recommender list (JSON)
+  'essay_title','essay_body','essay_title_2','essay_body_2',
+  'recommenders_json',
+  // Legacy single-recommender columns (kept for backward compat)
+  'nso','recommender_name','recommender_email','recommender_role','recommender_letter',
+  'scout_member_country','scout_training_level','recommendation_letter_filename',
+  // Step 4
+  'track','partial_tier','program','payment_method','card_last4',
+  'lang'
 ];
 
 async function submitApplication(request, env) {
@@ -114,18 +379,24 @@ async function submitApplication(request, env) {
   const submitted_at = new Date().toISOString();
   const status = body.track === 'general' ? 'submitted' : 'paid';
   const amount = computeAmount(body.track, body.partial_tier);
+  const receipt_token = randomHex(16);
+  const paid_at = status === 'paid' ? submitted_at : null;
+
+  const user = await currentUser(request, env); // optional — anonymous OK
+  const user_id = user ? user.id : null;
 
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
 
-  const cols = ['id','submitted_at','status','amount','ip','user_agent', ...APP_FIELDS];
-  const values = [id, submitted_at, status, amount, ip, ua, ...APP_FIELDS.map(k => str(body[k]))];
+  const cols = ['id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency', ...APP_FIELDS];
+  const values = [id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD', ...APP_FIELDS.map(k => str(body[k]))];
 
   const placeholders = cols.map(() => '?').join(',');
   const sql = `INSERT INTO applications (${cols.join(',')}) VALUES (${placeholders})`;
   await env.DB.prepare(sql).bind(...values).run();
 
-  return json({ id, submitted_at, status, amount });
+  return json({ id, submitted_at, status, amount, receipt_token,
+                receipt_url: status === 'paid' ? `/receipt?id=${encodeURIComponent(id)}&token=${receipt_token}` : null });
 }
 
 async function listApplications(env, url) {
@@ -143,13 +414,38 @@ async function listApplications(env, url) {
 function validateApplication(b) {
   const e = [];
   if (!b || typeof b !== 'object') { e.push('body'); return e; }
+  // Step 1
   if (!nonEmpty(b.name)) e.push('name');
   if (!isEmail(b.email)) e.push('email');
+  // Step 2
+  if (!nonEmpty(b.country)) e.push('country');
+  if (!nonEmpty(b.prior_school)) e.push('prior_school');
+  // Step 3
   if (!nonEmpty(b.essay_title)) e.push('essay_title');
   if (!nonEmpty(b.essay_body) || String(b.essay_body).length < 50) e.push('essay_body');
-  if (!nonEmpty(b.nso)) e.push('nso');
-  if (!nonEmpty(b.recommender_name)) e.push('recommender_name');
-  if (!isEmail(b.recommender_email)) e.push('recommender_email');
+  if (!nonEmpty(b.essay_title_2)) e.push('essay_title_2');
+  if (!nonEmpty(b.essay_body_2) || String(b.essay_body_2).length < 50) e.push('essay_body_2');
+  // Recommenders: minimum 3, each with name + email + intl phone + member country + training level
+  let recs = [];
+  if (typeof b.recommenders_json === 'string' && b.recommenders_json.trim()) {
+    try { recs = JSON.parse(b.recommenders_json); } catch { e.push('recommenders_json'); }
+  } else if (Array.isArray(b.recommenders)) {
+    recs = b.recommenders;
+  }
+  if (!Array.isArray(recs) || recs.length < 3) {
+    e.push('recommenders_min_3');
+  } else {
+    recs.forEach((r, i) => {
+      if (!r || typeof r !== 'object') { e.push('recommender_' + i); return; }
+      if (!nonEmpty(r.name))                        e.push('recommender_' + i + '_name');
+      if (!isEmail(r.email))                        e.push('recommender_' + i + '_email');
+      if (!nonEmpty(r.phone) || !/^\+/.test(String(r.phone).trim()))
+                                                    e.push('recommender_' + i + '_phone');
+      if (!nonEmpty(r.member_country))              e.push('recommender_' + i + '_member_country');
+      if (!nonEmpty(r.training_level))              e.push('recommender_' + i + '_training_level');
+    });
+  }
+  // Step 4
   if (!nonEmpty(b.track) || !['full','partial','general'].includes(b.track)) e.push('track');
   if (b.track && b.track !== 'general') {
     if (!b.card_last4 || String(b.card_last4).length !== 4) e.push('card_last4');

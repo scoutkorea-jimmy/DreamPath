@@ -1,0 +1,105 @@
+// Auth.jsx — login/signup modal + useAuth hook
+const { useState: useStateAu, useEffect: useEffectAu } = React;
+
+function useAuth() {
+  const [_, setTick] = useStateAu(0);
+  useEffectAu(() => {
+    const unsub = window.DreamPathAuth.subscribe(() => setTick(t => t + 1));
+    return () => unsub();
+  }, []);
+  return {
+    user: window.DreamPathAuth.user,
+    ready: window.DreamPathAuth.ready,
+    signup: window.DreamPathAuth.signup,
+    login: window.DreamPathAuth.login,
+    logout: window.DreamPathAuth.logout,
+  };
+}
+window.useAuth = useAuth;
+
+function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
+  const isKo = lang === 'ko';
+  const [mode, setMode] = useStateAu(defaultMode);
+  const [email, setEmail] = useStateAu('');
+  const [password, setPassword] = useStateAu('');
+  const [name, setName] = useStateAu('');
+  const [err, setErr] = useStateAu('');
+  const [busy, setBusy] = useStateAu(false);
+  const auth = useAuth();
+
+  useEffectAu(() => {
+    if (open) {
+      setMode(defaultMode);
+      setEmail(''); setPassword(''); setName(''); setErr(''); setBusy(false);
+    }
+  }, [open, defaultMode]);
+
+  if (!open) return null;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setErr('');
+    try {
+      if (mode === 'signup') {
+        await auth.signup({ email, password, name });
+      } else {
+        await auth.login({ email, password });
+      }
+      onClose && onClose();
+    } catch (e) {
+      const msg = String(e.message || 'error');
+      const human = {
+        invalid_credentials: isKo ? '이메일 또는 비밀번호가 올바르지 않습니다.' : 'Invalid email or password.',
+        invalid_email: isKo ? '이메일 형식이 올바르지 않습니다.' : 'Invalid email format.',
+        password_too_short: isKo ? '비밀번호는 최소 8자 이상이어야 합니다.' : 'Password must be at least 8 characters.',
+        email_taken: isKo ? '이미 가입된 이메일입니다.' : 'Email already registered.',
+      }[msg] || (isKo ? '오류가 발생했습니다: ' + msg : 'Error: ' + msg);
+      setErr(human);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="auth-overlay" onClick={onClose}>
+      <div className="auth-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button type="button" className="auth-close" onClick={onClose} aria-label={isKo ? '닫기' : 'Close'}>×</button>
+        <h2 id="auth-title">{mode === 'signup' ? (isKo ? '회원가입' : 'Sign up') : (isKo ? '로그인' : 'Log in')}</h2>
+        <p className="auth-sub">{mode === 'signup'
+          ? (isKo ? 'DreamPath 멤버로 가입하면 지원·커리어 등록·추천을 받을 수 있습니다.' : 'Sign up to apply, manage your career, and get program recommendations.')
+          : (isKo ? '계정으로 로그인하세요.' : 'Log in to your account.')}</p>
+        <form onSubmit={submit}>
+          {mode === 'signup' && (
+            <label className="auth-field">
+              <span>{isKo ? '이름' : 'Name'}</span>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+            </label>
+          )}
+          <label className="auth-field">
+            <span>{isKo ? '이메일' : 'Email'}</span>
+            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+          </label>
+          <label className="auth-field">
+            <span>{isKo ? '비밀번호' : 'Password'} {mode === 'signup' && <em style={{color:'#888',fontWeight:400}}>({isKo ? '최소 8자' : 'min 8 chars'})</em>}</span>
+            <input type="password" required minLength={mode === 'signup' ? 8 : undefined}
+              value={password} onChange={e => setPassword(e.target.value)}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+          </label>
+          {err && <div className="auth-err" role="alert">{err}</div>}
+          <button type="submit" className="btn btn-primary" disabled={busy} style={{width:'100%',justifyContent:'center'}}>
+            {busy ? (isKo ? '처리 중…' : 'Working…') : (mode === 'signup' ? (isKo ? '가입하기' : 'Create account') : (isKo ? '로그인' : 'Log in'))}
+          </button>
+        </form>
+        <div className="auth-switch">
+          {mode === 'signup' ? (
+            <>{isKo ? '이미 계정이 있으신가요?' : 'Already have an account?'} <button type="button" onClick={() => setMode('login')}>{isKo ? '로그인' : 'Log in'}</button></>
+          ) : (
+            <>{isKo ? '계정이 없으신가요?' : "Don't have an account?"} <button type="button" onClick={() => setMode('signup')}>{isKo ? '회원가입' : 'Sign up'}</button></>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+window.AuthModal = AuthModal;

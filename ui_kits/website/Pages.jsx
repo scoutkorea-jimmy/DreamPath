@@ -1,20 +1,25 @@
-// Partners.jsx + Stories.jsx + News.jsx + Contact.jsx (bundled)
+// Partners + Stories + News + Contact (bundled) — content-driven via c.page_heros
+function PageHero({ h, isKo }) {
+  return (
+    <div className="phead">
+      <div className="inner">
+        <div className="sec-kicker">{h.kicker}</div>
+        <h1 className={isKo ? '' : 'en'}>
+          {h.title_l1}{h.title_l2 ? <><br/>{h.title_l2}</> : null}
+        </h1>
+        <p>{h.sub}</p>
+      </div>
+    </div>
+  );
+}
+
 function Partners({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.partners) || window.PARTNERS;
+  const h = ((c && c.page_heros && c.page_heros.partners && c.page_heros.partners[lang]) || {});
   return (
     <div data-screen-label="Partners">
-      <div className="phead">
-        <div className="inner">
-          <div className="sec-kicker">PARTNERS</div>
-          <h1 className={isKo ? '' : 'en'}>
-            {isKo ? '신뢰받는\n네트워크 위에서.' : 'Built on a\ntrusted network.'}
-          </h1>
-          <p>{isKo
-            ? 'DreamPath는 파트너 교육기관, 글로벌 스카우트 조직, 후원 기관과 함께 운영됩니다.'
-            : 'DreamPath operates with partner universities, global scout organizations, and supporting institutions.'}</p>
-        </div>
-      </div>
+      <PageHero h={h} isKo={isKo} />
       <section className="section">
         <div className="container">
           <div className="partners-grid">
@@ -38,19 +43,10 @@ function Partners({ lang, c }) {
 function Stories({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.stories) || window.STORIES;
+  const h = ((c && c.page_heros && c.page_heros.stories && c.page_heros.stories[lang]) || {});
   return (
     <div data-screen-label="Stories">
-      <div className="phead">
-        <div className="inner">
-          <div className="sec-kicker">STORIES</div>
-          <h1 className={isKo ? '' : 'en'}>
-            {isKo ? '먼저 걸어간 사람들.' : 'People who walked\nthe path first.'}
-          </h1>
-          <p>{isKo
-            ? '첫 코호트의 학습자들이 전하는 이야기.'
-            : 'Voices from our first cohort of learners.'}</p>
-        </div>
-      </div>
+      <PageHero h={h} isKo={isKo} />
       <section className="section">
         <div className="container">
           <div className="stories-grid">
@@ -76,34 +72,143 @@ function Stories({ lang, c }) {
 
 function News({ lang, c }) {
   const isKo = lang === 'ko';
-  const list = (c && c.news) || window.NEWS;
+  const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
+  const canEdit = auth.user && (auth.user.role === 'admin' || auth.user.role === 'member');
+  const h = ((c && c.page_heros && c.page_heros.news && c.page_heros.news[lang]) || {});
+
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [editing, setEditing] = React.useState(null); // post object or { _new: true }
+  const [err, setErr] = React.useState('');
+
+  async function load() {
+    setLoading(true); setErr('');
+    try {
+      const res = await fetch('/api/news');
+      if (!res.ok) throw new Error('http_' + res.status);
+      const data = await res.json();
+      setItems(data.items || []);
+    } catch (e) {
+      setErr(isKo ? '소식을 불러오지 못했습니다.' : 'Failed to load news.');
+    }
+    setLoading(false);
+  }
+  React.useEffect(() => { load(); }, []);
+
+  async function savePost(post) {
+    setErr('');
+    const isNew = !post.id;
+    const url = isNew ? '/api/news' : '/api/news/' + encodeURIComponent(post.id);
+    const method = isNew ? 'POST' : 'PUT';
+    try {
+      const res = await window.DreamPathAuth.authFetch(url, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(post),
+      });
+      if (!res.ok) throw new Error('http_' + res.status);
+      setEditing(null);
+      load();
+    } catch (e) {
+      setErr(isKo ? '저장 실패' : 'Save failed');
+    }
+  }
+
+  async function deletePost(id) {
+    if (!confirm(isKo ? '이 소식을 삭제하시겠습니까?' : 'Delete this post?')) return;
+    try {
+      const res = await window.DreamPathAuth.authFetch('/api/news/' + encodeURIComponent(id), { method: 'DELETE' });
+      if (!res.ok) throw new Error('http_' + res.status);
+      load();
+    } catch (e) {
+      setErr(isKo ? '삭제 실패' : 'Delete failed');
+    }
+  }
+
   return (
     <div data-screen-label="News">
-      <div className="phead">
-        <div className="inner">
-          <div className="sec-kicker">NEWS</div>
-          <h1 className={isKo ? '' : 'en'}>
-            {isKo ? '프로젝트 소식.' : 'Project news.'}
-          </h1>
-          <p>{isKo
-            ? '파트너십, 운영 업데이트, 커뮤니티 이벤트.'
-            : 'Partnerships, operating updates, and community events.'}</p>
-        </div>
-      </div>
+      <PageHero h={h} isKo={isKo} />
       <section className="section">
         <div className="container-narrow">
-          <div className="news-list">
-            {list.map((n, i) => (
-              <div key={i} className="news-item">
-                <span className="news-tag" style={{background: n.tag_color + '22', color: n.tag_color}}>{n.tag}</span>
-                <span className="news-date">{n.date}</span>
-                <span className={'news-title' + (isKo ? '' : ' en')}>{isKo ? n.title_ko : n.title_en}</span>
-                <i data-lucide="arrow-up-right" width="18" height="18" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
-              </div>
-            ))}
-          </div>
+          {canEdit && (
+            <div style={{marginBottom:24,display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button className="btn btn-primary btn-sm" onClick={() => setEditing({ tag:'NEW', tag_color:'#622599', date: new Date().toISOString().slice(0,10).replace(/-/g,'.'), title_ko:'', title_en:'', body_ko:'', body_en:'' })}>
+                + {isKo ? '새 소식 작성' : 'New post'}
+              </button>
+            </div>
+          )}
+          {err && <div role="alert" style={{color:'#B91C1C',marginBottom:16}}>{err}</div>}
+          {loading ? (
+            <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>
+          ) : items.length === 0 ? (
+            <div style={{padding:40,textAlign:'center',color:'#666'}}>{isKo ? '등록된 소식이 없습니다.' : 'No posts yet.'}</div>
+          ) : (
+            <div className="news-list">
+              {items.map(n => <NewsRow key={n.id} n={n} isKo={isKo} canEdit={canEdit} onEdit={() => setEditing(n)} onDelete={() => deletePost(n.id)} />)}
+            </div>
+          )}
         </div>
       </section>
+      {editing && <NewsEditor post={editing} onSave={savePost} onCancel={() => setEditing(null)} isKo={isKo} />}
+    </div>
+  );
+}
+
+function NewsRow({ n, isKo, canEdit, onEdit, onDelete }) {
+  const [open, setOpen] = React.useState(false);
+  const body = isKo ? n.body_ko : n.body_en;
+  const hasBody = body && body.replace(/<[^>]+>/g, '').trim().length > 0;
+  return (
+    <div className={'news-item' + (open ? ' open' : '')}
+      style={{display:'block',padding:'16px 20px',borderRadius:14,marginBottom:8,background:'#fff',border:'1px solid var(--border-hair)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}
+        onClick={() => hasBody && setOpen(o => !o)}
+        role={hasBody ? 'button' : undefined} tabIndex={hasBody ? 0 : undefined}>
+        <span className="news-tag" style={{background: (n.tag_color || '#666') + '22', color: n.tag_color || '#666'}}>{n.tag}</span>
+        <span className="news-date">{n.date}</span>
+        <span className={'news-title' + (isKo ? '' : ' en')} style={{flex:1,minWidth:0}}>{isKo ? n.title_ko : n.title_en}</span>
+        {canEdit && (
+          <span style={{display:'flex',gap:6}} onClick={e => e.stopPropagation()}>
+            <button className="icon-btn" onClick={onEdit}>{isKo ? '수정' : 'Edit'}</button>
+            <button className="icon-btn danger" onClick={onDelete}>{isKo ? '삭제' : 'Delete'}</button>
+          </span>
+        )}
+        {hasBody && (
+          <i data-lucide={open ? 'chevron-up' : 'chevron-down'} width="18" height="18" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
+        )}
+      </div>
+      {open && hasBody && (
+        <div className="news-body" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--border-hair)',color:'var(--fg-secondary)',lineHeight:1.7}}
+          dangerouslySetInnerHTML={{ __html: body }} />
+      )}
+    </div>
+  );
+}
+
+function NewsEditor({ post, onSave, onCancel, isKo }) {
+  const [draft, setDraft] = React.useState(post);
+  const upd = (k, v) => setDraft(d => ({ ...d, [k]: v }));
+  return (
+    <div className="auth-overlay" onClick={onCancel}>
+      <div className="auth-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" style={{maxWidth:680}}>
+        <button type="button" className="auth-close" onClick={onCancel} aria-label="close">×</button>
+        <h2>{post.id ? (isKo ? '소식 수정' : 'Edit post') : (isKo ? '새 소식' : 'New post')}</h2>
+        <label className="auth-field"><span>{isKo ? '태그' : 'Tag'}</span><input value={draft.tag || ''} onChange={e => upd('tag', e.target.value)} /></label>
+        <label className="auth-field"><span>{isKo ? '태그 색' : 'Tag color'}</span><input type="color" value={draft.tag_color || '#622599'} onChange={e => upd('tag_color', e.target.value)} /></label>
+        <label className="auth-field"><span>{isKo ? '날짜' : 'Date'}</span><input value={draft.date || ''} onChange={e => upd('date', e.target.value)} placeholder="YYYY.MM.DD" /></label>
+        <label className="auth-field"><span>{isKo ? '제목 (한국어)' : 'Title (KO)'}</span><input value={draft.title_ko || ''} onChange={e => upd('title_ko', e.target.value)} lang="ko" /></label>
+        <label className="auth-field"><span>{isKo ? '제목 (영문)' : 'Title (EN)'}</span><input value={draft.title_en || ''} onChange={e => upd('title_en', e.target.value)} lang="en" /></label>
+        <div className="auth-field"><span>{isKo ? '본문 (한국어)' : 'Body (KO)'}</span>
+          <window.RichEditor value={draft.body_ko || ''} onChange={v => upd('body_ko', v)} lang="ko" />
+        </div>
+        <div className="auth-field"><span>{isKo ? '본문 (영문)' : 'Body (EN)'}</span>
+          <window.RichEditor value={draft.body_en || ''} onChange={v => upd('body_en', v)} lang="en" />
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
+          <button className="btn btn-secondary" type="button" onClick={onCancel}>{isKo ? '취소' : 'Cancel'}</button>
+          <button className="btn btn-primary" type="button" onClick={() => onSave(draft)}>{isKo ? '저장' : 'Save'}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -111,25 +216,21 @@ function News({ lang, c }) {
 function Contact({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.faq) || window.FAQ;
+  const h = ((c && c.page_heros && c.page_heros.contact && c.page_heros.contact[lang]) || {});
+  const cta = ((c && c.partner_cta && c.partner_cta[lang]) || {});
   const [open, setOpen] = React.useState(null);
   return (
     <div data-screen-label="Contact">
-      <div className="phead">
-        <div className="inner">
-          <div className="sec-kicker">CONTACT · FAQ</div>
-          <h1 className={isKo ? '' : 'en'}>
-            {isKo ? '궁금한 건 먼저 FAQ.' : 'Start with the FAQ.'}
-          </h1>
-          <p>{isKo
-            ? '답이 없으면 언제든 hello@dreampath.org 로 연락주세요.'
-            : "If you don't see the answer, reach us at hello@dreampath.org."}</p>
-        </div>
-      </div>
+      <PageHero h={h} isKo={isKo} />
       <section className="section">
         <div className="container-narrow">
           <div className="faq-list">
             {list.map((f, i) => (
-              <div key={i} className={'faq-item' + (open === i ? ' open' : '')} onClick={() => setOpen(open === i ? null : i)}>
+              <div key={i} className={'faq-item' + (open === i ? ' open' : '')}
+                onClick={() => setOpen(open === i ? null : i)}
+                role="button" tabIndex="0"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(open === i ? null : i); } }}
+                aria-expanded={open === i}>
                 <div className="faq-q">
                   <h4 className={isKo ? '' : 'en'}>{isKo ? f.q_ko : f.q_en}</h4>
                   <div className="faq-icon"><i data-lucide="plus" width="18" height="18" strokeWidth="2"></i></div>
@@ -140,14 +241,14 @@ function Contact({ lang, c }) {
           </div>
 
           <div style={{marginTop:56,padding:40,background:'var(--bg-muted)',borderRadius:28,textAlign:'center'}}>
-            <div className="sec-kicker">{isKo ? '파트너 기관' : 'For partner institutions'}</div>
+            <div className="sec-kicker">{cta.kicker}</div>
             <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:28,fontWeight:700,margin:'8px 0 16px'}}>
-              {isKo ? '파트너십을 제안하고 싶으신가요?' : 'Interested in partnering with us?'}
+              {cta.title}
             </h3>
             <p style={{color:'var(--fg-secondary)',fontSize:16,margin:'0 0 20px'}}>
-              {isKo ? '교육기관, NSO, 후원기관의 문의를 환영합니다.' : 'We welcome inquiries from universities, NSOs, and supporting institutions.'}
+              {cta.sub}
             </p>
-            <button className="btn btn-primary">partners@dreampath.org →</button>
+            <a className="btn btn-primary" href={`mailto:${(c && c.brand && c.brand.partners_email) || 'partners@dreampath.org'}`}>{cta.cta}</a>
           </div>
         </div>
       </section>
@@ -158,4 +259,5 @@ function Contact({ lang, c }) {
 window.Partners = Partners;
 window.Stories = Stories;
 window.News = News;
+window.NewsEditor = NewsEditor;
 window.Contact = Contact;

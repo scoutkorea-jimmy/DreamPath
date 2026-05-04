@@ -10,13 +10,16 @@
   // Default content — schema for the entire public site
   const DEFAULT_CONTENT = {
     brand: {
-      name_kr: 'DreamPath',
-      name_en: 'DreamPath',
+      name_kr: 'KoreaDreamPath',
+      name_en: 'KoreaDreamPath',
+      // Wordmark split for two-tone display: { mark } + { accent }
+      wordmark_mark: 'KoreaDream',
+      wordmark_accent: 'Path',
       logo_mark: '../../assets/logo-dreampath-mark.svg',
       footer_tagline_ko: '월드스카우트 네트워크를 활용해 글로벌 청년을 한국의 고등교육으로 연결하는 독립 이니셔티브.',
       footer_tagline_en: 'An independent initiative connecting global scouting youth to Korean higher education through the World Scout Network.',
-      email: 'hello@dreampath.org',
-      partners_email: 'partners@dreampath.org',
+      email: 'hello@koreadreampath.com',
+      partners_email: 'partners@koreadreampath.com',
     },
     nav: {
       ko: { programs: 'Programs', about: 'About', partners: 'Partners', stories: 'Stories', news: 'News', apply: '지원하기' },
@@ -169,6 +172,141 @@
       apply_success: 'check-circle-2',
       news_arrow: 'arrow-up-right',
       faq_toggle: 'plus',
+    },
+    // ─── About page ────────────────────────────────────────────────────
+    about: {
+      hero: {
+        ko: { kicker: '프로젝트 소개', title_l1: '교육 접근성은, 이미', title_l2: '존재하는 네트워크 위에서.',
+              sub: 'DreamPath TF는 월드스카우트 네트워크를 학습자 파이프라인으로 전환하는 독립 이니셔티브입니다. CUFS와 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },
+        en: { kicker: 'ABOUT THE PROJECT', title_l1: 'Access to education, built on', title_l2: 'a network that already exists.',
+              sub: 'DreamPath TF is an independent initiative that turns the World Scout Network into a learner pipeline. We operate independently from CUFS and aim to expand across multiple institutions.' },
+      },
+      mission: {
+        ko: { kicker: '미션', title_l1: '170개국에 이미 연결된 청년과 지도자들.', title_l2: '같은 길에 학습을 올려놓습니다.',
+              body: '전 세계 170여 개국의 스카우트 조직은 교육 접근성에 관심 있는 청년과 지도자들이 이미 연결된 거대한 네트워크입니다. DreamPath는 이 기존 네트워크를 학습자 파이프라인으로 전환해, 온라인·마이크로디그리 형태로 한국 고등교육에 접근할 수 있도록 설계된 구조입니다.' },
+        en: { kicker: 'MISSION', title_l1: 'Youth and leaders already connected across 170 countries.', title_l2: 'We lay learning on the same path.',
+              body: 'Scout organizations across 170+ countries form a global network of youth and leaders already invested in education access. DreamPath turns this existing network into a learner pipeline for Korean higher education — delivered online, through micro-degrees and full online degrees.' },
+      },
+      team: {
+        ko: { kicker: '팀', title_l1: '교육·재무·실무.', title_l2: '', sub: 'DreamPath TF는 세 영역으로 나뉘어 운영됩니다.' },
+        en: { kicker: 'TEAM', title_l1: 'Education · Finance · Operations.', title_l2: '', sub: 'DreamPath TF is organized across three functional areas.' },
+        cards: [
+          { role_ko: '교육', role_en: 'EDUCATION',
+            name_ko: '프로그램 설계', name_en: 'Program Design',
+            desc_ko: '파트너 대학과 커리큘럼을 조율하고 학습 경로를 설계합니다.',
+            desc_en: 'Coordinates curriculum with partner universities and designs learning paths.' },
+          { role_ko: '재무', role_en: 'FINANCE',
+            name_ko: '자원·장학', name_en: 'Resources · Scholarship',
+            desc_ko: '장학 지원 구조와 파트너 기여 모델을 운영합니다.',
+            desc_en: 'Manages the scholarship structure and partner contribution model.' },
+          { role_ko: '실무 총괄', role_en: 'OPERATIONS',
+            name_ko: '파트너십·모집', name_en: 'Partnerships · Recruitment',
+            desc_ko: '모집 채널 설계, 파트너 커뮤니케이션, 운영 문서 체계를 구축합니다.',
+            desc_en: 'Designs recruitment channels, partner communications, and operational documentation.' },
+        ],
+      },
+    },
+    // ─── Page heros (Partners / Stories / News / Contact / Programs) ────
+    page_heros: {
+      partners: {
+        ko: { kicker: 'PARTNERS', title_l1: '신뢰받는', title_l2: '네트워크 위에서.',
+              sub: 'DreamPath는 파트너 교육기관, 글로벌 스카우트 조직, 후원 기관과 함께 운영됩니다.' },
+        en: { kicker: 'PARTNERS', title_l1: 'Built on a', title_l2: 'trusted network.',
+              sub: 'DreamPath operates with partner universities, global scout organizations, and supporting institutions.' },
+      },
+      stories: {
+        ko: { kicker: 'STORIES', title_l1: '먼저 걸어간 사람들.', title_l2: '',
+              sub: '첫 코호트의 학습자들이 전하는 이야기.' },
+        en: { kicker: 'STORIES', title_l1: 'People who walked', title_l2: 'the path first.',
+              sub: 'Voices from our first cohort of learners.' },
+      },
+      news: {
+        ko: { kicker: 'NEWS', title_l1: '프로젝트 소식.', title_l2: '',
+              sub: '파트너십, 운영 업데이트, 커뮤니티 이벤트.' },
+        en: { kicker: 'NEWS', title_l1: 'Project news.', title_l2: '',
+              sub: 'Partnerships, operating updates, and community events.' },
+      },
+      contact: {
+        ko: { kicker: 'CONTACT · FAQ', title_l1: '궁금한 건 먼저 FAQ.', title_l2: '',
+              sub: '답이 없으면 언제든 hello@dreampath.org 로 연락주세요.' },
+        en: { kicker: 'CONTACT · FAQ', title_l1: 'Start with the FAQ.', title_l2: '',
+              sub: "If you don't see the answer, reach us at hello@dreampath.org." },
+      },
+      programs: {
+        ko: { kicker: 'PROGRAMS', title_l1: '4개의 학습 경로.', title_l2: '모두 온라인.',
+              sub: '마이크로디그리부터 정규 학위까지. 여러분의 다음 스텝에 맞는 프로그램을 선택하세요.' },
+        en: { kicker: 'PROGRAMS', title_l1: 'Four learning paths.', title_l2: 'All online.',
+              sub: 'From micro-degrees to full online degrees. Choose the next step that fits you.' },
+      },
+    },
+    // ─── Contact page extras ───────────────────────────────────────────
+    partner_cta: {
+      ko: { kicker: '파트너 기관', title: '파트너십을 제안하고 싶으신가요?',
+            sub: '교육기관, NSO, 후원기관의 문의를 환영합니다.', cta: 'partners@dreampath.org →' },
+      en: { kicker: 'For partner institutions', title: 'Interested in partnering with us?',
+            sub: 'We welcome inquiries from universities, NSOs, and supporting institutions.', cta: 'partners@dreampath.org →' },
+    },
+    // ─── Program detail page (shared copy across all programs) ─────────
+    program_detail: {
+      ko: {
+        back_link: '모든 프로그램',
+        overview_h: '프로그램 개요',
+        overview_body: '이 프로그램은 파트너 교육기관이 설계한 온라인 커리큘럼을 기반으로, 스카우트 네트워크 내 추천 학습자에게 제공됩니다. 주간 라이브 세션, 과제 기반 학습, 그리고 멘토 매칭을 포함합니다.',
+        learn_h: '배우는 내용',
+        learn_items: ['주제별 핵심 프레임워크와 사례', '실무 중심의 주간 과제', '한국 학생·전문가와의 네트워킹', '수료 후 포트폴리오 산출물'],
+        eligibility_h: '지원 자격',
+        eligibility_body: '소속 국가 스카우트 조직(NSO) 에서 활동 중이거나 추천받은 청년. 18세 이상 권장. 기본 영어 또는 한국어.',
+        info_kicker: '프로그램 정보',
+        label_length: '기간', label_format: '방식', label_language: '언어', label_level: '레벨', label_status: '상태',
+        apply_cta: '지금 지원하기',
+      },
+      en: {
+        back_link: 'All programs',
+        overview_h: 'Overview',
+        overview_body: 'This program is built on an online curriculum designed by our partner institution and delivered to learners nominated by their national scout organization. It includes weekly live sessions, project-based learning, and mentor matching.',
+        learn_h: 'What you will learn',
+        learn_items: ['Core frameworks and case studies', 'Weekly practical assignments', 'Networking with Korean students & practitioners', 'A portfolio outcome after completion'],
+        eligibility_h: 'Who should apply',
+        eligibility_body: 'Youth active in, or nominated by, a National Scout Organization. 18+ recommended. Basic English or Korean.',
+        info_kicker: 'Program info',
+        label_length: 'Length', label_format: 'Format', label_language: 'Language', label_level: 'Level', label_status: 'Status',
+        apply_cta: 'Apply now',
+      },
+    },
+    // ─── Footer ────────────────────────────────────────────────────────
+    footer: {
+      ko: {
+        col_programs: '프로그램',
+        col_about: '소개',
+        col_contact: '문의',
+        link_all: '전체 보기',
+        link_micro: 'Micro-degrees',
+        link_bachelor: 'Online Bachelor',
+        link_apply: '지원 방법',
+        link_project: '프로젝트',
+        link_partners: '파트너',
+        link_stories: '스토리',
+        link_news: '소식',
+        link_faq: 'FAQ',
+        link_partners_inquiry: '파트너 문의',
+        rights: '© 2025 DreamPath TF. 모든 권리 보유.',
+      },
+      en: {
+        col_programs: 'Programs',
+        col_about: 'About',
+        col_contact: 'Contact',
+        link_all: 'All programs',
+        link_micro: 'Micro-degrees',
+        link_bachelor: 'Online Bachelor',
+        link_apply: 'How to apply',
+        link_project: 'The project',
+        link_partners: 'Partners',
+        link_stories: 'Stories',
+        link_news: 'News',
+        link_faq: 'FAQ',
+        link_partners_inquiry: 'For partners',
+        rights: '© 2025 DreamPath TF. All rights reserved.',
+      },
     },
   };
 

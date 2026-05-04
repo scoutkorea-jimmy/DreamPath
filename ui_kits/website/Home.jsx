@@ -28,6 +28,22 @@ function Home({ go, lang, c }) {
         </div>
       </section>
 
+      {/* STATS */}
+      {Array.isArray(t.stats) && t.stats.length > 0 && (
+        <section className="stats" data-screen-label="Stats" aria-label={isKo ? '주요 지표' : 'Key stats'}>
+          <div className="container">
+            <div className="stats-inner">
+              {t.stats.map((s, i) => (
+                <div key={i} className="stat">
+                  <div className="stat-n">{s.n}</div>
+                  <div className="stat-l">{isKo ? s.ko : s.en}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* HOW IT WORKS */}
       <section className="section" data-screen-label="How it works" aria-labelledby="how-title">
         <div className="container">

@@ -739,15 +739,10 @@
       // Footer columns. Add/remove/reorder via admin Setup → Footer.
       // item.kind: 'view' (SPA route via go), 'url' (external href), 'email' (mailto:).
       // item.icon: any Lucide icon name; renders next to the label.
+      // Default order: 소개 → 프로그램 → 문의 → 법률/약관 (matches the
+       // operator-requested footer layout). Footer.jsx also sorts by id at
+       // render time so older KV blobs end up in the same order.
       columns: [
-        {
-          id: 'programs',
-          title_ko: '프로그램', title_en: 'Programs',
-          items: [
-            { label_ko: '전체 프로그램', label_en: 'All programs', icon: 'list',  kind: 'view', target: 'programs' },
-            { label_ko: '지원 방법',   label_en: 'How to apply',  icon: 'send',  kind: 'view', target: 'apply' },
-          ],
-        },
         {
           id: 'about',
           title_ko: '소개', title_en: 'About',
@@ -757,6 +752,14 @@
             { label_ko: '파트너십',         label_en: 'Partnerships',    icon: 'handshake',      kind: 'view', target: 'partners' },
             { label_ko: '프로그램 후기',    label_en: 'Program reviews', icon: 'message-circle', kind: 'view', target: 'stories' },
             { label_ko: '프로그램 소식',    label_en: 'Program news',    icon: 'newspaper',      kind: 'view', target: 'news' },
+          ],
+        },
+        {
+          id: 'programs',
+          title_ko: '프로그램', title_en: 'Programs',
+          items: [
+            { label_ko: '전체 프로그램', label_en: 'All programs', icon: 'list',  kind: 'view', target: 'programs' },
+            { label_ko: '지원 방법',   label_en: 'How to apply',  icon: 'send',  kind: 'view', target: 'apply' },
           ],
         },
         {

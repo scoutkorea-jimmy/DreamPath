@@ -7,7 +7,20 @@ function Footer({ go, lang, c }) {
   const isKo = lang === 'ko';
   const f = (c && c.footer) || {};
   const rights = (f[lang] && f[lang].rights) || '';
-  const columns = Array.isArray(f.columns) ? f.columns : [];
+  // Operator-preferred display order: 소개 → 프로그램 → 문의 → 법률/약관.
+  // Sorted at render time so older KV blobs (which may have a different
+  // saved order) end up in the requested layout without forcing a re-save.
+  // Unknown ids land at the end in their original order.
+  const PREFERRED_ORDER = ['about', 'programs', 'contact', 'legal'];
+  const rawCols = Array.isArray(f.columns) ? f.columns : [];
+  const columns = [...rawCols].sort((a, b) => {
+    const ai = PREFERRED_ORDER.indexOf(a && a.id);
+    const bi = PREFERRED_ORDER.indexOf(b && b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
   const legal = (c && c.legal) || {};
 
   // `kind: 'legal'` items open a LegalModal with c.legal[target]. The opened
@@ -38,11 +51,9 @@ function Footer({ go, lang, c }) {
     <footer className="footer" role="contentinfo">
       <div className="footer-bg" aria-hidden="true" />
       <div className="footer-inner">
-        <div className="footer-top">
-          <div className="footer-brand">
-            <div className="wm" aria-hidden="true">{c.brand.wordmark_mark || 'KoreaDream'}<span className="pt">{c.brand.wordmark_accent || 'Path'}</span></div>
-            <p>{isKo ? c.brand.footer_tagline_ko : c.brand.footer_tagline_en}</p>
-          </div>
+        {/* Top row: nav columns only (소개 → 프로그램 → 문의 → 법률/약관).
+            Brand block moved down to the bottom band per operator request. */}
+        <div className="footer-top footer-top-cols">
           {columns.map((col, ci) => (
             <div className="footer-col" key={col.id || ci}>
               <h2 className="fc-h">{(isKo ? col.title_ko : col.title_en) || col.title_en || col.title_ko || ''}</h2>
@@ -68,10 +79,19 @@ function Footer({ go, lang, c }) {
             </div>
           ))}
         </div>
-        <div className="footer-bot">
-          <div>{rights}</div>
-          <div className="footer-ver" title="Site version (AA.bbb.cc)">
-            v {window.DREAMPATH_VERSION || '00.000.00'}
+        {/* Bottom band: brand wordmark + tagline on the left, rights and
+            version stamp on the right. Visually anchors the footer and
+            keeps the brand prominent without competing with the nav cols. */}
+        <div className="footer-bot footer-bot-with-brand">
+          <div className="footer-brand">
+            <div className="wm" aria-hidden="true">{c.brand.wordmark_mark || 'KoreaDream'}<span className="pt">{c.brand.wordmark_accent || 'Path'}</span></div>
+            <p>{isKo ? c.brand.footer_tagline_ko : c.brand.footer_tagline_en}</p>
+          </div>
+          <div className="footer-bot-meta">
+            <div>{rights}</div>
+            <div className="footer-ver" title="Site version (AA.bbb.cc)">
+              v {window.DREAMPATH_VERSION || '00.000.00'}
+            </div>
           </div>
         </div>
       </div>

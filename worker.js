@@ -234,12 +234,40 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // Bulk operations on applications. Body: { ids: [...], op: 'delete' | 'status', status?: '...' }
+  // Replaces having to PATCH/DELETE one row at a time when triaging dozens.
+  if (path === '/api/applications/bulk' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body || !Array.isArray(body.ids) || !body.ids.length) return json({ error: 'no_ids' }, 400);
+    const ids = body.ids.filter(x => typeof x === 'string').slice(0, 500);
+    if (body.op === 'delete') {
+      const placeholders = ids.map(() => '?').join(',');
+      await env.DB.prepare('DELETE FROM applications WHERE id IN (' + placeholders + ')').bind(...ids).run();
+      return json({ ok: true, op: 'delete', count: ids.length });
+    }
+    if (body.op === 'status' && typeof body.status === 'string') {
+      const placeholders = ids.map(() => '?').join(',');
+      await env.DB.prepare('UPDATE applications SET status = ? WHERE id IN (' + placeholders + ')').bind(body.status, ...ids).run();
+      return json({ ok: true, op: 'status', status: body.status, count: ids.length });
+    }
+    return json({ error: 'bad_op' }, 400);
+  }
+
   const m = path.match(/^\/api\/applications\/([A-Za-z0-9_-]+)$/);
   if (m) {
     const id = m[1];
     if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
     if (method === 'DELETE') {
       await env.DB.prepare('DELETE FROM applications WHERE id = ?').bind(id).run();
+      return json({ ok: true });
+    }
+    if (method === 'PATCH') {
+      // Single-row status edit for the apps detail modal.
+      const body = await request.json().catch(() => ({}));
+      if (typeof body.status === 'string') {
+        await env.DB.prepare('UPDATE applications SET status = ? WHERE id = ?').bind(body.status, id).run();
+      }
       return json({ ok: true });
     }
     if (method === 'GET') {
@@ -675,6 +703,24 @@ async function handleApi(request, env, url) {
       return json({ items: results || [] });
     }
     return json({ error: 'method_not_allowed' }, 405);
+  }
+  // Bulk inquiries — same shape as /api/applications/bulk.
+  if (path === '/api/inquiries/bulk' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body || !Array.isArray(body.ids) || !body.ids.length) return json({ error: 'no_ids' }, 400);
+    const ids = body.ids.filter(x => typeof x === 'string').slice(0, 500);
+    if (body.op === 'delete') {
+      const placeholders = ids.map(() => '?').join(',');
+      await env.DB.prepare('DELETE FROM inquiries WHERE id IN (' + placeholders + ')').bind(...ids).run();
+      return json({ ok: true, op: 'delete', count: ids.length });
+    }
+    if (body.op === 'status' && typeof body.status === 'string') {
+      const placeholders = ids.map(() => '?').join(',');
+      await env.DB.prepare('UPDATE inquiries SET status = ? WHERE id IN (' + placeholders + ')').bind(body.status, ...ids).run();
+      return json({ ok: true, op: 'status', status: body.status, count: ids.length });
+    }
+    return json({ error: 'bad_op' }, 400);
   }
   const inqM = path.match(/^\/api\/inquiries\/([A-Za-z0-9_-]+)$/);
   if (inqM) {

@@ -332,6 +332,45 @@
         },
       ],
     },
+    // ─── Email templates (transactional) ─────────────────────────────────
+    // Authored under admin → 사이트 설정 → Email templates. Each template has
+    // a slug (verify_signup, reset_password, apply_received, ...), KO + EN
+    // subject, and KO + EN body (text or simple HTML). The actual sending
+    // pipeline (provider, from-address, signing) is wired separately when
+    // an email service is added — for now templates are stored so the
+    // operator can author copy in advance.
+    email_templates: {
+      from_name:  'KoreaDreamPath',
+      from_email: 'info@koreadreampath.com',
+      // Per-template content. Keys are stable slugs so worker code can
+      // resolve them by name without relying on array order.
+      items: {
+        verify_signup: {
+          subject_ko: '[KoreaDreamPath] 이메일 인증을 완료해 주세요',
+          subject_en: '[KoreaDreamPath] Please verify your email',
+          body_ko:    '안녕하세요 {{name}}님,\n\n아래 링크를 눌러 이메일 인증을 완료해 주세요. 링크는 24시간 동안 유효합니다.\n\n{{verify_url}}\n\n감사합니다.\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nClick the link below to verify your email. The link is valid for 24 hours.\n\n{{verify_url}}\n\nThanks,\nThe KoreaDreamPath team',
+        },
+        reset_password: {
+          subject_ko: '[KoreaDreamPath] 비밀번호 재설정 안내',
+          subject_en: '[KoreaDreamPath] Reset your password',
+          body_ko:    '안녕하세요 {{name}}님,\n\n비밀번호를 재설정하시려면 아래 링크를 눌러 주세요. 링크는 1시간 동안 유효합니다.\n\n{{reset_url}}\n\n본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다.',
+          body_en:    'Hi {{name}},\n\nClick the link below to reset your password. The link is valid for 1 hour.\n\n{{reset_url}}\n\nIf you did not request this, you can ignore this email.',
+        },
+        apply_received: {
+          subject_ko: '[KoreaDreamPath] 지원이 접수되었습니다',
+          subject_en: '[KoreaDreamPath] We received your application',
+          body_ko:    '안녕하세요 {{name}}님,\n\n지원이 정상적으로 접수되었습니다 (접수번호: {{application_id}}). 영업일 기준 2~3일 내에 답변 드리겠습니다.\n\n감사합니다.',
+          body_en:    'Hi {{name}},\n\nWe received your application (reference: {{application_id}}). We will reply within 2–3 business days.\n\nThanks.',
+        },
+        inquiry_received: {
+          subject_ko: '[KoreaDreamPath] 문의가 접수되었습니다',
+          subject_en: '[KoreaDreamPath] We received your inquiry',
+          body_ko:    '안녕하세요 {{name}}님,\n\n문의가 정상적으로 접수되었습니다 (접수번호: {{inquiry_id}}). 운영팀이 확인 후 답변 드리겠습니다.',
+          body_en:    'Hi {{name}},\n\nWe received your inquiry (reference: {{inquiry_id}}). Our team will get back to you shortly.',
+        },
+      },
+    },
     // ─── Inquiry categories (Contact form 문의 유형) ────────────────────
     // Read by Pages.jsx → InquiryForm dropdown. Operator authors the list
     // under admin → 학생 지원 → 문의 유형. `value` is what gets stored on

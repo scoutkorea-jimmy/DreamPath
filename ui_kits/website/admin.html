@@ -722,7 +722,7 @@
         members:'Member directory', member_roles:'Roles & permissions',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
-        notice:'Top notice banner', og_images:'OG / SEO images',
+        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
@@ -752,7 +752,7 @@
         members:'회원 목록', member_roles:'등급 / 권한',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
-        notice:'상단 공지 배너', og_images:'OG / SEO 이미지',
+        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
@@ -847,6 +847,7 @@
     { id: 'icons',         group: 'Setup' },
     { id: 'notice',        group: 'Setup' },
     { id: 'og_images',     group: 'Setup' },
+    { id: 'email_templates', group: 'Setup' },
     { id: 'legal',         group: 'Setup' },
 
     { id: 'hero',          group: 'Homepage' },
@@ -2533,6 +2534,51 @@
     );
   }
 
+  // ---- Email templates ----------------------------------------------------
+  // Authors transactional email copy. The send pipeline (provider, signing)
+  // is wired separately when an email service is added; templates render the
+  // {{var}} interpolation against application context.
+  function EmailTemplatesTab({ c, set }) {
+    const et = c.email_templates || { items: {} };
+    const items = et.items || {};
+    const KEYS = [
+      { id: 'verify_signup',     label: '회원가입 이메일 인증 / Email verification', vars: '{{name}} · {{verify_url}}' },
+      { id: 'reset_password',    label: '비밀번호 재설정 / Password reset',          vars: '{{name}} · {{reset_url}}' },
+      { id: 'apply_received',    label: '지원 접수 알림 / Apply received',           vars: '{{name}} · {{application_id}}' },
+      { id: 'inquiry_received',  label: '문의 접수 알림 / Inquiry received',         vars: '{{name}} · {{inquiry_id}}' },
+    ];
+    return (
+      <>
+        <div className="card">
+          <h3>Sender identity</h3>
+          <p className="desc">Used as the "From" header on every transactional email. The sending pipeline (Mailgun / Resend / Cloudflare Email Workers — TBD) is not yet wired; templates here are authored ahead of that integration.</p>
+          <div className="grid-2 tight">
+            <Text label="From name"  value={et.from_name || ''}  onChange={v => set(['email_templates','from_name'], v)} />
+            <Text label="From email" value={et.from_email || ''} onChange={v => set(['email_templates','from_email'], v)} />
+          </div>
+        </div>
+        {KEYS.map(k => {
+          const t = items[k.id] || {};
+          return (
+            <div className="card" key={k.id}>
+              <div className="rep-head" style={{marginBottom:14}}>
+                <strong>{k.label}</strong>
+                <code style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{k.id}</code>
+              </div>
+              <p className="desc" style={{margin:'0 0 12px'}}>Variables available: <code>{k.vars}</code></p>
+              <div className="grid-2 tight">
+                <Text label="Subject (KO)" value={t.subject_ko || ''} onChange={v => set(['email_templates','items',k.id,'subject_ko'], v)} lang="ko" />
+                <Text label="Subject (EN)" value={t.subject_en || ''} onChange={v => set(['email_templates','items',k.id,'subject_en'], v)} lang="en" />
+                <Area label="Body (KO)" value={t.body_ko || ''} onChange={v => set(['email_templates','items',k.id,'body_ko'], v)} lang="ko" rows={8} />
+                <Area label="Body (EN)" value={t.body_en || ''} onChange={v => set(['email_templates','items',k.id,'body_en'], v)} lang="en" rows={8} />
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
   // ---- Top notice banner --------------------------------------------------
   function NoticeTab({ c, set }) {
     const n = c.notice || {};
@@ -3931,6 +3977,7 @@
     const [err, setErr] = useState('');
     const [selected, setSelected] = useState(null);
     const [filter, setFilter] = useState('all');
+    const [picked, setPicked] = useState(() => new Set());
 
     async function load() {
       setLoading(true); setErr('');
@@ -3963,6 +4010,32 @@
       setItems(prev => prev.filter(i => i.id !== id));
       if (selected && selected.id === id) setSelected(null);
     }
+    function togglePick(id) { setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+    function pickAllVisible() { setPicked(new Set(filtered.map(i => i.id))); }
+    function clearPicks() { setPicked(new Set()); }
+    async function bulkAction(op, status) {
+      if (!picked.size) return;
+      if (op === 'delete' && !confirm(`Delete ${picked.size} inquiries? This cannot be undone.`)) return;
+      const token = localStorage.getItem('dp_admin_token') || '';
+      const res = await fetch('/api/inquiries/bulk', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify({ ids: [...picked], op, ...(status ? { status } : {}) }),
+      });
+      if (!res.ok) { alert('Bulk failed: HTTP ' + res.status); return; }
+      clearPicks();
+      load();
+    }
+    function exportCSV() {
+      const cols = ['id','created_at','status','category','subject','name','email','phone','body'];
+      const esc = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+      const rows = [cols.join(',')].concat(items.map(i => cols.map(k => esc(i[k])).join(',')));
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'dreampath-inquiries.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
 
     const STATUS = {
       new:     { label: 'New',     bg: '#DBEAFE', fg: '#1D4ED8' },
@@ -3983,8 +4056,25 @@
               </p>
               {err && <p style={{color:'var(--state-danger)',fontSize:13,margin:'8px 0 0'}}>{err}</p>}
             </div>
-            <button className="icon-btn" onClick={load}>Refresh</button>
+            <div style={{display:'flex',gap:8}}>
+              <button className="icon-btn" onClick={load}>Refresh</button>
+              <button className="icon-btn" onClick={exportCSV}>Export CSV</button>
+            </div>
           </div>
+
+          {picked.size > 0 && (
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'var(--state-info-bg)',color:'var(--state-info)',borderRadius:10,marginBottom:14,flexWrap:'wrap'}}>
+              <strong>{picked.size} selected</strong>
+              <span style={{flex:1}} />
+              <select onChange={e => { if (e.target.value) bulkAction('status', e.target.value); e.target.value = ''; }} defaultValue=""
+                style={{padding:'6px 10px',border:'1px solid currentColor',background:'transparent',color:'inherit',borderRadius:6,fontSize:13}}>
+                <option value="">Set status…</option>
+                {['new','seen','replied','closed'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button type="button" className="icon-btn" onClick={clearPicks}>Clear</button>
+              <button type="button" className="icon-btn danger" onClick={() => bulkAction('delete')}>Delete selected</button>
+            </div>
+          )}
           <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
             {['all','new','seen','replied','closed'].map(s => (
               <button key={s} type="button"
@@ -4004,6 +4094,12 @@
               <table className="apps-table">
                 <thead>
                   <tr>
+                    <th style={{width:32}}>
+                      <input type="checkbox"
+                        checked={filtered.length > 0 && filtered.every(i => picked.has(i.id))}
+                        onChange={e => e.target.checked ? pickAllVisible() : clearPicks()}
+                        aria-label="Select all visible" />
+                    </th>
                     <th>ID</th><th>Received</th><th>Name</th><th>Email</th>
                     <th>Category</th><th>Subject</th><th>Status</th><th></th>
                   </tr>
@@ -4012,14 +4108,15 @@
                   {filtered.map(i => {
                     const s = STATUS[i.status] || STATUS.new;
                     return (
-                      <tr key={i.id} style={{cursor:'pointer'}} onClick={() => setSelected(i)}>
-                        <td><span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{i.id.slice(0, 16)}…</span></td>
-                        <td>{new Date(i.created_at).toLocaleString()}</td>
-                        <td>{i.name}</td>
-                        <td>{i.email}</td>
-                        <td>{i.category}</td>
-                        <td style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{i.subject}</td>
-                        <td><span className="pill" style={{background:s.bg,color:s.fg}}>{s.label}</span></td>
+                      <tr key={i.id} style={picked.has(i.id) ? {background:'var(--state-info-bg)',cursor:'pointer'} : {cursor:'pointer'}}>
+                        <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={picked.has(i.id)} onChange={() => togglePick(i.id)} aria-label={`Select ${i.id}`} /></td>
+                        <td onClick={() => setSelected(i)}><span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{i.id.slice(0, 16)}…</span></td>
+                        <td onClick={() => setSelected(i)}>{new Date(i.created_at).toLocaleString()}</td>
+                        <td onClick={() => setSelected(i)}>{i.name}</td>
+                        <td onClick={() => setSelected(i)}>{i.email}</td>
+                        <td onClick={() => setSelected(i)}>{i.category}</td>
+                        <td onClick={() => setSelected(i)} style={{maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{i.subject}</td>
+                        <td onClick={() => setSelected(i)}><span className="pill" style={{background:s.bg,color:s.fg}}>{s.label}</span></td>
                         <td onClick={e => e.stopPropagation()}>
                           <button className="icon-btn danger" onClick={() => deleteOne(i.id)}>Del</button>
                         </td>
@@ -4404,6 +4501,8 @@
     const [loadError, setLoadError] = useState('');
     const [selected, setSelected] = useState(null);
     const [filter, setFilter] = useState('all');
+    const [picked, setPicked] = useState(() => new Set());     // ids checked for bulk
+    const STATUS_OPTIONS = ['new','review','accepted','waitlist','rejected','paid'];
 
     async function load() {
       setLoading(true);
@@ -4438,7 +4537,25 @@
 
     const filtered = filter === 'all' ? apps : apps.filter(a => a.track === filter);
 
-    function refresh() { load(); setSelected(null); }
+    function refresh() { load(); setSelected(null); setPicked(new Set()); }
+    function togglePick(id) { setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+    function pickAllVisible() { setPicked(new Set(filtered.map(a => a.id))); }
+    function clearPicks() { setPicked(new Set()); }
+    async function bulkAction(op, status) {
+      if (!picked.size) return;
+      if (op === 'delete' && !confirm(`Delete ${picked.size} applications? This cannot be undone.`)) return;
+      const token = localStorage.getItem('dp_admin_token') || '';
+      try {
+        const res = await fetch('/api/applications/bulk', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          body: JSON.stringify({ ids: [...picked], op, ...(status ? { status } : {}) }),
+        });
+        if (!res.ok) { alert('Bulk failed: HTTP ' + res.status); return; }
+        clearPicks();
+        load();
+      } catch (e) { alert('Bulk failed: ' + e.message); }
+    }
     async function deleteApp(id) {
       if (!confirm('Delete this application?')) return;
       try {
@@ -4481,6 +4598,21 @@
               <button className="icon-btn" onClick={exportCSV}>Export CSV</button>
             </div>
           </div>
+
+          {/* Bulk action bar — visible only with at least one row picked. */}
+          {picked.size > 0 && (
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'var(--state-info-bg)',color:'var(--state-info)',borderRadius:10,marginBottom:14,flexWrap:'wrap'}}>
+              <strong>{picked.size} selected</strong>
+              <span style={{flex:1}} />
+              <select onChange={e => { if (e.target.value) bulkAction('status', e.target.value); e.target.value = ''; }} defaultValue=""
+                style={{padding:'6px 10px',border:'1px solid currentColor',background:'transparent',color:'inherit',borderRadius:6,fontSize:13}}>
+                <option value="">Set status…</option>
+                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button type="button" className="icon-btn" onClick={clearPicks}>Clear</button>
+              <button type="button" className="icon-btn danger" onClick={() => bulkAction('delete')}>Delete selected</button>
+            </div>
+          )}
           <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
             {[
               {k:'all', l:'All'},
@@ -4506,19 +4638,27 @@
               <table className="apps-table">
                 <thead>
                   <tr>
+                    <th style={{width:32}}>
+                      <input type="checkbox"
+                        checked={filtered.length > 0 && filtered.every(a => picked.has(a.id))}
+                        onChange={e => e.target.checked ? pickAllVisible() : clearPicks()}
+                        aria-label="Select all visible" />
+                    </th>
                     <th>ID</th><th>Submitted</th><th>Name</th><th>Country</th>
-                    <th>Program</th><th>Track</th><th>Paid</th><th></th>
+                    <th>Program</th><th>Track</th><th>Status</th><th>Paid</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(a => (
-                    <tr key={a.id}>
+                    <tr key={a.id} style={picked.has(a.id) ? {background:'var(--state-info-bg)'} : {}}>
+                      <td><input type="checkbox" checked={picked.has(a.id)} onChange={() => togglePick(a.id)} aria-label={`Select ${a.id}`} /></td>
                       <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{a.id}</td>
                       <td>{new Date(a.submittedAt).toLocaleString()}</td>
                       <td><strong>{a.name}</strong><div style={{fontSize:12,color:'var(--fg-muted)'}}>{a.email}</div></td>
                       <td>{a.country}</td>
                       <td style={{fontSize:13}}>{a.program}</td>
                       <td><span className="pill" style={{background:trackColor(a.track)+'22',color:trackColor(a.track)}}>{trackLabel(a.track)}{a.track==='partial'?` · ${a.partial_tier}%`:''}</span></td>
+                      <td><span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-secondary)'}}>{a.status || 'new'}</span></td>
                       <td style={{fontFamily:'var(--font-en)',fontWeight:700}}>{a.amount > 0 ? `$${a.amount}` : '—'}</td>
                       <td><button className="icon-btn" onClick={() => setSelected(a)}>View</button></td>
                     </tr>
@@ -4716,6 +4856,7 @@
       dashboard: DashboardTab,
       brand: BrandTab, footer: FooterTab, icons: IconsTab, notice: NoticeTab,
       og_images: OgImagesTab,
+      email_templates: EmailTemplatesTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,

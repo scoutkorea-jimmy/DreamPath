@@ -3277,55 +3277,60 @@
           </p>
         </div>
 
-        {/* Recipients picker — single column. */}
-        <div className="card">
-          <h3>받는 사람 · {picked.size}명 선택됨</h3>
-          <input type="search" placeholder="이름 또는 이메일 검색" value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
-          <div style={{display:'flex',gap:6,marginBottom:8}}>
-            <button type="button" className="icon-btn" onClick={pickAllVisible}>보이는 항목 모두 선택</button>
-            <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>선택 해제</button>
-          </div>
-          <div style={{maxHeight:360,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
-            {loading
-              ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
-              : filtered.length === 0
-                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>일치하는 회원이 없습니다.</div>
-                : filtered.map(u => (
-                  <label key={u.id}
-                    style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
-                      background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
-                    <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
-                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      <strong style={{fontSize:13}}>{u.name || u.email}</strong>
-                      {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
-                    </span>
-                    <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
-                  </label>
-                ))}
-          </div>
-        </div>
-
-        {/* Composer — single-column form: 발신자 → 제목(KO/EN) → 본문(KO/EN). */}
-        <div className="card">
-          <h3>내용 작성</h3>
-          <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
-          <Text label="제목 (한국어)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
-          <Text label="제목 (English)" value={subjectEn} onChange={setSubjectEn} lang="en" />
-          <Area label="본문 (한국어)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={8} />
-          <Area label="본문 (English)" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
-          {result && (
-            <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
-              background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
-              color: result.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
-              {result.ok ? `✓ ${result.count}명에게 발송됨.` : `✗ 실패: ${result.msg}`}
+        {/* 2-column shell — 받는 사람 picker | 작성 패널. Admin은 화면을
+            가득 채우는 게 원칙이라 sparse한 1단 대신 좌우 배치로 복귀. */}
+        <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
+          {/* Recipients picker (left) */}
+          <div className="card">
+            <h3>받는 사람 · {picked.size}명 선택됨</h3>
+            <input type="search" placeholder="이름 또는 이메일 검색" value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
+            <div style={{display:'flex',gap:6,marginBottom:8}}>
+              <button type="button" className="icon-btn" onClick={pickAllVisible}>보이는 항목 모두 선택</button>
+              <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>선택 해제</button>
             </div>
-          )}
-          <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
-            <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
-              {busy ? '발송 중…' : `📨 ${picked.size}명에게 발송`}
-            </button>
+            <div style={{maxHeight:520,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+              {loading
+                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+                : filtered.length === 0
+                  ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>일치하는 회원이 없습니다.</div>
+                  : filtered.map(u => (
+                    <label key={u.id}
+                      style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
+                        background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                      <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
+                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        <strong style={{fontSize:13}}>{u.name || u.email}</strong>
+                        {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
+                      </span>
+                      <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
+                    </label>
+                  ))}
+            </div>
+          </div>
+
+          {/* Composer (right) — 한 줄당 한 필드, 두 컬럼은 picker 섹션과의
+              관계로만 형성. KO/EN은 라벨로 구분. */}
+          <div className="card">
+            <h3>내용 작성</h3>
+            <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
+            <Text label="제목 (한국어)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
+            <Text label="제목 (English)" value={subjectEn} onChange={setSubjectEn} lang="en" />
+            <Area label="본문 (한국어)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={8} />
+            <Area label="본문 (English)" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
+            {result && (
+              <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
+                background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
+                color: result.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
+                {result.ok ? `✓ ${result.count}명에게 발송됨.` : `✗ 실패: ${result.msg}`}
+              </div>
+            )}
+            <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
+                {busy ? '발송 중…' : `📨 ${picked.size}명에게 발송`}
+              </button>
+            </div>
           </div>
         </div>
       </>

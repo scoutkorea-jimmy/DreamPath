@@ -283,6 +283,27 @@ async function handleApi(request, env, url) {
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
+  // Admin test-send: trigger a template against an arbitrary email so the
+  // operator can verify Resend keys + DNS without doing a real signup.
+  if (path === '/api/admin/email/test' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => ({}));
+    const to = String(body.to || '').trim().toLowerCase();
+    const slug = String(body.slug || '').trim();
+    if (!isEmail(to) || !slug) return json({ error: 'invalid_request' }, 400);
+    const lang = body.lang === 'en' ? 'en' : 'ko';
+    // Plug in plausible vars so {{}} placeholders render something.
+    const vars = {
+      name: body.name || 'Test User',
+      verify_url: baseUrl(request) + '/verify?token=test-token',
+      reset_url:  baseUrl(request) + '/reset-password?token=test-token',
+      application_id: 'A-TEST-0001',
+      inquiry_id:     'INQ-TEST-0001',
+    };
+    const send = await sendEmail(env, { to, slug, lang, vars });
+    return json(send);
+  }
+
   if (path === '/api/auth/verify-email' && method === 'POST') {
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
@@ -306,17 +327,22 @@ async function handleApi(request, env, url) {
     await env.DB.prepare(
       'INSERT INTO email_verifications (token, user_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
     ).bind(token, u.id, u.email, now, expires).run();
-    // No live SMTP yet — return the token so the operator can wire it later
-    // and the dev console can log it. The admin console renders this for the
-    // testing flow; a future "real send" will email it instead.
-    return json({ ok: true, token, expires_at: expires, dev_note: 'Email send not yet wired — pass this token to /api/auth/verify-email to confirm.' });
+    const verifyUrl = baseUrl(request) + '/verify?token=' + encodeURIComponent(token);
+    const send = await sendEmail(env, {
+      to: u.email, slug: 'verify_signup', lang: 'ko',
+      vars: { name: u.name || u.email, verify_url: verifyUrl },
+    });
+    return json({
+      ok: true, email_sent: send.sent,
+      ...(send.sent ? {} : { token, expires_at: expires, dev_note: 'RESEND_API_KEY not set — token returned for manual verification.' }),
+    });
   }
   // Password reset — request + confirm.
   if (path === '/api/auth/request-password-reset' && method === 'POST') {
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || '').trim().toLowerCase();
     if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
-    const u = await env.DB.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
+    const u = await env.DB.prepare('SELECT id, email, name FROM users WHERE email = ?').bind(email).first();
     // Always return ok=true regardless of whether the email exists, so an
     // attacker can't enumerate accounts by trying random emails.
     if (!u) return json({ ok: true });
@@ -327,7 +353,16 @@ async function handleApi(request, env, url) {
     await env.DB.prepare(
       'INSERT INTO password_resets (token, user_id, created_at, expires_at, ip) VALUES (?, ?, ?, ?, ?)'
     ).bind(token, u.id, now, expires, ip).run();
-    return json({ ok: true, token, expires_at: expires, dev_note: 'Email send not yet wired — pass this token to /api/auth/confirm-password-reset.' });
+    const resetUrl = baseUrl(request) + '/reset-password?token=' + encodeURIComponent(token);
+    const lang = (body.lang === 'en') ? 'en' : 'ko';
+    const send = await sendEmail(env, {
+      to: u.email, slug: 'reset_password', lang,
+      vars: { name: u.name || u.email, reset_url: resetUrl },
+    });
+    return json({
+      ok: true, email_sent: send.sent,
+      ...(send.sent ? {} : { token, expires_at: expires, dev_note: 'RESEND_API_KEY not set — token returned for manual reset.' }),
+    });
   }
   if (path === '/api/auth/confirm-password-reset' && method === 'POST') {
     const body = await request.json().catch(() => null);
@@ -881,24 +916,40 @@ async function signup(request, env) {
     'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, email, hash, salt, name || null, 'member', now, now).run();
 
-  // Mint a verification token so the public site can prompt the user.
-  // The token is returned in the signup response so the dev/test flow
-  // can be exercised without a live SMTP integration. Once Mailgun /
-  // Resend / Email Workers is wired, send the verify email here too.
+  // Mint a verification token + send the verify email via Resend.
+  // If RESEND_API_KEY isn't configured the send is skipped and the token
+  // is returned in the response so the dev/test flow still works.
   const verifyToken = randomHex(24);
   const verifyExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   await env.DB.prepare(
     'INSERT INTO email_verifications (token, user_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
   ).bind(verifyToken, id, email, now, verifyExpires).run();
 
+  const verifyUrl = baseUrl(request) + '/verify?token=' + encodeURIComponent(verifyToken);
+  const lang = (body.lang === 'en') ? 'en' : 'ko';
+  const send = await sendEmail(env, {
+    to: email, slug: 'verify_signup', lang,
+    vars: { name: name || email, verify_url: verifyUrl },
+  });
+
   const session = await createSession(env, id);
   return json({
     user: { id, email, name, role: 'member', email_verified: 0 },
     token: session.token,
     expires_at: session.expires_at,
-    verify_token: verifyToken,
-    verify_expires_at: verifyExpires,
+    email_sent: send.sent,
+    // Dev fallback — only included when Resend isn't configured so the
+    // operator can finish the verify flow manually before SMTP launch.
+    ...(send.sent ? {} : { verify_token: verifyToken, verify_expires_at: verifyExpires }),
   });
+}
+
+// Public origin for the request, used to build verify / reset URLs.
+function baseUrl(request) {
+  try {
+    const u = new URL(request.url);
+    return u.origin;
+  } catch { return 'https://koreadreampath.com'; }
 }
 
 async function login(request, env) {
@@ -971,6 +1022,84 @@ function randomHex(bytes) {
   const a = new Uint8Array(bytes);
   crypto.getRandomValues(a);
   return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Email (Resend) ─────────────────────────────────────────────────────────
+// Single send helper used by signup / verify / password-reset / apply /
+// inquiry endpoints. Reads templates from c.email_templates in KV; the
+// admin authors them at admin → Setup → Email templates. If RESEND_API_KEY
+// is not configured (local dev or pre-launch), the helper logs and returns
+// {sent:false} but does NOT throw — call sites still mint tokens and let
+// the dev-mode token-in-response path keep working.
+//
+// Template keys live in c.email_templates.items[<slug>] with subject_ko/en
+// and body_ko/en. {{var}} placeholders are replaced with `vars`.
+async function loadEmailTemplate(env, slug) {
+  try {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    const items = c && c.email_templates && c.email_templates.items;
+    return (items && items[slug]) || null;
+  } catch { return null; }
+}
+async function loadEmailMeta(env) {
+  try {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    if (!raw) return {};
+    const c = JSON.parse(raw);
+    return (c && c.email_templates) || {};
+  } catch { return {}; }
+}
+function renderTpl(s, vars) {
+  if (typeof s !== 'string') return '';
+  return s.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars && vars[k] != null ? String(vars[k]) : ''));
+}
+// Convert plain-text body into a minimal HTML email so Gmail / Outlook
+// don't strip line breaks. Wraps each line in <p>; preserves the URL
+// placeholders as <a> tags.
+function textToHtml(text) {
+  const escaped = String(text || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Linkify https URLs (not perfect but covers verify/reset URLs we generate).
+  const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#622599">$1</a>');
+  const paragraphs = linked.split(/\n\n+/).map(p => '<p style="margin:0 0 12px;line-height:1.6">' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  return '<div style="font-family:-apple-system,Segoe UI,sans-serif;color:#15131A;max-width:600px;margin:0 auto;padding:24px">' + paragraphs + '</div>';
+}
+async function sendEmail(env, { to, slug, lang, vars }) {
+  const tpl  = await loadEmailTemplate(env, slug);
+  const meta = await loadEmailMeta(env);
+  if (!tpl) return { sent: false, reason: 'no_template' };
+  const useKo = (lang === 'ko') || !tpl.subject_en;
+  const subject = renderTpl(useKo ? (tpl.subject_ko || tpl.subject_en) : (tpl.subject_en || tpl.subject_ko), vars);
+  const text    = renderTpl(useKo ? (tpl.body_ko || tpl.body_en)       : (tpl.body_en || tpl.body_ko), vars);
+  const html    = textToHtml(text);
+  const fromName  = meta.from_name  || 'KoreaDreamPath';
+  const fromEmail = meta.from_email || 'info@koreadreampath.com';
+  if (!env.RESEND_API_KEY) return { sent: false, reason: 'no_key', preview: { subject, text } };
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'authorization': 'Bearer ' + env.RESEND_API_KEY,
+        'content-type':  'application/json',
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to: [to],
+        subject,
+        html,
+        text,
+      }),
+    });
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      return { sent: false, reason: 'http_' + r.status, err: errText.slice(0, 500) };
+    }
+    return { sent: true };
+  } catch (e) {
+    return { sent: false, reason: 'exception', err: String(e.message || e) };
+  }
 }
 
 // ── Member profile ─────────────────────────────────────────────────────────
@@ -1305,6 +1434,16 @@ async function submitInquiry(request, env) {
          str(body.subject), str(body.body), str(body.lang),
          user ? user.id : null, ip, ua).run();
 
+  // Best-effort confirmation email. Non-blocking — swallow failures so the
+  // submitter still sees the success state.
+  try {
+    await sendEmail(env, {
+      to: String(body.email), slug: 'inquiry_received',
+      lang: body.lang === 'en' ? 'en' : 'ko',
+      vars: { name: body.name || '', inquiry_id: id },
+    });
+  } catch {}
+
   return json({ id, created_at });
 }
 
@@ -1466,6 +1605,16 @@ async function submitApplication(request, env) {
   const placeholders = cols.map(() => '?').join(',');
   const sql = `INSERT INTO applications (${cols.join(',')}) VALUES (${placeholders})`;
   await env.DB.prepare(sql).bind(...values).run();
+
+  // Best-effort confirmation email. Non-blocking — swallow failures so the
+  // submitter still sees the success screen.
+  try {
+    await sendEmail(env, {
+      to: String(body.email || ''), slug: 'apply_received',
+      lang: body.lang === 'en' ? 'en' : 'ko',
+      vars: { name: body.name || '', application_id: id },
+    });
+  } catch {}
 
   return json({ id, submitted_at, status, amount, receipt_token,
                 receipt_url: status === 'paid' ? `/receipt?id=${encodeURIComponent(id)}&token=${receipt_token}` : null });

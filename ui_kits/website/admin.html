@@ -2547,15 +2547,58 @@
       { id: 'apply_received',    label: '지원 접수 알림 / Apply received',           vars: '{{name}} · {{application_id}}' },
       { id: 'inquiry_received',  label: '문의 접수 알림 / Inquiry received',         vars: '{{name}} · {{inquiry_id}}' },
     ];
+    // Test-send state: per-template "to" field + last result.
+    const [testTo, setTestTo] = useState('');
+    const [testing, setTesting] = useState(null);   // slug being sent
+    const [result, setResult] = useState(null);     // { slug, sent, reason, err }
+
+    async function sendTest(slug) {
+      if (!testTo) { alert('Enter a recipient email first.'); return; }
+      setTesting(slug); setResult(null);
+      const token = localStorage.getItem('dp_admin_token') || '';
+      try {
+        const r = await fetch('/api/admin/email/test', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          body: JSON.stringify({ to: testTo, slug, lang: 'ko' }),
+        });
+        const d = await r.json().catch(() => ({}));
+        setResult({ slug, ...d });
+      } catch (e) { setResult({ slug, sent: false, reason: 'network', err: String(e.message || e) }); }
+      finally { setTesting(null); }
+    }
+
     return (
       <>
+        <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}>
+          <h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>Resend integration</h3>
+          <p className="desc" style={{color:'var(--state-info)',margin:0,fontSize:13}}>
+            Set <code>RESEND_API_KEY</code> as a worker secret to enable real sends.{' '}
+            <code>wrangler secret put RESEND_API_KEY</code>. Until then signup / verify / reset
+            return the token in the response so flows can still be tested manually.
+          </p>
+        </div>
         <div className="card">
           <h3>Sender identity</h3>
-          <p className="desc">Used as the "From" header on every transactional email. The sending pipeline (Mailgun / Resend / Cloudflare Email Workers — TBD) is not yet wired; templates here are authored ahead of that integration.</p>
+          <p className="desc">Used as the "From" header on every transactional email. Make sure the <code>from_email</code> domain is verified in Resend (SPF + DKIM).</p>
           <div className="grid-2 tight">
             <Text label="From name"  value={et.from_name || ''}  onChange={v => set(['email_templates','from_name'], v)} />
             <Text label="From email" value={et.from_email || ''} onChange={v => set(['email_templates','from_email'], v)} />
           </div>
+          <div className="field" style={{marginTop:14}}>
+            <label>Test recipient (for the buttons below)</label>
+            <input type="email" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="you@example.com" />
+            <span className="hint">Sends a real email using the current template + Resend. Variables are filled with placeholder values.</span>
+          </div>
+          {result && (
+            <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
+              background: result.sent ? 'var(--state-success-bg)' : 'var(--state-warning-bg)',
+              color: result.sent ? 'var(--state-success)' : 'var(--state-warning)', fontSize:13}}>
+              <strong>{result.slug}</strong>: {result.sent ? '✓ Sent' : `✗ ${result.reason || 'failed'}`}
+              {result.err && <div style={{marginTop:6,fontFamily:'var(--font-mono)',fontSize:11,opacity:0.8}}>{result.err}</div>}
+              {!result.sent && result.reason === 'no_key' && <div style={{marginTop:4,fontSize:11,opacity:0.8}}>RESEND_API_KEY not configured — set the worker secret.</div>}
+            </div>
+          )}
         </div>
         {KEYS.map(k => {
           const t = items[k.id] || {};
@@ -2571,6 +2614,11 @@
                 <Text label="Subject (EN)" value={t.subject_en || ''} onChange={v => set(['email_templates','items',k.id,'subject_en'], v)} lang="en" />
                 <Area label="Body (KO)" value={t.body_ko || ''} onChange={v => set(['email_templates','items',k.id,'body_ko'], v)} lang="ko" rows={8} />
                 <Area label="Body (EN)" value={t.body_en || ''} onChange={v => set(['email_templates','items',k.id,'body_en'], v)} lang="en" rows={8} />
+              </div>
+              <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
+                <button type="button" className="icon-btn" onClick={() => sendTest(k.id)} disabled={testing === k.id || !testTo}>
+                  {testing === k.id ? 'Sending…' : '📨 Send test'}
+                </button>
               </div>
             </div>
           );

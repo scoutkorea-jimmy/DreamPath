@@ -858,36 +858,205 @@ async function handleApi(request, env, url) {
   }
 
   // ── Notifications (admin → specific users, visible only on My Page) ─────
-  // Admin sends to one or many user_ids; each recipient gets their own row
-  // so reads + deletes don't leak across recipients.
+  // Each call creates a campaign row + N notification rows (one per
+  // recipient). Body shape:
+  //   { user_ids?: [], group_ids?: [], sender, subject_ko/en, body_ko/en }
+  // user_ids and group_ids are merged + deduped; either or both may be set.
   if (path === '/api/admin/notifications' && method === 'POST') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
-    const ids = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
+    const directIds = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
+    const groupIds  = Array.isArray(body.group_ids) ? body.group_ids.filter(x => typeof x === 'string') : [];
+    // Expand group ids → user ids and dedupe with the explicit list.
+    const recipients = new Set(directIds);
+    let primaryGroup = null;
+    if (groupIds.length) {
+      primaryGroup = groupIds[0];
+      const placeholders = groupIds.map(() => '?').join(',');
+      const { results } = await env.DB.prepare(
+        'SELECT user_id FROM member_group_members WHERE group_id IN (' + placeholders + ')'
+      ).bind(...groupIds).all();
+      for (const r of results || []) recipients.add(r.user_id);
+    }
+    const ids = [...recipients];
     if (!ids.length) return json({ error: 'no_recipients' }, 400);
     if (!body.subject_ko && !body.subject_en) return json({ error: 'subject_required' }, 400);
     if (!body.body_ko && !body.body_en) return json({ error: 'body_required' }, 400);
     const ts = new Date().toISOString();
     const sender = String(body.sender || 'admin').slice(0, 80);
+    const actor  = (await currentUser(request, env))?.email || 'admin';
+
+    // Campaign row first so notifications can back-reference it.
+    const campaignId = 'NTC-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+    await env.DB.prepare(
+      'INSERT INTO notification_campaigns (id, ts, sender, subject_ko, subject_en, body_ko, body_en, recipient_count, group_id, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(campaignId, ts, sender,
+      body.subject_ko ? String(body.subject_ko) : null,
+      body.subject_en ? String(body.subject_en) : null,
+      body.body_ko    ? String(body.body_ko)    : null,
+      body.body_en    ? String(body.body_en)    : null,
+      ids.length, primaryGroup, actor,
+    ).run();
+
     let written = 0;
     for (const uid of ids.slice(0, 1000)) {
       const id = 'NTF-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
       try {
         await env.DB.prepare(
-          'INSERT INTO notifications (id, user_id, ts, sender, subject_ko, subject_en, body_ko, body_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO notifications (id, user_id, ts, sender, subject_ko, subject_en, body_ko, body_en, campaign_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(id, uid, ts, sender,
                 body.subject_ko ? String(body.subject_ko) : null,
                 body.subject_en ? String(body.subject_en) : null,
                 body.body_ko    ? String(body.body_ko)    : null,
-                body.body_en    ? String(body.body_en)    : null).run();
+                body.body_en    ? String(body.body_en)    : null,
+                campaignId).run();
         written++;
       } catch {}
     }
-    return json({ ok: true, sent_to: written });
+    // Update the actual delivered count (in case some inserts failed).
+    if (written !== ids.length) {
+      await env.DB.prepare('UPDATE notification_campaigns SET recipient_count = ? WHERE id = ?')
+        .bind(written, campaignId).run();
+    }
+    return json({ ok: true, sent_to: written, campaign_id: campaignId });
   }
-  // List recipients (with pagination + search) for the admin compose form.
-  // Just an alias of /api/admin/users for the picker UI's convenience.
+
+  // Campaign list — paged, latest first. Each row carries read counts so
+  // the operator can see open rates without expanding the row.
+  if (path === '/api/admin/notification-campaigns' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50', 10) || 50, 200);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',  10) || 0,  0);
+    const { results } = await env.DB.prepare(
+      "SELECT c.id, c.ts, c.sender, c.subject_ko, c.subject_en, c.recipient_count, " +
+      "       c.group_id, c.actor_user, " +
+      "       (SELECT COUNT(*) FROM notifications n WHERE n.campaign_id = c.id AND n.read_at IS NOT NULL) AS read_count " +
+      "FROM notification_campaigns c ORDER BY c.ts DESC LIMIT ? OFFSET ?"
+    ).bind(limit, offset).all();
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM notification_campaigns').first();
+    return json({ items: results || [], total: total?.n || 0, limit, offset });
+  }
+  // Campaign detail — full body + per-recipient read state.
+  const campaignDetailM = path.match(/^\/api\/admin\/notification-campaigns\/([A-Z0-9_-]+)$/);
+  if (campaignDetailM && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const cid = campaignDetailM[1];
+    const camp = await env.DB.prepare('SELECT * FROM notification_campaigns WHERE id = ?').bind(cid).first();
+    if (!camp) return json({ error: 'not_found' }, 404);
+    const { results: recs } = await env.DB.prepare(
+      "SELECT n.id, n.user_id, n.read_at, u.email, u.name " +
+      "FROM notifications n LEFT JOIN users u ON u.id = n.user_id " +
+      "WHERE n.campaign_id = ? ORDER BY n.id"
+    ).bind(cid).all();
+    return json({ campaign: camp, recipients: recs || [] });
+  }
+  // Campaign delete — cascades through notifications rows so recipients
+  // also lose their copy. Use sparingly (operator audit trail goes too).
+  if (campaignDetailM && method === 'DELETE') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const cid = campaignDetailM[1];
+    await env.DB.prepare('DELETE FROM notifications WHERE campaign_id = ?').bind(cid).run();
+    await env.DB.prepare('DELETE FROM notification_campaigns WHERE id = ?').bind(cid).run();
+    return json({ ok: true });
+  }
+
+  // ── Member groups CRUD ───────────────────────────────────────────────────
+  // Saved selections of users so a campaign can reuse them. Members are
+  // a many-to-many join (member_group_members).
+  if (path === '/api/admin/groups' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const { results } = await env.DB.prepare(
+      "SELECT g.*, (SELECT COUNT(*) FROM member_group_members m WHERE m.group_id = g.id) AS member_count " +
+      "FROM member_groups g ORDER BY g.created_at DESC"
+    ).all();
+    return json({ items: results || [] });
+  }
+  if (path === '/api/admin/groups' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body || !String(body.name_ko || '').trim()) return json({ error: 'name_required' }, 400);
+    const id = 'MG-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      'INSERT INTO member_groups (id, name_ko, name_en, description, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, String(body.name_ko).trim(), body.name_en || null, body.description || null, body.color || null, now, now).run();
+    // Optional initial member list
+    if (Array.isArray(body.user_ids)) {
+      for (const uid of body.user_ids.slice(0, 5000)) {
+        if (typeof uid !== 'string') continue;
+        try { await env.DB.prepare('INSERT OR IGNORE INTO member_group_members (group_id, user_id, added_at) VALUES (?, ?, ?)').bind(id, uid, now).run(); } catch {}
+      }
+    }
+    return json({ ok: true, id });
+  }
+  const groupItemM = path.match(/^\/api\/admin\/groups\/([A-Z0-9_-]+)$/);
+  if (groupItemM) {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const gid = groupItemM[1];
+    if (method === 'GET') {
+      const g = await env.DB.prepare('SELECT * FROM member_groups WHERE id = ?').bind(gid).first();
+      if (!g) return json({ error: 'not_found' }, 404);
+      const { results: mem } = await env.DB.prepare(
+        "SELECT m.user_id, m.added_at, u.email, u.name, u.role " +
+        "FROM member_group_members m LEFT JOIN users u ON u.id = m.user_id " +
+        "WHERE m.group_id = ? ORDER BY u.name COLLATE NOCASE"
+      ).bind(gid).all();
+      return json({ group: g, members: mem || [] });
+    }
+    if (method === 'PATCH') {
+      const body = await request.json().catch(() => null);
+      if (!body) return json({ error: 'invalid_json' }, 400);
+      const sets = []; const binds = [];
+      for (const k of ['name_ko', 'name_en', 'description', 'color']) {
+        if (body[k] !== undefined) { sets.push(k + ' = ?'); binds.push(body[k] == null ? null : String(body[k])); }
+      }
+      if (!sets.length) return json({ ok: true, changed: 0 });
+      sets.push('updated_at = ?'); binds.push(new Date().toISOString());
+      binds.push(gid);
+      await env.DB.prepare('UPDATE member_groups SET ' + sets.join(', ') + ' WHERE id = ?').bind(...binds).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      // FK cascade drops join rows automatically.
+      await env.DB.prepare('DELETE FROM member_groups WHERE id = ?').bind(gid).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  // Membership add / remove. Body: { user_ids: [] }.
+  const groupMembersM = path.match(/^\/api\/admin\/groups\/([A-Z0-9_-]+)\/members$/);
+  if (groupMembersM) {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const gid = groupMembersM[1];
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const ids = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
+    const now = new Date().toISOString();
+    if (method === 'POST') {
+      let added = 0;
+      for (const uid of ids.slice(0, 5000)) {
+        try {
+          const r = await env.DB.prepare('INSERT OR IGNORE INTO member_group_members (group_id, user_id, added_at) VALUES (?, ?, ?)').bind(gid, uid, now).run();
+          if (r.meta?.changes) added++;
+        } catch {}
+      }
+      await env.DB.prepare('UPDATE member_groups SET updated_at = ? WHERE id = ?').bind(now, gid).run();
+      return json({ ok: true, added });
+    }
+    if (method === 'DELETE') {
+      let removed = 0;
+      for (const uid of ids.slice(0, 5000)) {
+        try {
+          const r = await env.DB.prepare('DELETE FROM member_group_members WHERE group_id = ? AND user_id = ?').bind(gid, uid).run();
+          if (r.meta?.changes) removed++;
+        } catch {}
+      }
+      await env.DB.prepare('UPDATE member_groups SET updated_at = ? WHERE id = ?').bind(now, gid).run();
+      return json({ ok: true, removed });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
 
   // ── My notifications ─────────────────────────────────────────────────────
   if (path === '/api/me/notifications') {

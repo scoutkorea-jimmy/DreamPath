@@ -803,8 +803,8 @@
                Wiki:'Wiki', Tools:'Tools' },
       tab: {
         dashboard:'Dashboard',
-        members:'Member directory', member_roles:'Roles & permissions',
-        send_notification:'Send notification',
+        members:'Member directory', member_groups:'Member groups', member_roles:'Roles & permissions',
+        send_notification:'Send notification', notification_history:'Send history',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
@@ -836,8 +836,8 @@
                Wiki:'위키', Tools:'도구' },
       tab: {
         dashboard:'대시보드',
-        members:'회원 목록', member_roles:'등급 / 권한',
-        send_notification:'알림 보내기',
+        members:'회원 목록', member_groups:'회원 그룹', member_roles:'등급 / 권한',
+        send_notification:'알림 보내기', notification_history:'발송 기록',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
@@ -978,13 +978,15 @@
 
       // Internal messages — admin-to-student notifications shown only on
       // the recipient's My Page. Distinct from external email above.
-      { id: 'send_notification', group: 'InternalMsg' },
+      { id: 'send_notification',     group: 'InternalMsg' },
+      { id: 'notification_history',  group: 'InternalMsg' },
 
       { id: 'apps',                group: 'StudentSupport' },
       { id: 'inquiries',           group: 'StudentSupport' },
       { id: 'inquiry_categories',  group: 'StudentSupport' },
 
       { id: 'members',         group: 'Members' },
+      { id: 'member_groups',   group: 'Members' },
       { id: 'member_roles',    group: 'Members' },
       { id: 'consent_log',     group: 'Members' },
 
@@ -3216,9 +3218,12 @@
 
   function SendNotificationTab() {
     const [users, setUsers] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [mode, setMode] = useState('users');         // 'users' | 'groups'
     const [search, setSearch] = useState('');
     const [picked, setPicked] = useState(() => new Set());
+    const [pickedGroups, setPickedGroups] = useState(() => new Set());
     const [subjectKo, setSubjectKo] = useState('');
     const [subjectEn, setSubjectEn] = useState('');
     const [bodyKo, setBodyKo] = useState('');
@@ -3229,10 +3234,13 @@
 
     useEffect(() => {
       const token = localStorage.getItem('dp_admin_token') || '';
-      fetch('/api/admin/users?limit=500', { headers: { authorization: 'Bearer ' + token } })
-        .then(r => r.ok ? r.json() : { items: [] })
-        .then(d => { setUsers(d.items || []); setLoading(false); })
-        .catch(() => setLoading(false));
+      const auth = { authorization: 'Bearer ' + token };
+      Promise.all([
+        fetch('/api/admin/users?limit=500', { headers: auth }).then(r => r.ok ? r.json() : { items: [] }),
+        fetch('/api/admin/groups',            { headers: auth }).then(r => r.ok ? r.json() : { items: [] }),
+      ]).then(([us, gs]) => {
+        setUsers(us.items || []); setGroups(gs.items || []); setLoading(false);
+      }).catch(() => setLoading(false));
     }, []);
 
     const filtered = search.trim()
@@ -3243,9 +3251,11 @@
     function clearPicks() { setPicked(new Set()); }
 
     async function send() {
-      if (!picked.size) { alert('Pick at least one recipient.'); return; }
-      if (!subjectKo && !subjectEn) { alert('Subject required (KO or EN).'); return; }
-      if (!bodyKo && !bodyEn) { alert('Body required (KO or EN).'); return; }
+      const hasUsers  = picked.size > 0;
+      const hasGroups = pickedGroups.size > 0;
+      if (!hasUsers && !hasGroups) { alert('받는 사람을 한 명 이상 선택하세요.'); return; }
+      if (!subjectKo && !subjectEn) { alert('제목 (KO 또는 EN) 이 필요합니다.'); return; }
+      if (!bodyKo && !bodyEn) { alert('본문 (KO 또는 EN) 이 필요합니다.'); return; }
       setBusy(true); setResult(null);
       const token = localStorage.getItem('dp_admin_token') || '';
       try {
@@ -3253,7 +3263,9 @@
           method: 'POST',
           headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
           body: JSON.stringify({
-            user_ids: [...picked], sender,
+            user_ids: [...picked],
+            group_ids: [...pickedGroups],
+            sender,
             subject_ko: subjectKo, subject_en: subjectEn,
             body_ko: bodyKo, body_en: bodyEn,
           }),
@@ -3262,9 +3274,12 @@
         if (!r.ok) { setResult({ ok: false, msg: d.error || ('http_' + r.status) }); return; }
         setResult({ ok: true, count: d.sent_to });
         setSubjectKo(''); setSubjectEn(''); setBodyKo(''); setBodyEn('');
-        clearPicks();
+        clearPicks(); setPickedGroups(new Set());
       } catch (e) { setResult({ ok: false, msg: String(e.message || e) }); }
       finally { setBusy(false); }
+    }
+    function toggleGroup(id) {
+      setPickedGroups(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
     }
 
     return (
@@ -3280,34 +3295,67 @@
         {/* 2-column shell — 받는 사람 picker | 작성 패널. Admin은 화면을
             가득 채우는 게 원칙이라 sparse한 1단 대신 좌우 배치로 복귀. */}
         <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
-          {/* Recipients picker (left) */}
+          {/* Recipients picker (left) — toggle between user picker / group picker. */}
           <div className="card">
-            <h3>받는 사람 · {picked.size}명 선택됨</h3>
-            <input type="search" placeholder="이름 또는 이메일 검색" value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
-            <div style={{display:'flex',gap:6,marginBottom:8}}>
-              <button type="button" className="icon-btn" onClick={pickAllVisible}>보이는 항목 모두 선택</button>
-              <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>선택 해제</button>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,gap:8,flexWrap:'wrap'}}>
+              <h3 style={{margin:0}}>받는 사람</h3>
+              <div className="adminlang" role="tablist" aria-label="picker mode">
+                <button type="button" className={mode === 'users'  ? 'on' : ''} onClick={() => setMode('users')}>회원 개별</button>
+                <span aria-hidden>·</span>
+                <button type="button" className={mode === 'groups' ? 'on' : ''} onClick={() => setMode('groups')}>그룹</button>
+              </div>
             </div>
-            <div style={{maxHeight:520,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
-              {loading
-                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
-                : filtered.length === 0
-                  ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>일치하는 회원이 없습니다.</div>
-                  : filtered.map(u => (
-                    <label key={u.id}
-                      style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
-                        background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
-                      <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
-                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        <strong style={{fontSize:13}}>{u.name || u.email}</strong>
-                        {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
-                      </span>
-                      <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
-                    </label>
-                  ))}
+            <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10}}>
+              회원 {picked.size}명{pickedGroups.size > 0 ? ` · 그룹 ${pickedGroups.size}개` : ''} 선택됨
             </div>
+            {mode === 'users' ? (
+              <>
+                <input type="search" placeholder="이름 또는 이메일 검색" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
+                <div style={{display:'flex',gap:6,marginBottom:8}}>
+                  <button type="button" className="icon-btn" onClick={pickAllVisible}>보이는 항목 모두 선택</button>
+                  <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>선택 해제</button>
+                </div>
+                <div style={{maxHeight:480,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+                  {loading
+                    ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+                    : filtered.length === 0
+                      ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>일치하는 회원이 없습니다.</div>
+                      : filtered.map(u => (
+                        <label key={u.id}
+                          style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
+                            background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                          <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
+                          <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            <strong style={{fontSize:13}}>{u.name || u.email}</strong>
+                            {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
+                          </span>
+                          <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
+                        </label>
+                      ))}
+                </div>
+              </>
+            ) : (
+              <div style={{maxHeight:540,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+                {loading
+                  ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+                  : groups.length === 0
+                    ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center',fontSize:13}}>저장된 그룹이 없습니다. 회원 정보 → 회원 그룹에서 먼저 만드세요.</div>
+                    : groups.map(g => (
+                      <label key={g.id}
+                        style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
+                          background: pickedGroups.has(g.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                        <input type="checkbox" checked={pickedGroups.has(g.id)} onChange={() => toggleGroup(g.id)} />
+                        <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          <strong style={{fontSize:14}}>{g.name_ko}</strong>
+                          {g.name_en && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {g.name_en}</span>}
+                        </span>
+                        <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-secondary)'}}>{g.member_count}명</span>
+                      </label>
+                    ))}
+              </div>
+            )}
           </div>
 
           {/* Composer (right) — 한 줄당 한 필드, 두 컬럼은 picker 섹션과의
@@ -3327,10 +3375,337 @@
               </div>
             )}
             <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
-                {busy ? '발송 중…' : `📨 ${picked.size}명에게 발송`}
+              <button type="button" className="btn-add" onClick={send} disabled={busy || (!picked.size && !pickedGroups.size)}>
+                {busy ? '발송 중…' : `📨 발송하기${picked.size || pickedGroups.size ? ` (${picked.size}명${pickedGroups.size ? ' + ' + pickedGroups.size + '그룹' : ''})` : ''}`}
               </button>
             </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // NotificationCampaignsTab — read-only audit / history of every internal
+  // alert sent. 2-column shell: campaign list | campaign detail. Detail
+  // panel shows recipient list with read state pills.
+  function NotificationCampaignsTab() {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);   // campaign id | null
+    const [detail, setDetail] = useState(null);
+    const [tick, setTick] = useState(0);
+
+    function authHeaders() {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      return { authorization: 'Bearer ' + tok };
+    }
+
+    useEffect(() => {
+      setLoading(true);
+      fetch('/api/admin/notification-campaigns?limit=200', { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(d => { setItems(d.items || []); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, [tick]);
+
+    useEffect(() => {
+      if (!selected) { setDetail(null); return; }
+      setDetail(null);
+      fetch('/api/admin/notification-campaigns/' + selected, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(setDetail).catch(() => {});
+    }, [selected]);
+
+    async function purge(id) {
+      if (!confirm('이 캠페인과 모든 수신자 사본을 영구 삭제합니다. 계속할까요?')) return;
+      const r = await fetch('/api/admin/notification-campaigns/' + id, { method: 'DELETE', headers: authHeaders() });
+      if (r.ok) { setSelected(null); setTick(t => t + 1); }
+    }
+
+    return (
+      <>
+        <div className="card">
+          <h3>발송 기록</h3>
+          <p className="desc">
+            지금까지 보낸 내부 알림 캠페인입니다. 각 행은 한 번의 "알림 보내기" 액션이며, 수신자별 읽음 상태도 확인할 수 있습니다.
+          </p>
+        </div>
+
+        <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
+          {/* Campaign list (left) */}
+          <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
+            {loading
+              ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>불러오는 중…</div>
+              : items.length === 0
+                ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>발송 기록이 없습니다.</div>
+                : items.map(c => {
+                  const isOn = c.id === selected;
+                  const subj = c.subject_ko || c.subject_en || '(제목 없음)';
+                  const readPct = c.recipient_count > 0 ? Math.round((c.read_count / c.recipient_count) * 100) : 0;
+                  return (
+                    <button key={c.id} type="button" onClick={() => setSelected(c.id)}
+                      style={{display:'block',width:'100%',padding:'12px 16px',background: isOn ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:4}}>
+                        <strong style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:14}}>{subj}</strong>
+                        <span style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap',fontFamily:'var(--font-mono)'}}>{new Date(c.ts).toLocaleString()}</span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:10,fontSize:12,color:'var(--fg-secondary)'}}>
+                        <span>👤 {c.sender}</span>
+                        <span>📬 {c.recipient_count}명</span>
+                        <span style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                          <span style={{width:60,height:5,borderRadius:3,background:'var(--bg-muted)',overflow:'hidden',display:'inline-block'}}>
+                            <span style={{display:'block',height:'100%',width: readPct + '%',background:'var(--state-success)'}} />
+                          </span>
+                          <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)'}}>{readPct}% 읽음</span>
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+          </div>
+
+          {/* Detail panel (right) */}
+          <div className="card" style={{minHeight:280}}>
+            {!selected
+              ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>좌측에서 캠페인을 선택하세요.</div>
+              : !detail
+                ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>불러오는 중…</div>
+                : (
+                  <>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4,fontFamily:'var(--font-mono)'}}>{detail.campaign.id}</div>
+                        <h2 style={{margin:'0 0 8px',fontSize:18,color:'var(--brand-text)'}}>{detail.campaign.subject_ko || detail.campaign.subject_en || '(제목 없음)'}</h2>
+                        <div style={{fontSize:12,color:'var(--fg-secondary)'}}>
+                          <strong>발신:</strong> {detail.campaign.sender}{' · '}
+                          <span style={{fontFamily:'var(--font-mono)'}}>{new Date(detail.campaign.ts).toLocaleString()}</span>{' · '}
+                          <span>관리자: {detail.campaign.actor_user}</span>
+                        </div>
+                      </div>
+                      <button type="button" className="icon-btn danger" onClick={() => purge(detail.campaign.id)}>영구 삭제</button>
+                    </div>
+                    {detail.campaign.body_ko && (
+                      <div style={{padding:12,background:'var(--bg-muted)',borderRadius:8,marginBottom:8,whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.6}}>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>본문 · 한국어</div>
+                        {detail.campaign.body_ko}
+                      </div>
+                    )}
+                    {detail.campaign.body_en && (
+                      <div style={{padding:12,background:'var(--bg-muted)',borderRadius:8,marginBottom:14,whiteSpace:'pre-wrap',fontSize:13,lineHeight:1.6}}>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>본문 · English</div>
+                        {detail.campaign.body_en}
+                      </div>
+                    )}
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:8}}>
+                      수신자 · {detail.recipients.length}명
+                    </div>
+                    <div style={{maxHeight:280,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+                      {detail.recipients.map(r => (
+                        <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',fontSize:13}}>
+                          <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            <strong>{r.name || r.email || r.user_id}</strong>
+                            {r.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {r.email}</span>}
+                          </span>
+                          {r.read_at
+                            ? <span className="pill" style={{background:'var(--state-success-bg)',color:'var(--state-success)'}}>읽음</span>
+                            : <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>미읽음</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // MemberGroupsTab — 3-column when a group is selected, 2-col otherwise.
+  // Left: group list. Middle: members. Right: add-member picker.
+  function MemberGroupsTab() {
+    const [groups, setGroups] = useState([]);
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);     // group id | null
+    const [detail, setDetail] = useState(null);          // { group, members } | null
+    const [tick, setTick] = useState(0);
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [search, setSearch] = useState('');
+    const [picked, setPicked] = useState(() => new Set());
+
+    function authHeaders() {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      return { authorization: 'Bearer ' + tok };
+    }
+
+    useEffect(() => {
+      Promise.all([
+        fetch('/api/admin/groups', { headers: authHeaders() }).then(r => r.ok ? r.json() : { items: [] }),
+        fetch('/api/admin/users?limit=500', { headers: authHeaders() }).then(r => r.ok ? r.json() : { items: [] }),
+      ]).then(([gs, us]) => {
+        setGroups(gs.items || []); setUsers(us.items || []); setLoading(false);
+      }).catch(() => setLoading(false));
+    }, [tick]);
+
+    useEffect(() => {
+      if (!selected) { setDetail(null); return; }
+      setDetail(null);
+      fetch('/api/admin/groups/' + selected, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(setDetail).catch(() => {});
+    }, [selected, tick]);
+
+    async function createGroup() {
+      if (!newName.trim()) return;
+      setCreating(true);
+      try {
+        const r = await fetch('/api/admin/groups', {
+          method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ name_ko: newName.trim() }),
+        });
+        const d = await r.json();
+        if (r.ok) { setNewName(''); setSelected(d.id); setTick(t => t + 1); }
+      } finally { setCreating(false); }
+    }
+    async function renameGroup(g, name) {
+      await fetch('/api/admin/groups/' + g.id, {
+        method: 'PATCH', headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ name_ko: name }),
+      });
+      setTick(t => t + 1);
+    }
+    async function deleteGroup(g) {
+      if (!confirm(`그룹 "${g.name_ko}" 을 삭제하시겠습니까? (멤버십만 풀리고 회원 자체는 유지됩니다)`)) return;
+      await fetch('/api/admin/groups/' + g.id, { method: 'DELETE', headers: authHeaders() });
+      setSelected(null); setTick(t => t + 1);
+    }
+    async function addMembers() {
+      if (!selected || !picked.size) return;
+      await fetch('/api/admin/groups/' + selected + '/members', {
+        method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ user_ids: [...picked] }),
+      });
+      setPicked(new Set()); setTick(t => t + 1);
+    }
+    async function removeMember(uid) {
+      await fetch('/api/admin/groups/' + selected + '/members', {
+        method: 'DELETE', headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ user_ids: [uid] }),
+      });
+      setTick(t => t + 1);
+    }
+
+    const memberIds = new Set((detail?.members || []).map(m => m.user_id));
+    const candidates = users.filter(u => !memberIds.has(u.id));
+    const filteredCandidates = search.trim()
+      ? candidates.filter(u => (u.email + ' ' + (u.name || '')).toLowerCase().includes(search.toLowerCase()))
+      : candidates;
+
+    return (
+      <>
+        <div className="card">
+          <h3>회원 그룹</h3>
+          <p className="desc">
+            회원을 그룹으로 묶어 알림 보내기에서 한 번에 선택할 수 있습니다. 그룹을 삭제해도 회원 자체는 유지됩니다.
+          </p>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginTop:10}}>
+            <input type="text" placeholder="새 그룹 이름" value={newName} onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') createGroup(); }}
+              style={{flex:1,maxWidth:320,padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+            <button type="button" className="btn-add" onClick={createGroup} disabled={creating || !newName.trim()}>+ 그룹 만들기</button>
+          </div>
+        </div>
+
+        <div className="grid-3" style={{alignItems:'flex-start',gap:16,gridTemplateColumns:'1fr 1.4fr 1fr'}}>
+          {/* Group list */}
+          <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
+            {loading
+              ? <div style={{padding:24,color:'var(--fg-muted)',textAlign:'center'}}>불러오는 중…</div>
+              : groups.length === 0
+                ? <div style={{padding:24,color:'var(--fg-muted)',textAlign:'center'}}>그룹이 없습니다.</div>
+                : groups.map(g => {
+                  const isOn = g.id === selected;
+                  return (
+                    <button key={g.id} type="button" onClick={() => setSelected(g.id)}
+                      style={{display:'block',width:'100%',padding:'12px 16px',background: isOn ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+                        <strong style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:14}}>{g.name_ko}</strong>
+                        <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-secondary)'}}>{g.member_count}명</span>
+                      </div>
+                      {g.name_en && <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{g.name_en}</div>}
+                    </button>
+                  );
+                })}
+          </div>
+
+          {/* Members of selected group */}
+          <div className="card" style={{minHeight:280}}>
+            {!selected
+              ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>좌측에서 그룹을 선택하세요.</div>
+              : !detail
+                ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>불러오는 중…</div>
+                : (
+                  <>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+                      <div style={{flex:1}}>
+                        <input type="text" defaultValue={detail.group.name_ko}
+                          onBlur={e => { if (e.target.value !== detail.group.name_ko) renameGroup(detail.group, e.target.value); }}
+                          style={{width:'100%',padding:'8px 10px',border:'1px solid var(--border-default)',borderRadius:6,fontSize:16,fontWeight:700,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+                      </div>
+                      <button type="button" className="icon-btn danger" onClick={() => deleteGroup(detail.group)}>그룹 삭제</button>
+                    </div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:8}}>
+                      소속 회원 · {detail.members.length}명
+                    </div>
+                    <div style={{maxHeight:480,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+                      {detail.members.length === 0
+                        ? <div style={{padding:24,color:'var(--fg-muted)',textAlign:'center',fontSize:13}}>아직 그룹원이 없습니다. 우측에서 회원을 선택해 추가하세요.</div>
+                        : detail.members.map(m => (
+                          <div key={m.user_id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',fontSize:13}}>
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                              <strong>{m.name || m.email || m.user_id}</strong>
+                              {m.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {m.email}</span>}
+                            </span>
+                            <span className="pill" style={{background: m.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: m.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{m.role}</span>
+                            <button type="button" className="icon-btn danger" onClick={() => removeMember(m.user_id)} style={{padding:'2px 8px',fontSize:11}}>제외</button>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+          </div>
+
+          {/* Add-member picker */}
+          <div className="card" style={{minHeight:280}}>
+            {!selected
+              ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>그룹을 먼저 선택하세요.</div>
+              : (
+                <>
+                  <h3 style={{marginTop:0}}>회원 추가 · {picked.size}명 선택됨</h3>
+                  <input type="search" placeholder="이름 또는 이메일 검색" value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:8}} />
+                  <div style={{maxHeight:420,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8,marginBottom:10}}>
+                    {filteredCandidates.length === 0
+                      ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center',fontSize:13}}>모든 회원이 이미 그룹에 있습니다.</div>
+                      : filteredCandidates.map(u => (
+                        <label key={u.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                          <input type="checkbox" checked={picked.has(u.id)} onChange={() => {
+                            setPicked(p => { const n = new Set(p); n.has(u.id) ? n.delete(u.id) : n.add(u.id); return n; });
+                          }} />
+                          <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>
+                            <strong>{u.name || u.email}</strong>
+                            {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
+                          </span>
+                        </label>
+                      ))}
+                  </div>
+                  <button type="button" className="btn-add" onClick={addMembers} disabled={!picked.size} style={{width:'100%'}}>
+                    + {picked.size}명 추가
+                  </button>
+                </>
+              )}
           </div>
         </div>
       </>
@@ -6635,6 +7010,8 @@
       apps: ApplicationsTab,
       members: MembersTab, member_roles: MemberRolesTab,
       send_notification: SendNotificationTab,
+      notification_history: NotificationCampaignsTab,
+      member_groups: MemberGroupsTab,
       inquiry_categories: InquiryCategoriesTab,
     };
     const tabAccount = tab.startsWith('mailbox:') ? tab.slice('mailbox:'.length) : null;

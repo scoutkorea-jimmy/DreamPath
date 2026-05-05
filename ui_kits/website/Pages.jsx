@@ -62,7 +62,7 @@ function Stories({ go, lang, c }) {
                   type="button"
                   onClick={() => go && go('storydetail', sid)}
                   className="story"
-                  style={{'--c1': s.tag_color, '--c2': '#622599', textAlign:'left', cursor:'pointer', font:'inherit', color:'inherit'}}>
+                  style={{'--c1': s.tag_color, '--c2': 'var(--scouting-purple)', textAlign:'left', cursor:'pointer', font:'inherit', color:'inherit'}}>
                   <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
                   <blockquote className={isKo ? '' : 'en'}>"{isKo ? s.quote_ko : s.quote_en}"</blockquote>
                   <div className="story-foot">

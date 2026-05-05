@@ -309,7 +309,10 @@ function MemberApplications({ isKo, c }) {
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
-                <div style={{padding:'4px 10px',borderRadius:999,background:a.status === 'paid' ? '#DCFCE7' : '#E0E7FF',color:a.status === 'paid' ? 'var(--state-success)' : '#3730A3',fontSize:12,fontWeight:700,display:'inline-block'}}>
+                <div style={{padding:'4px 10px',borderRadius:999,
+                  background: a.status === 'paid' ? 'var(--state-success-bg)' : 'var(--state-info-bg)',
+                  color:      a.status === 'paid' ? 'var(--state-success)'    : 'var(--state-info)',
+                  fontSize:12,fontWeight:700,display:'inline-block'}}>
                   {a.status === 'paid' ? (isKo ? '결제 완료' : 'PAID') : (a.status || '').toUpperCase()}
                 </div>
                 {a.amount > 0 && <div style={{fontSize:18,fontWeight:700,marginTop:8}}>${a.amount}.00</div>}
@@ -501,7 +504,7 @@ function MemberRecommendations({ isKo, c, go }) {
           return (
             <article key={i} className="prog" onClick={() => go('program', p.id)}
               role="button" tabIndex="0">
-              <div className="prog-media" style={{'--c1': p.color, '--c2': '#4D006E', '--accent': p.accent}} aria-hidden="true">
+              <div className="prog-media" style={{'--c1': p.color, '--c2': 'var(--midnight-purple)', '--accent': p.accent}} aria-hidden="true">
                 <i data-lucide={p.icon} width="44" height="44" strokeWidth="1.5" className="prog-icon"></i>
                 <div className="prog-chips">
                   <span className="pc">{Math.round(rec.match * 100)}% {isKo ? '일치' : 'match'}</span>

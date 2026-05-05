@@ -72,7 +72,7 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160 }) {
         onChange={e => onChange && onChange(e.target.value)}
         placeholder={(placeholder || '') + ' (loading editor…)'}
         rows={6}
-        style={{width:'100%',padding:12,border:'1px solid #ddd',borderRadius:10,fontFamily:'inherit'}}
+        style={{width:'100%',padding:12,border:'1px solid var(--border-default)',borderRadius:10,fontFamily:'inherit',background:'var(--bg-elevated)',color:'var(--fg-primary)'}}
         lang={lang}
       />
     );

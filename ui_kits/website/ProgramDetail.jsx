@@ -29,7 +29,7 @@ function ProgramDetail({ go, lang, programId, c }) {
 
   return (
     <div data-screen-label="Program Detail">
-      <div className="pd-header" style={{'--c1': p.color, '--c2': '#4D006E'}}>
+      <div className="pd-header" style={{'--c1': p.color, '--c2': 'var(--midnight-purple)'}}>
         <div className="inner">
           <div className="pd-back" onClick={() => go('programs')}
             role="button" tabIndex="0"

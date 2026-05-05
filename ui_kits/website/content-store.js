@@ -105,10 +105,13 @@
       en: { kicker: 'PARTNERS', title: 'Built on a trusted network.',   sub: 'DreamPath operates with partner universities, global scout organizations, and supporting institutions.' },
     },
     partners: [
-      { name: 'CUFS',  full: '사이버한국외국어대학교',                  role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University', color: '#4D006E' },
-      { name: 'WOSM',  full: 'World Organization of the Scout Movement', role_ko: '글로벌 네트워크',       role_en: 'Global network',             color: '#622599' },
-      { name: 'APR',   full: 'Asia-Pacific Region Scout',                role_ko: '지역 네트워크',         role_en: 'Regional network',           color: '#0094B4' },
-      { name: 'NSOs',  full: 'National Scout Organizations',             role_ko: '국가별 추천 기관',      role_en: 'National endorsement',       color: '#248737' },
+      // logo: optional URL or data URL — rendered in the home "partner
+      // strip" and on /partners cards. When empty, falls back to the
+      // stylized "name" text on a colored chip background.
+      { name: 'CUFS',  full: '사이버한국외국어대학교',                  role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University', color: '#4D006E', logo: '' },
+      { name: 'WOSM',  full: 'World Organization of the Scout Movement', role_ko: '글로벌 네트워크',       role_en: 'Global network',             color: '#622599', logo: '' },
+      { name: 'APR',   full: 'Asia-Pacific Region Scout',                role_ko: '지역 네트워크',         role_en: 'Regional network',           color: '#0094B4', logo: '' },
+      { name: 'NSOs',  full: 'National Scout Organizations',             role_ko: '국가별 추천 기관',      role_en: 'National endorsement',       color: '#248737', logo: '' },
     ],
     stories_section: {
       ko: { kicker: 'STORIES', title: '먼저 걸어간 사람들.' },

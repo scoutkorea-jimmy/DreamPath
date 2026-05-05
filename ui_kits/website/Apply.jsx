@@ -1,6 +1,44 @@
 // Helper used by both Apply state init and the Step2 list controls.
 function blankRecommender() {
-  return { name: '', email: '', phone: '', member_country: '', training_level: '', letter_filename: '' };
+  return { name: '', email: '', phone: '', member_country: '', training_level: '', letter_file: null };
+}
+
+// Upload a single file to /api/applications/upload → returns { id, filename,
+// size, mime, r2_key } on success. Caps + MIME whitelisted server-side; this
+// helper just shuttles the bytes as base64. Used by the Apply form's
+// transcript + per-recommender PDF pickers.
+async function uploadApplyFile(file, kind, recommenderIdx) {
+  if (!file) return null;
+  const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+  if (file.type && !allowed.includes(file.type)) throw new Error('PDF / 이미지만 가능합니다.');
+  if (file.size > 10 * 1024 * 1024) throw new Error('최대 10MB.');
+  const b64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const dataUrl = String(r.result || '');
+      // Strip the "data:<mime>;base64," prefix.
+      const i = dataUrl.indexOf(',');
+      res(i >= 0 ? dataUrl.slice(i + 1) : dataUrl);
+    };
+    r.onerror = () => rej(new Error('읽기 실패'));
+    r.readAsDataURL(file);
+  });
+  const res = await fetch('/api/applications/upload', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      kind,
+      recommender_idx: recommenderIdx,
+      filename: file.name,
+      mime: file.type || 'application/pdf',
+      content_base64: b64,
+    }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || ('http_' + res.status));
+  }
+  return await res.json();
 }
 
 // Apply.jsx — 4-step application:
@@ -46,6 +84,9 @@ function Apply({ lang, c }) {
     country: '',
     prior_school: '', prior_major: '', prior_gpa: '',
     transcript_note: '',
+    // Real PDF upload for the transcript (optional). { id, filename, size }
+    // when present. Submitted as part of file_ids[].
+    transcript_file: null,
     // step 3 — essays + scout recommenders (>=3)
     essay_title: '', essay_body: '',
     essay_title_2: '', essay_body_2: '',
@@ -117,12 +158,23 @@ function Apply({ lang, c }) {
       const headers = { 'content-type': 'application/json' };
       const tk = window.DreamPathAuth && window.DreamPathAuth.token;
       if (tk) headers['authorization'] = 'Bearer ' + tk;
+      // Collect uploaded file ids — transcript + each recommender's letter.
+      // Worker submitApplication() adopts these rows by setting their
+      // application_id once the new application is committed.
+      const file_ids = [];
+      if (form.transcript_file && form.transcript_file.id) file_ids.push(form.transcript_file.id);
+      (form.recommenders || []).forEach(r => {
+        if (r && r.letter_file && r.letter_file.id) file_ids.push(r.letter_file.id);
+      });
       const payload = {
         ...form,
         recommenders_json: JSON.stringify(form.recommenders || []),
+        file_ids,
         lang,
       };
       delete payload.recommenders;
+      delete payload.transcript_file;        // not a column on applications
+      // recommenders_json now carries letter_file metadata per recommender.
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers,
@@ -253,7 +305,7 @@ function Apply({ lang, c }) {
 
             {step === 0 && <ConsentStep form={form} setForm={setForm} isKo={isKo} c={c} openDoc={d => setDocOpen(d)} />}
             {step === 1 && <Step0 form={form} upd={upd} isKo={isKo} />}
-            {step === 2 && <Step1 form={form} upd={upd} isKo={isKo} />}
+            {step === 2 && <Step1 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
             {step === 3 && <Step2 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
             {step === 4 && <Step3 form={form} setForm={setForm} upd={upd} isKo={isKo} c={c} amount={amount} />}
 
@@ -353,7 +405,7 @@ function Step0({ form, upd, isKo }) {
   );
 }
 
-function Step1({ form, upd, isKo }) {
+function Step1({ form, setForm, upd, isKo }) {
   return (
     <>
       <p className="apply-desc">{isKo
@@ -387,9 +439,38 @@ function Step1({ form, upd, isKo }) {
       <div className="field">
         <label>{isKo ? '학력 증명서 메모' : 'Transcript note'}</label>
         <textarea rows="3" value={form.transcript_note} onChange={upd('transcript_note')}
-          placeholder={isKo ? '업로드 대신 메모로 입력하세요. 정식 서류는 이후 이메일로 요청됩니다.' : "Note here; we'll request the official transcript by email later."} />
+          placeholder={isKo ? 'PDF가 없으면 메모로 입력하세요.' : 'Notes here if you cannot attach a PDF.'} />
       </div>
+      <TranscriptUpload form={form} setForm={setForm} isKo={isKo} />
     </>
+  );
+}
+
+function TranscriptUpload({ form, setForm, isKo }) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  async function onPick(e) {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    setBusy(true); setErr('');
+    try {
+      const meta = await uploadApplyFile(f, 'transcript', null);
+      setForm({ ...form, transcript_file: meta });
+    } catch (ex) { setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed')); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="field">
+      <label>{isKo ? '학력 증명서 첨부 (PDF · 이미지, 선택)' : 'Transcript file (PDF / image, optional)'}</label>
+      <input type="file" accept="application/pdf,image/*" onChange={onPick} disabled={busy} style={{padding:'8px 0'}} />
+      {busy && <span className="hint">{isKo ? '업로드 중…' : 'Uploading…'}</span>}
+      {!busy && form.transcript_file && (
+        <span className="hint" style={{color:'var(--state-success)'}}>✓ {form.transcript_file.filename} ({Math.round(form.transcript_file.size/1024)} KB)</span>
+      )}
+      {err && <span className="hint" style={{color:'var(--state-danger)'}}>{err}</span>}
+      <span className="hint">{isKo ? '최대 10MB. PDF · PNG · JPEG · WebP.' : 'Max 10 MB. PDF / PNG / JPEG / WebP.'}</span>
+    </div>
   );
 }
 
@@ -458,12 +539,19 @@ function Step2({ form, setForm, upd, isKo }) {
 
 function RecommenderCard({ index, rec, isKo, onChange, onRemove }) {
   const set = (k, v) => onChange({ ...rec, [k]: v });
-  function onPdf(e) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+  async function onPdf(e) {
     const f = e.target.files && e.target.files[0];
+    e.target.value = '';
     if (!f) return;
-    if (f.type && f.type !== 'application/pdf') { alert(isKo ? 'PDF만 가능' : 'PDF only.'); e.target.value = ''; return; }
-    if (f.size > 10 * 1024 * 1024) { alert(isKo ? '최대 10MB' : 'Max 10MB.'); e.target.value = ''; return; }
-    set('letter_filename', f.name + ' (' + Math.round(f.size/1024) + ' KB)');
+    setBusy(true); setErr('');
+    try {
+      const meta = await uploadApplyFile(f, 'recommendation', index);
+      set('letter_file', meta);   // { id, filename, size, mime, r2_key }
+    } catch (ex) {
+      setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed'));
+    } finally { setBusy(false); }
   }
   return (
     <div style={{background:'var(--bg-muted)',borderRadius:14,padding:'18px 20px',marginBottom:14}}>
@@ -523,10 +611,12 @@ function RecommenderCard({ index, rec, isKo, onChange, onRemove }) {
         </div>
         <div className="field">
           <label>{isKo ? '추천서 (PDF, 선택)' : 'Recommendation letter (PDF, optional)'}</label>
-          <input type="file" accept="application/pdf" onChange={onPdf} style={{padding:'10px 0'}} />
-          {rec.letter_filename && (
-            <span className="hint" style={{color:'var(--state-success)'}}>✓ {rec.letter_filename}</span>
+          <input type="file" accept="application/pdf,image/*" onChange={onPdf} disabled={busy} style={{padding:'8px 0'}} />
+          {busy && <span className="hint">{isKo ? '업로드 중…' : 'Uploading…'}</span>}
+          {!busy && rec.letter_file && (
+            <span className="hint" style={{color:'var(--state-success)'}}>✓ {rec.letter_file.filename} ({Math.round(rec.letter_file.size/1024)} KB)</span>
           )}
+          {err && <span className="hint" style={{color:'var(--state-danger)'}}>{err}</span>}
         </div>
       </div>
     </div>

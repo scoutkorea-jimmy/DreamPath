@@ -48,6 +48,30 @@ function Home({ go, lang, c }) {
         </div>
       </section>
 
+      {/* PARTNER STRIP — quiet trust band between "How" and "Programs".
+          Each chip links to /partners. Logo image when available; stylized
+          name fallback otherwise so the band stays present even before the
+          operator uploads logos. */}
+      {Array.isArray(c.partners) && c.partners.length > 0 && (
+        <section className="partner-strip" aria-label={isKo ? '파트너' : 'Partners'}>
+          <div className="container">
+            <div className="partner-strip-kicker">{isKo ? '신뢰받는 파트너 네트워크' : 'TRUSTED PARTNER NETWORK'}</div>
+            <div className="partner-strip-row">
+              {c.partners.map((p, i) => (
+                <button key={i} type="button" className="partner-chip"
+                  onClick={() => go('partners')}
+                  title={p.full || p.name}
+                  aria-label={(isKo ? p.role_ko : p.role_en) || p.name}>
+                  {p.logo
+                    ? <img src={p.logo} alt={p.name} loading="lazy" />
+                    : <span className="partner-chip-text" style={{'--c': p.color || 'var(--scouting-purple)'}}>{p.name}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* PROGRAMS TEASER */}
       <section className="section" style={{background:'var(--bg-muted)'}} data-screen-label="Programs teaser" aria-labelledby="programs-title">
         <div className="container">

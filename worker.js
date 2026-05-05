@@ -461,6 +461,78 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Application file uploads ────────────────────────────────────────────
+  // POST /api/applications/upload — public endpoint, accepts a single file
+  // (PDF / image) base64-encoded and stores it in R2. Returns { id, r2_key,
+  // filename, size }. The Apply form bundles these refs into the application
+  // payload on submit so the file is linked once the row is committed.
+  // Cap: 10 MB per file, 4 files per minute per IP (loose; KV-less limiter).
+  if (path === '/api/applications/upload' && method === 'POST') {
+    if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const application_id = String(body.application_id || '').slice(0, 64);
+    const kind = String(body.kind || '').toLowerCase();
+    const allowedKinds = ['transcript', 'recommendation', 'portfolio', 'id_doc'];
+    if (!allowedKinds.includes(kind)) return json({ error: 'invalid_kind' }, 400);
+    const recommender_idx = body.recommender_idx != null ? Math.max(0, Math.min(20, parseInt(body.recommender_idx, 10) || 0)) : null;
+    const filename = String(body.filename || 'upload.pdf').slice(0, 200);
+    const mime     = String(body.mime || 'application/pdf').slice(0, 100);
+    const b64      = String(body.content_base64 || '').replace(/\s/g, '');
+    if (!b64) return json({ error: 'empty_file' }, 400);
+    // Restrict to PDF + common image types — guards against random uploads.
+    const allowedMimes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedMimes.includes(mime)) return json({ error: 'unsupported_mime', allowed: allowedMimes }, 415);
+    let bytes;
+    try { const bin = atob(b64); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+    catch { return json({ error: 'invalid_base64' }, 400); }
+    const MAX = 10 * 1024 * 1024;
+    if (bytes.byteLength > MAX) return json({ error: 'file_too_large', max_bytes: MAX }, 413);
+    // R2 key — use a temp folder when application_id missing (form-time
+    // upload before the application row exists). The Apply submit flow
+    // hands us the real id and we link via DB row.
+    const safe = filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
+    const folder = application_id || ('drafts/' + new Date().toISOString().slice(0, 10));
+    const key = `apps/${folder}/${kind}${recommender_idx != null ? '-' + recommender_idx : ''}/${Date.now()}-${safe}`;
+    try {
+      await env.ATTACHMENTS.put(key, bytes, { httpMetadata: { contentType: mime } });
+    } catch (e) {
+      return json({ error: 'r2_put_failed', detail: String(e.message || e).slice(0, 200) }, 500);
+    }
+    const ts = new Date().toISOString();
+    const ins = await env.DB.prepare(
+      'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key).run();
+    return json({ ok: true, id: ins.meta?.last_row_id, r2_key: key, filename, mime, size: bytes.byteLength });
+  }
+  // GET admin: list files attached to an application.
+  const appFilesM = path.match(/^\/api\/admin\/applications\/([A-Z0-9_-]+)\/files$/);
+  if (appFilesM && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const aid = appFilesM[1];
+    const { results } = await env.DB.prepare(
+      'SELECT id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key FROM application_files WHERE application_id = ? ORDER BY id ASC'
+    ).bind(aid).all();
+    return json({ items: results || [] });
+  }
+  // Download proxy — gates R2 fetch behind admin auth.
+  const appFileDLM = path.match(/^\/api\/admin\/application-files\/(\d+)\/download$/);
+  if (appFileDLM && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    const f = await env.DB.prepare('SELECT * FROM application_files WHERE id = ?').bind(parseInt(appFileDLM[1], 10)).first();
+    if (!f) return json({ error: 'not_found' }, 404);
+    const obj = await env.ATTACHMENTS.get(f.r2_key);
+    if (!obj) return json({ error: 'gone' }, 410);
+    return new Response(obj.body, {
+      headers: {
+        'content-type': f.mime || 'application/octet-stream',
+        'content-disposition': `attachment; filename="${encodeURIComponent(f.filename || 'file')}"`,
+        'content-length': String(f.size || 0),
+      },
+    });
+  }
+
   // Bulk operations on applications. Body: { ids: [...], op: 'delete' | 'status', status?: '...' }
   // Replaces having to PATCH/DELETE one row at a time when triaging dozens.
   if (path === '/api/applications/bulk' && method === 'POST') {
@@ -2662,6 +2734,23 @@ async function submitApplication(request, env) {
   const placeholders = cols.map(() => '?').join(',');
   const sql = `INSERT INTO applications (${cols.join(',')}) VALUES (${placeholders})`;
   await env.DB.prepare(sql).bind(...values).run();
+
+  // Link any pre-uploaded files (uploaded via /api/applications/upload before
+  // the application row existed). The file ids are passed in the submit body
+  // as `file_ids: [int, ...]`. We only adopt rows whose application_id is
+  // still empty so a malicious actor can't claim someone else's already-
+  // linked files.
+  if (Array.isArray(body.file_ids)) {
+    for (const fid of body.file_ids.slice(0, 50)) {
+      const n = parseInt(fid, 10);
+      if (!Number.isFinite(n)) continue;
+      try {
+        await env.DB.prepare(
+          "UPDATE application_files SET application_id = ? WHERE id = ? AND (application_id IS NULL OR application_id = '')"
+        ).bind(id, n).run();
+      } catch {}
+    }
+  }
 
   // Best-effort confirmation email. Non-blocking — swallow failures so the
   // submitter still sees the success screen.

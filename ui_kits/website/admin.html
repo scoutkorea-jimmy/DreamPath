@@ -1564,10 +1564,19 @@
                 <Text label="Role (KO)" value={p.role_ko} onChange={v => set(['partners',i,'role_ko'], v)} lang="ko" />
                 <Text label="Role (EN)" value={p.role_en} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
                 <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
+                <ImageUploadField
+                  label="Logo"
+                  value={p.logo || ''}
+                  onChange={v => set(['partners',i,'logo'], v)}
+                  accept="image/svg+xml,image/png,image/jpeg,image/webp"
+                  maxBytes={500 * 1024}
+                  preview="square"
+                  hint="홈 파트너 띠와 /partners 페이지에 표시됩니다. SVG 권장. 비우면 이름 텍스트로 대체."
+                />
               </div>
             </div>
           ))}
-          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#622599' })}>+ Add partner</button>
+          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#622599', logo: '' })}>+ Add partner</button>
         </div>
       </>
     );
@@ -6796,6 +6805,9 @@
                     <Row k="Last 4">•••• {selected.card_last4}</Row>
                   </>
                 )}
+
+                <h4 className="app-sec">Attached files</h4>
+                <AppFilesPanel applicationId={selected.id} />
               </div>
 
               <div className="app-modal-foot">
@@ -6805,6 +6817,54 @@
           </div>
         )}
       </>
+    );
+  }
+
+  // AppFilesPanel — fetches attached PDFs/images for an application and
+  // renders one row per file with a download button. Self-contained (own
+  // fetch + state) so the parent ApplicationsTab doesn't need to grow.
+  function AppFilesPanel({ applicationId }) {
+    const [items, setItems] = useState(null);   // null = loading
+    useEffect(() => {
+      if (!applicationId) { setItems([]); return; }
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      fetch('/api/admin/applications/' + encodeURIComponent(applicationId) + '/files', {
+        headers: { authorization: 'Bearer ' + tok },
+      }).then(r => r.ok ? r.json() : { items: [] })
+        .then(d => setItems(d.items || []))
+        .catch(() => setItems([]));
+    }, [applicationId]);
+    function download(file) {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      fetch('/api/admin/application-files/' + file.id + '/download', { headers: { authorization: 'Bearer ' + tok } })
+        .then(r => r.ok ? r.blob() : null)
+        .then(blob => {
+          if (!blob) return alert('Download failed');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = file.filename || 'file';
+          a.click(); URL.revokeObjectURL(url);
+        });
+    }
+    if (items === null) return <div style={{padding:'8px 0',color:'var(--fg-muted)',fontSize:13}}>불러오는 중…</div>;
+    if (!items.length) return <div style={{padding:'8px 0',color:'var(--fg-muted)',fontSize:13,fontStyle:'italic'}}>첨부 파일이 없습니다.</div>;
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:4}}>
+        {items.map(f => {
+          const kindLabel = { transcript: '학력증명서', recommendation: `추천서 #${(f.recommender_idx ?? 0) + 1}`, portfolio: '포트폴리오', id_doc: '신분증' }[f.kind] || f.kind;
+          return (
+            <button key={f.id} type="button" onClick={() => download(f)}
+              style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8,cursor:'pointer',font:'inherit',color:'inherit',textAlign:'left'}}>
+              <i data-lucide="paperclip" width="14" height="14" style={{color:'var(--fg-muted)'}} />
+              <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-secondary)',fontSize:11}}>{kindLabel}</span>
+              <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>{f.filename}</span>
+              <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{f.mime}</span>
+              <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{Math.round((f.size || 0)/1024)} KB</span>
+              <span style={{color:'var(--brand-text)'}}>↓</span>
+            </button>
+          );
+        })}
+      </div>
     );
   }
 

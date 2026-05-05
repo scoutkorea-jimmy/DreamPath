@@ -2,7 +2,7 @@
 
 > **Read this whenever you (or Claude) sit down to code on KoreaDreamPath.**
 > Always read `CLAUDE.md` first; this file is the prioritized backlog.
-> Last full audit: **2026-05-04**.
+> Last full audit: **2026-05-05**.
 
 ## How to use this file
 
@@ -18,134 +18,84 @@
 
 These are wrong on production right now.
 
-- [ ] **About page regressed to hardcoded text.** User pasted a new
-      About.jsx that no longer reads `c.about`. The admin "About page"
-      tab still edits `c.about` but nothing on the public site renders
-      those edits. **Fix:** wire the new Executive Summary structure
-      back to `c.about` (preserve the new shape, but read every string
-      from schema with the current English copy as fallback). Or remove
-      the admin tab.
-      *Files:* `ui_kits/website/About.jsx`, admin AboutTab.
-
-- [ ] **Worker doesn't accept `HEAD`.** Health monitors, some crawlers,
-      and `curl -I` use HEAD; we currently 404 / 405 them. **Fix:** in
-      `worker.js`, treat HEAD as GET (call the GET handler, return the
-      response with body stripped — or just `if (method === 'HEAD')
-      method = 'GET'` early). Also CORS for OPTIONS preflight on every
-      `/api/public/*` endpoint.
-      *Files:* `worker.js`.
-
-- [ ] **No mobile nav.** Below 900px the nav links are hidden and there
-      is no hamburger replacement, so mobile visitors can't navigate.
-      **Fix:** add a hamburger button + slide-in panel that uses the
-      same MENU structure as desktop (incl. dropdown groups).
-      *Files:* `ui_kits/website/Nav.jsx`, `ui_kits/website/site.css`.
-
-- [ ] **Top notice banner shows even on `/admin`** because admin.html
-      doesn't render `<App>`. Confirm the banner only appears on the
-      public SPA. (Likely already true — re-verify and document in KMS.)
-
-- [ ] **Inline color hex** in `Member.jsx`, `Auth.jsx` (e.g. `#888`,
-      `#666`, `#B91C1C`, `#248737`). Replace with `var(--fg-muted)`,
-      `var(--state-danger)`, `var(--state-success)`. (Tokens-first rule
-      from `CLAUDE.md`.)
-      *Files:* `ui_kits/website/Member.jsx`, `ui_kits/website/Auth.jsx`.
+_All open P0s as of v01.009.00 are now fixed. New regressions land here._
 
 ---
 
 ## P1 — important: ship within the next round of work
 
-Stuff users will ask about soon if we don't do it.
+Items here all require an external decision (provider, secret, account).
+The code-side scaffolding is already in place — see notes below for what
+each task still needs from a human.
 
-- [ ] **Email verification on signup.** Currently anyone can sign up
-      with an email they don't own. Add a verification link sent on
-      signup; gate `apply` and other write actions until verified.
-      Probably needs a transactional-email integration (Cloudflare
-      Email Workers + a relay, or Mailgun / Resend).
+- [ ] **Wire the email-send pipeline.** v01.012.00 mints verify /
+      password-reset tokens and stores admin-editable templates, but
+      there's no SMTP. **Decide on Mailgun / Resend / Cloudflare Email
+      Workers**, register API key as a worker secret, replace the
+      `dev_note` token-in-response with a real send, and remove the
+      dev-mode link banner on `/reset-password`. Templates already
+      live at admin → Setup → Email templates.
 
-- [ ] **Password reset flow.** No way to recover a forgotten password.
+- [ ] **Real payment integration.** Apply step 4 still records last 4
+      digits with no charge. **Decide on Stripe / Toss / KakaoPay /
+      PortOne** based on the launch market, register secret, add
+      webhook → mark application as paid, attach real transaction id
+      to receipt.
 
-- [ ] **Real payment integration.** Apply form takes the last 4 digits
-      of a card but doesn't actually charge. Decide on Stripe / Toss /
-      KakaoPay / PortOne; integrate in step 4. Receipt should reflect
-      the real transaction id.
+- [ ] **PDF upload for scout recommender letters.** v01.005.00 captures
+      filename only. **Create a Cloudflare R2 bucket**, add `R2_BUCKET`
+      binding to wrangler.jsonc, add `/api/me/upload` presigned URL
+      endpoint, store the R2 key on the recommender object.
 
-- [ ] **PDF upload for scout recommender letters.** Currently we store
-      the filename only — the file itself never reaches us. Wire to R2:
-      add `R2_BUCKET` binding, presigned upload URL, store the R2 key
-      on the recommender object.
+- [ ] **Receipt PDF.** Receipt page is print-only HTML. Cloudflare
+      Workers can't render PDF natively — pick a service (DocRaptor /
+      htmlcsstoimage / Gotenberg on a separate runtime) and add
+      `/api/applications/:id/receipt.pdf` that proxies the print HTML.
 
-- [ ] **News post detail URLs.** Each news post is editable inline but
-      has no shareable URL. Add `/news/:id` route + Pages.jsx detail
-      view. Update sitemap to include each post.
-
-- [ ] **Per-route SEO meta.** Right now every SPA route serves the same
-      `<title>`, description, and OG tags (the home set). For Programs
-      / Apply / News we want per-page meta. Options:
-      (a) Worker rewrites the HTML head per friendly URL,
-      (b) generate static per-route HTML in build,
-      (c) keep SPA but add `<head>` updates via `useEffect` for human
-      visitors and rely on Worker for crawlers (cf-bot detection).
-
-- [ ] **Admin token rotation reminder.** Site is open with a weak token
-      ("admin"). Before public launch, rotate to a 64-char secret:
+- [ ] **Rotate ADMIN_TOKEN before public launch.** Currently `admin`.
       `printf "$(node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\")" | wrangler secret put ADMIN_TOKEN`.
-
-- [ ] **Apply form persistence.** A user halfway through Apply who hits
-      refresh loses everything. Save form state to sessionStorage on
-      every change, restore on mount.
-
-- [ ] **Receipt PDF.** Currently the Receipt page is browser-print only.
-      Add a real PDF endpoint (`/api/applications/:id/receipt.pdf`)
-      using `@cloudflare/pdf` or html-to-pdf service.
 
 ---
 
 ## P2 — nice to have
 
-- [ ] **OAuth login** (Google / Kakao / Apple).
+- [ ] **OAuth login** (Google / Kakao / Apple). Each provider needs an
+      app registration → client_id / client_secret as worker secrets
+      → /api/auth/oauth/:provider/callback.
 - [ ] **Multi-currency receipts** (currently USD-only).
-- [ ] **Per-program category metadata in admin.** Right now category
-      is implied from the kicker first segment. Make it an explicit
-      `category` field with admin-editable list (so KO display name
-      can differ from the URL slug).
-- [ ] **Apply autosave to D1 as draft** (not just sessionStorage).
-      Lets a user start on phone and finish on laptop.
-- [ ] **Bulk admin actions on Applications + Inquiries** (mark read,
-      bulk export, status change).
-- [ ] **Email templates** (admin-editable in c.email.*).
-- [ ] **Admin role granularity** beyond single ADMIN_TOKEN — e.g.
-      separate "content editor", "applications viewer", "developer"
-      roles via member.role + per-role allowed APIs.
+- [ ] **Admin role granularity** — extend `c.member_roles` schema to
+      support "content editor" / "applications viewer" / "developer"
+      role presets. The matrix UI is already in admin → Members →
+      Roles & permissions.
 - [ ] **ProgramEditor tabbed sections** (Basic / Logistics / Instructor /
-      Content / SEO) — currently one long scroll.
+      Content / SEO) — currently one long scroll. Cosmetic; works as-is.
 - [ ] **News editor admin tab back as power option** for bulk edits;
-      keep the on-page inline editor too.
-- [ ] **Stories detail page** (each `c.stories[]` entry as its own
-      shareable URL).
-- [ ] **Dark mode** for the public site (admin already gradient-purple).
-- [ ] **a11y audit** — focus rings on every clickable element, semantic
-      landmarks, alt text on every `<img>`. Run axe.
-- [ ] **i18n: add Japanese / Vietnamese** (current schema is KO+EN only).
+      the on-page inline editor stays.
+- [ ] **a11y audit** — run axe / Lighthouse, address every blocker.
+      Focus rings + landmarks + alt text are mostly there but worth a
+      systematic pass.
+- [ ] **i18n: add Japanese / Vietnamese.** Current schema has KO/EN
+      paired keys (`*_ko` / `*_en` everywhere). Adding a third language
+      means either adding `*_jp` / `*_vn` companions to every paired
+      key or migrating to a `translations[lang]` object. Do it once the
+      translation team has copy ready — schema change is mechanical.
 
 ---
 
 ## P3 — icebox / dead schema to clean up
 
-- [ ] **`partners_section` / `stories_section`** schema is admin-editable
-      but never rendered. Decide: bring them onto the home page as
-      teaser sections, or delete from schema + admin tabs.
-- [ ] **`copy.js`** (192 lines) is partially redundant with
-      `content-store.js`. Audit which globals are still read; remove
-      the rest. Goal: zero references → delete the file.
-- [ ] **`PrintAll.jsx`** + `index-print.html` are not linked anywhere.
-      Either link from admin or delete.
-- [ ] **Hardcoded English fallback in About.jsx** (and its inline copy)
-      should move into `c.about` once P0 #1 is fixed.
+- [ ] **`partners_section` / `stories_section`** schema still in
+      DEFAULT_CONTENT but never rendered. Admin doesn't expose them;
+      harmless. Remove from `content-store.js` defaults next time the
+      blob is otherwise touched.
+- [ ] **`copy.js`** is still load-bearing as the fallback for
+      `window.PARTNERS` / `STORIES` / `FAQ` when KV is empty. Decide:
+      either inline the fallback into `Pages.jsx` or remove the
+      fallback entirely once the KV blob is guaranteed in prod.
 
 ---
 
-## P4 — operational / one-shot
+## P4 — operational / one-shot (see KMS · 8. 운영 체크리스트 for the full list)
 
 These don't need code changes but should be done by a human.
 
@@ -153,11 +103,12 @@ These don't need code changes but should be done by a human.
 - [ ] **Set up DPA & ROPA records** for GDPR (Records of Processing).
 - [ ] **Register sitemap.xml** with Google Search Console + Naver
       Search Advisor.
-- [ ] **Add `og:image`** asset (currently no OG image).
+- [ ] **Add a real `og:image`** asset (admin → Setup → OG / SEO images).
 - [ ] **Set up Cloudflare alerts** on Worker error rate + D1 query
       latency.
 - [ ] **Backup policy**: schedule a weekly `wrangler d1 export` of
-      `dreampath-db` to R2 or external storage.
+      `dreampath-db` to R2 or external storage. Same for KV blob via
+      admin → JSON 내보내기.
 - [ ] **Dependency audit cadence**: re-pin React / Babel / Lucide /
       TipTap quarterly.
 
@@ -168,6 +119,21 @@ These don't need code changes but should be done by a human.
 Closed items, newest first. Add a row whenever you finish something
 above. Mirror to KMS Change log as well.
 
+- 2026-05-05 · v01.012.00 · Email verification + password reset + apply
+  draft sync (server-side). Templates editable in admin. SMTP wiring
+  pending.
+- 2026-05-05 · v01.011.00 · Bulk admin actions (apps + inquiries) +
+  email templates schema + Inquiries CSV export.
+- 2026-05-05 · v01.010.00 · News + Stories detail URLs (/news/:id,
+  /stories/:id), per-program category metadata, dynamic sitemap,
+  PrintAll.jsx + index-print.html removed.
+- 2026-05-04 · v01.009.00 · About page rewired to c.about.exec, HEAD
+  method support, mobile hamburger nav, Apply form sessionStorage
+  draft persistence.
+- 2026-05-04 · v01.006-08 · Dark mode + colorblind palette + WCAG AA,
+  collapsible sidebar, inquiry-category CRUD, dynamic footer menu,
+  per-route OG meta, version system, dashboard, member CRUD, role
+  enforcement, error-resolve toggle.
 - 2026-05-04 · GDPR consent system, error logs, public CORS APIs,
   Scholarships menu, About Executive Summary, Legal admin tab, API
   directory tab, Member privacy controls.

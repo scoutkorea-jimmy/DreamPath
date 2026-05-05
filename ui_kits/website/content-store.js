@@ -780,7 +780,7 @@
             { label_ko: '개인정보 처리방침',   label_en: 'Privacy (signup)',          icon: 'shield',     kind: 'legal', target: 'privacy_signup' },
             { label_ko: '지원시 개인정보 동의', label_en: 'Privacy (apply)',          icon: 'shield',     kind: 'legal', target: 'privacy_apply' },
             { label_ko: '제3자 제공 동의',     label_en: 'Third-party data sharing',  icon: 'share-2',    kind: 'legal', target: 'third_party' },
-            { label_ko: '분석 / 추적 동의',    label_en: 'Analytics / tracking',      icon: 'bar-chart-3', kind: 'legal', target: 'analytics' },
+            { label_ko: '분석 / 추적 동의',    label_en: 'Analytics / tracking',      icon: 'bar-chart-3', kind: 'legal', target: 'analytics_cookies' },
           ],
         },
       ],

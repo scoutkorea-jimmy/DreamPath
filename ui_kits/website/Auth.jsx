@@ -234,7 +234,21 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               <input type="text" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
             </label>
           )}
-          {window.EmailField
+          {/* Login uses a plain single-field email input with no autofill so
+              the operator types it fresh; signup keeps the split id+domain
+              EmailField to reduce typos when creating a new account. */}
+          {mode === 'login' ? (
+            <label className="auth-field">
+              <span>{isKo ? '이메일' : 'Email'}</span>
+              <input type="email" required value={email}
+                onChange={e => setEmail(e.target.value.trim().toLowerCase())}
+                name="dp-login-email"
+                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+              <span style={{fontSize:12,color:'var(--fg-muted)',marginTop:4,display:'block'}}>
+                {isKo ? '이메일 형식으로 입력해 주세요.' : 'Enter in email format.'}
+              </span>
+            </label>
+          ) : window.EmailField
             ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={email} onChange={setEmail} required lang={lang} autoComplete="email" />
             : (
               <label className="auth-field">
@@ -255,7 +269,8 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
             <span>{isKo ? '비밀번호' : 'Password'}</span>
             <input type="password" required minLength={mode === 'signup' ? 10 : undefined}
               value={password} onChange={e => setPassword(e.target.value)}
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+              name={mode === 'login' ? 'dp-login-password' : 'dp-signup-password'}
+              autoComplete={mode === 'signup' ? 'new-password' : 'off'} />
           </label>
           {mode === 'signup' && <PasswordRules pw={password} isKo={isKo} />}
           {mode === 'signup' && (

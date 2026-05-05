@@ -63,8 +63,150 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
-  }
+  },
+
+  // Cloudflare Email Workers entry point. Triggered by an Email Routing rule
+  // pointing at this worker (configured in the dashboard, NOT in code). The
+  // operator must enable Email Routing for koreadreampath.com and add a rule
+  // per managed address (hello@, partner@, info@ → "Send to a Worker" →
+  // dream-path). Without those rules this handler simply never runs.
+  async email(message, env, ctx) {
+    try {
+      const subject    = decodeRFC2047(message.headers.get('subject') || '');
+      const messageId  = message.headers.get('message-id') || '';
+      const inReplyTo  = message.headers.get('in-reply-to') || '';
+      const fromName   = parseDisplayName(message.from || '');
+      const fromAddr   = parseEmailAddress(message.from || '');
+      // Read the raw RFC 822 message into memory. CF caps email size at
+      // ~25 MB so this is safe.
+      const raw = await readEmailRaw(message.raw);
+      const { text, html } = extractBody(raw);
+      const ts = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        ts, message.to, fromAddr, fromName, subject || '(no subject)',
+        text || '', html || '', message.rawSize || raw.length,
+        messageId, inReplyTo
+      ).run();
+    } catch (err) {
+      // Don't reject the message — that bounces it back to the sender.
+      // Log instead so we can debug.
+      ctx.waitUntil(logError(env, {
+        level: 'error', source: 'email_worker',
+        message: 'inbound email parse/store failed: ' + (err && err.message || err),
+        stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
+        path: 'email/' + (message.to || 'unknown'),
+        method: 'EMAIL', status: 0,
+      }));
+    }
+  },
 };
+
+// ── Email parsing helpers (no npm deps; raw MIME → text/html bodies) ─────
+async function readEmailRaw(stream) {
+  const chunks = [];
+  const reader = stream.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  let total = 0; chunks.forEach(c => total += c.length);
+  const all = new Uint8Array(total); let off = 0;
+  for (const c of chunks) { all.set(c, off); off += c.length; }
+  return new TextDecoder('utf-8').decode(all);
+}
+// "John Doe <john@example.com>" → "John Doe"; bare addresses → ''.
+function parseDisplayName(addr) {
+  const m = addr.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
+  return m ? m[1].trim() : '';
+}
+function parseEmailAddress(addr) {
+  const m = addr.match(/<([^>]+)>/);
+  return (m ? m[1] : addr).trim().toLowerCase();
+}
+// Decode RFC 2047 encoded-words (=?charset?B?...?= or =?charset?Q?...?=).
+// Subject lines from non-ASCII senders are usually wrapped this way.
+function decodeRFC2047(s) {
+  if (!s) return s;
+  return s.replace(/=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi, (_, charset, enc, encoded) => {
+    try {
+      let bytes;
+      if (enc.toUpperCase() === 'B') {
+        const bin = atob(encoded);
+        bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      } else {
+        const out = [];
+        for (let i = 0; i < encoded.length; i++) {
+          const c = encoded[i];
+          if (c === '=' && i + 2 < encoded.length) {
+            out.push(parseInt(encoded.substr(i+1, 2), 16)); i += 2;
+          } else if (c === '_') out.push(0x20);
+          else out.push(encoded.charCodeAt(i));
+        }
+        bytes = new Uint8Array(out);
+      }
+      return new TextDecoder(charset).decode(bytes);
+    } catch { return _; }
+  }).replace(/\?=\s+=\?/g, '?==?');  // join adjacent encoded-words
+}
+// Extract { text, html } from a full / part RFC 822 message string. Handles
+// multipart/* recursively, decodes Content-Transfer-Encoding (base64 +
+// quoted-printable). Plain text wins as preview; html stored separately
+// for the detail view.
+function extractBody(raw) {
+  const sep = raw.indexOf('\r\n\r\n');
+  if (sep < 0) return { text: raw, html: '' };
+  const headers = raw.slice(0, sep);
+  const body    = raw.slice(sep + 4);
+
+  const ctMatch = headers.match(/^Content-Type:\s*([^\r\n]+(?:\r\n[ \t][^\r\n]+)*)/im);
+  const ct = ctMatch ? ctMatch[1].replace(/\r\n[ \t]/g, ' ').trim() : 'text/plain';
+  const ctLower = ct.toLowerCase();
+
+  if (ctLower.startsWith('multipart/')) {
+    const bMatch = ct.match(/boundary="?([^";\s]+)"?/i);
+    if (!bMatch) return { text: body.trim(), html: '' };
+    const parts = body.split('--' + bMatch[1]);
+    let text = '', html = '';
+    for (const p of parts) {
+      const trimmed = p.replace(/^\r?\n/, '');
+      if (!trimmed || trimmed.startsWith('--')) continue;
+      const inner = extractBody(trimmed);
+      if (inner.text && !text) text = inner.text;
+      if (inner.html && !html) html = inner.html;
+    }
+    return { text, html };
+  }
+
+  // Single part — decode according to Content-Transfer-Encoding.
+  const cte = (headers.match(/^Content-Transfer-Encoding:\s*([^\r\n]+)/im)?.[1] || '7bit').toLowerCase().trim();
+  let decoded = body;
+  try {
+    if (cte === 'base64') {
+      const bin = atob(body.replace(/\s/g, ''));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      decoded = new TextDecoder('utf-8').decode(bytes);
+    } else if (cte === 'quoted-printable') {
+      const collapsed = body.replace(/=\r?\n/g, '');
+      const bytes = [];
+      for (let i = 0; i < collapsed.length; i++) {
+        if (collapsed[i] === '=' && i + 2 < collapsed.length) {
+          bytes.push(parseInt(collapsed.substr(i+1, 2), 16)); i += 2;
+        } else {
+          bytes.push(collapsed.charCodeAt(i));
+        }
+      }
+      decoded = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+    }
+  } catch {}
+
+  if (ctLower.startsWith('text/html')) return { text: '', html: decoded.trim() };
+  return { text: decoded.trim(), html: '' };
+}
 
 function rewriteRequest(request, newPath) {
   const u = new URL(request.url);
@@ -283,6 +425,151 @@ async function handleApi(request, env, url) {
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
+  // ── Mailbox: inbound (Cloudflare Email Worker → D1) + outbound (Resend) ─
+  // Admin lists / reads / replies. Inbound rows arrive via the email() handler
+  // in the export default block below.
+  if (path === '/api/admin/inbox' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50',  10) || 50,  500);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',   10) || 0,   0);
+    const to     = url.searchParams.get('to') || '';
+    const q      = (url.searchParams.get('q') || '').trim().toLowerCase();
+    const onlyUnread = url.searchParams.get('unread') === '1';
+    const where = []; const binds = [];
+    if (to) { where.push('to_addr = ?'); binds.push(to.toLowerCase()); }
+    if (q)  { where.push('(LOWER(subject) LIKE ? OR LOWER(from_addr) LIKE ? OR LOWER(from_name) LIKE ? OR LOWER(body_text) LIKE ?)'); const pat = '%' + q + '%'; binds.push(pat, pat, pat, pat); }
+    if (onlyUnread) where.push('read_at IS NULL');
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM inbound_emails ' + whereSql).bind(...binds).first();
+    const { results } = await env.DB.prepare(
+      'SELECT id, ts, to_addr, from_addr, from_name, subject, ' +
+      'SUBSTR(COALESCE(body_text, body_html, \'\'), 1, 240) AS preview, ' +
+      'read_at, starred, spam, message_id, in_reply_to ' +
+      'FROM inbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
+    ).bind(...binds, limit, offset).all();
+    return json({ items: results || [], total: total?.n || 0, limit, offset });
+  }
+  const inboxItemM = path.match(/^\/api\/admin\/inbox\/(\d+)$/);
+  if (inboxItemM) {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const id = parseInt(inboxItemM[1], 10);
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT * FROM inbound_emails WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      // Auto-mark-read on first GET, mirroring user notification behaviour.
+      if (!row.read_at) {
+        const now = new Date().toISOString();
+        await env.DB.prepare('UPDATE inbound_emails SET read_at = ? WHERE id = ?').bind(now, id).run();
+        row.read_at = now;
+      }
+      return json(row);
+    }
+    if (method === 'PATCH') {
+      const body = await request.json().catch(() => ({}));
+      const sets = []; const binds = [];
+      if (typeof body.read === 'boolean')    { sets.push('read_at = ?');  binds.push(body.read ? new Date().toISOString() : null); }
+      if (typeof body.starred === 'boolean') { sets.push('starred = ?'); binds.push(body.starred ? 1 : 0); }
+      if (typeof body.spam === 'boolean')    { sets.push('spam = ?');    binds.push(body.spam ? 1 : 0); }
+      if (!sets.length) return json({ ok: true, changed: 0 });
+      binds.push(id);
+      await env.DB.prepare('UPDATE inbound_emails SET ' + sets.join(', ') + ' WHERE id = ?').bind(...binds).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  // Sent folder
+  if (path === '/api/admin/sent' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50', 10) || 50, 500);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',  10) || 0,  0);
+    const from   = url.searchParams.get('from') || '';
+    const where = []; const binds = [];
+    if (from) { where.push('from_addr = ?'); binds.push(from.toLowerCase()); }
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM outbound_emails ' + whereSql).bind(...binds).first();
+    const { results } = await env.DB.prepare(
+      'SELECT id, ts, from_addr, to_addr, subject, ' +
+      'SUBSTR(COALESCE(body_text, \'\'), 1, 240) AS preview, status, in_reply_to, resend_id ' +
+      'FROM outbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
+    ).bind(...binds, limit, offset).all();
+    return json({ items: results || [], total: total?.n || 0, limit, offset });
+  }
+  const sentItemM = path.match(/^\/api\/admin\/sent\/(\d+)$/);
+  if (sentItemM && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const row = await env.DB.prepare('SELECT * FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).first();
+    if (!row) return json({ error: 'not_found' }, 404);
+    return json(row);
+  }
+  if (sentItemM && method === 'DELETE') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    await env.DB.prepare('DELETE FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).run();
+    return json({ ok: true });
+  }
+  // Compose / reply send
+  if (path === '/api/admin/mail/send' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const fromAddr = String(body.from || '').trim().toLowerCase();
+    const toAddr   = String(body.to   || '').trim().toLowerCase();
+    const subject  = String(body.subject || '').trim();
+    const text     = String(body.body || '');
+    const inReplyTo = body.in_reply_to ? String(body.in_reply_to) : null;
+    if (!isEmail(fromAddr)) return json({ error: 'invalid_from' }, 400);
+    if (!isEmail(toAddr))   return json({ error: 'invalid_to' }, 400);
+    if (!subject)           return json({ error: 'subject_required' }, 400);
+    if (!text)              return json({ error: 'body_required' }, 400);
+    const ts = new Date().toISOString();
+
+    let sendResult = { sent: false, reason: 'no_key' };
+    let resendId = null, error = null, status = 'queued';
+    if (env.RESEND_API_KEY) {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'authorization': 'Bearer ' + env.RESEND_API_KEY,
+            'content-type':  'application/json',
+          },
+          body: JSON.stringify({
+            from: fromAddr,
+            to: [toAddr],
+            subject,
+            text,
+            html: textToHtml(text),
+            ...(inReplyTo ? { headers: { 'In-Reply-To': inReplyTo, 'References': inReplyTo } } : {}),
+          }),
+        });
+        if (r.ok) {
+          const d = await r.json().catch(() => ({}));
+          resendId = d.id || null;
+          status = 'sent';
+          sendResult = { sent: true };
+        } else {
+          status = 'failed';
+          error = ('http_' + r.status + ': ' + (await r.text().catch(() => ''))).slice(0, 500);
+          sendResult = { sent: false, reason: 'http_' + r.status, err: error };
+        }
+      } catch (e) {
+        status = 'failed';
+        error = String(e.message || e).slice(0, 500);
+        sendResult = { sent: false, reason: 'exception', err: error };
+      }
+    } else {
+      status = 'queued';
+      error = 'RESEND_API_KEY not configured — message stored as queued.';
+    }
+    await env.DB.prepare(
+      'INSERT INTO outbound_emails (ts, from_addr, to_addr, subject, body_text, in_reply_to, resend_id, status, error, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(ts, fromAddr, toAddr, subject, text, inReplyTo, resendId, status, error, 'admin').run();
+    return json({ ok: sendResult.sent, status, resend_id: resendId, error });
+  }
+
   // ── Notifications (admin → specific users, visible only on My Page) ─────
   // Admin sends to one or many user_ids; each recipient gets their own row
   // so reads + deletes don't leak across recipients.

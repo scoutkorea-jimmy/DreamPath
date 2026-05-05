@@ -128,12 +128,9 @@
     .side .actions .danger { background: rgba(255,86,85,0.18); color: #FFD2D1; }
     .side .actions .danger:hover { background: rgba(255,86,85,0.30); color: #fff; }
 
-    /* Main content */
-    .main { padding: 0 0 96px; max-width: 1440px; }
-    /* Wide-mode tabs (split-pane previews, programs board, members table, etc.)
-       lift the 1440px cap so big monitors don't waste the right half of the
-       screen. We use :has() so we don't need to plumb the wide flag up to .main. */
-    .main:has(.main-inner.wide) { max-width: none; }
+    /* Main content — admin is PC-only, always full-width.
+       The body min-width: 1280px floor keeps layout intact on smaller monitors. */
+    .main { padding: 0 0 96px; max-width: none; }
     .topbar {
       position: sticky; top: 0; z-index: 50;
       background: var(--topbar-bg, rgba(255,255,255,0.92)); backdrop-filter: blur(12px);
@@ -208,11 +205,8 @@
       color: var(--scouting-purple); border-bottom-color: var(--scouting-purple);
     }
 
-    .main-inner { padding: 32px 56px; max-width: 1280px; }
-    /* Wide mode — tabs that benefit from the full content width on PC.
-       Split-pane previews, Programs board, Members directory, analytics, etc.
-       Body min-width:1280px keeps the layout intact on smaller monitors. */
-    .main-inner.wide { max-width: none; padding: 28px 32px; }
+    /* Always full-width — admin is PC-only, no per-tab caps. */
+    .main-inner { padding: 28px 32px; max-width: none; }
 
     /* Split-pane editor + live preview (used for page-content tabs).
        Editor on the left, sticky preview iframe on the right. Save / Discard
@@ -716,6 +710,7 @@
       group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
                Content:'Content', Errors:'Errors',
                Marketing:'Marketing', StudentSupport:'Student support', Members:'Members',
+               Mail:'Mailbox',
                Wiki:'Wiki', Tools:'Tools' },
       tab: {
         dashboard:'Dashboard',
@@ -724,6 +719,7 @@
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
+        mailbox:'Mailbox',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
@@ -747,6 +743,7 @@
       group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
                Content:'콘텐츠', Errors:'에러 페이지',
                Marketing:'마케팅', StudentSupport:'학생 지원', Members:'회원 정보',
+               Mail:'메일함',
                Wiki:'위키', Tools:'도구' },
       tab: {
         dashboard:'대시보드',
@@ -755,6 +752,7 @@
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
+        mailbox:'메일함',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
@@ -785,19 +783,8 @@
   //   Wiki      — internal docs (KMS / color / design)
   //   Tools     — admin-only utilities (translations / design system / error preview)
   //   Data      — backend records (applications / inquiries / analytics)
-  // Tabs that should consume the full available content width (no 1280px cap).
-  // Split-pane previews need it for the side-by-side layout. The Programs board,
-  // Members directory, and analytics dashboards earn it because they're tables
-  // / boards / charts where horizontal headroom directly improves usability.
-  const WIDE_TABS = new Set([
-    'hero','how','cta',
-    'about','pageheros','partner_cta','team',
-    'programs','program_detail',
-    'partners','stories','faq',
-    'members','member_roles',
-    'analytics','apps','inquiries','error_logs','consent_log',
-    'dashboard',
-  ]);
+  // (WIDE_TABS removed in v01.019 — admin is PC-only and every tab now uses
+  // the full content width via .main-inner without a per-tab whitelist.)
 
   // Tabs that edit content visible on a public page get a side-by-side
   // editor + live-preview iframe. The value is the public route to load
@@ -835,6 +822,7 @@
     Marketing:      'megaphone',
     StudentSupport: 'inbox',
     Members:        'users',
+    Mail:           'mail',
     Wiki:           'book-open',
     Tools:          'wrench',
   };
@@ -879,6 +867,10 @@
     // Marketing — visitor-facing metrics. Analytics summary lives here so it
     // sits near "what marketing decisions need" rather than buried in Data.
     { id: 'analytics',     group: 'Marketing' },
+
+    // Mailbox — inbound (Cloudflare Email Workers → D1) + outbound (Resend).
+    // Single tab; internal mode tabs handle inbox / sent / compose.
+    { id: 'mailbox',       group: 'Mail' },
 
     // Student support — incoming requests from prospective students.
     { id: 'apps',                group: 'StudentSupport' },
@@ -2327,6 +2319,309 @@
   // Composes an internal "email-like" notification and ships one row per
   // recipient via POST /api/admin/notifications. Recipients see the result
   // on their own My Page; nobody else can read another user's notifications.
+  // ---- Mailbox: inbox + sent + compose -----------------------------------
+  // Three-mode view inside one tab:
+  //   • inbox   — Cloudflare-routed inbound email (per managed address)
+  //   • sent    — outbound copies (Resend-sent + queued-during-no-key)
+  //   • compose — new mail or reply (uses Resend; falls back to "queued"
+  //               when RESEND_API_KEY is not set so drafts survive setup)
+  function MailboxTab({ c }) {
+    const inboxes = (c && Array.isArray(c.inboxes)) ? c.inboxes.filter(b => b && b.address && b.enabled !== false) : [];
+    const [mode, setMode] = useState('inbox');           // 'inbox' | 'sent' | 'compose'
+    const [filter, setFilter] = useState('');             // address filter (empty = all)
+    const [items, setItems] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [unreadOnly, setUnreadOnly] = useState(false);
+    const [selected, setSelected] = useState(null);       // currently-open detail
+    const [tick, setTick] = useState(0);                  // refetch trigger
+
+    // Compose state — preserved when toggling modes so a half-written reply
+    // doesn't vanish when the operator peeks at the inbox.
+    const [composeFrom, setComposeFrom]       = useState(inboxes[0]?.address || 'info@koreadreampath.com');
+    const [composeTo, setComposeTo]           = useState('');
+    const [composeSubject, setComposeSubject] = useState('');
+    const [composeBody, setComposeBody]       = useState('');
+    const [composeReplyTo, setComposeReplyTo] = useState(null);  // { id, message_id, subject }
+    const [sending, setSending]               = useState(false);
+    const [sendResult, setSendResult]         = useState(null);
+
+    function authHeaders() {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      return { authorization: 'Bearer ' + tok };
+    }
+
+    // Load list whenever mode / filter / search / tick changes.
+    useEffect(() => {
+      if (mode === 'compose') return;
+      const ctrl = new AbortController();
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('limit', '100');
+      if (filter) params.set(mode === 'inbox' ? 'to' : 'from', filter);
+      if (mode === 'inbox' && search) params.set('q', search);
+      if (mode === 'inbox' && unreadOnly) params.set('unread', '1');
+      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '?' + params;
+      fetch(url, { headers: authHeaders(), signal: ctrl.signal })
+        .then(r => r.ok ? r.json() : { items: [], total: 0 })
+        .then(d => { setItems(d.items || []); setTotal(d.total || 0); setLoading(false); })
+        .catch(() => setLoading(false));
+      return () => ctrl.abort();
+    }, [mode, filter, search, unreadOnly, tick]);
+
+    // Load detail when selected changes.
+    useEffect(() => {
+      if (!selected || selected._loaded) return;
+      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '/' + selected.id;
+      fetch(url, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d && setSelected({ ...d, _loaded: true }))
+        .catch(() => {});
+    }, [selected]);
+
+    async function patch(id, body) {
+      const r = await fetch('/api/admin/inbox/' + id, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(body),
+      });
+      if (r.ok) { setTick(t => t + 1); if (selected && selected.id === id) setSelected(s => ({ ...s, ...body })); }
+    }
+    async function remove(id) {
+      if (!confirm('이 메일을 삭제할까요?')) return;
+      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '/' + id;
+      await fetch(url, { method: 'DELETE', headers: authHeaders() });
+      setSelected(null); setTick(t => t + 1);
+    }
+
+    function startReply(msg) {
+      // Pre-fill compose from the inbound message.
+      const replyFrom = msg.to_addr;                                  // reply from the address it was sent to
+      const subject = (msg.subject || '').toLowerCase().startsWith('re:') ? msg.subject : 'Re: ' + (msg.subject || '');
+      const quoted = (msg.body_text || '').split('\n').map(l => '> ' + l).join('\n');
+      const lead = `\n\n— On ${new Date(msg.ts).toLocaleString()}, ${msg.from_name || msg.from_addr} <${msg.from_addr}> wrote:\n${quoted}`;
+      setComposeFrom(replyFrom);
+      setComposeTo(msg.from_addr);
+      setComposeSubject(subject);
+      setComposeBody(lead);
+      setComposeReplyTo({ id: msg.id, message_id: msg.message_id, subject: msg.subject });
+      setMode('compose');
+    }
+    function startCompose() {
+      setComposeFrom(inboxes[0]?.address || 'info@koreadreampath.com');
+      setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+      setSendResult(null);
+      setMode('compose');
+    }
+    async function sendNow() {
+      if (sending) return;
+      setSending(true); setSendResult(null);
+      try {
+        const r = await fetch('/api/admin/mail/send', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({
+            from: composeFrom, to: composeTo,
+            subject: composeSubject, body: composeBody,
+            in_reply_to: composeReplyTo?.message_id || null,
+          }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.ok) {
+          setSendResult({ ok: true });
+          setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+          // Bounce to sent folder so the operator sees the result.
+          setTimeout(() => { setMode('sent'); setTick(t => t + 1); }, 600);
+        } else {
+          setSendResult({ ok: false, msg: d.error || ('http_' + r.status) });
+        }
+      } catch (e) { setSendResult({ ok: false, msg: String(e.message || e) }); }
+      finally { setSending(false); }
+    }
+
+    const isKo = true;  // mailbox is admin-internal; KO chrome is fine
+    const STATUS_PILLS = {
+      sent:   { bg: 'var(--state-success-bg)', fg: 'var(--state-success)' },
+      queued: { bg: 'var(--state-warning-bg)', fg: 'var(--state-warning)' },
+      failed: { bg: 'var(--state-danger-bg)',  fg: 'var(--state-danger)' },
+    };
+
+    return (
+      <>
+        {/* Mode tabs + global actions */}
+        <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:6}}>
+            {[{k:'inbox',l:'받은 메일'},{k:'sent',l:'보낸 메일'},{k:'compose',l:'새 메일'}].map(m => (
+              <button key={m.k} type="button"
+                onClick={() => { setMode(m.k); setSelected(null); }}
+                className="icon-btn"
+                style={mode === m.k ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+                {m.l}
+              </button>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            {mode !== 'compose' && (
+              <select value={filter} onChange={e => setFilter(e.target.value)}
+                style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
+                <option value="">{mode === 'inbox' ? '모든 받은 주소' : '모든 보낸 주소'}</option>
+                {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
+              </select>
+            )}
+            {mode === 'inbox' && (
+              <>
+                <input type="search" placeholder="제목·발신자·본문 검색" value={search} onChange={e => setSearch(e.target.value)}
+                  style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',width:240}} />
+                <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'var(--fg-secondary)'}}>
+                  <input type="checkbox" checked={unreadOnly} onChange={e => setUnreadOnly(e.target.checked)} /> 미읽음만
+                </label>
+                <button type="button" className="icon-btn" onClick={() => setTick(t => t + 1)}>↻ 새로고침</button>
+              </>
+            )}
+            {mode === 'sent' && (
+              <button type="button" className="icon-btn" onClick={() => setTick(t => t + 1)}>↻ 새로고침</button>
+            )}
+            {mode !== 'compose' && (
+              <button type="button" className="btn-add" onClick={startCompose}>✉️ 새 메일</button>
+            )}
+          </div>
+        </div>
+
+        {/* Setup-not-done banner */}
+        {mode === 'inbox' && total === 0 && !loading && !filter && !search && !unreadOnly && (
+          <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)',color:'var(--state-info)'}}>
+            <strong>받은 메일이 없습니다.</strong> Cloudflare Email Routing이 활성화 안 됐거나 라우팅 규칙이 워커로 연결되지 않았을 수 있어요. 사이트 설정 → API · 통합 → "받은 메일 (Cloudflare Email Routing)" 가이드를 참고하세요.
+          </div>
+        )}
+        {mode !== 'compose' && (
+          <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
+            {/* Mail list */}
+            <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
+              {loading
+                ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+                : items.length === 0
+                  ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>비어있습니다.</div>
+                  : items.map(m => {
+                    const isUnread = mode === 'inbox' && !m.read_at;
+                    const isSelected = selected && selected.id === m.id;
+                    return (
+                      <button key={m.id} type="button" onClick={() => setSelected({ ...m, _loaded: false })}
+                        style={{display:'block',width:'100%',padding:'12px 16px',background: isSelected ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                          {mode === 'inbox' && (
+                            <span style={{flex:'0 0 auto',width:8,height:8,borderRadius:'50%',background: isUnread ? 'var(--state-info)' : 'transparent', border: isUnread ? 'none' : '1px solid var(--border-default)'}} />
+                          )}
+                          <strong style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13,fontWeight: isUnread ? 700 : 500}}>
+                            {mode === 'inbox' ? (m.from_name || m.from_addr) : m.to_addr}
+                          </strong>
+                          <span style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap',fontFamily:'var(--font-mono)'}}>
+                            {new Date(m.ts).toLocaleDateString()} {new Date(m.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                          </span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight: isUnread ? 600 : 400,color:'var(--fg-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {m.subject || '(no subject)'}
+                        </div>
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {(m.preview || '').slice(0, 120)}
+                        </div>
+                        {mode === 'sent' && (
+                          <span className="pill" style={{marginTop:6,display:'inline-block',background: STATUS_PILLS[m.status]?.bg || 'var(--bg-muted)', color: STATUS_PILLS[m.status]?.fg || 'var(--fg-secondary)', fontSize:10}}>
+                            {m.status}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+            </div>
+
+            {/* Detail pane */}
+            <div className="card" style={{minHeight:'70vh'}}>
+              {!selected ? (
+                <div style={{textAlign:'center',color:'var(--fg-muted)',padding:'80px 20px'}}>왼쪽에서 메일을 선택하세요.</div>
+              ) : (
+                <>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
+                        {mode === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
+                      </div>
+                      <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
+                      <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
+                        <strong>{mode === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
+                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{mode === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
+                        {' · '}
+                        <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      {mode === 'inbox' && (
+                        <>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { starred: !selected.starred })} title="별표">
+                            {selected.starred ? '★' : '☆'}
+                          </button>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { read: !selected.read_at })}>
+                            {selected.read_at ? '안 읽음으로' : '읽음 처리'}
+                          </button>
+                          <button type="button" className="btn-add" onClick={() => startReply(selected)} style={{padding:'6px 14px'}}>↩ 답장</button>
+                        </>
+                      )}
+                      <button type="button" className="icon-btn danger" onClick={() => remove(selected.id)}>삭제</button>
+                    </div>
+                  </div>
+                  {/* Body — prefer text, fall back to sanitized HTML when only HTML exists. */}
+                  {selected.body_text
+                    ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
+                    : selected.body_html
+                      ? <iframe sandbox="" title="Email body" srcDoc={selected.body_html} style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
+                      : <div style={{color:'var(--fg-muted)',fontStyle:'italic'}}>(본문 없음)</div>}
+                  {selected.error && (
+                    <div role="alert" style={{marginTop:14,padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13}}>
+                      <strong>발송 실패:</strong> {selected.error}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === 'compose' && (
+          <div className="card" style={{maxWidth:880}}>
+            <h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3>
+            {composeReplyTo && (
+              <p className="desc">In reply to: <code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{composeReplyTo.subject}</code></p>
+            )}
+            <div className="grid-2 tight" style={{marginBottom:14}}>
+              <div className="field">
+                <label>From</label>
+                <select value={composeFrom} onChange={e => setComposeFrom(e.target.value)}>
+                  {inboxes.map(b => <option key={b.address} value={b.address}>{b.label_ko || b.label_en || b.address} &lt;{b.address}&gt;</option>)}
+                </select>
+              </div>
+              <Text label="To" value={composeTo} onChange={setComposeTo} type="email" />
+            </div>
+            <Text label="Subject" value={composeSubject} onChange={setComposeSubject} />
+            <Area label="Body" value={composeBody} onChange={setComposeBody} rows={16} />
+            {sendResult && (
+              <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
+                background: sendResult.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
+                color: sendResult.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
+                {sendResult.ok ? '✓ 발송 완료' : `✗ 실패: ${sendResult.msg}`}
+              </div>
+            )}
+            <div style={{marginTop:18,display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button type="button" className="icon-btn" onClick={() => { setMode('inbox'); }}>취소</button>
+              <button type="button" className="btn-add" onClick={sendNow} disabled={sending}>
+                {sending ? '발송 중…' : '📨 발송'}
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   function SendNotificationTab() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -3059,6 +3354,26 @@
     },
   };
 
+  // Cloudflare Email Routing — separate setup guide called out in the
+  // Integrations tab since it doesn't fit in either secrets or verifications.
+  const EMAIL_ROUTING_GUIDE = {
+    title: '받은 메일 (Cloudflare Email Routing)',
+    where: 'https://dash.cloudflare.com → koreadreampath.com → Email → Email Routing',
+    steps: [
+      'Cloudflare 대시보드 → <code>koreadreampath.com</code> 도메인 선택 → 좌측 메뉴 <strong>Email → Email Routing</strong>.',
+      '<strong>Get started</strong> 클릭. Cloudflare가 도메인 DNS에 MX 레코드 + SPF TXT 레코드를 자동 추가 (대시보드에서 한 번만 클릭하면 됨).',
+      'DNS 전파 대기 (보통 1–5분).',
+      '<strong>Routing rules → Custom address → Create address</strong>.',
+      '<strong>Custom address</strong>: <code>hello</code> (즉 <code>hello@koreadreampath.com</code>).',
+      '<strong>Action</strong>: <strong>Send to a Worker</strong>.',
+      '<strong>Destination Worker</strong>: <code>dream-path</code> 선택.',
+      '저장. 같은 방식으로 <code>partner</code>, <code>info</code> 등 관리할 모든 주소를 각각 추가.',
+      '⚠ 이미 다른 곳(Gmail 등)으로 포워딩 중이라면 그 규칙을 먼저 비활성화. 한 주소당 한 라우팅 규칙만 동작.',
+      '받은 메일 검증: 외부 메일 클라이언트(개인 Gmail 등)에서 <code>hello@koreadreampath.com</code>으로 테스트 메일 발송 → 1분 내 어드민 → 메일함 → 받은 메일에 표시되어야 함.',
+      '⚠ 수신 보존: D1 무료 플랜은 5GB 한계. 첨부파일은 현재 R2 미연동이라 본문만 저장(메타데이터만 기록). 대용량 파일이 자주 오는 주소는 별도 처리 필요.',
+    ],
+  };
+
   const VERIFICATION_GUIDES = {
     google: {
       title: 'Google Search Console',
@@ -3225,6 +3540,26 @@
               <li>"JSON 내보내기" 백업 파일에도 그대로 들어갑니다.</li>
               <li><code>wrangler secret put</code>은 값을 Cloudflare에 직접 업로드 — 코드/git/콘솔 어디에도 안 남습니다. 워커가 실행될 때만 <code>env.NAME</code>으로 읽힙니다.</li>
             </ul>
+          </details>
+        </div>
+
+        {/* Section 1.5: Cloudflare Email Routing — receiving inbound mail */}
+        <div className="card">
+          <h3>Cloudflare Email Routing · 받은 메일</h3>
+          <p className="desc">
+            메일함 (관리자 → Mailbox)에서 받은 메일을 보려면 Cloudflare 대시보드에서 Email Routing을 활성화하고 워커로 라우팅 규칙을 추가해야 합니다. 발송은 Resend로, 수신은 Email Routing으로 — 두 시스템이 분리되어 있음.
+          </p>
+          <details>
+            <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+            <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
+              <div style={{fontWeight:700,marginBottom:6}}>{EMAIL_ROUTING_GUIDE.title}</div>
+              <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10,fontFamily:'var(--font-mono)'}}>{EMAIL_ROUTING_GUIDE.where}</div>
+              <ol style={{margin:0,paddingLeft:22}}>
+                {EMAIL_ROUTING_GUIDE.steps.map((step, i) => (
+                  <li key={i} style={{marginBottom:6}} dangerouslySetInnerHTML={{ __html: step }} />
+                ))}
+              </ol>
+            </div>
           </details>
         </div>
 
@@ -5568,6 +5903,7 @@
       email_templates: EmailTemplatesTab,
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
+      mailbox: MailboxTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,
@@ -5750,7 +6086,7 @@
               ))}
             </nav>
           )}
-          <div className={'main-inner' + (WIDE_TABS.has(tab) ? ' wide' : '')}>
+          <div className="main-inner">
             <div className="page-head">
               <div>
                 <h1>{activeLabel}</h1>

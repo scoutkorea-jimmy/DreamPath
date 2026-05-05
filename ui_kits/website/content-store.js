@@ -332,6 +332,17 @@
         },
       ],
     },
+    // ─── Inboxes (admin Mailbox tab) ─────────────────────────────────────
+    // Addresses the operator wants to manage from the admin console. The
+    // Cloudflare Email Routing rule for each address must be set up to
+    // hand off to the dream-path worker (see admin → API · 통합 → 받은 메일).
+    // Sending uses Resend (env.RESEND_API_KEY); the from-address dropdown
+    // in the compose form is built from this list.
+    inboxes: [
+      { address: 'hello@koreadreampath.com',   label_ko: 'Hello',   label_en: 'Hello',   enabled: true },
+      { address: 'partner@koreadreampath.com', label_ko: 'Partner', label_en: 'Partner', enabled: true },
+      { address: 'info@koreadreampath.com',    label_ko: 'Info',    label_en: 'Info',    enabled: true },
+    ],
     // ─── Public site-verification meta tags ─────────────────────────────
     // These are NOT secrets — they're domain ownership proofs that need to
     // be in the public HTML head for the verification crawler to read.

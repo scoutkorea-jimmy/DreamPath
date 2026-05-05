@@ -17,6 +17,7 @@ const VIEW_TO_PATH = {
   home: '/', about: '/about', programs: '/programs', apply: '/apply',
   partners: '/partners', stories: '/stories', news: '/news', contact: '/contact',
   team: '/team', scholarships: '/scholarships', member: '/member', receipt: '/receipt',
+  verify: '/verify', resetpw: '/reset-password',
   err401: '/401', err403: '/403', err404: '/404', err500: '/500', err503: '/503', offline: '/offline',
 };
 const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]) => [p, v]));
@@ -197,6 +198,8 @@ function App() {
     case 'scholarships': content_view = safe(window.Scholarships, baseProps); break;
     case 'member':       content_view = safe(window.Member, baseProps); break;
     case 'receipt':      content_view = safe(window.Receipt, { lang, c: content }); break;
+    case 'verify':       content_view = safe(window.VerifyEmailView, baseProps); break;
+    case 'resetpw':      content_view = safe(window.ResetPasswordView, baseProps); break;
     case 'err401':       content_view = safe(window.Error401, baseProps); break;
     case 'err403':       content_view = safe(window.Error403, baseProps); break;
     case 'err404':       content_view = safe(window.Error404, baseProps); break;

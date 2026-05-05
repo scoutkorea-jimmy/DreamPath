@@ -130,6 +130,13 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
           <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
             {busy ? (isKo ? '처리 중…' : 'Working…') : (mode === 'signup' ? (isKo ? '가입하기' : 'Create account') : (isKo ? '로그인' : 'Log in'))}
           </button>
+          {mode === 'login' && (
+            <div style={{textAlign:'center',marginTop:12}}>
+              <a href="/reset-password" style={{fontSize:13,color:'var(--fg-muted)',textDecoration:'underline'}}>
+                {isKo ? '비밀번호를 잊으셨나요?' : 'Forgot your password?'}
+              </a>
+            </div>
+          )}
         </form>
         {docOpen && <window.LegalModal doc={docOpen} lang={lang} onClose={() => setDocOpen(null)} />}
         <div className="auth-switch">

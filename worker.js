@@ -14,6 +14,7 @@ const SPA_PATHS = new Set([
   '/about', '/programs', '/apply',
   '/partners', '/stories', '/news', '/contact',
   '/team', '/scholarships', '/member', '/receipt',
+  '/verify', '/reset-password',
   '/401', '/403', '/404', '/500', '/503', '/offline',
 ]);
 
@@ -280,6 +281,99 @@ async function handleApi(request, env, url) {
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
+  // Email verification — token consumed by the public /verify view.
+  // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
+  if (path === '/api/auth/verify-email' && method === 'POST') {
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    if (body.token) {
+      // Confirm step: token → mark email_verified.
+      const row = await env.DB.prepare('SELECT * FROM email_verifications WHERE token = ?').bind(body.token).first();
+      if (!row) return json({ error: 'invalid_token' }, 400);
+      if (row.consumed_at) return json({ error: 'already_used' }, 400);
+      if (new Date(row.expires_at) < new Date()) return json({ error: 'expired' }, 400);
+      const now = new Date().toISOString();
+      await env.DB.prepare('UPDATE email_verifications SET consumed_at = ? WHERE token = ?').bind(now, body.token).run();
+      await env.DB.prepare('UPDATE users SET email_verified = 1, updated_at = ? WHERE id = ?').bind(now, row.user_id).run();
+      return json({ ok: true });
+    }
+    // Mint step: caller is logged in and asks for a new verify token.
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'unauthorized' }, 401);
+    const token = randomHex(24);
+    const now = new Date().toISOString();
+    const expires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    await env.DB.prepare(
+      'INSERT INTO email_verifications (token, user_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
+    ).bind(token, u.id, u.email, now, expires).run();
+    // No live SMTP yet — return the token so the operator can wire it later
+    // and the dev console can log it. The admin console renders this for the
+    // testing flow; a future "real send" will email it instead.
+    return json({ ok: true, token, expires_at: expires, dev_note: 'Email send not yet wired — pass this token to /api/auth/verify-email to confirm.' });
+  }
+  // Password reset — request + confirm.
+  if (path === '/api/auth/request-password-reset' && method === 'POST') {
+    const body = await request.json().catch(() => ({}));
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+    const u = await env.DB.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
+    // Always return ok=true regardless of whether the email exists, so an
+    // attacker can't enumerate accounts by trying random emails.
+    if (!u) return json({ ok: true });
+    const token = randomHex(24);
+    const now = new Date().toISOString();
+    const expires = new Date(Date.now() + 3600 * 1000).toISOString();   // 1 hour
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    await env.DB.prepare(
+      'INSERT INTO password_resets (token, user_id, created_at, expires_at, ip) VALUES (?, ?, ?, ?, ?)'
+    ).bind(token, u.id, now, expires, ip).run();
+    return json({ ok: true, token, expires_at: expires, dev_note: 'Email send not yet wired — pass this token to /api/auth/confirm-password-reset.' });
+  }
+  if (path === '/api/auth/confirm-password-reset' && method === 'POST') {
+    const body = await request.json().catch(() => null);
+    if (!body || !body.token || typeof body.password !== 'string') return json({ error: 'invalid_request' }, 400);
+    if (body.password.length < 8) return json({ error: 'password_too_short' }, 400);
+    const row = await env.DB.prepare('SELECT * FROM password_resets WHERE token = ?').bind(body.token).first();
+    if (!row) return json({ error: 'invalid_token' }, 400);
+    if (row.consumed_at) return json({ error: 'already_used' }, 400);
+    if (new Date(row.expires_at) < new Date()) return json({ error: 'expired' }, 400);
+    const salt = randomHex(16);
+    const hash = await hashPassword(body.password, salt);
+    const now = new Date().toISOString();
+    await env.DB.prepare('UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?').bind(hash, salt, now, row.user_id).run();
+    await env.DB.prepare('UPDATE password_resets SET consumed_at = ? WHERE token = ?').bind(now, body.token).run();
+    // Invalidate every session for the user — force re-login with new pw.
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id).run();
+    return json({ ok: true });
+  }
+  // Apply draft sync — single-row-per-user blob in D1, so a user halfway
+  // through Apply on phone can pick up on laptop. The client also keeps
+  // a sessionStorage copy for fast restore; the server copy is the source
+  // of truth for cross-device portability.
+  if (path === '/api/me/apply-draft') {
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'unauthorized' }, 401);
+    if (method === 'GET') {
+      const row = await env.DB.prepare('SELECT body, updated_at FROM apply_drafts WHERE user_id = ?').bind(u.id).first();
+      if (!row) return json({ body: null });
+      try { return json({ body: JSON.parse(row.body), updated_at: row.updated_at }); }
+      catch { return json({ body: null }); }
+    }
+    if (method === 'PUT' || method === 'POST') {
+      const body = await request.text();
+      try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO apply_drafts (user_id, body, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at'
+      ).bind(u.id, body, now).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM apply_drafts WHERE user_id = ?').bind(u.id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
   if (path === '/api/auth/login'  && method === 'POST') return login(request, env);
   if (path === '/api/auth/logout' && method === 'POST') return logout(request, env);
   if (path === '/api/auth/me'     && method === 'GET')  return me(request, env);
@@ -787,8 +881,24 @@ async function signup(request, env) {
     'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(id, email, hash, salt, name || null, 'member', now, now).run();
 
+  // Mint a verification token so the public site can prompt the user.
+  // The token is returned in the signup response so the dev/test flow
+  // can be exercised without a live SMTP integration. Once Mailgun /
+  // Resend / Email Workers is wired, send the verify email here too.
+  const verifyToken = randomHex(24);
+  const verifyExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  await env.DB.prepare(
+    'INSERT INTO email_verifications (token, user_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
+  ).bind(verifyToken, id, email, now, verifyExpires).run();
+
   const session = await createSession(env, id);
-  return json({ user: { id, email, name, role: 'member' }, token: session.token, expires_at: session.expires_at });
+  return json({
+    user: { id, email, name, role: 'member', email_verified: 0 },
+    token: session.token,
+    expires_at: session.expires_at,
+    verify_token: verifyToken,
+    verify_expires_at: verifyExpires,
+  });
 }
 
 async function login(request, env) {

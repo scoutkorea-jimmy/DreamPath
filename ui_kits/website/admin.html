@@ -796,11 +796,11 @@
   const I18N = {
     en: {
       console: 'Admin Console',
-      group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
+      group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage',
                Content:'Content', Errors:'Errors',
-               Marketing:'Marketing', StudentSupport:'Student support', Members:'Members',
+               StudentSupport:'Student support', Members:'Members',
                Mail:'Mailbox', InternalMsg:'Internal messages',
-               Wiki:'Wiki', Tools:'Tools' },
+               System:'System', Wiki:'Wiki' },
       tab: {
         dashboard:'Dashboard',
         members:'Member directory', member_groups:'Member groups', member_roles:'Roles & permissions',
@@ -829,11 +829,11 @@
     },
     ko: {
       console: '관리자 콘솔',
-      group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
-               Content:'콘텐츠', Errors:'에러 페이지',
-               Marketing:'마케팅', StudentSupport:'학생 지원', Members:'회원 정보',
+      group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지',
+               Content:'페이지·콘텐츠', Errors:'에러 페이지',
+               StudentSupport:'학생 지원', Members:'회원 정보',
                Mail:'메일함', InternalMsg:'내부 알림',
-               Wiki:'위키', Tools:'도구' },
+               System:'시스템', Wiki:'위키' },
       tab: {
         dashboard:'대시보드',
         members:'회원 목록', member_groups:'회원 그룹', member_roles:'등급 / 권한',
@@ -908,17 +908,14 @@
     Overview:       'layout-dashboard',
     Setup:          'settings',
     Homepage:       'home',
-    Pages:          'file-text',
-    Programs:       'graduation-cap',
     Content:        'layers',
     Errors:         'alert-triangle',
-    Marketing:      'megaphone',
-    StudentSupport: 'inbox',
+    StudentSupport: 'graduation-cap',
     Members:        'users',
     Mail:           'mail',
     InternalMsg:    'bell',
+    System:         'wrench',
     Wiki:           'book-open',
-    Tools:          'wrench',
   };
 
   // The mailbox group is dynamic — one sub-tab per managed inbox account
@@ -938,65 +935,72 @@
       label: b.label_ko || b.label_en || b.address,
       account: b.address,
     }));
+    // v01.028 — sidebar consolidated from 14 → 11 groups for legibility.
+    // Reasoning logged in HANDOFF.md + KMS Change log.
+    //   • Marketing (analytics-only) merged into Overview.
+    //   • Pages + Programs + Content merged into "Content" (콘텐츠).
+    //   • Setup slimmed to identity-only; templates/integrations/legal
+    //     moved into a new "System" group together with Tools.
+    //   • Mail / InternalMsg / Members / StudentSupport stay separate
+    //     per operator preference (different mental categories).
     return [
       { id: 'dashboard',     group: 'Overview' },
+      { id: 'analytics',     group: 'Overview' },
 
       { id: 'brand',         group: 'Setup' },
       { id: 'footer',        group: 'Setup' },
       { id: 'icons',         group: 'Setup' },
       { id: 'notice',        group: 'Setup' },
       { id: 'og_images',     group: 'Setup' },
-      { id: 'email_templates', group: 'Setup' },
-      { id: 'receipt_template', group: 'Setup' },
-      { id: 'integrations', group: 'Setup' },
-      { id: 'legal',         group: 'Setup' },
 
       { id: 'hero',          group: 'Homepage' },
       { id: 'how',           group: 'Homepage' },
       { id: 'cta',           group: 'Homepage' },
 
-      { id: 'about',         group: 'Pages' },
-      { id: 'pageheros',     group: 'Pages' },
-      { id: 'partner_cta',   group: 'Pages' },
-      { id: 'team',          group: 'Pages' },
-
-      { id: 'programs',      group: 'Programs' },
-      { id: 'program_detail',group: 'Programs' },
-
+      // 페이지·콘텐츠 — every public-facing content tab in one place.
+      { id: 'about',         group: 'Content' },
+      { id: 'pageheros',     group: 'Content' },
+      { id: 'partner_cta',   group: 'Content' },
+      { id: 'team',          group: 'Content' },
+      { id: 'programs',      group: 'Content' },
+      { id: 'program_detail',group: 'Content' },
       { id: 'partners',      group: 'Content' },
       { id: 'stories',       group: 'Content' },
       { id: 'faq',           group: 'Content' },
 
-      { id: 'errors_copy',   group: 'Errors' },
-      { id: 'error_preview', group: 'Errors' },
-      { id: 'error_logs',    group: 'Errors' },
-
-      { id: 'analytics',     group: 'Marketing' },
-
-      // Mail — one tab per managed inbox. Each tab contains 받은/보낸 sections.
+      // Mail — one tab per managed inbox. Stays its own group.
       ...mailboxTabs,
 
-      // Internal messages — admin-to-student notifications shown only on
-      // the recipient's My Page. Distinct from external email above.
+      // Internal messages — admin → student. Different from external mail.
       { id: 'send_notification',     group: 'InternalMsg' },
       { id: 'notification_history',  group: 'InternalMsg' },
-
-      { id: 'apps',                group: 'StudentSupport' },
-      { id: 'inquiries',           group: 'StudentSupport' },
-      { id: 'inquiry_categories',  group: 'StudentSupport' },
 
       { id: 'members',         group: 'Members' },
       { id: 'member_groups',   group: 'Members' },
       { id: 'member_roles',    group: 'Members' },
       { id: 'consent_log',     group: 'Members' },
 
+      { id: 'apps',                group: 'StudentSupport' },
+      { id: 'inquiries',           group: 'StudentSupport' },
+      { id: 'inquiry_categories',  group: 'StudentSupport' },
+
+      { id: 'errors_copy',   group: 'Errors' },
+      { id: 'error_preview', group: 'Errors' },
+      { id: 'error_logs',    group: 'Errors' },
+
+      // System — backend-leaning ops + dev tools previously scattered
+      // across Setup + Tools.
+      { id: 'email_templates',  group: 'System' },
+      { id: 'receipt_template', group: 'System' },
+      { id: 'integrations',     group: 'System' },
+      { id: 'legal',            group: 'System' },
+      { id: 'translations',     group: 'System' },
+      { id: 'design_system',    group: 'System' },
+      { id: 'api_dir',          group: 'System' },
+
       { id: 'wiki_kms',      group: 'Wiki' },
       { id: 'wiki_color',    group: 'Wiki' },
       { id: 'wiki_design',   group: 'Wiki' },
-
-      { id: 'translations',  group: 'Tools' },
-      { id: 'design_system', group: 'Tools' },
-      { id: 'api_dir',       group: 'Tools' },
     ];
   }
 

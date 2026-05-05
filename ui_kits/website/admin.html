@@ -6182,9 +6182,12 @@
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
     const lastActivityRef = useRef(Date.now());
-    const [idleSecondsLeft, setIdleSecondsLeft] = useState(null);   // null = no warning; number = seconds until forced logout
+    // Always-tracked remaining seconds drives both the sidebar countdown
+    // (subtle, MM:SS) and the warning toast (loud, last 60 s only).
+    const [idleRemaining, setIdleRemaining] = useState(ADMIN_IDLE_MS / 1000);
+    const idleSecondsLeft = idleRemaining <= ADMIN_IDLE_WARN_MS / 1000 ? idleRemaining : null;
     useEffect(() => {
-      const bump = () => { lastActivityRef.current = Date.now(); if (idleSecondsLeft != null) setIdleSecondsLeft(null); };
+      const bump = () => { lastActivityRef.current = Date.now(); };
       const evts = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
       evts.forEach(e => window.addEventListener(e, bump, { passive: true }));
       const id = setInterval(() => {
@@ -6194,12 +6197,17 @@
           localStorage.removeItem('dp_admin_token');
           try { sessionStorage.setItem('dp_admin_idle_logout', '1'); } catch {}
           window.location.reload();
-        } else if (elapsed >= ADMIN_IDLE_MS - ADMIN_IDLE_WARN_MS) {
-          setIdleSecondsLeft(Math.max(0, Math.ceil((ADMIN_IDLE_MS - elapsed) / 1000)));
+          return;
         }
+        setIdleRemaining(Math.max(0, Math.ceil((ADMIN_IDLE_MS - elapsed) / 1000)));
       }, 1000);
       return () => { clearInterval(id); evts.forEach(e => window.removeEventListener(e, bump)); };
-    }, [idleSecondsLeft]);
+    }, []);
+    function formatIdleClock(s) {
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return m + ':' + (r < 10 ? '0' + r : r);
+    }
     // TABS is rebuilt whenever the inbox roster changes (admin can add/remove
     // managed inboxes via the API · 통합 tab). Each managed inbox renders as
     // its own sub-tab in the Mail group.
@@ -6450,6 +6458,24 @@
           <div className="ver-pill" title="Site version (AA.bbb.cc)">
             <span className="ver-label">VERSION</span>
             <span className="ver-num">{version}</span>
+          </div>
+          {/* Idle timer — counts down to the 30 min auto-logout. Goes red in
+              the last 60 s (same threshold that triggers the warning toast). */}
+          <div title="활동이 없을 때 남은 시간"
+            style={{
+              margin: '6px 12px 14px',
+              padding: '6px 10px',
+              borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: idleSecondsLeft != null ? 'rgba(255, 117, 112, 0.18)' : 'rgba(255,255,255,0.05)',
+              border: idleSecondsLeft != null ? '1px solid var(--state-danger)' : '1px solid rgba(255,255,255,0.10)',
+              color: idleSecondsLeft != null ? 'var(--state-danger)' : 'rgba(255,255,255,0.55)',
+            }}>
+            <i data-lucide="clock" width="12" height="12" style={{flexShrink:0}} />
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:'0.10em',textTransform:'uppercase',opacity:0.80}}>IDLE</span>
+            <span style={{flex:1,textAlign:'right',fontSize:12,fontFamily:'var(--font-mono, monospace)',fontWeight:700,letterSpacing:'0.04em'}}>
+              {formatIdleClock(idleRemaining)}
+            </span>
           </div>
           <nav className="groups" aria-label="Admin groups">
             {groups.map(g => {

@@ -6705,11 +6705,18 @@
               </div>
             )}
             <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>이메일</label>
-            <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@koreadreampath.com" autoFocus
-              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+            {/* No placeholder, no autofill — operator types the address each
+                time. Browser autofill is disabled to avoid leaking which
+                accounts have been used on this device. Hint sits below as
+                static text instead of inside the field. */}
+            <input type="email" name="dp-admin-email"
+              autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+              value={email} onChange={e => setEmail(e.target.value)}
+              autoFocus
+              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:6,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+            <p style={{fontSize:11,color:'var(--fg-muted)',margin:'0 0 12px'}}>이메일 형식으로 입력해 주세요.</p>
             <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>비밀번호</label>
-            <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+            <input type="password" name="dp-admin-password" autoComplete="off" value={password} onChange={e => setPassword(e.target.value)}
               style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
             {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
             <button type="submit" disabled={busy} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>

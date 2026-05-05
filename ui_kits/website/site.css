@@ -825,9 +825,15 @@ body {
 
 @media print {
   body { background: #fff; }
-  .nav, .footer, .auth-overlay, .no-print { display: none !important; }
+  .nav, .footer, .auth-overlay, .no-print, .topnotice { display: none !important; }
   .receipt-page { background: #fff; padding: 0; }
   .receipt-paper { box-shadow: none; padding: 32px; max-width: 100%; }
+  /* Receipt template — print at 1:1 so the PDF matches the operator's
+     uploaded background dimensions exactly. The screen-mode scale is for
+     viewing in the browser only. */
+  .receipt-template-stage > div { transform: none !important; }
+  .receipt-template-stage > div + div { display: none !important; }   /* hide the spacer */
+  @page { margin: 0; }
 }
 
 /* RESPONSIVE */

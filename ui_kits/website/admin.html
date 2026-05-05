@@ -723,7 +723,7 @@
         send_notification:'Send notification',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
-        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates',
+        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
@@ -754,7 +754,7 @@
         send_notification:'알림 보내기',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
-        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿',
+        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
@@ -850,6 +850,7 @@
     { id: 'notice',        group: 'Setup' },
     { id: 'og_images',     group: 'Setup' },
     { id: 'email_templates', group: 'Setup' },
+    { id: 'receipt_template', group: 'Setup' },
     { id: 'legal',         group: 'Setup' },
 
     { id: 'hero',          group: 'Homepage' },
@@ -2753,6 +2754,167 @@
             </div>
           );
         })}
+      </>
+    );
+  }
+
+  // ---- Receipt template ---------------------------------------------------
+  // Operator uploads a background image (their letterhead / official receipt
+  // form), defines field positions in pixels, and the public /receipt page
+  // overlays the live application data. The user prints to PDF.
+  function ReceiptTemplateTab({ c, set, addItem, removeItem }) {
+    const tpl = c.receipt_template || {};
+    const fields = Array.isArray(tpl.fields) ? tpl.fields : [];
+    // Sample data so the operator can preview the rendered receipt without
+    // a real application. Keys match what Receipt.jsx resolves at runtime.
+    const SAMPLE = {
+      id: 'A-PREVIEW-0001', date: new Date().toLocaleString(),
+      payer: { name: 'Sample Visitor', email: 'sample@example.com', country: 'Korea' },
+      program: 'Korean Studies, online',
+      track: 'Full scholarship', partial_tier: '70',
+      amount: 10, currency: 'USD',
+      payment: { method: 'card', card_last4: '4242' },
+      issuer: { name: 'KoreaDreamPath', email: 'info@koreadreampath.com' },
+      paid_at: new Date().toISOString(),
+    };
+    const FIELD_KEYS = ['id','date','name','email','country','program','track','partial_tier','amount','currency','payment_method','card_last4','issuer_name','issuer_email'];
+
+    const [previewScale, setPreviewScale] = useState(0.4);
+    function moveField(from, to) {
+      if (to < 0 || to >= fields.length) return;
+      const next = fields.slice();
+      const [m] = next.splice(from, 1); next.splice(to, 0, m);
+      set(['receipt_template','fields'], next);
+    }
+    function addField() {
+      addItem(['receipt_template','fields'], {
+        key: 'name', x: 80, y: 200, w: 600, font_size: 14, color: '#1A1A1A', align: 'left', weight: 400,
+      });
+    }
+
+    return (
+      <>
+        <div className="card">
+          <h3>Receipt template</h3>
+          <p className="desc">
+            Upload a background image (your letterhead / receipt form), define field
+            positions, and the public <code>/receipt</code> page auto-fills application data
+            on top of it. Recommended: A4 at 150 dpi (1240×1754 px).
+          </p>
+          <div className="grid-2 tight">
+            <div className="field">
+              <label>Enabled</label>
+              <select value={tpl.enabled ? 'yes' : 'no'} onChange={e => set(['receipt_template','enabled'], e.target.value === 'yes')}>
+                <option value="no">No (use default HTML receipt)</option>
+                <option value="yes">Yes (use this template)</option>
+              </select>
+            </div>
+            <Text label="Background image URL" value={tpl.background_url || ''} onChange={v => set(['receipt_template','background_url'], v)} hint="Absolute https URL or path starting with /" />
+            <div className="field">
+              <label>Page width (px)</label>
+              <input type="number" value={tpl.page_w || 1240} onChange={e => set(['receipt_template','page_w'], parseInt(e.target.value, 10) || 1240)} />
+            </div>
+            <div className="field">
+              <label>Page height (px)</label>
+              <input type="number" value={tpl.page_h || 1754} onChange={e => set(['receipt_template','page_h'], parseInt(e.target.value, 10) || 1754)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Live preview pinned at the top of the field list. The operator
+            adjusts numbers below and watches the preview update. */}
+        <div className="card">
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,gap:10,flexWrap:'wrap'}}>
+            <h3 style={{margin:0}}>Live preview</h3>
+            <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'var(--fg-muted)'}}>
+              <span>Zoom</span>
+              <input type="range" min="0.2" max="1" step="0.05" value={previewScale} onChange={e => setPreviewScale(parseFloat(e.target.value))} />
+              <span style={{fontFamily:'var(--font-mono)',width:50,textAlign:'right'}}>{Math.round(previewScale * 100)}%</span>
+            </div>
+          </div>
+          {!tpl.background_url && <div style={{padding:32,background:'var(--bg-muted)',borderRadius:10,color:'var(--fg-muted)',textAlign:'center'}}>Upload a background image to start.</div>}
+          {tpl.background_url && (
+            <div style={{overflow:'auto',background:'var(--bg-muted)',padding:20,borderRadius:10}}>
+              <div style={{
+                position:'relative', flex:'0 0 auto',
+                width: tpl.page_w || 1240, height: tpl.page_h || 1754,
+                transform: 'scale(' + previewScale + ')', transformOrigin: 'top left',
+                background: `url(${tpl.background_url}) no-repeat top left / 100% 100%, #fff`,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              }}>
+                {fields.map((f, i) => {
+                  const VALUE = {
+                    id: SAMPLE.id, date: SAMPLE.date, name: SAMPLE.payer.name,
+                    email: SAMPLE.payer.email, country: SAMPLE.payer.country,
+                    program: SAMPLE.program, track: SAMPLE.track, partial_tier: SAMPLE.partial_tier,
+                    amount: SAMPLE.amount, currency: SAMPLE.currency,
+                    payment_method: SAMPLE.payment.method, card_last4: '•••• ' + SAMPLE.payment.card_last4,
+                    issuer_name: SAMPLE.issuer.name, issuer_email: SAMPLE.issuer.email,
+                  };
+                  const raw = VALUE[f.key];
+                  const text = (f.prefix || '') + String(raw == null ? f.key.toUpperCase() : raw) + (f.suffix || '');
+                  return (
+                    <div key={i} style={{
+                      position:'absolute', left:f.x, top:f.y, width:f.w || 'auto',
+                      fontSize:f.font_size || 14, color:f.color || '#1A1A1A',
+                      fontWeight:f.weight || 400, textAlign:f.align || 'left',
+                      lineHeight: 1.2, fontFamily:'var(--font-en)',
+                      outline: '1px dashed rgba(98,37,153,0.5)',  // visible only in editor
+                    }}>{text}</div>
+                  );
+                })}
+              </div>
+              {/* Reserve space so the scaled stage doesn't overflow the card */}
+              <div style={{height: (tpl.page_h || 1754) * previewScale}} aria-hidden="true" />
+            </div>
+          )}
+        </div>
+
+        {/* Field list editor */}
+        <div className="card">
+          <h3>Fields ({fields.length})</h3>
+          <p className="desc">Each field overlays a single piece of data on the background. Move with ↑↓ to control z-order.</p>
+          <button type="button" className="btn-add" onClick={addField}>+ Add field</button>
+        </div>
+        {fields.map((f, i) => (
+          <div className="card" key={i}>
+            <div className="rep-head" style={{marginBottom:14}}>
+              <strong>{i + 1}. <code style={{fontFamily:'var(--font-mono)',fontSize:13}}>{f.key}</code></strong>
+              <div className="ctrls">
+                <button type="button" className="icon-btn" onClick={() => moveField(i, i - 1)} disabled={i === 0}>↑</button>
+                <button type="button" className="icon-btn" onClick={() => moveField(i, i + 1)} disabled={i === fields.length - 1}>↓</button>
+                <button type="button" className="icon-btn danger" onClick={() => removeItem(['receipt_template','fields'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-3 tight">
+              <div className="field">
+                <label>Data key</label>
+                <select value={f.key || 'name'} onChange={e => set(['receipt_template','fields',i,'key'], e.target.value)}>
+                  {FIELD_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Prefix</label><input type="text" value={f.prefix || ''} onChange={e => set(['receipt_template','fields',i,'prefix'], e.target.value)} placeholder="$ # " /></div>
+              <div className="field"><label>Suffix</label><input type="text" value={f.suffix || ''} onChange={e => set(['receipt_template','fields',i,'suffix'], e.target.value)} placeholder=" USD" /></div>
+              <div className="field"><label>X (px)</label><input type="number" value={f.x ?? 0} onChange={e => set(['receipt_template','fields',i,'x'], parseInt(e.target.value, 10) || 0)} /></div>
+              <div className="field"><label>Y (px)</label><input type="number" value={f.y ?? 0} onChange={e => set(['receipt_template','fields',i,'y'], parseInt(e.target.value, 10) || 0)} /></div>
+              <div className="field"><label>Width (px)</label><input type="number" value={f.w ?? ''} onChange={e => set(['receipt_template','fields',i,'w'], e.target.value ? parseInt(e.target.value, 10) : null)} placeholder="auto" /></div>
+              <div className="field"><label>Font size (px)</label><input type="number" value={f.font_size ?? 14} onChange={e => set(['receipt_template','fields',i,'font_size'], parseInt(e.target.value, 10) || 14)} /></div>
+              <div className="field">
+                <label>Weight</label>
+                <select value={String(f.weight || 400)} onChange={e => set(['receipt_template','fields',i,'weight'], parseInt(e.target.value, 10))}>
+                  <option value="300">300 light</option><option value="400">400 normal</option><option value="500">500 medium</option><option value="600">600 semi</option><option value="700">700 bold</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Align</label>
+                <select value={f.align || 'left'} onChange={e => set(['receipt_template','fields',i,'align'], e.target.value)}>
+                  <option value="left">left</option><option value="center">center</option><option value="right">right</option>
+                </select>
+              </div>
+              <Color label="Color" value={f.color || '#1A1A1A'} onChange={v => set(['receipt_template','fields',i,'color'], v)} />
+            </div>
+          </div>
+        ))}
       </>
     );
   }
@@ -5035,6 +5197,7 @@
       brand: BrandTab, footer: FooterTab, icons: IconsTab, notice: NoticeTab,
       og_images: OgImagesTab,
       email_templates: EmailTemplatesTab,
+      receipt_template: ReceiptTemplateTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,

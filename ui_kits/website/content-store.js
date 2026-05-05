@@ -332,6 +332,35 @@
         },
       ],
     },
+    // ─── Receipt template (auto-fill PDF) ────────────────────────────────
+    // Operator-uploaded background image (e.g. their letterhead / receipt
+    // form) + a list of named fields with absolute coordinates. The public
+    // /receipt page renders the image + overlays the application's data
+    // at the configured positions. The user prints (Cmd-P) to save as PDF.
+    //
+    // page_w / page_h are CSS px at the rendered scale; defaults match
+    // A4 at ~150 dpi (1240×1754) so a typical letterhead PDF rasterised at
+    // that resolution lines up. The template is only used when enabled=true;
+    // otherwise the legacy HTML receipt renders.
+    receipt_template: {
+      enabled: false,
+      background_url: '',
+      page_w: 1240,
+      page_h: 1754,
+      // Each field: data key + position + style.
+      // Available data keys (resolved by Receipt.jsx):
+      //   id, date, name, email, country, program, track, partial_tier,
+      //   amount, currency, payment_method, card_last4, issuer_name, issuer_email
+      fields: [
+        { key: 'id',           x: 800, y: 120, w: 380, font_size: 16, color: '#1A1A1A', align: 'right', weight: 700, prefix: '#' },
+        { key: 'date',         x: 800, y: 150, w: 380, font_size: 14, color: '#1A1A1A', align: 'right' },
+        { key: 'name',         x: 80,  y: 360, w: 600, font_size: 18, color: '#1A1A1A', align: 'left',  weight: 700 },
+        { key: 'email',        x: 80,  y: 396, w: 600, font_size: 14, color: '#444' },
+        { key: 'program',      x: 80,  y: 560, w: 600, font_size: 16, color: '#1A1A1A', weight: 600 },
+        { key: 'track',        x: 80,  y: 590, w: 600, font_size: 13, color: '#666' },
+        { key: 'amount',       x: 800, y: 580, w: 380, font_size: 22, color: '#1A1A1A', align: 'right', weight: 700, prefix: '$' },
+      ],
+    },
     // ─── Email templates (transactional) ─────────────────────────────────
     // Authored under admin → 사이트 설정 → Email templates. Each template has
     // a slug (verify_signup, reset_password, apply_received, ...), KO + EN

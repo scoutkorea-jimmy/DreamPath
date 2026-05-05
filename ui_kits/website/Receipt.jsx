@@ -47,6 +47,15 @@ function Receipt({ lang, c }) {
   const currency = data.currency || 'USD';
   const symbol = currency === 'USD' ? '$' : '';
 
+  // If the operator has authored a c.receipt_template (background image +
+  // field positions), render that auto-fill view instead of the default
+  // HTML receipt. The user prints (Cmd-P) → Save as PDF; the @media print
+  // CSS in site.css strips the action button + page margins.
+  const tpl = c && c.receipt_template;
+  if (tpl && tpl.enabled && tpl.background_url) {
+    return <ReceiptTemplate tpl={tpl} data={data} isKo={isKo} />;
+  }
+
   return (
     <div className="receipt-page">
       <div className="receipt-actions no-print">
@@ -124,3 +133,83 @@ function Receipt({ lang, c }) {
 }
 
 window.Receipt = Receipt;
+
+// Template-driven receipt: background image + absolutely-positioned text
+// fields. Resolves each field's `key` against the application data + issuer
+// metadata. Supports prefix / suffix decorators (e.g. "$", " USD"). The
+// stage scales to fit the viewport on smaller screens via CSS transform.
+function ReceiptTemplate({ tpl, data, isKo }) {
+  const stageRef = React.useRef(null);
+  const [scale, setScale] = React.useState(1);
+  React.useEffect(() => {
+    function update() {
+      const el = stageRef.current;
+      if (!el) return;
+      const w = el.clientWidth;
+      setScale(Math.min(1, w / (tpl.page_w || 1240)));
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [tpl.page_w]);
+
+  // Map field key → resolved string. Centralised so the admin preview can
+  // share the same lookup.
+  const VALUE = {
+    id: data.id,
+    date: data.paid_at ? new Date(data.paid_at).toLocaleString(isKo ? 'ko-KR' : 'en-US') : '',
+    name: data.payer?.name,
+    email: data.payer?.email,
+    country: data.payer?.country,
+    program: data.program,
+    track: data.track,
+    partial_tier: data.partial_tier,
+    amount: data.amount,
+    currency: data.currency || 'USD',
+    payment_method: data.payment?.method,
+    card_last4: data.payment?.card_last4 ? '•••• ' + data.payment.card_last4 : '',
+    issuer_name: data.issuer?.name,
+    issuer_email: data.issuer?.email,
+  };
+
+  return (
+    <div className="receipt-page">
+      <div className="receipt-actions no-print">
+        <button className="btn btn-primary" onClick={() => window.print()}>
+          {isKo ? '인쇄 / PDF 저장' : 'Print / Save as PDF'}
+        </button>
+      </div>
+      <div ref={stageRef} className="receipt-template-stage" style={{margin:'0 auto',maxWidth:tpl.page_w}}>
+        <div className="receipt-template-page" style={{
+          position:'relative',
+          width: tpl.page_w, height: tpl.page_h,
+          transform: 'scale(' + scale + ')', transformOrigin: 'top left',
+          background: `url(${tpl.background_url}) no-repeat top left / 100% 100%, #fff`,
+        }}>
+          {(tpl.fields || []).map((f, i) => {
+            const raw = VALUE[f.key];
+            if (raw == null || raw === '') return null;
+            const text = (f.prefix || '') + String(raw) + (f.suffix || '');
+            return (
+              <div key={i} style={{
+                position: 'absolute',
+                left: f.x, top: f.y,
+                width: f.w || 'auto',
+                fontSize: f.font_size || 14,
+                color: f.color || '#1A1A1A',
+                fontWeight: f.weight || 400,
+                textAlign: f.align || 'left',
+                lineHeight: 1.2,
+                fontFamily: 'var(--font-en)',
+                whiteSpace: 'pre-wrap',
+              }}>{text}</div>
+            );
+          })}
+        </div>
+        {/* Outer wrapper reserves the scaled height so layout doesn't blow out. */}
+        <div style={{height: tpl.page_h * scale}} aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+window.ReceiptTemplate = ReceiptTemplate;

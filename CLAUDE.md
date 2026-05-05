@@ -4,9 +4,18 @@
 > this file. Rules and conventions below have been earned through real
 > incidents — ignoring them costs hours.
 >
-> **Then read [`CLAUDE_TASKS.md`](./CLAUDE_TASKS.md)** for the prioritized
-> backlog. Pick from the top of P0 unless the user has asked for something
-> specific. Don't pick from the middle of the list without a reason.
+> **Then read [`HANDOFF.md`](./HANDOFF.md)** for the current site snapshot —
+> what's deployed, what's pending, and the next-up backlog. Refreshed at the
+> end of each significant session.
+>
+> **Then read [`CLAUDE_TASKS.md`](./CLAUDE_TASKS.md)** if present for the
+> historical backlog. Pick from the top of P0 unless the user has asked for
+> something specific. Don't pick from the middle of the list without a reason.
+>
+> **Wiki cross-reference**: Functional specs, change log, and the "intentional
+> exceptions" register live in admin → 위키 → KMS (KV-backed, editable in the
+> admin console). When you ship a non-trivial feature, add a page or
+> addendum + a Change log line.
 
 ---
 

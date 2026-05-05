@@ -4,23 +4,53 @@ function Nav({ view, go, lang, setLang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
   const [menuOpen, setMenuOpen] = React.useState(false);
-  // Unread admin notification count for the user-menu badge. Polled lazily.
+  // Bell dropdown: list of recent notifications visible when the user clicks
+  // the bell icon. Powered by the same /api/me/notifications endpoint that
+  // Member.jsx uses, so the lists stay consistent.
+  const [bellOpen, setBellOpen] = React.useState(false);
+  const [notifs, setNotifs] = React.useState([]);
   const [unread, setUnread] = React.useState(0);
+  async function refreshNotifs() {
+    if (!auth.user) { setUnread(0); setNotifs([]); return; }
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/notifications');
+      if (!r.ok) return;
+      const d = await r.json();
+      setUnread(d.unread || 0);
+      setNotifs((d.items || []).slice(0, 6));
+    } catch {}
+  }
   React.useEffect(() => {
-    if (!auth.user) { setUnread(0); return; }
+    if (!auth.user) { setUnread(0); setNotifs([]); return; }
     let alive = true;
-    async function tick() {
-      try {
-        const r = await window.DreamPathAuth.authFetch('/api/me/notifications');
-        if (!r.ok) return;
-        const d = await r.json();
-        if (alive) setUnread(d.unread || 0);
-      } catch {}
-    }
-    tick();
-    const t = setInterval(tick, 60_000);
+    refreshNotifs();
+    const t = setInterval(() => { if (alive) refreshNotifs(); }, 60_000);
     return () => { alive = false; clearInterval(t); };
   }, [auth.user]);
+  // Close bell dropdown on outside click + esc.
+  React.useEffect(() => {
+    if (!bellOpen) return;
+    const onDoc = (e) => { if (!e.target.closest('.bell-wrap')) setBellOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setBellOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [bellOpen]);
+  function openNotification(n) {
+    // Mark read locally + on the server, then jump to My Page with an
+    // intent flag so Member.jsx auto-switches to the notifications section.
+    if (!n.read_at) {
+      window.DreamPathAuth.authFetch('/api/me/notifications/' + encodeURIComponent(n.id)).catch(() => {});
+    }
+    sessionStorage.setItem('dp_open_notification', n.id);
+    setBellOpen(false);
+    go('member');
+  }
+  function viewAllNotifications() {
+    sessionStorage.setItem('dp_open_notifications_section', '1');
+    setBellOpen(false);
+    go('member');
+  }
   // Theme toggle state — re-render when the theme store fires.
   const [themeChoice, setThemeChoice] = React.useState(() => (window.DreamPathTheme && window.DreamPathTheme.choice) || 'system');
   React.useEffect(() => {
@@ -169,26 +199,81 @@ function Nav({ view, go, lang, setLang, c }) {
             </>
           )}
           {auth.ready && auth.user && (
-            <div className="user-menu">
-              <button type="button" className="user-trigger" onClick={() => setMenuOpen(o => !o)} aria-haspopup="true" aria-expanded={menuOpen}>
-                <span className="user-avatar" aria-hidden="true" style={{position:'relative'}}>
-                  {(auth.user.name || auth.user.email || '?').charAt(0).toUpperCase()}
+            <>
+              {/* Bell — opens a dropdown panel showing recent notifications
+                  the admin sent to this user (internal "email-like" alarms). */}
+              <div className="bell-wrap" style={{position:'relative'}}>
+                <button type="button" className="bell-trigger"
+                  onClick={() => { setBellOpen(o => !o); if (!bellOpen) refreshNotifs(); }}
+                  aria-haspopup="true" aria-expanded={bellOpen}
+                  aria-label={isKo ? '알림' : 'Notifications'} title={isKo ? '알림' : 'Notifications'}
+                  style={{position:'relative',width:36,height:36,display:'inline-flex',alignItems:'center',justifyContent:'center',background:'transparent',border:'1px solid var(--border-default)',borderRadius:10,cursor:'pointer',color:'var(--fg-primary)'}}>
+                  <i data-lucide="bell" width="16" height="16" strokeWidth="2" aria-hidden="true"></i>
                   {unread > 0 && (
-                    <span aria-label={`${unread} unread`} style={{position:'absolute',top:-4,right:-6,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>
+                    <span aria-hidden="true"
+                      style={{position:'absolute',top:-4,right:-4,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>
                       {unread > 9 ? '9+' : unread}
                     </span>
                   )}
-                </span>
-                <span className="user-label">{auth.user.name || auth.user.email}</span>
-              </button>
-              {menuOpen && (
-                <div className="user-dropdown" role="menu" onClick={() => setMenuOpen(false)}>
-                  <button type="button" onClick={() => go('member')}>{isKo ? '내 페이지' : 'My page'}</button>
-                  <button type="button" onClick={() => go('apply')}>{isKo ? '지원하기' : 'Apply'}</button>
-                  <button type="button" onClick={async () => { await auth.logout(); }}>{isKo ? '로그아웃' : 'Log out'}</button>
-                </div>
-              )}
-            </div>
+                </button>
+                {bellOpen && (
+                  <div role="menu"
+                    style={{position:'absolute',top:'calc(100% + 8px)',right:0,width:340,maxHeight:480,overflowY:'auto',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:12,boxShadow:'var(--shadow-lg, 0 12px 32px rgba(0,0,0,0.18))',zIndex:200}}>
+                    <div style={{padding:'12px 14px',borderBottom:'1px solid var(--border-hair)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <strong style={{fontSize:13,color:'var(--fg-primary)'}}>{isKo ? '알림' : 'Notifications'}</strong>
+                      <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
+                        {unread > 0 ? (isKo ? `${unread}건 읽지 않음` : `${unread} unread`) : (isKo ? '모두 읽음' : 'all read')}
+                      </span>
+                    </div>
+                    {notifs.length === 0 ? (
+                      <div style={{padding:'28px 14px',textAlign:'center',color:'var(--fg-muted)',fontSize:13}}>
+                        {isKo ? '받은 알림이 없습니다.' : 'No notifications yet.'}
+                      </div>
+                    ) : (
+                      <div>
+                        {notifs.map(n => {
+                          const subj = isKo ? (n.subject_ko || n.subject_en) : (n.subject_en || n.subject_ko);
+                          const body = isKo ? (n.body_ko || n.body_en) : (n.body_en || n.body_ko);
+                          const isUnread = !n.read_at;
+                          return (
+                            <button key={n.id} type="button" onClick={() => openNotification(n)}
+                              style={{display:'block',width:'100%',padding:'12px 14px',background: isUnread ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                                {isUnread && <span style={{flex:'0 0 auto',width:7,height:7,borderRadius:'50%',background:'var(--state-info)'}} />}
+                                <strong style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13,fontWeight: isUnread ? 700 : 500,color:'var(--fg-primary)'}}>{subj || '(no subject)'}</strong>
+                                <span style={{fontSize:10,color:'var(--fg-muted)',whiteSpace:'nowrap',fontFamily:'var(--font-mono)'}}>{new Date(n.ts).toLocaleDateString()}</span>
+                              </div>
+                              <div style={{fontSize:12,color:'var(--fg-secondary)',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{(body || '').slice(0, 140)}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{padding:'10px 14px',borderTop:'1px solid var(--border-hair)',textAlign:'center'}}>
+                      <button type="button" onClick={viewAllNotifications}
+                        style={{background:'none',border:'none',color:'var(--scouting-purple)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                        {isKo ? '전체 보기 →' : 'View all →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="user-menu">
+                <button type="button" className="user-trigger" onClick={() => setMenuOpen(o => !o)} aria-haspopup="true" aria-expanded={menuOpen}>
+                  <span className="user-avatar" aria-hidden="true">
+                    {(auth.user.name || auth.user.email || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <span className="user-label">{auth.user.name || auth.user.email}</span>
+                </button>
+                {menuOpen && (
+                  <div className="user-dropdown" role="menu" onClick={() => setMenuOpen(false)}>
+                    <button type="button" onClick={() => go('member')}>{isKo ? '내 페이지' : 'My page'}</button>
+                    <button type="button" onClick={() => go('apply')}>{isKo ? '지원하기' : 'Apply'}</button>
+                    <button type="button" onClick={async () => { await auth.logout(); }}>{isKo ? '로그아웃' : 'Log out'}</button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {/* Hamburger — only visible below 900px (CSS-driven). */}

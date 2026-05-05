@@ -4,7 +4,25 @@ const { useState: useStateM, useEffect: useEffectM } = React;
 function Member({ go, lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth();
-  const [section, setSection] = useStateM('overview'); // overview | applications | career | recommendations | privacy | notifications
+  // Initial section: prefer the "open notifications" intent from the bell
+  // dropdown (set by Nav.jsx via sessionStorage) so the user lands directly
+  // on the notifications view they clicked from. The flag is one-shot.
+  const [section, setSection] = useStateM(() => {
+    try {
+      if (sessionStorage.getItem('dp_open_notifications_section') ||
+          sessionStorage.getItem('dp_open_notification')) {
+        return 'notifications';
+      }
+    } catch {}
+    return 'overview';
+  });
+  useEffectM(() => {
+    try {
+      sessionStorage.removeItem('dp_open_notifications_section');
+      // dp_open_notification (specific id) is consumed by MemberNotifications
+      // below — we leave it here so it survives the initial render.
+    } catch {}
+  }, []);
   // Unread notification count — drives the badge on the tab. Polled from
   // /api/me/notifications on mount + every 60s while the page is open.
   const [unread, setUnread] = useStateM(0);
@@ -144,6 +162,16 @@ function MemberNotifications({ isKo, onChange }) {
       const d = await r.json();
       setItems(d.items || []);
       onChange && onChange(d.unread || 0);
+      // If the bell dropdown asked us to auto-open a specific notification,
+      // honor it once and clear the flag.
+      try {
+        const target = sessionStorage.getItem('dp_open_notification');
+        if (target) {
+          sessionStorage.removeItem('dp_open_notification');
+          const hit = (d.items || []).find(it => it.id === target);
+          if (hit) open(hit);
+        }
+      } catch {}
     } catch {} finally { setLoading(false); }
   }
   useEffectM(() => { load(); }, []);

@@ -87,6 +87,14 @@
       background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.55);
       font-family: var(--font-mono, monospace);
     }
+    /* Anomaly badge — used when the count is something the operator should
+       act on (e.g. unread inbox mail). Loud red so it stands out from the
+       quiet menu chrome. */
+    .side button.group .gcount.alert {
+      background: var(--state-danger);
+      color: #fff;
+      font-weight: 700;
+    }
     .side button.group.active {
       background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 700;
       box-shadow: inset 3px 0 0 #FFE600;
@@ -710,7 +718,7 @@
       group: { Overview:'Overview', Setup:'Setup', Homepage:'Homepage', Pages:'Pages', Programs:'Programs',
                Content:'Content', Errors:'Errors',
                Marketing:'Marketing', StudentSupport:'Student support', Members:'Members',
-               Mail:'Mailbox',
+               Mail:'Mailbox', InternalMsg:'Internal messages',
                Wiki:'Wiki', Tools:'Tools' },
       tab: {
         dashboard:'Dashboard',
@@ -743,7 +751,7 @@
       group: { Overview:'대시보드', Setup:'사이트 설정', Homepage:'홈페이지', Pages:'페이지', Programs:'프로그램',
                Content:'콘텐츠', Errors:'에러 페이지',
                Marketing:'마케팅', StudentSupport:'학생 지원', Members:'회원 정보',
-               Mail:'메일함',
+               Mail:'메일함', InternalMsg:'내부 알림',
                Wiki:'위키', Tools:'도구' },
       tab: {
         dashboard:'대시보드',
@@ -827,75 +835,87 @@
     StudentSupport: 'inbox',
     Members:        'users',
     Mail:           'mail',
+    InternalMsg:    'bell',
     Wiki:           'book-open',
     Tools:          'wrench',
   };
 
-  // Group order = sidebar order. Tab order within a group = sub-tab strip order.
-  // The first tab in TABS is the landing tab when you sign in.
-  const TABS = [
-    { id: 'dashboard',     group: 'Overview' },
+  // The mailbox group is dynamic — one sub-tab per managed inbox account
+  // (read from c.inboxes). buildTabs(c) returns the full TABS array merged
+  // with the dynamic Mail entries. Group order = sidebar order. Tab order
+  // within a group = sub-tab strip order. The first tab in the returned
+  // array is the landing tab when you sign in.
+  function buildTabs(c) {
+    const inboxes = (c && Array.isArray(c.inboxes))
+      ? c.inboxes.filter(b => b && b.address && b.enabled !== false)
+      : [];
+    // Each managed account becomes its own sub-tab id "mailbox:<address>".
+    // Inside the tab, top-level filters distinguish 받은 메일 / 보낸 메일.
+    const mailboxTabs = inboxes.map(b => ({
+      id: 'mailbox:' + b.address,
+      group: 'Mail',
+      label: b.label_ko || b.label_en || b.address,
+      account: b.address,
+    }));
+    return [
+      { id: 'dashboard',     group: 'Overview' },
 
-    { id: 'brand',         group: 'Setup' },
-    { id: 'footer',        group: 'Setup' },
-    { id: 'icons',         group: 'Setup' },
-    { id: 'notice',        group: 'Setup' },
-    { id: 'og_images',     group: 'Setup' },
-    { id: 'email_templates', group: 'Setup' },
-    { id: 'receipt_template', group: 'Setup' },
-    { id: 'integrations', group: 'Setup' },
-    { id: 'legal',         group: 'Setup' },
+      { id: 'brand',         group: 'Setup' },
+      { id: 'footer',        group: 'Setup' },
+      { id: 'icons',         group: 'Setup' },
+      { id: 'notice',        group: 'Setup' },
+      { id: 'og_images',     group: 'Setup' },
+      { id: 'email_templates', group: 'Setup' },
+      { id: 'receipt_template', group: 'Setup' },
+      { id: 'integrations', group: 'Setup' },
+      { id: 'legal',         group: 'Setup' },
 
-    { id: 'hero',          group: 'Homepage' },
-    { id: 'how',           group: 'Homepage' },
-    { id: 'cta',           group: 'Homepage' },
+      { id: 'hero',          group: 'Homepage' },
+      { id: 'how',           group: 'Homepage' },
+      { id: 'cta',           group: 'Homepage' },
 
-    { id: 'about',         group: 'Pages' },
-    { id: 'pageheros',     group: 'Pages' },
-    { id: 'partner_cta',   group: 'Pages' },
-    { id: 'team',          group: 'Pages' },
+      { id: 'about',         group: 'Pages' },
+      { id: 'pageheros',     group: 'Pages' },
+      { id: 'partner_cta',   group: 'Pages' },
+      { id: 'team',          group: 'Pages' },
 
-    { id: 'programs',      group: 'Programs' },
-    { id: 'program_detail',group: 'Programs' },
+      { id: 'programs',      group: 'Programs' },
+      { id: 'program_detail',group: 'Programs' },
 
-    { id: 'partners',      group: 'Content' },
-    { id: 'stories',       group: 'Content' },
-    { id: 'faq',           group: 'Content' },
+      { id: 'partners',      group: 'Content' },
+      { id: 'stories',       group: 'Content' },
+      { id: 'faq',           group: 'Content' },
 
-    // All error-related editing in one place: copy + live preview + log of recent
-    // production errors. Previously these were scattered across Pages / Tools / Data.
-    { id: 'errors_copy',   group: 'Errors' },
-    { id: 'error_preview', group: 'Errors' },
-    { id: 'error_logs',    group: 'Errors' },
+      { id: 'errors_copy',   group: 'Errors' },
+      { id: 'error_preview', group: 'Errors' },
+      { id: 'error_logs',    group: 'Errors' },
 
-    // Marketing — visitor-facing metrics. Analytics summary lives here so it
-    // sits near "what marketing decisions need" rather than buried in Data.
-    { id: 'analytics',     group: 'Marketing' },
+      { id: 'analytics',     group: 'Marketing' },
 
-    // Mailbox — inbound (Cloudflare Email Workers → D1) + outbound (Resend).
-    // Single tab; internal mode tabs handle inbox / sent / compose.
-    { id: 'mailbox',       group: 'Mail' },
+      // Mail — one tab per managed inbox. Each tab contains 받은/보낸 sections.
+      ...mailboxTabs,
 
-    // Student support — incoming requests from prospective students.
-    { id: 'apps',                group: 'StudentSupport' },
-    { id: 'inquiries',           group: 'StudentSupport' },
-    { id: 'inquiry_categories',  group: 'StudentSupport' },
+      // Internal messages — admin-to-student notifications shown only on
+      // the recipient's My Page. Distinct from external email above.
+      { id: 'send_notification', group: 'InternalMsg' },
 
-    // Members — registered users, their consent trails, and the role/permission
-    // matrix that governs what each role can do.
-    { id: 'members',         group: 'Members' },
-    { id: 'member_roles',    group: 'Members' },
-    { id: 'send_notification', group: 'Members' },
-    { id: 'consent_log',     group: 'Members' },
+      { id: 'apps',                group: 'StudentSupport' },
+      { id: 'inquiries',           group: 'StudentSupport' },
+      { id: 'inquiry_categories',  group: 'StudentSupport' },
 
-    { id: 'wiki_kms',      group: 'Wiki' },
-    { id: 'wiki_color',    group: 'Wiki' },
-    { id: 'wiki_design',   group: 'Wiki' },
+      { id: 'members',         group: 'Members' },
+      { id: 'member_roles',    group: 'Members' },
+      { id: 'consent_log',     group: 'Members' },
 
-    { id: 'translations',  group: 'Tools' },
-    { id: 'design_system', group: 'Tools' },
-    { id: 'api_dir',       group: 'Tools' },
-  ];
+      { id: 'wiki_kms',      group: 'Wiki' },
+      { id: 'wiki_color',    group: 'Wiki' },
+      { id: 'wiki_design',   group: 'Wiki' },
+
+      { id: 'translations',  group: 'Tools' },
+      { id: 'design_system', group: 'Tools' },
+      { id: 'api_dir',       group: 'Tools' },
+    ];
+  }
 
   // ===== Section editors ====================================================
   function BrandTab({ c, set }) {
@@ -2385,10 +2405,15 @@
   // Folders driven by ?mode= (inbox / starred / spam / trash). Attachments
   // capped at 10 files, 50 MB total per email; outbound additionally must
   // fit Resend's 40 MB total payload limit.
-  function MailboxTab({ c }) {
+  // MailboxTab — when `account` prop is supplied, the tab is locked to that
+  // single managed inbox (one tab per account in the sidebar). When omitted,
+  // it falls back to the legacy "all inboxes" mode (left in for safety; the
+  // sidebar no longer renders this case).
+  function MailboxTab({ c, account }) {
     const inboxes = (c && Array.isArray(c.inboxes)) ? c.inboxes.filter(b => b && b.address && b.enabled !== false) : [];
+    const lockedAccount = account || null;             // when set, hide free-form filter + lock From
     const [view, setView] = useState('inbox');         // 'inbox' | 'starred' | 'spam' | 'trash' | 'sent' | 'sent_trash' | 'compose'
-    const [filter, setFilter] = useState('');
+    const [filter, setFilter] = useState(lockedAccount || '');
     const [items, setItems] = useState([]);
     const [counts, setCounts] = useState({ inbox: 0, unread: 0, starred: 0, spam: 0, trash: 0 });
     const [total, setTotal] = useState(0);
@@ -2398,11 +2423,14 @@
     const [selected, setSelected] = useState(null);
     const [tick, setTick] = useState(0);
 
-    // Compose state
-    const [composeFrom, setComposeFrom]       = useState(inboxes[0]?.address || 'info@koreadreampath.com');
+    // Compose state. composeFrom defaults to the locked account when present
+    // (per-account tabs); otherwise the first available inbox.
+    const [composeFrom, setComposeFrom]       = useState(lockedAccount || inboxes[0]?.address || 'info@koreadreampath.com');
     const [composeTo, setComposeTo]           = useState('');
+    const [composeCc, setComposeCc]           = useState('');
+    const [composeBcc, setComposeBcc]         = useState('');
     const [composeSubject, setComposeSubject] = useState('');
-    const [composeBody, setComposeBody]       = useState('');
+    const [composeBody, setComposeBody]       = useState('');   // HTML from RichEditor
     const [composeReplyTo, setComposeReplyTo] = useState(null);
     const [composeFiles, setComposeFiles]     = useState([]);   // [{ filename, mime, size, b64 }]
     const [composeFileErr, setComposeFileErr] = useState('');
@@ -2509,8 +2537,9 @@
       setView('compose');
     }
     function startCompose() {
-      setComposeFrom(inboxes[0]?.address || 'info@koreadreampath.com');
-      setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+      setComposeFrom(lockedAccount || inboxes[0]?.address || 'info@koreadreampath.com');
+      setComposeTo(''); setComposeCc(''); setComposeBcc('');
+      setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
       setComposeFiles([]); setComposeFileErr('');
       setSendResult(null);
       setView('compose');
@@ -2633,13 +2662,31 @@
         });
     }
 
-    const FOLDER_BUTTONS = [
-      { v: 'inbox',      l: '받은 메일',   icon: 'inbox',     count: counts.inbox },
-      { v: 'starred',    l: '즐겨찾기',    icon: 'star',      count: counts.starred },
-      { v: 'sent',       l: '보낸 메일',   icon: 'send',      count: null },
-      { v: 'spam',       l: '스팸함',      icon: 'shield-alert', count: counts.spam },
-      { v: 'trash',      l: '휴지통',      icon: 'trash-2',   count: counts.trash },
+    // Folder layout — split into "받은 메일" and "보낸 메일" sections so the
+    // operator can see at a glance which side they're on. Visual grouping:
+    //   [받은 ▸  inbox · starred · spam · trash]   |   [보낸 ▸  sent · sent_trash]
+    const FOLDERS_INBOUND = [
+      { v: 'inbox',   l: '받은편지함', icon: 'inbox',        count: counts.inbox },
+      { v: 'starred', l: '즐겨찾기',   icon: 'star',         count: counts.starred },
+      { v: 'spam',    l: '스팸',       icon: 'shield-alert', count: counts.spam },
+      { v: 'trash',   l: '휴지통',     icon: 'trash-2',      count: counts.trash },
     ];
+    const FOLDERS_OUTBOUND = [
+      { v: 'sent',       l: '보낸편지함', icon: 'send',     count: null },
+      { v: 'sent_trash', l: '휴지통',     icon: 'trash-2',  count: null },
+    ];
+    const renderFolderBtn = (b) => (
+      <button key={b.v} type="button"
+        onClick={() => { setView(b.v); setSelected(null); }}
+        className="icon-btn"
+        style={view === b.v ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+        <i data-lucide={b.icon} width="14" height="14" style={{marginRight:6,verticalAlign:'-2px'}} />
+        {b.l}
+        {b.count != null && b.count > 0 && (
+          <span style={{marginLeft:6,fontSize:11,fontFamily:'var(--font-mono)',opacity:0.85}}>{b.count}</span>
+        )}
+      </button>
+    );
 
     const composeTotal = composeFiles.reduce((s, f) => s + f.size, 0);
 
@@ -2653,30 +2700,31 @@
 
     return (
       <>
-        {/* Folder tabs + actions */}
+        {/* Folder tabs + actions. The "받은 / 보낸" split is the primary
+            distinction the operator cares about, so each section has its
+            own kicker label and the two are separated by a vertical rule. */}
         <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {FOLDER_BUTTONS.map(b => (
-              <button key={b.v} type="button"
-                onClick={() => { setView(b.v); setSelected(null); }}
-                className="icon-btn"
-                style={view === b.v ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
-                <i data-lucide={b.icon} width="14" height="14" style={{marginRight:6,verticalAlign:'-2px'}} />
-                {b.l}
-                {b.count != null && b.count > 0 && (
-                  <span style={{marginLeft:6,fontSize:11,fontFamily:'var(--font-mono)',opacity:0.85}}>{b.count}</span>
-                )}
-              </button>
-            ))}
+          <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:10,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginRight:4}}>받은</span>
+              {FOLDERS_INBOUND.map(renderFolderBtn)}
+            </div>
+            <span aria-hidden style={{width:1,height:24,background:'var(--border-default)'}} />
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:10,fontWeight:700,color:'var(--fg-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginRight:4}}>보낸</span>
+              {FOLDERS_OUTBOUND.map(renderFolderBtn)}
+            </div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
             {view !== 'compose' && view !== 'trash' && view !== 'sent_trash' && sideOfView === 'inbox' && (
               <>
-                <select value={filter} onChange={e => setFilter(e.target.value)}
-                  style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
-                  <option value="">모든 받은 주소</option>
-                  {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
-                </select>
+                {!lockedAccount && (
+                  <select value={filter} onChange={e => setFilter(e.target.value)}
+                    style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
+                    <option value="">모든 받은 주소</option>
+                    {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
+                  </select>
+                )}
                 <input type="search" placeholder="제목·발신자·본문 검색" value={search} onChange={e => setSearch(e.target.value)}
                   style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',width:220}} />
                 <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'var(--fg-secondary)'}}>
@@ -2684,7 +2732,7 @@
                 </label>
               </>
             )}
-            {view === 'sent' && (
+            {view === 'sent' && !lockedAccount && (
               <select value={filter} onChange={e => setFilter(e.target.value)}
                 style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
                 <option value="">모든 보낸 주소</option>
@@ -2846,9 +2894,14 @@
             <div className="grid-2 tight" style={{marginBottom:14}}>
               <div className="field">
                 <label>From</label>
-                <select value={composeFrom} onChange={e => setComposeFrom(e.target.value)}>
-                  {inboxes.map(b => <option key={b.address} value={b.address}>{b.label_ko || b.label_en || b.address} &lt;{b.address}&gt;</option>)}
-                </select>
+                {lockedAccount ? (
+                  <input type="text" value={lockedAccount} readOnly
+                    style={{background:'var(--bg-muted)',color:'var(--fg-secondary)',cursor:'not-allowed'}} />
+                ) : (
+                  <select value={composeFrom} onChange={e => setComposeFrom(e.target.value)}>
+                    {inboxes.map(b => <option key={b.address} value={b.address}>{b.label_ko || b.label_en || b.address} &lt;{b.address}&gt;</option>)}
+                  </select>
+                )}
               </div>
               <Text label="To" value={composeTo} onChange={setComposeTo} type="email" />
             </div>
@@ -6080,7 +6133,37 @@
   // ---- Main admin shell ----------------------------------------------------
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
-    const [tab, setTab] = useState(() => localStorage.getItem('dp_admin_tab') || 'dashboard');
+    // TABS is rebuilt whenever the inbox roster changes (admin can add/remove
+    // managed inboxes via the API · 통합 tab). Each managed inbox renders as
+    // its own sub-tab in the Mail group.
+    const TABS = useMemo(() => buildTabs(content), [JSON.stringify((content?.inboxes || []).map(b => b && b.address + ':' + (b.enabled !== false)))]);
+    // Legacy tab ids ("mailbox", or removed tabs) get reset to dashboard
+    // so the operator never lands on a blank screen after an upgrade.
+    const [tab, setTab] = useState(() => {
+      const stored = localStorage.getItem('dp_admin_tab') || 'dashboard';
+      return stored === 'mailbox' ? 'dashboard' : stored;
+    });
+    useEffect(() => {
+      if (!TABS.find(tt => tt.id === tab)) setTab('dashboard');
+    }, [TABS, tab]);
+    // Anomaly counters (for sidebar badges). Only populated by signals worth
+    // a badge — currently per-account inbox unread + total. Polled every 60s
+    // so the badge is reasonably fresh without spamming the API.
+    const [anomalies, setAnomalies] = useState({ mailUnread: {}, mailUnreadTotal: 0 });
+    useEffect(() => {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      if (!tok) return;
+      let cancelled = false;
+      function refresh() {
+        fetch('/api/admin/mail/unread-by-account', { headers: { authorization: 'Bearer ' + tok } })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d && !cancelled) setAnomalies({ mailUnread: d.by_account || {}, mailUnreadTotal: d.total || 0 }); })
+          .catch(() => {});
+      }
+      refresh();
+      const id = setInterval(refresh, 60000);
+      return () => { cancelled = true; clearInterval(id); };
+    }, [tab]);  // refresh when tab changes (cheap signal that user just acted on a mail)
     const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
     const t = I18N[adminLang] || I18N.en;
     useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
@@ -6186,14 +6269,15 @@
       URL.revokeObjectURL(url);
     }
 
-    const TabComp = {
+    // Static dispatch table for fixed tab ids. Dynamic ids (mailbox:<addr>)
+    // are routed below to MailboxTab with an account prop.
+    const STATIC_TAB_COMP = {
       dashboard: DashboardTab,
       brand: BrandTab, footer: FooterTab, icons: IconsTab, notice: NoticeTab,
       og_images: OgImagesTab,
       email_templates: EmailTemplatesTab,
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
-      mailbox: MailboxTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,
@@ -6209,10 +6293,15 @@
       members: MembersTab, member_roles: MemberRolesTab,
       send_notification: SendNotificationTab,
       inquiry_categories: InquiryCategoriesTab,
-    }[tab];
+    };
+    const tabAccount = tab.startsWith('mailbox:') ? tab.slice('mailbox:'.length) : null;
+    const TabComp = tabAccount ? MailboxTab : STATIC_TAB_COMP[tab];
 
     const activeTab = TABS.find(tt => tt.id === tab);
-    const activeLabel = activeTab ? (t.tab[activeTab.id] || activeTab.id) : '';
+    // Dynamic mailbox tabs use the account address (or label_ko/en) as label.
+    const activeLabel = activeTab
+      ? (activeTab.label || t.tab[activeTab.id] || activeTab.id)
+      : '';
     const activeGroup = activeTab ? (t.group[activeTab.group] || activeTab.group) : '';
     const saveLabel = savedState === 'saving' ? t.save.saving
                     : savedState === 'saved' ? t.save.saved
@@ -6282,24 +6371,24 @@
               const active = g === activeGroupId;
               const childTabs = TABS.filter(tt => tt.group === g);
               const icon = GROUP_ICONS[g] || 'circle';
-              // The active group is always shown expanded; others honor the
-              // operator's manual expansion choice. Default is collapsed
-              // (expandedGroups starts empty).
               const open = active || expandedGroups.has(g);
+              // Anomaly badge — only shown when the group has a real signal
+              // worth surfacing in the sidebar (default: nothing, keeps the
+              // sidebar quiet). Currently wired: Mail (total unread).
+              const groupBadge = g === 'Mail' && anomalies.mailUnreadTotal > 0
+                ? anomalies.mailUnreadTotal
+                : null;
               return (
                 <div className="grp" key={g}>
                   <div className={'group-row' + (active ? ' active' : '')}>
-                    {/* Main click: navigate into the group (jumps to last-active sub-tab). */}
                     <button type="button"
                       className={'group' + (active ? ' active' : '')}
                       onClick={() => selectGroup(g)}
                       aria-current={active ? 'page' : undefined}>
                       <i data-lucide={icon} className="gicon" />
                       <span className="glabel">{t.group[g] || g}</span>
-                      <span className="gcount">{childTabs.length}</span>
+                      {groupBadge != null && <span className="gcount alert">{groupBadge}</span>}
                     </button>
-                    {/* Caret: toggle expansion without navigating. The active
-                        group's caret is hidden — it's always open. */}
                     {!active && childTabs.length > 1 && (
                       <button type="button"
                         className={'group-caret' + (open ? ' open' : '')}
@@ -6313,14 +6402,23 @@
                   </div>
                   {open && childTabs.length > 1 && (
                     <div className="subnav" role="group" aria-label={`${t.group[g] || g} sub-tabs`}>
-                      {childTabs.map(tt => (
-                        <button key={tt.id} type="button"
-                          className={'subtab-side' + (tab === tt.id ? ' active' : '')}
-                          onClick={() => setTabSafe(tt.id)}
-                          aria-current={tab === tt.id ? 'page' : undefined}>
-                          {t.tab[tt.id] || tt.id}
-                        </button>
-                      ))}
+                      {childTabs.map(tt => {
+                        const subBadge = tt.account && anomalies.mailUnread[tt.account] > 0
+                          ? anomalies.mailUnread[tt.account]
+                          : null;
+                        const label = tt.label || t.tab[tt.id] || tt.id;
+                        return (
+                          <button key={tt.id} type="button"
+                            className={'subtab-side' + (tab === tt.id ? ' active' : '')}
+                            onClick={() => setTabSafe(tt.id)}
+                            aria-current={tab === tt.id ? 'page' : undefined}>
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
+                            {subBadge != null && (
+                              <span style={{marginLeft:'auto',padding:'1px 7px',borderRadius:10,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,fontFamily:'var(--font-mono)'}}>{subBadge}</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -6386,8 +6484,11 @@
             {(() => {
               if (!TabComp) return null;
               const previewPath = PREVIEW_PATHS[tab];
+              // key={tab} forces React to unmount/remount when switching
+              // between dynamic mailbox sub-tabs (mailbox:info → mailbox:hello)
+              // since both dispatch to the same MailboxTab component.
               if (!previewPath) {
-                return <TabComp c={content} set={set} addItem={addItem} removeItem={removeItem} setTab={setTabSafe} />;
+                return <TabComp key={tab} c={content} account={tabAccount} set={set} addItem={addItem} removeItem={removeItem} setTab={setTabSafe} />;
               }
               return (
                 <EditorWithPreview
@@ -6397,7 +6498,7 @@
                   onSave={(draft) => { dirtyRef.current = true; setContent(draft); }}
                   onDirtyChange={(isDirty) => { editorDirtyRef.current = isDirty; }}
                 >
-                  {(api) => <TabComp c={api.c} set={api.set} addItem={api.addItem} removeItem={api.removeItem} setTab={setTabSafe} />}
+                  {(api) => <TabComp key={tab} c={api.c} account={tabAccount} set={api.set} addItem={api.addItem} removeItem={api.removeItem} setTab={setTabSafe} />}
                 </EditorWithPreview>
               );
             })()}

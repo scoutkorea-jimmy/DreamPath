@@ -220,6 +220,13 @@ body {
   color: #fff; overflow: hidden;
   padding: 140px 32px 120px;
 }
+/* Dark mode: --scouting-purple is lightened to lavender (#B695E8) for text
+   readability, but using it as a gradient terminus makes the hero look like
+   it fades into white. Re-aim the bottom of the gradient at the canvas
+   color so the hero blends into the page background instead. */
+[data-theme="dark"] .hero {
+  background: linear-gradient(180deg, var(--midnight-purple) 0%, var(--canvas-white) 100%);
+}
 .hero-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
 .hero-kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.72); margin-bottom: 28px; }
 .hero-title { font-family: var(--font-kr); font-size: clamp(40px, 6vw, 80px); font-weight: 700; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 28px; }

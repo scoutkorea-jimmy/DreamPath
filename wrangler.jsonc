@@ -40,5 +40,11 @@
 
   "observability": {
     "enabled": true
+  },
+
+  // Hourly cron: send activation reminders to pending signups + purge
+  // accounts whose 72h window expired. Handler: `scheduled()` in worker.js.
+  "triggers": {
+    "crons": ["0 * * * *"]
   }
 }

@@ -14,7 +14,7 @@ const SPA_PATHS = new Set([
   '/about', '/programs', '/apply',
   '/partners', '/stories', '/news', '/contact',
   '/team', '/scholarships', '/member', '/receipt',
-  '/verify', '/reset-password',
+  '/verify', '/reset-password', '/activate',
   '/401', '/403', '/404', '/500', '/503', '/offline',
 ]);
 
@@ -142,6 +142,15 @@ export default {
         method: 'EMAIL', status: 0,
       }));
     }
+  },
+
+  // Hourly cron — wired via wrangler.jsonc triggers.crons. Two jobs:
+  //   1. Send activation reminders to pending signups whose code is still
+  //      valid but who haven't acted on the original email in ≥24h.
+  //   2. Hard-delete pending signups whose 72h activation window expired.
+  // Designed to be cheap: a single SELECT per job + bounded UPDATE/DELETE.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(activationCron(env));
   },
 };
 
@@ -498,6 +507,8 @@ async function handleApi(request, env, url) {
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
+  if (path === '/api/auth/activate' && method === 'POST') return activateAccount(request, env);
+  if (path === '/api/auth/resend-activation' && method === 'POST') return resendActivation(request, env);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
   // ── Mailbox v2 — folders + soft-delete + attachments + export ──────────
@@ -1573,56 +1584,110 @@ async function handleApi(request, env, url) {
 // ── Auth (members) ─────────────────────────────────────────────────────────
 const SESSION_TTL_DAYS = 30;
 
+// Password complexity gate enforced server-side as the source of truth.
+// The signup form mirrors the same checks for live feedback.
+//   • length ≥ 10
+//   • upper + lower + digit + symbol (≥1 of each)
+function passwordPolicyError(pw) {
+  if (typeof pw !== 'string' || pw.length < 10) return 'password_too_short';
+  if (!/[A-Z]/.test(pw)) return 'password_missing_uppercase';
+  if (!/[a-z]/.test(pw)) return 'password_missing_lowercase';
+  if (!/[0-9]/.test(pw)) return 'password_missing_digit';
+  if (!/[^A-Za-z0-9]/.test(pw)) return 'password_missing_symbol';
+  return null;
+}
+function generateActivationCode() {
+  // Six-digit zero-padded numeric — easiest format for users to type from a
+  // mobile mail client and matches what most consumer apps use.
+  const n = Math.floor(Math.random() * 1_000_000);
+  return String(n).padStart(6, '0');
+}
+const ACTIVATION_TTL_MS = 72 * 3600 * 1000;
+
 async function signup(request, env) {
   const body = await request.json().catch(() => null);
   if (!body) return json({ error: 'invalid_json' }, 400);
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
+  const passwordConfirm = body.password_confirm != null ? String(body.password_confirm) : password;
   const name = String(body.name || '').trim();
+  const phoneCountry  = String(body.phone_country  || '').trim();   // e.g. "+82"
+  const phoneNational = String(body.phone_national || '').replace(/\D/g, '');
   if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
-  if (password.length < 8) return json({ error: 'password_too_short' }, 400);
+  if (password !== passwordConfirm) return json({ error: 'password_mismatch' }, 400);
+  const pwErr = passwordPolicyError(password);
+  if (pwErr) return json({ error: pwErr }, 400);
+  if (phoneCountry && !/^\+\d{1,4}$/.test(phoneCountry)) return json({ error: 'invalid_phone_country' }, 400);
+  if (phoneNational && phoneNational.length < 4)        return json({ error: 'invalid_phone_national' }, 400);
 
-  const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
-  if (existing) return json({ error: 'email_taken' }, 409);
+  // Squat-free signup: if an unactivated row already exists for this email
+  // and its 72h window expired, recycle the address. Active rows always 409.
+  const existing = await env.DB.prepare('SELECT id, activated_at, activation_expires_at FROM users WHERE email = ?').bind(email).first();
+  if (existing) {
+    const isActive = !!existing.activated_at;
+    const expired  = existing.activation_expires_at && new Date(existing.activation_expires_at).getTime() < Date.now();
+    if (isActive || !expired) return json({ error: 'email_taken' }, 409);
+    // Expired pending account → wipe and let signup recreate.
+    await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(existing.id).run();
+  }
 
   const id = 'U-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
   const now = new Date().toISOString();
-  // Auto-promote the always-admin email so future role queries return 'admin'
-  // directly. The runtime userIsAdmin() check would also catch it, but
-  // persisting the role keeps the DB consistent with what the UI shows.
   const role = (email === ALWAYS_ADMIN_EMAIL) ? 'admin' : 'member';
+  // The always-admin operator email skips the activation gate so we can't
+  // accidentally lock ourselves out of the admin console during deploys.
+  const skipActivation = (email === ALWAYS_ADMIN_EMAIL);
+  const code = skipActivation ? null : generateActivationCode();
+  const expires = skipActivation ? null : new Date(Date.now() + ACTIVATION_TTL_MS).toISOString();
+  const activatedAt = skipActivation ? now : null;
 
   await env.DB.prepare(
-    'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, email, hash, salt, name || null, role, now, now).run();
+    'INSERT INTO users (id, email, password_hash, password_salt, name, role, ' +
+    'created_at, updated_at, phone_country, phone_national, ' +
+    'activated_at, activation_code, activation_expires_at, activation_sent_at) ' +
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(
+    id, email, hash, salt, name || null, role, now, now,
+    phoneCountry || null, phoneNational || null,
+    activatedAt, code, expires, code ? now : null,
+  ).run();
 
-  // Mint a verification token + send the verify email via Resend.
-  // If RESEND_API_KEY isn't configured the send is skipped and the token
-  // is returned in the response so the dev/test flow still works.
-  const verifyToken = randomHex(24);
-  const verifyExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
-  await env.DB.prepare(
-    'INSERT INTO email_verifications (token, user_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
-  ).bind(verifyToken, id, email, now, verifyExpires).run();
-
-  const verifyUrl = baseUrl(request) + '/verify?token=' + encodeURIComponent(verifyToken);
   const lang = (body.lang === 'en') ? 'en' : 'ko';
-  const send = await sendEmail(env, {
-    to: email, slug: 'verify_signup', lang,
-    vars: { name: name || email, verify_url: verifyUrl },
-  });
+  let sendInfo = { sent: skipActivation };
+  if (!skipActivation) {
+    const link = baseUrl(request) + '/activate?email=' + encodeURIComponent(email) + '&code=' + code;
+    sendInfo = await sendEmail(env, {
+      to: email, slug: 'activate_account', lang,
+      vars: {
+        name: name || email,
+        code,
+        activation_url: link,
+        expires_hours: '72',
+      },
+    });
+  }
 
-  const session = await createSession(env, id);
+  // No session minted for unactivated accounts — they must verify first.
+  const responseUser = { id, email, name, role, activated: skipActivation };
+  if (skipActivation) {
+    const session = await createSession(env, id);
+    return json({
+      user: responseUser,
+      token: session.token,
+      expires_at: session.expires_at,
+      email_sent: true,
+      activation_required: false,
+    });
+  }
   return json({
-    user: { id, email, name, role, email_verified: 0 },
-    token: session.token,
-    expires_at: session.expires_at,
-    email_sent: send.sent,
-    // Dev fallback — only included when Resend isn't configured so the
-    // operator can finish the verify flow manually before SMTP launch.
-    ...(send.sent ? {} : { verify_token: verifyToken, verify_expires_at: verifyExpires }),
+    user: responseUser,
+    activation_required: true,
+    activation_expires_at: expires,
+    email_sent: sendInfo.sent,
+    // Dev fallback — only when Resend isn't wired so manual testing works.
+    ...(sendInfo.sent ? {} : { activation_code: code }),
   });
 }
 
@@ -1643,6 +1708,12 @@ async function login(request, env) {
   if (!u) return json({ error: 'invalid_credentials' }, 401);
   const hash = await hashPassword(password, u.password_salt);
   if (!safeEqual(hash, u.password_hash)) return json({ error: 'invalid_credentials' }, 401);
+  // Activation gate — accounts that haven't verified their email can't sign
+  // in. Always-admin email skips this so deploys can't lock us out. Returns
+  // 403 with email so the client can present the activation entry/resend UI.
+  if (!u.activated_at && u.email !== ALWAYS_ADMIN_EMAIL) {
+    return json({ error: 'account_not_activated', email: u.email }, 403);
+  }
   // Self-heal the always-admin role on every login — covers legacy accounts
   // that signed up before this rule existed and ones that were demoted by
   // mistake.
@@ -1652,6 +1723,97 @@ async function login(request, env) {
   }
   const session = await createSession(env, u.id);
   return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at });
+}
+
+async function activateAccount(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const email = String(body.email || '').trim().toLowerCase();
+  const code  = String(body.code || '').replace(/\D/g, '');
+  if (!isEmail(email) || !/^\d{6}$/.test(code)) return json({ error: 'invalid_request' }, 400);
+  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  if (!u) return json({ error: 'not_found' }, 404);
+  if (u.activated_at) return json({ ok: true, already: true });
+  if (!u.activation_code || !u.activation_expires_at) return json({ error: 'no_pending_activation' }, 400);
+  if (new Date(u.activation_expires_at).getTime() < Date.now()) return json({ error: 'activation_expired' }, 410);
+  if (!safeEqual(code, String(u.activation_code))) return json({ error: 'invalid_code' }, 401);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'UPDATE users SET activated_at = ?, activation_code = NULL, activation_expires_at = NULL, updated_at = ? WHERE id = ?'
+  ).bind(now, now, u.id).run();
+  // Issue a session so the user can proceed straight into the app — saves
+  // the friction of a second login immediately after activation.
+  const session = await createSession(env, u.id);
+  return json({
+    ok: true,
+    user: { id: u.id, email: u.email, name: u.name, role: u.role, activated: true },
+    token: session.token,
+    expires_at: session.expires_at,
+  });
+}
+
+// Hourly cron job — purge expired pending signups + send a one-shot reminder
+// to anyone whose 72h window is still open but who hasn't acted in ≥24h.
+// Reminder cap: at most one per pending account per cron tick (we bump
+// activation_sent_at so the next tick skips it).
+async function activationCron(env) {
+  const now = Date.now();
+  // 1) Purge expired pending signups.
+  const expired = await env.DB.prepare(
+    "SELECT id, email FROM users WHERE activated_at IS NULL AND activation_expires_at IS NOT NULL AND activation_expires_at < ?"
+  ).bind(new Date(now).toISOString()).all();
+  for (const u of (expired.results || [])) {
+    try { await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(u.id).run(); } catch {}
+  }
+  // 2) Reminder: still pending + sent ≥ 24h ago + ≥ 6h still on the clock.
+  const remindBefore = new Date(now - 24 * 3600 * 1000).toISOString();
+  const minRemaining = new Date(now + 6 * 3600 * 1000).toISOString();
+  const pending = await env.DB.prepare(
+    "SELECT id, email, name, activation_code FROM users " +
+    "WHERE activated_at IS NULL AND activation_code IS NOT NULL " +
+    "AND activation_sent_at IS NOT NULL AND activation_sent_at < ? " +
+    "AND activation_expires_at IS NOT NULL AND activation_expires_at > ? " +
+    "LIMIT 100"
+  ).bind(remindBefore, minRemaining).all();
+  for (const u of (pending.results || [])) {
+    try {
+      const link = 'https://koreadreampath.com/activate?email=' + encodeURIComponent(u.email) + '&code=' + u.activation_code;
+      await sendEmail(env, {
+        to: u.email, slug: 'activate_reminder', lang: 'ko',
+        vars: { name: u.name || u.email, code: u.activation_code, activation_url: link, expires_hours: '72' },
+      });
+      await env.DB.prepare('UPDATE users SET activation_sent_at = ? WHERE id = ?').bind(new Date().toISOString(), u.id).run();
+    } catch {}
+  }
+  return { purged: (expired.results || []).length, reminded: (pending.results || []).length };
+}
+
+async function resendActivation(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  // Don't disclose whether the email exists. Always claim success.
+  if (!u || u.activated_at) return json({ ok: true });
+  // Refresh the code + reset the 72h window. Cap the resend rate so we
+  // can't be used as a free email blast: at most one send per 60 s.
+  if (u.activation_sent_at && (Date.now() - new Date(u.activation_sent_at).getTime()) < 60_000) {
+    return json({ error: 'rate_limited', retry_after_seconds: 60 }, 429);
+  }
+  const code = generateActivationCode();
+  const expires = new Date(Date.now() + ACTIVATION_TTL_MS).toISOString();
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    'UPDATE users SET activation_code = ?, activation_expires_at = ?, activation_sent_at = ?, updated_at = ? WHERE id = ?'
+  ).bind(code, expires, now, now, u.id).run();
+  const lang = (body.lang === 'en') ? 'en' : 'ko';
+  const link = baseUrl(request) + '/activate?email=' + encodeURIComponent(email) + '&code=' + code;
+  const send = await sendEmail(env, {
+    to: email, slug: 'activate_account', lang,
+    vars: { name: u.name || email, code, activation_url: link, expires_hours: '72' },
+  });
+  return json({ ok: true, email_sent: send.sent, ...(send.sent ? {} : { activation_code: code }) });
 }
 
 async function logout(request, env) {

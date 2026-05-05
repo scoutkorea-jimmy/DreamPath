@@ -2525,10 +2525,20 @@
     function startReply(msg) {
       const replyFrom = msg.to_addr;
       const subject = (msg.subject || '').toLowerCase().startsWith('re:') ? msg.subject : 'Re: ' + (msg.subject || '');
-      const quoted = (msg.body_text || '').split('\n').map(l => '> ' + l).join('\n');
-      const lead = `\n\n— On ${new Date(msg.ts).toLocaleString()}, ${msg.from_name || msg.from_addr} <${msg.from_addr}> wrote:\n${quoted}`;
+      // Build the quoted body as HTML so the RichEditor renders it as an
+      // actual blockquote rather than literal "> " prefixes.
+      const escape = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const sourceHtml = msg.body_html || ('<p>' + escape(msg.body_text || '').replace(/\n+/g, '</p><p>') + '</p>');
+      const lead =
+        '<p></p><p></p>' +
+        '<blockquote>' +
+        '<p style="color:#777;font-size:12px"><em>On ' + escape(new Date(msg.ts).toLocaleString()) +
+        ', ' + escape(msg.from_name || msg.from_addr) + ' &lt;' + escape(msg.from_addr) + '&gt; wrote:</em></p>' +
+        sourceHtml +
+        '</blockquote>';
       setComposeFrom(replyFrom);
       setComposeTo(msg.from_addr);
+      setComposeCc(''); setComposeBcc('');
       setComposeSubject(subject);
       setComposeBody(lead);
       setComposeReplyTo({ id: msg.id, message_id: msg.message_id, subject: msg.subject });
@@ -2591,7 +2601,10 @@
           headers: { 'content-type': 'application/json', ...authHeaders() },
           body: JSON.stringify({
             from: composeFrom, to: composeTo,
-            subject: composeSubject, body: composeBody,
+            cc:  composeCc.trim() || undefined,
+            bcc: composeBcc.trim() || undefined,
+            subject: composeSubject,
+            body_html: composeBody,                      // RichEditor outputs HTML
             in_reply_to: composeReplyTo?.message_id || null,
             attachments: composeFiles.map(f => ({ filename: f.filename, mime: f.mime, content_base64: f.b64 })),
           }),
@@ -2599,7 +2612,8 @@
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok) {
           setSendResult({ ok: true });
-          setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null); setComposeFiles([]);
+          setComposeTo(''); setComposeCc(''); setComposeBcc('');
+          setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null); setComposeFiles([]);
           setTimeout(() => { setView('sent'); setTick(t => t + 1); }, 600);
         } else {
           setSendResult({ ok: false, msg: d.error || ('http_' + r.status) });
@@ -2823,6 +2837,16 @@
                         {' · '}
                         <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
                       </div>
+                      {sideOfView !== 'inbox' && selected.cc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>
+                          <strong>CC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.cc}</code>
+                        </div>
+                      )}
+                      {sideOfView !== 'inbox' && selected.bcc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
+                          <strong>BCC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.bcc}</code>
+                        </div>
+                      )}
                     </div>
                     <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
                       {sideOfView === 'inbox' && !selected.trashed_at && (
@@ -2869,10 +2893,13 @@
                       </div>
                     </div>
                   )}
-                  {selected.body_text
-                    ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
-                    : selected.body_html
-                      ? <iframe sandbox="" title="Email body" srcDoc={selected.body_html} style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
+                  {/* Prefer rich HTML when present (always true for outbound
+                      sent via the new compose flow); fall back to plain text
+                      for inbound messages that only carried text/plain. */}
+                  {selected.body_html
+                    ? <iframe sandbox="" title="Email body" srcDoc={selected.body_html} style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
+                    : selected.body_text
+                      ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
                       : <div style={{color:'var(--fg-muted)',fontStyle:'italic'}}>(본문 없음)</div>}
                   {selected.error && (
                     <div role="alert" style={{marginTop:14,padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13}}>
@@ -2886,27 +2913,43 @@
         )}
 
         {view === 'compose' && (
-          <div className="card" style={{maxWidth:880}}>
+          <div className="card">
             <h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3>
             {composeReplyTo && (
               <p className="desc">In reply to: <code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{composeReplyTo.subject}</code></p>
             )}
-            <div className="grid-2 tight" style={{marginBottom:14}}>
-              <div className="field">
-                <label>From</label>
-                {lockedAccount ? (
-                  <input type="text" value={lockedAccount} readOnly
-                    style={{background:'var(--bg-muted)',color:'var(--fg-secondary)',cursor:'not-allowed'}} />
-                ) : (
-                  <select value={composeFrom} onChange={e => setComposeFrom(e.target.value)}>
-                    {inboxes.map(b => <option key={b.address} value={b.address}>{b.label_ko || b.label_en || b.address} &lt;{b.address}&gt;</option>)}
-                  </select>
-                )}
-              </div>
-              <Text label="To" value={composeTo} onChange={setComposeTo} type="email" />
+            {/* Single-column form: From / To / CC / BCC / Subject / Body */}
+            <div className="field">
+              <label>From</label>
+              {lockedAccount ? (
+                <input type="text" value={lockedAccount} readOnly
+                  style={{background:'var(--bg-muted)',color:'var(--fg-secondary)',cursor:'not-allowed'}} />
+              ) : (
+                <select value={composeFrom} onChange={e => setComposeFrom(e.target.value)}>
+                  {inboxes.map(b => <option key={b.address} value={b.address}>{b.label_ko || b.label_en || b.address} &lt;{b.address}&gt;</option>)}
+                </select>
+              )}
+            </div>
+            <Text label="To" value={composeTo} onChange={setComposeTo} type="email" />
+            <div className="field">
+              <label>CC <span style={{fontSize:11,color:'var(--fg-muted)',fontWeight:400}}>(쉼표로 구분)</span></label>
+              <input type="text" value={composeCc} onChange={e => setComposeCc(e.target.value)}
+                placeholder="alice@example.com, bob@example.com"
+                style={{width:'100%'}} />
+            </div>
+            <div className="field">
+              <label>BCC <span style={{fontSize:11,color:'var(--fg-muted)',fontWeight:400}}>(쉼표로 구분)</span></label>
+              <input type="text" value={composeBcc} onChange={e => setComposeBcc(e.target.value)}
+                placeholder="hidden@example.com"
+                style={{width:'100%'}} />
             </div>
             <Text label="Subject" value={composeSubject} onChange={setComposeSubject} />
-            <Area label="Body" value={composeBody} onChange={setComposeBody} rows={14} />
+            <div className="field" style={{marginBottom:14}}>
+              <label>Body</label>
+              {window.RichEditor
+                ? <window.RichEditor value={composeBody} onChange={setComposeBody} lang="ko" minHeight={320} placeholder="메일 본문을 작성하세요…" />
+                : <textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={14} style={{width:'100%'}} placeholder="(에디터 로딩 중)" />}
+            </div>
 
             {/* Attachments */}
             <div style={{marginTop:14,padding:'12px 14px',background:'var(--bg-muted)',borderRadius:10}}>
@@ -6131,8 +6174,32 @@
   }
 
   // ---- Main admin shell ----------------------------------------------------
+  // Idle session timeout — 30 min of zero activity logs the operator out so
+  // an unattended laptop doesn't leave the admin console exposed. Warns at
+  // 60 s remaining; any mouse/key/scroll/touch resets the clock.
+  const ADMIN_IDLE_MS = 30 * 60 * 1000;
+  const ADMIN_IDLE_WARN_MS = 60 * 1000;
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
+    const lastActivityRef = useRef(Date.now());
+    const [idleSecondsLeft, setIdleSecondsLeft] = useState(null);   // null = no warning; number = seconds until forced logout
+    useEffect(() => {
+      const bump = () => { lastActivityRef.current = Date.now(); if (idleSecondsLeft != null) setIdleSecondsLeft(null); };
+      const evts = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+      evts.forEach(e => window.addEventListener(e, bump, { passive: true }));
+      const id = setInterval(() => {
+        const elapsed = Date.now() - lastActivityRef.current;
+        if (elapsed >= ADMIN_IDLE_MS) {
+          // Forced logout — clear local token and bounce to the login screen.
+          localStorage.removeItem('dp_admin_token');
+          try { sessionStorage.setItem('dp_admin_idle_logout', '1'); } catch {}
+          window.location.reload();
+        } else if (elapsed >= ADMIN_IDLE_MS - ADMIN_IDLE_WARN_MS) {
+          setIdleSecondsLeft(Math.max(0, Math.ceil((ADMIN_IDLE_MS - elapsed) / 1000)));
+        }
+      }, 1000);
+      return () => { clearInterval(id); evts.forEach(e => window.removeEventListener(e, bump)); };
+    }, [idleSecondsLeft]);
     // TABS is rebuilt whenever the inbox roster changes (admin can add/remove
     // managed inboxes via the API · 통합 tab). Each managed inbox renders as
     // its own sub-tab in the Mail group.
@@ -6354,6 +6421,24 @@
 
     return (
       <div className="admin">
+        {/* Idle-timeout warning toast — appears in the last 60 s before the
+            session expires. Any activity dismisses it (handled by the bump
+            handler above clearing idleSecondsLeft). The "지금 연장" button
+            is just a focusable target that triggers a click event. */}
+        {idleSecondsLeft != null && (
+          <div role="alert" aria-live="assertive"
+            style={{position:'fixed',top:16,right:16,zIndex:9999,minWidth:280,padding:'14px 18px',background:'var(--state-warning-bg)',color:'var(--state-warning)',border:'1px solid var(--state-warning)',borderRadius:12,boxShadow:'0 12px 32px rgba(0,0,0,0.18)',display:'flex',alignItems:'center',gap:14}}>
+            <i data-lucide="clock" width="20" height="20" />
+            <div style={{flex:1,fontSize:13,lineHeight:1.45}}>
+              <strong>{idleSecondsLeft}초 후 자동 로그아웃</strong>
+              <div style={{opacity:0.85,fontSize:12,marginTop:2}}>30분 동안 활동이 없습니다.</div>
+            </div>
+            <button type="button" onClick={() => { lastActivityRef.current = Date.now(); setIdleSecondsLeft(null); }}
+              style={{padding:'6px 12px',background:'var(--state-warning)',color:'#fff',border:'none',borderRadius:6,fontWeight:700,cursor:'pointer',fontSize:12}}>
+              지금 연장
+            </button>
+          </div>
+        )}
         <aside className="side" aria-label="Admin navigation">
           <div className="brand">
             <img src="/assets/logo-dreampath-mark.svg" alt="" />
@@ -6520,6 +6605,17 @@
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    // Surface the "you were logged out for inactivity" reason once after the
+    // forced reload the idle timer triggers. The flag is one-shot.
+    const [idleNotice, setIdleNotice] = useState(() => {
+      try {
+        if (sessionStorage.getItem('dp_admin_idle_logout')) {
+          sessionStorage.removeItem('dp_admin_idle_logout');
+          return true;
+        }
+      } catch {}
+      return false;
+    });
 
     async function verify(t) {
       try {
@@ -6577,6 +6673,11 @@
           <form onSubmit={loginAccount} style={{width:'100%',maxWidth:420,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid var(--border-subtle)'}}>
             <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--brand-text)'}}>KoreaDreamPath Admin</h1>
             <p style={{margin:'0 0 20px',color:'var(--fg-muted)',fontSize:14}}>관리자 계정으로 로그인하세요.</p>
+            {idleNotice && (
+              <div role="alert" style={{padding:'10px 12px',background:'var(--state-warning-bg)',color:'var(--state-warning)',border:'1px solid var(--state-warning)',borderRadius:8,fontSize:13,marginBottom:14}}>
+                30분 동안 활동이 없어 자동 로그아웃되었습니다. 다시 로그인하세요.
+              </div>
+            )}
             <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>이메일</label>
             <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@koreadreampath.com" autoFocus

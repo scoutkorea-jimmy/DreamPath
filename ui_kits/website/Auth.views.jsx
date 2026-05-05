@@ -189,3 +189,126 @@ function ResetPasswordView({ go, lang }) {
   );
 }
 window.ResetPasswordView = ResetPasswordView;
+
+// ActivateAccountView — entry point for the activation email link
+//   /activate?email=<addr>&code=<6-digit>
+// Reads both query params; if both are present it auto-submits, otherwise it
+// renders an email + code form so the user can paste them by hand.
+function ActivateAccountView({ go, lang }) {
+  const isKo = lang === 'ko';
+  const params = new URLSearchParams(window.location.search);
+  const initialEmail = params.get('email') || '';
+  const initialCode  = (params.get('code') || '').replace(/\D/g, '').slice(0, 6);
+  const [email, setEmail] = useStateAV(initialEmail);
+  const [code, setCode]   = useStateAV(initialCode);
+  const [state, setState] = useStateAV(initialEmail && initialCode.length === 6 ? 'working' : 'idle'); // idle | working | ok | invalid_code | expired | error
+  const [msg, setMsg]     = useStateAV('');
+  const [resentAt, setResentAt] = useStateAV(0);
+
+  async function submitActivation(e_, c_) {
+    setState('working'); setMsg('');
+    try {
+      const r = await fetch('/api/auth/activate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: e_, code: c_ }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        // Auto-login the activated user via the returned session token.
+        if (d.token && window.DreamPathAuth && window.DreamPathAuth.adoptSession) {
+          window.DreamPathAuth.adoptSession(d.token, d.user);
+        }
+        setState('ok');
+        return;
+      }
+      if (d.error === 'invalid_code')        setState('invalid_code');
+      else if (d.error === 'activation_expired') setState('expired');
+      else if (d.error === 'no_pending_activation') { setState('error'); setMsg(isKo ? '이미 활성화되었거나 인증 요청이 없습니다.' : 'No pending activation for this email.'); }
+      else { setState('error'); setMsg(d.error || ('http_' + r.status)); }
+    } catch (err) {
+      setState('error'); setMsg(String(err.message || err));
+    }
+  }
+
+  useEffectAV(() => {
+    if (initialEmail && initialCode.length === 6) submitActivation(initialEmail, initialCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function resend() {
+    if (!email) return;
+    if (resentAt && Date.now() - resentAt < 60_000) return;
+    setResentAt(Date.now());
+    try {
+      await fetch('/api/auth/resend-activation', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, lang }),
+      });
+    } catch {}
+  }
+
+  if (state === 'ok') {
+    return (
+      <div className="container-narrow" style={{padding:'80px 24px',textAlign:'center'}}>
+        <div style={{width:72,height:72,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',background:'var(--state-success-bg)',color:'var(--state-success)',margin:'0 auto 16px'}}>
+          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" aria-hidden="true"></i>
+        </div>
+        <h1 style={{fontFamily:'var(--font-en)',fontSize:32,margin:'0 0 8px',color:'var(--brand-text)'}}>
+          {isKo ? '계정이 활성화되었습니다' : 'Account activated'}
+        </h1>
+        <p style={{color:'var(--fg-secondary)',fontSize:16,marginBottom:24}}>
+          {isKo ? '환영합니다! 이제 로그인 상태로 진입합니다.' : 'Welcome — you are now signed in.'}
+        </p>
+        <button type="button" className="btn btn-primary" onClick={() => go('member')}>
+          {isKo ? '내 페이지로' : 'My page →'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container-narrow" style={{padding:'80px 24px',maxWidth:520,margin:'0 auto'}}>
+      <h1 style={{fontFamily:'var(--font-en)',fontSize:32,margin:'0 0 6px',color:'var(--brand-text)'}}>
+        {isKo ? '계정 활성화' : 'Activate your account'}
+      </h1>
+      <p style={{color:'var(--fg-secondary)',fontSize:14,marginBottom:24}}>
+        {isKo ? '메일로 받은 6자리 인증코드를 입력하세요. 코드는 발송 후 72시간 동안 유효합니다.' : 'Enter the 6-digit code sent to your email. Codes are valid for 72 hours.'}
+      </p>
+      <form onSubmit={(e) => { e.preventDefault(); submitActivation(email, code); }}>
+        <label className="auth-field">
+          <span>{isKo ? '이메일' : 'Email'}</span>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value.trim().toLowerCase())} autoComplete="email" />
+        </label>
+        <label className="auth-field">
+          <span>{isKo ? '인증코드 (6자리)' : 'Activation code (6 digits)'}</span>
+          <input type="text" inputMode="numeric" pattern="\d{6}" required value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            autoComplete="one-time-code"
+            style={{fontFamily:'var(--font-mono)',fontSize:20,letterSpacing:'0.4em',textAlign:'center'}} />
+        </label>
+        {(state === 'invalid_code' || state === 'expired' || state === 'error') && (
+          <div className="auth-err" role="alert" style={{marginTop:8}}>
+            {state === 'invalid_code' ? (isKo ? '인증코드가 일치하지 않습니다.' : 'Code does not match.')
+             : state === 'expired'    ? (isKo ? '인증코드가 만료되었습니다. 새 코드를 요청하세요.' : 'This code has expired. Request a new one.')
+             : (msg || (isKo ? '오류가 발생했습니다.' : 'Something went wrong.'))}
+          </div>
+        )}
+        <button type="submit" className="btn btn-primary btn-block" style={{marginTop:14}} disabled={state === 'working' || code.length !== 6}>
+          {state === 'working' ? (isKo ? '확인 중…' : 'Verifying…') : (isKo ? '활성화' : 'Activate')}
+        </button>
+      </form>
+      <div style={{textAlign:'center',marginTop:18,fontSize:13,color:'var(--fg-muted)'}}>
+        {isKo ? '코드를 못 받으셨나요?' : "Didn't get the code?"}{' '}
+        <button type="button" onClick={resend}
+          disabled={!email || (resentAt && Date.now() - resentAt < 60_000)}
+          style={{background:'none',border:'none',color:'var(--scouting-purple)',fontWeight:600,cursor:'pointer',padding:0}}>
+          {resentAt && Date.now() - resentAt < 60_000
+            ? (isKo ? '잠시 후 다시 시도' : 'Try again shortly')
+            : (isKo ? '다시 보내기' : 'Resend')}
+        </button>
+      </div>
+    </div>
+  );
+}
+window.ActivateAccountView = ActivateAccountView;

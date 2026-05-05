@@ -32,18 +32,32 @@
     }
   }
 
-  async function signup({ email, password, name }) {
+  async function signup({ email, password, password_confirm, name, phone_country, phone_national, lang }) {
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, password_confirm, name, phone_country, phone_national, lang }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'signup_failed');
+    // When activation is required, the worker returns no token — the user
+    // sees the "check your email" screen and finishes via /activate.
+    if (data.activation_required) {
+      return { activation_required: true, email, expires_at: data.activation_expires_at, dev_code: data.activation_code || null };
+    }
     setToken(data.token);
     _user = data.user;
     emit();
     return _user;
+  }
+  // Used by ActivateAccountView after a successful POST /api/auth/activate
+  // so the UI can transition to "logged in" without forcing a fresh login.
+  function adoptSession(t, user) {
+    if (!t) return;
+    setToken(t);
+    _user = user || null;
+    _ready = true;
+    emit();
   }
 
   async function login({ email, password }) {
@@ -87,7 +101,7 @@
     get user() { return _user; },
     get ready() { return _ready; },
     get token() { return token(); },
-    fetchMe, signup, login, logout, authFetch, subscribe,
+    fetchMe, signup, login, logout, authFetch, subscribe, adoptSession,
   };
 
   // Kick off initial fetch

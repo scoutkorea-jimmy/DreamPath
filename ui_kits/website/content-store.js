@@ -404,6 +404,20 @@
           body_ko:    '안녕하세요 {{name}}님,\n\n아래 링크를 눌러 이메일 인증을 완료해 주세요. 링크는 24시간 동안 유효합니다.\n\n{{verify_url}}\n\n감사합니다.\nKoreaDreamPath 팀',
           body_en:    'Hi {{name}},\n\nClick the link below to verify your email. The link is valid for 24 hours.\n\n{{verify_url}}\n\nThanks,\nThe KoreaDreamPath team',
         },
+        // Sent by signup() — 6-digit numeric code + clickable link. Either
+        // path completes activation. {{expires_hours}} = 72 by default.
+        activate_account: {
+          subject_ko: '[KoreaDreamPath] 회원가입 인증코드: {{code}}',
+          subject_en: '[KoreaDreamPath] Your activation code: {{code}}',
+          body_ko:    '안녕하세요 {{name}}님,\n\nKoreaDreamPath 회원가입을 환영합니다. 아래 인증코드를 입력하거나 링크를 눌러 계정을 활성화해 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n인증코드와 링크는 {{expires_hours}}시간 동안 유효합니다. 이 시간이 지나면 계정이 자동으로 삭제되며, 다시 가입하셔야 합니다.\n\n본인이 가입을 시도하지 않으셨다면 이 메일을 무시하셔도 됩니다.',
+          body_en:    'Hi {{name}},\n\nWelcome to KoreaDreamPath. Enter the code below or click the link to activate your account.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe code and link are valid for {{expires_hours}} hours. After that, the unactivated account is deleted automatically and you will need to sign up again.\n\nIf you did not request this signup, you can safely ignore this email.',
+        },
+        activate_reminder: {
+          subject_ko: '[KoreaDreamPath] 회원가입 인증이 아직 완료되지 않았습니다',
+          subject_en: '[KoreaDreamPath] Your KoreaDreamPath signup is still pending',
+          body_ko:    '안녕하세요 {{name}}님,\n\n회원가입 인증이 아직 완료되지 않았습니다. 아래 인증코드를 입력하거나 링크를 눌러 활성화를 마쳐 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n남은 유효시간이 짧으므로 가능한 빨리 활성화해 주세요.',
+          body_en:    'Hi {{name}},\n\nYour signup verification is still pending. Enter the code below or click the link to finish activation.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe remaining window is short — please activate as soon as you can.',
+        },
         reset_password: {
           subject_ko: '[KoreaDreamPath] 비밀번호 재설정 안내',
           subject_en: '[KoreaDreamPath] Reset your password',

@@ -1309,7 +1309,7 @@
           </div>
           {selected.size > 0 && (
             <div style={{marginTop:14,padding:'10px 14px',background:'rgba(98,37,153,0.06)',borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontSize:13,fontWeight:600,color:'var(--midnight-purple)'}}>{selected.size} selected</span>
+              <span style={{fontSize:13,fontWeight:600,color:'var(--brand-text)'}}>{selected.size} selected</span>
               <div style={{display:'flex',gap:6}}>
                 <button className="icon-btn" onClick={() => setSelected(new Set())}>Clear</button>
                 <button className="icon-btn danger" onClick={bulkDelete}>Delete selected</button>
@@ -1743,7 +1743,7 @@
       return (
         <div style={{padding:'18px 20px',background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',borderRadius:14}}>
           <div style={{fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>{label}</div>
-          <div style={{fontFamily:'var(--font-en)',fontSize:32,fontWeight:800,color:'var(--midnight-purple)',margin:'4px 0 0'}}>{value}</div>
+          <div style={{fontFamily:'var(--font-en)',fontSize:32,fontWeight:800,color:'var(--brand-text)',margin:'4px 0 0'}}>{value}</div>
           {hint && <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{hint}</div>}
         </div>
       );
@@ -4872,7 +4872,8 @@
               </div>
             </div>
             <div style={{display:'flex',gap:10}}>
-              <a href="/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'#FFE600',color:'var(--midnight-purple)',borderRadius:8,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
+              {/* Yellow surface — keep midnight-purple text (always dark, regardless of theme). */}
+              <a href="/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'#FFE600',color:'#4D006E',borderRadius:8,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
               <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'rgba(255,255,255,0.1)',color:'#fff',borderRadius:8,fontWeight:600,textDecoration:'none',fontSize:13,border:'1px solid rgba(255,255,255,0.2)'}}>Cloudflare ↗</a>
             </div>
           </div>
@@ -4895,11 +4896,11 @@
           <div className="grid-4" style={{marginBottom:14}}>
             <div>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Sessions · 7d</div>
-              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--midnight-purple)',lineHeight:1}}>{(data.ana7?.sessions ?? 0).toLocaleString()}</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--brand-text)',lineHeight:1}}>{(data.ana7?.sessions ?? 0).toLocaleString()}</div>
             </div>
             <div>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Pageviews · 7d</div>
-              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--midnight-purple)',lineHeight:1}}>{(data.ana7?.pageviews ?? 0).toLocaleString()}</div>
+              <div style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,color:'var(--brand-text)',lineHeight:1}}>{(data.ana7?.pageviews ?? 0).toLocaleString()}</div>
             </div>
             <div>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>Sessions · 30d</div>
@@ -6013,7 +6014,7 @@
               const px = useCssVar(v);
               return (
                 <div key={v} style={{textAlign:'center', minWidth:60}}>
-                  <div style={{height:50, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--midnight-purple)'}}>
+                  <div style={{height:50, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--brand-text)'}}>
                     <i data-lucide="check-circle-2" width={px} height={px} strokeWidth={sw}></i>
                   </div>
                   <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', marginTop:6}}>{v}</div>
@@ -6817,26 +6818,31 @@
   }
 
   // ---- Main admin shell ----------------------------------------------------
-  // Idle session timeout — 30 min of zero activity logs the operator out so
-  // an unattended laptop doesn't leave the admin console exposed. Warns at
-  // 60 s remaining; any mouse/key/scroll/touch resets the clock.
+  // Idle session timeout — 30 min of inactivity logs the operator out.
+  // "Activity" now means actual user actions (mousedown/keydown/touchstart),
+  // not bare mouse-move; passing the cursor over the screen no longer keeps
+  // the session alive. To extend on demand, the "+30분 연장" button next to
+  // the sidebar IDLE clock becomes enabled when ≤ 10 min remain — pressing
+  // it adds a fresh 30 min back. (Always-on auto-extend felt unsafe.)
   const ADMIN_IDLE_MS = 30 * 60 * 1000;
   const ADMIN_IDLE_WARN_MS = 60 * 1000;
+  const ADMIN_IDLE_EXTEND_AT_MS = 10 * 60 * 1000;   // extend button enables at ≤ 10:00
   function Admin({ onLogout }) {
     const [content, setContent] = useState(() => window.DreamPathContent.load());
     const lastActivityRef = useRef(Date.now());
-    // Always-tracked remaining seconds drives both the sidebar countdown
-    // (subtle, MM:SS) and the warning toast (loud, last 60 s only).
     const [idleRemaining, setIdleRemaining] = useState(ADMIN_IDLE_MS / 1000);
     const idleSecondsLeft = idleRemaining <= ADMIN_IDLE_WARN_MS / 1000 ? idleRemaining : null;
+    const canExtend = idleRemaining <= ADMIN_IDLE_EXTEND_AT_MS / 1000;
     useEffect(() => {
+      // Action events only — mousemove deliberately excluded so an unattended
+      // laptop with the cursor jiggling (touchpad noise, screen savers, etc.)
+      // doesn't keep the session alive forever.
       const bump = () => { lastActivityRef.current = Date.now(); };
-      const evts = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+      const evts = ['mousedown', 'keydown', 'touchstart'];
       evts.forEach(e => window.addEventListener(e, bump, { passive: true }));
       const id = setInterval(() => {
         const elapsed = Date.now() - lastActivityRef.current;
         if (elapsed >= ADMIN_IDLE_MS) {
-          // Forced logout — clear local token and bounce to the login screen.
           localStorage.removeItem('dp_admin_token');
           try { sessionStorage.setItem('dp_admin_idle_logout', '1'); } catch {}
           window.location.reload();
@@ -6846,6 +6852,11 @@
       }, 1000);
       return () => { clearInterval(id); evts.forEach(e => window.removeEventListener(e, bump)); };
     }, []);
+    function extendIdle() {
+      // +30 min from now. Equivalent to a fresh load. Operator-initiated only.
+      lastActivityRef.current = Date.now();
+      setIdleRemaining(ADMIN_IDLE_MS / 1000);
+    }
     function formatIdleClock(s) {
       const m = Math.floor(s / 60);
       const r = s % 60;
@@ -7086,9 +7097,9 @@
               <strong>{idleSecondsLeft}초 후 자동 로그아웃</strong>
               <div style={{opacity:0.85,fontSize:12,marginTop:2}}>30분 동안 활동이 없습니다.</div>
             </div>
-            <button type="button" onClick={() => { lastActivityRef.current = Date.now(); setIdleSecondsLeft(null); }}
+            <button type="button" onClick={extendIdle}
               style={{padding:'6px 12px',background:'var(--state-warning)',color:'#fff',border:'none',borderRadius:6,fontWeight:700,cursor:'pointer',fontSize:12}}>
-              지금 연장
+              +30분 연장
             </button>
           </div>
         )}
@@ -7105,10 +7116,13 @@
             <span className="ver-num">{version}</span>
           </div>
           {/* Idle timer — counts down to the 30 min auto-logout. Goes red in
-              the last 60 s (same threshold that triggers the warning toast). */}
-          <div title="활동이 없을 때 남은 시간"
+              the last 60 s (same threshold that triggers the warning toast).
+              "+30 연장" button is disabled until ≤10:00 remain — keeps the
+              extend gesture meaningful (you wouldn't extend a session that
+              still has 25 min). */}
+          <div title="활동이 없을 때 남은 시간 (마우스 움직임은 카운트되지 않음)"
             style={{
-              margin: '6px 12px 14px',
+              margin: '6px 12px 6px',
               padding: '6px 10px',
               borderRadius: 8,
               display: 'flex', alignItems: 'center', gap: 8,
@@ -7122,6 +7136,23 @@
               {formatIdleClock(idleRemaining)}
             </span>
           </div>
+          <button type="button" onClick={extendIdle} disabled={!canExtend}
+            title={canExtend ? '세션을 30분 연장' : '10분 이하 남았을 때 활성화'}
+            style={{
+              margin: '0 12px 14px',
+              padding: '6px 10px',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              cursor: canExtend ? 'pointer' : 'not-allowed',
+              background: canExtend ? '#FFE600' : 'rgba(255,255,255,0.06)',
+              color: canExtend ? '#4D006E' : 'rgba(255,255,255,0.32)',
+              transition: 'background 140ms',
+            }}>
+            ⏱ +30분 연장
+          </button>
           <nav className="groups" aria-label="Admin groups">
             {groups.map(g => {
               const active = g === activeGroupId;

@@ -224,7 +224,10 @@
      value (#622599) reads at ~2.4:1 on the dark canvas — fails even AA Large.
      Lighten it to a lavender that hits ~7:1 on dark and still reads as the
      same hue. Stays usable as a background / border tint too. */
-  --scouting-purple:  #B695E8;
+  /* v01.026.04: bumped from #B695E8 → #D4B8FF — operator reported the
+     previous lavender still read as "dark purple on dark gray" on the
+     dashboard big-number stats. Now ~9:1 against bg-elevated (#1F1D29). */
+  --scouting-purple:  #D4B8FF;
 
   /* Borders barely visible against canvas — but do exist. */
   --border-hair:      rgba(242, 240, 247, 0.06);
@@ -258,7 +261,7 @@
   /* Headings / brand text on dark canvas — midnight-purple (#4D006E) reads
      as "almost black" against bg-elevated #1F1D29 (~2:1, fails WCAG even at
      AA Large). Lavender bumps it to ~9:1 against the dark canvas. */
-  --brand-text:    #C7A5FF;
+  --brand-text:    #DCC2FF;       /* bumped from #C7A5FF for dashboard headings legibility */
 }
 
 /* Respect user's reduced-motion preference */

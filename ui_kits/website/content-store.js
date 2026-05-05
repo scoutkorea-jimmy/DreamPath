@@ -730,6 +730,18 @@
             { label_ko: '파트너십 문의',           label_en: 'For partners',            icon: 'handshake',    kind: 'email', target: 'info@koreadreampath.com' },
           ],
         },
+        {
+          id: 'legal',
+          title_ko: '법률 / 약관', title_en: 'Legal',
+          items: [
+            // kind:'legal' opens c.legal[target] in a modal — no navigation.
+            { label_ko: '서비스 이용약관',     label_en: 'Terms of Service',          icon: 'file-text',  kind: 'legal', target: 'tos' },
+            { label_ko: '개인정보 처리방침',   label_en: 'Privacy (signup)',          icon: 'shield',     kind: 'legal', target: 'privacy_signup' },
+            { label_ko: '지원시 개인정보 동의', label_en: 'Privacy (apply)',          icon: 'shield',     kind: 'legal', target: 'privacy_apply' },
+            { label_ko: '제3자 제공 동의',     label_en: 'Third-party data sharing',  icon: 'share-2',    kind: 'legal', target: 'third_party' },
+            { label_ko: '분석 / 추적 동의',    label_en: 'Analytics / tracking',      icon: 'bar-chart-3', kind: 'legal', target: 'analytics' },
+          ],
+        },
       ],
     },
   };

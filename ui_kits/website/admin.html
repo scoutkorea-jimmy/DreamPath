@@ -3782,6 +3782,7 @@
                       <option value="view">SPA view (in-app navigation)</option>
                       <option value="url">External URL</option>
                       <option value="email">Email (mailto:)</option>
+                      <option value="legal">Legal document (modal)</option>
                     </select>
                   </div>
                   {(() => {
@@ -3799,6 +3800,19 @@
                     }
                     if (kind === 'email') {
                       return <Text label="Email address" value={it.target || ''} onChange={v => set(['footer','columns',ci,'items',ii,'target'], v)} hint="user@example.com" />;
+                    }
+                    if (kind === 'legal') {
+                      const legalKeys = Object.keys((c && c.legal) || {});
+                      return (
+                        <div className="field">
+                          <label>Legal doc slug</label>
+                          <select value={it.target || ''} onChange={e => set(['footer','columns',ci,'items',ii,'target'], e.target.value)}>
+                            <option value="">— choose —</option>
+                            {legalKeys.map(k => <option key={k} value={k}>{k}</option>)}
+                          </select>
+                          <span className="hint">Edits to the body live in admin → Setup → Legal documents.</span>
+                        </div>
+                      );
                     }
                     return <Text label="External URL" value={it.target || ''} onChange={v => set(['footer','columns',ci,'items',ii,'target'], v)} hint="https://…" />;
                   })()}

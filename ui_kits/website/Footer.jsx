@@ -8,6 +8,11 @@ function Footer({ go, lang, c }) {
   const f = (c && c.footer) || {};
   const rights = (f[lang] && f[lang].rights) || '';
   const columns = Array.isArray(f.columns) ? f.columns : [];
+  const legal = (c && c.legal) || {};
+
+  // `kind: 'legal'` items open a LegalModal with c.legal[target]. The opened
+  // doc is held in local state and unmounted when the user closes the modal.
+  const [legalDoc, setLegalDoc] = React.useState(null);
 
   function activate(item, e) {
     if (!item) return;
@@ -15,6 +20,10 @@ function Footer({ go, lang, c }) {
     if (k === 'view') {
       if (e) e.preventDefault();
       if (item.target && go) go(item.target);
+    } else if (k === 'legal') {
+      if (e) e.preventDefault();
+      const doc = legal && legal[item.target];
+      if (doc) setLegalDoc(doc);
     }
     // 'url' and 'email' use the native <a> href; nothing to do.
   }
@@ -42,7 +51,8 @@ function Footer({ go, lang, c }) {
                 const icon = it.icon ? (
                   <i data-lucide={it.icon} width="14" height="14" strokeWidth="2" style={{marginRight:8,verticalAlign:'-2px',opacity:0.8}} aria-hidden="true"></i>
                 ) : null;
-                if ((it.kind || 'view') === 'view') {
+                const kind = it.kind || 'view';
+                if (kind === 'view' || kind === 'legal') {
                   return (
                     <button key={ii} type="button" onClick={(e) => activate(it, e)}>
                       {icon}{label}
@@ -50,7 +60,7 @@ function Footer({ go, lang, c }) {
                   );
                 }
                 return (
-                  <a key={ii} href={hrefFor(it)} target={it.kind === 'url' ? '_blank' : undefined} rel={it.kind === 'url' ? 'noopener' : undefined}>
+                  <a key={ii} href={hrefFor(it)} target={kind === 'url' ? '_blank' : undefined} rel={kind === 'url' ? 'noopener' : undefined}>
                     {icon}{label}
                   </a>
                 );
@@ -65,6 +75,9 @@ function Footer({ go, lang, c }) {
           </div>
         </div>
       </div>
+      {legalDoc && window.LegalModal && (
+        <window.LegalModal doc={legalDoc} lang={lang} onClose={() => setLegalDoc(null)} />
+      )}
     </footer>
   );
 }

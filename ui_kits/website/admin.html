@@ -2381,55 +2381,83 @@
   //   • sent    — outbound copies (Resend-sent + queued-during-no-key)
   //   • compose — new mail or reply (uses Resend; falls back to "queued"
   //               when RESEND_API_KEY is not set so drafts survive setup)
+  // ---- Mailbox v2: folders + attachments + export -------------------------
+  // Folders driven by ?mode= (inbox / starred / spam / trash). Attachments
+  // capped at 10 files, 50 MB total per email; outbound additionally must
+  // fit Resend's 40 MB total payload limit.
   function MailboxTab({ c }) {
     const inboxes = (c && Array.isArray(c.inboxes)) ? c.inboxes.filter(b => b && b.address && b.enabled !== false) : [];
-    const [mode, setMode] = useState('inbox');           // 'inbox' | 'sent' | 'compose'
-    const [filter, setFilter] = useState('');             // address filter (empty = all)
+    const [view, setView] = useState('inbox');         // 'inbox' | 'starred' | 'spam' | 'trash' | 'sent' | 'sent_trash' | 'compose'
+    const [filter, setFilter] = useState('');
     const [items, setItems] = useState([]);
+    const [counts, setCounts] = useState({ inbox: 0, unread: 0, starred: 0, spam: 0, trash: 0 });
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [unreadOnly, setUnreadOnly] = useState(false);
-    const [selected, setSelected] = useState(null);       // currently-open detail
-    const [tick, setTick] = useState(0);                  // refetch trigger
+    const [selected, setSelected] = useState(null);
+    const [tick, setTick] = useState(0);
 
-    // Compose state — preserved when toggling modes so a half-written reply
-    // doesn't vanish when the operator peeks at the inbox.
+    // Compose state
     const [composeFrom, setComposeFrom]       = useState(inboxes[0]?.address || 'info@koreadreampath.com');
     const [composeTo, setComposeTo]           = useState('');
     const [composeSubject, setComposeSubject] = useState('');
     const [composeBody, setComposeBody]       = useState('');
-    const [composeReplyTo, setComposeReplyTo] = useState(null);  // { id, message_id, subject }
+    const [composeReplyTo, setComposeReplyTo] = useState(null);
+    const [composeFiles, setComposeFiles]     = useState([]);   // [{ filename, mime, size, b64 }]
+    const [composeFileErr, setComposeFileErr] = useState('');
     const [sending, setSending]               = useState(false);
     const [sendResult, setSendResult]         = useState(null);
+
+    const ATT_MAX_FILES = 10;
+    const ATT_MAX_TOTAL = 50 * 1024 * 1024;
+    const RESEND_MAX_TOTAL = 40 * 1024 * 1024;
 
     function authHeaders() {
       const tok = localStorage.getItem('dp_admin_token') || '';
       return { authorization: 'Bearer ' + tok };
     }
 
-    // Load list whenever mode / filter / search / tick changes.
+    // Map view → API mode + side
+    function viewToApi(v) {
+      if (v === 'inbox')      return { side: 'inbox',  mode: 'inbox' };
+      if (v === 'starred')    return { side: 'inbox',  mode: 'starred' };
+      if (v === 'spam')       return { side: 'inbox',  mode: 'spam' };
+      if (v === 'trash')      return { side: 'inbox',  mode: 'trash' };
+      if (v === 'sent')       return { side: 'sent',   mode: 'sent' };
+      if (v === 'sent_trash') return { side: 'sent',   mode: 'trash' };
+      return null;
+    }
+
     useEffect(() => {
-      if (mode === 'compose') return;
+      if (view === 'compose') return;
+      const cfg = viewToApi(view);
+      if (!cfg) return;
       const ctrl = new AbortController();
       setLoading(true);
       const params = new URLSearchParams();
       params.set('limit', '100');
-      if (filter) params.set(mode === 'inbox' ? 'to' : 'from', filter);
-      if (mode === 'inbox' && search) params.set('q', search);
-      if (mode === 'inbox' && unreadOnly) params.set('unread', '1');
-      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '?' + params;
+      params.set('mode', cfg.mode);
+      if (filter) params.set(cfg.side === 'inbox' ? 'to' : 'from', filter);
+      if (cfg.side === 'inbox' && search) params.set('q', search);
+      if (cfg.side === 'inbox' && unreadOnly) params.set('unread', '1');
+      const url = '/api/admin/' + (cfg.side === 'inbox' ? 'inbox' : 'sent') + '?' + params;
       fetch(url, { headers: authHeaders(), signal: ctrl.signal })
         .then(r => r.ok ? r.json() : { items: [], total: 0 })
-        .then(d => { setItems(d.items || []); setTotal(d.total || 0); setLoading(false); })
+        .then(d => {
+          setItems(d.items || []); setTotal(d.total || 0);
+          if (d.counts) setCounts(d.counts);
+          setLoading(false);
+        })
         .catch(() => setLoading(false));
       return () => ctrl.abort();
-    }, [mode, filter, search, unreadOnly, tick]);
+    }, [view, filter, search, unreadOnly, tick]);
 
-    // Load detail when selected changes.
     useEffect(() => {
       if (!selected || selected._loaded) return;
-      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '/' + selected.id;
+      const cfg = viewToApi(view);
+      if (!cfg) return;
+      const url = '/api/admin/' + (cfg.side === 'inbox' ? 'inbox' : 'sent') + '/' + selected.id;
       fetch(url, { headers: authHeaders() })
         .then(r => r.ok ? r.json() : null)
         .then(d => d && setSelected({ ...d, _loaded: true }))
@@ -2442,18 +2470,32 @@
         headers: { 'content-type': 'application/json', ...authHeaders() },
         body: JSON.stringify(body),
       });
-      if (r.ok) { setTick(t => t + 1); if (selected && selected.id === id) setSelected(s => ({ ...s, ...body })); }
+      if (r.ok) { setTick(t => t + 1); if (selected && selected.id === id) setSelected(s => ({ ...s, ...body, read_at: body.read === false ? null : (body.read === true ? new Date().toISOString() : s.read_at) })); }
     }
-    async function remove(id) {
-      if (!confirm('이 메일을 삭제할까요?')) return;
-      const url = '/api/admin/' + (mode === 'inbox' ? 'inbox' : 'sent') + '/' + id;
-      await fetch(url, { method: 'DELETE', headers: authHeaders() });
-      setSelected(null); setTick(t => t + 1);
+    async function trash(id, side) {
+      const url = '/api/admin/' + (side === 'inbox' ? 'inbox' : 'sent') + '/' + id;
+      const r = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+      if (r.ok) { setSelected(null); setTick(t => t + 1); }
+    }
+    async function restore(id, side) {
+      const url = '/api/admin/' + (side === 'inbox' ? 'inbox' : 'sent') + '/' + id + '/restore';
+      const r = await fetch(url, { method: 'POST', headers: authHeaders() });
+      if (r.ok) { setSelected(null); setTick(t => t + 1); }
+    }
+    async function purge(id, side) {
+      if (!confirm('영구 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+      const url = '/api/admin/' + (side === 'inbox' ? 'inbox' : 'sent') + '/' + id + '?permanent=1';
+      const r = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+      if (r.ok) { setSelected(null); setTick(t => t + 1); }
+    }
+    async function emptyTrash() {
+      if (!confirm('휴지통의 모든 메일을 영구 삭제합니다. 계속할까요?')) return;
+      const r = await fetch('/api/admin/inbox/empty-trash', { method: 'POST', headers: authHeaders() });
+      if (r.ok) setTick(t => t + 1);
     }
 
     function startReply(msg) {
-      // Pre-fill compose from the inbound message.
-      const replyFrom = msg.to_addr;                                  // reply from the address it was sent to
+      const replyFrom = msg.to_addr;
       const subject = (msg.subject || '').toLowerCase().startsWith('re:') ? msg.subject : 'Re: ' + (msg.subject || '');
       const quoted = (msg.body_text || '').split('\n').map(l => '> ' + l).join('\n');
       const lead = `\n\n— On ${new Date(msg.ts).toLocaleString()}, ${msg.from_name || msg.from_addr} <${msg.from_addr}> wrote:\n${quoted}`;
@@ -2462,14 +2504,55 @@
       setComposeSubject(subject);
       setComposeBody(lead);
       setComposeReplyTo({ id: msg.id, message_id: msg.message_id, subject: msg.subject });
-      setMode('compose');
+      setComposeFiles([]); setComposeFileErr('');
+      setSendResult(null);
+      setView('compose');
     }
     function startCompose() {
       setComposeFrom(inboxes[0]?.address || 'info@koreadreampath.com');
       setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+      setComposeFiles([]); setComposeFileErr('');
       setSendResult(null);
-      setMode('compose');
+      setView('compose');
     }
+
+    function pickFiles(e) {
+      setComposeFileErr('');
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      const room = ATT_MAX_FILES - composeFiles.length;
+      if (files.length > room) { setComposeFileErr(`파일은 최대 ${ATT_MAX_FILES}개까지. 추가 가능: ${room}개.`); return; }
+      let total = composeFiles.reduce((s, f) => s + f.size, 0);
+      const next = composeFiles.slice();
+      let pending = files.length;
+      files.forEach(file => {
+        if (file.size > ATT_MAX_TOTAL) { setComposeFileErr(`${file.name}: 단일 파일이 50MB를 초과합니다.`); pending--; return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '');
+          const b64 = dataUrl.split(',')[1] || '';
+          total += file.size;
+          if (total > ATT_MAX_TOTAL) {
+            setComposeFileErr(`총 첨부 용량이 50MB를 초과합니다.`);
+          } else {
+            next.push({ filename: file.name, mime: file.type || 'application/octet-stream', size: file.size, b64 });
+            setComposeFiles([...next]);
+          }
+          pending--;
+          if (pending === 0 && total > RESEND_MAX_TOTAL) {
+            setComposeFileErr(`Resend 발송 한도(40MB)를 초과합니다 — 일부 파일을 빼주세요.`);
+          }
+        };
+        reader.onerror = () => { pending--; setComposeFileErr('읽기 실패: ' + file.name); };
+        reader.readAsDataURL(file);
+      });
+      e.target.value = '';
+    }
+    function removeFile(i) {
+      setComposeFiles(prev => prev.filter((_, idx) => idx !== i));
+      setComposeFileErr('');
+    }
+
     async function sendNow() {
       if (sending) return;
       setSending(true); setSendResult(null);
@@ -2481,14 +2564,14 @@
             from: composeFrom, to: composeTo,
             subject: composeSubject, body: composeBody,
             in_reply_to: composeReplyTo?.message_id || null,
+            attachments: composeFiles.map(f => ({ filename: f.filename, mime: f.mime, content_base64: f.b64 })),
           }),
         });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok) {
           setSendResult({ ok: true });
-          setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
-          // Bounce to sent folder so the operator sees the result.
-          setTimeout(() => { setMode('sent'); setTick(t => t + 1); }, 600);
+          setComposeTo(''); setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null); setComposeFiles([]);
+          setTimeout(() => { setView('sent'); setTick(t => t + 1); }, 600);
         } else {
           setSendResult({ ok: false, msg: d.error || ('http_' + r.status) });
         }
@@ -2496,80 +2579,162 @@
       finally { setSending(false); }
     }
 
-    const isKo = true;  // mailbox is admin-internal; KO chrome is fine
+    function exportCsv() {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      const cfg = viewToApi(view);
+      const params = new URLSearchParams();
+      params.set('format', 'csv');
+      if (cfg && cfg.side === 'inbox') params.set('mode', cfg.mode);
+      // Use a temporary <a> with the bearer in URL? No — use a fetch-then-blob.
+      fetch('/api/admin/inbox/export?' + params, { headers: { authorization: 'Bearer ' + tok } })
+        .then(r => r.ok ? r.blob() : null)
+        .then(blob => {
+          if (!blob) return alert('Export failed');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `dreampath-inbox-${new Date().toISOString().slice(0,10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+    }
+    function exportJson() {
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      const cfg = viewToApi(view);
+      const params = new URLSearchParams();
+      params.set('format', 'json');
+      if (cfg && cfg.side === 'inbox') params.set('mode', cfg.mode);
+      fetch('/api/admin/inbox/export?' + params, { headers: { authorization: 'Bearer ' + tok } })
+        .then(r => r.ok ? r.blob() : null)
+        .then(blob => {
+          if (!blob) return alert('Export failed');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `dreampath-inbox-${new Date().toISOString().slice(0,10)}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+    }
+
+    function downloadAttachment(att) {
+      // R2 fetch is admin-gated; we have to send the bearer, then save the blob.
+      const tok = localStorage.getItem('dp_admin_token') || '';
+      fetch('/api/admin/attachment/' + att.id + '/download', { headers: { authorization: 'Bearer ' + tok } })
+        .then(r => r.ok ? r.blob() : null)
+        .then(blob => {
+          if (!blob) return alert('Download failed');
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = att.filename || 'attachment';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+    }
+
+    const FOLDER_BUTTONS = [
+      { v: 'inbox',      l: '받은 메일',   icon: 'inbox',     count: counts.inbox },
+      { v: 'starred',    l: '즐겨찾기',    icon: 'star',      count: counts.starred },
+      { v: 'sent',       l: '보낸 메일',   icon: 'send',      count: null },
+      { v: 'spam',       l: '스팸함',      icon: 'shield-alert', count: counts.spam },
+      { v: 'trash',      l: '휴지통',      icon: 'trash-2',   count: counts.trash },
+    ];
+
+    const composeTotal = composeFiles.reduce((s, f) => s + f.size, 0);
+
     const STATUS_PILLS = {
       sent:   { bg: 'var(--state-success-bg)', fg: 'var(--state-success)' },
       queued: { bg: 'var(--state-warning-bg)', fg: 'var(--state-warning)' },
       failed: { bg: 'var(--state-danger-bg)',  fg: 'var(--state-danger)' },
     };
 
+    const sideOfView = (viewToApi(view) || {}).side || 'inbox';
+
     return (
       <>
-        {/* Mode tabs + global actions */}
+        {/* Folder tabs + actions */}
         <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-          <div style={{display:'flex',gap:6}}>
-            {[{k:'inbox',l:'받은 메일'},{k:'sent',l:'보낸 메일'},{k:'compose',l:'새 메일'}].map(m => (
-              <button key={m.k} type="button"
-                onClick={() => { setMode(m.k); setSelected(null); }}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            {FOLDER_BUTTONS.map(b => (
+              <button key={b.v} type="button"
+                onClick={() => { setView(b.v); setSelected(null); }}
                 className="icon-btn"
-                style={mode === m.k ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
-                {m.l}
+                style={view === b.v ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+                <i data-lucide={b.icon} width="14" height="14" style={{marginRight:6,verticalAlign:'-2px'}} />
+                {b.l}
+                {b.count != null && b.count > 0 && (
+                  <span style={{marginLeft:6,fontSize:11,fontFamily:'var(--font-mono)',opacity:0.85}}>{b.count}</span>
+                )}
               </button>
             ))}
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-            {mode !== 'compose' && (
-              <select value={filter} onChange={e => setFilter(e.target.value)}
-                style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
-                <option value="">{mode === 'inbox' ? '모든 받은 주소' : '모든 보낸 주소'}</option>
-                {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
-              </select>
-            )}
-            {mode === 'inbox' && (
+            {view !== 'compose' && view !== 'trash' && view !== 'sent_trash' && sideOfView === 'inbox' && (
               <>
+                <select value={filter} onChange={e => setFilter(e.target.value)}
+                  style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
+                  <option value="">모든 받은 주소</option>
+                  {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
+                </select>
                 <input type="search" placeholder="제목·발신자·본문 검색" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',width:240}} />
+                  style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',width:220}} />
                 <label style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:13,color:'var(--fg-secondary)'}}>
                   <input type="checkbox" checked={unreadOnly} onChange={e => setUnreadOnly(e.target.checked)} /> 미읽음만
                 </label>
-                <button type="button" className="icon-btn" onClick={() => setTick(t => t + 1)}>↻ 새로고침</button>
               </>
             )}
-            {mode === 'sent' && (
+            {view === 'sent' && (
+              <select value={filter} onChange={e => setFilter(e.target.value)}
+                style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}}>
+                <option value="">모든 보낸 주소</option>
+                {inboxes.map(b => <option key={b.address} value={b.address}>{b.address}</option>)}
+              </select>
+            )}
+            {view !== 'compose' && (
               <button type="button" className="icon-btn" onClick={() => setTick(t => t + 1)}>↻ 새로고침</button>
             )}
-            {mode !== 'compose' && (
+            {(view === 'inbox' || view === 'starred' || view === 'spam' || view === 'trash') && (
+              <>
+                <button type="button" className="icon-btn" onClick={exportCsv}>⬇ CSV</button>
+                <button type="button" className="icon-btn" onClick={exportJson}>⬇ JSON</button>
+              </>
+            )}
+            {view === 'trash' && counts.trash > 0 && (
+              <button type="button" className="icon-btn danger" onClick={emptyTrash}>휴지통 비우기</button>
+            )}
+            {view !== 'compose' && (
               <button type="button" className="btn-add" onClick={startCompose}>✉️ 새 메일</button>
             )}
           </div>
         </div>
 
-        {/* Setup-not-done banner */}
-        {mode === 'inbox' && total === 0 && !loading && !filter && !search && !unreadOnly && (
+        {view === 'inbox' && total === 0 && !loading && !filter && !search && !unreadOnly && (
           <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)',color:'var(--state-info)'}}>
-            <strong>받은 메일이 없습니다.</strong> Cloudflare Email Routing이 활성화 안 됐거나 라우팅 규칙이 워커로 연결되지 않았을 수 있어요. 사이트 설정 → API · 통합 → "받은 메일 (Cloudflare Email Routing)" 가이드를 참고하세요.
+            <strong>받은 메일이 없습니다.</strong> Cloudflare Email Routing이 활성화 안 됐거나 라우팅 규칙이 워커로 연결되지 않았을 수 있어요. 사이트 설정 → API · 통합의 "Cloudflare Email Routing · 받은 메일" 가이드를 참고하세요.
           </div>
         )}
-        {mode !== 'compose' && (
+
+        {view !== 'compose' && (
           <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
-            {/* Mail list */}
             <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
               {loading
                 ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
                 : items.length === 0
                   ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>비어있습니다.</div>
                   : items.map(m => {
-                    const isUnread = mode === 'inbox' && !m.read_at;
+                    const isUnread = sideOfView === 'inbox' && !m.read_at;
                     const isSelected = selected && selected.id === m.id;
                     return (
                       <button key={m.id} type="button" onClick={() => setSelected({ ...m, _loaded: false })}
                         style={{display:'block',width:'100%',padding:'12px 16px',background: isSelected ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                          {mode === 'inbox' && (
+                          {sideOfView === 'inbox' && (
                             <span style={{flex:'0 0 auto',width:8,height:8,borderRadius:'50%',background: isUnread ? 'var(--state-info)' : 'transparent', border: isUnread ? 'none' : '1px solid var(--border-default)'}} />
                           )}
+                          {m.starred ? <span style={{color:'var(--sunshine-yellow)'}}>★</span> : null}
                           <strong style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13,fontWeight: isUnread ? 700 : 500}}>
-                            {mode === 'inbox' ? (m.from_name || m.from_addr) : m.to_addr}
+                            {sideOfView === 'inbox' ? (m.from_name || m.from_addr) : m.to_addr}
                           </strong>
                           <span style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap',fontFamily:'var(--font-mono)'}}>
                             {new Date(m.ts).toLocaleDateString()} {new Date(m.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
@@ -2581,17 +2746,18 @@
                         <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                           {(m.preview || '').slice(0, 120)}
                         </div>
-                        {mode === 'sent' && (
-                          <span className="pill" style={{marginTop:6,display:'inline-block',background: STATUS_PILLS[m.status]?.bg || 'var(--bg-muted)', color: STATUS_PILLS[m.status]?.fg || 'var(--fg-secondary)', fontSize:10}}>
-                            {m.status}
-                          </span>
-                        )}
+                        <div style={{display:'flex',gap:6,marginTop:6,fontSize:10}}>
+                          {sideOfView === 'sent' && (
+                            <span className="pill" style={{background: STATUS_PILLS[m.status]?.bg || 'var(--bg-muted)', color: STATUS_PILLS[m.status]?.fg || 'var(--fg-secondary)'}}>{m.status}</span>
+                          )}
+                          {m.spam ? <span className="pill" style={{background:'var(--state-danger-bg)',color:'var(--state-danger)'}}>spam</span> : null}
+                          {m.trashed_at ? <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>휴지통</span> : null}
+                        </div>
                       </button>
                     );
                   })}
             </div>
 
-            {/* Detail pane */}
             <div className="card" style={{minHeight:'70vh'}}>
               {!selected ? (
                 <div style={{textAlign:'center',color:'var(--fg-muted)',padding:'80px 20px'}}>왼쪽에서 메일을 선택하세요.</div>
@@ -2600,21 +2766,24 @@
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
-                        {mode === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
+                        {sideOfView === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
                       </div>
                       <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
                       <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
-                        <strong>{mode === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
-                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{mode === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
+                        <strong>{sideOfView === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
+                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{sideOfView === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
                         {' · '}
                         <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
                       </div>
                     </div>
-                    <div style={{display:'flex',gap:6,flexShrink:0}}>
-                      {mode === 'inbox' && (
+                    <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                      {sideOfView === 'inbox' && !selected.trashed_at && (
                         <>
                           <button type="button" className="icon-btn" onClick={() => patch(selected.id, { starred: !selected.starred })} title="별표">
-                            {selected.starred ? '★' : '☆'}
+                            {selected.starred ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}
+                          </button>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { spam: !selected.spam })}>
+                            {selected.spam ? '스팸 해제' : '스팸으로'}
                           </button>
                           <button type="button" className="icon-btn" onClick={() => patch(selected.id, { read: !selected.read_at })}>
                             {selected.read_at ? '안 읽음으로' : '읽음 처리'}
@@ -2622,10 +2791,36 @@
                           <button type="button" className="btn-add" onClick={() => startReply(selected)} style={{padding:'6px 14px'}}>↩ 답장</button>
                         </>
                       )}
-                      <button type="button" className="icon-btn danger" onClick={() => remove(selected.id)}>삭제</button>
+                      {selected.trashed_at && (
+                        <>
+                          <button type="button" className="icon-btn" onClick={() => restore(selected.id, sideOfView)}>복구</button>
+                          <button type="button" className="icon-btn danger" onClick={() => purge(selected.id, sideOfView)}>영구 삭제</button>
+                        </>
+                      )}
+                      {!selected.trashed_at && (
+                        <button type="button" className="icon-btn danger" onClick={() => trash(selected.id, sideOfView)}>휴지통으로</button>
+                      )}
                     </div>
                   </div>
-                  {/* Body — prefer text, fall back to sanitized HTML when only HTML exists. */}
+                  {selected.attachments && selected.attachments.length > 0 && (
+                    <div style={{padding:'10px 14px',background:'var(--bg-muted)',borderRadius:10,marginBottom:14}}>
+                      <div style={{fontSize:11,color:'var(--fg-muted)',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:8}}>
+                        첨부파일 ({selected.attachments.length})
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                        {selected.attachments.map(a => (
+                          <button key={a.id} type="button" onClick={() => downloadAttachment(a)}
+                            style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8,cursor:'pointer',font:'inherit',color:'inherit',textAlign:'left'}}>
+                            <i data-lucide="paperclip" width="14" height="14" style={{color:'var(--fg-muted)'}} />
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>{a.filename}</span>
+                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{a.mime}</span>
+                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{(a.size / 1024).toFixed(0)} KB</span>
+                            <span style={{color:'var(--brand-text)'}}>↓</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {selected.body_text
                     ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
                     : selected.body_html
@@ -2642,7 +2837,7 @@
           </div>
         )}
 
-        {mode === 'compose' && (
+        {view === 'compose' && (
           <div className="card" style={{maxWidth:880}}>
             <h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3>
             {composeReplyTo && (
@@ -2658,7 +2853,46 @@
               <Text label="To" value={composeTo} onChange={setComposeTo} type="email" />
             </div>
             <Text label="Subject" value={composeSubject} onChange={setComposeSubject} />
-            <Area label="Body" value={composeBody} onChange={setComposeBody} rows={16} />
+            <Area label="Body" value={composeBody} onChange={setComposeBody} rows={14} />
+
+            {/* Attachments */}
+            <div style={{marginTop:14,padding:'12px 14px',background:'var(--bg-muted)',borderRadius:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--fg-primary)'}}>
+                  첨부파일 ({composeFiles.length}/{ATT_MAX_FILES})
+                  <span style={{marginLeft:10,fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>
+                    {(composeTotal / 1024 / 1024).toFixed(1)} / 50.0 MB
+                  </span>
+                </div>
+                <label className="icon-btn" style={{cursor:'pointer'}}>
+                  📎 파일 추가
+                  <input type="file" multiple onChange={pickFiles} style={{display:'none'}} />
+                </label>
+              </div>
+              {composeFiles.length > 0 && (
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {composeFiles.map((f, i) => (
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 10px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8}}>
+                      <i data-lucide="paperclip" width="14" height="14" style={{color:'var(--fg-muted)'}} />
+                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>{f.filename}</span>
+                      <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{(f.size / 1024).toFixed(0)} KB</span>
+                      <button type="button" className="icon-btn danger" onClick={() => removeFile(i)} style={{padding:'2px 8px'}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {composeFileErr && (
+                <div role="alert" style={{marginTop:8,padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:6,fontSize:13}}>
+                  {composeFileErr}
+                </div>
+              )}
+              {composeTotal > RESEND_MAX_TOTAL && (
+                <div role="alert" style={{marginTop:8,padding:'8px 12px',background:'var(--state-warning-bg)',color:'var(--state-warning)',borderRadius:6,fontSize:12}}>
+                  ⚠ Resend 발송 한도(40MB)를 초과합니다. 일부 파일을 제거하세요.
+                </div>
+              )}
+            </div>
+
             {sendResult && (
               <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
                 background: sendResult.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
@@ -2667,8 +2901,8 @@
               </div>
             )}
             <div style={{marginTop:18,display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button type="button" className="icon-btn" onClick={() => { setMode('inbox'); }}>취소</button>
-              <button type="button" className="btn-add" onClick={sendNow} disabled={sending}>
+              <button type="button" className="icon-btn" onClick={() => setView('inbox')}>취소</button>
+              <button type="button" className="btn-add" onClick={sendNow} disabled={sending || composeTotal > RESEND_MAX_TOTAL}>
                 {sending ? '발송 중…' : '📨 발송'}
               </button>
             </div>
@@ -6174,25 +6408,18 @@
   }
 
   // ---- Auth gate -----------------------------------------------------------
-  // Two-mode login:
-  //   1. Email + password — for users whose role is 'admin' (or the always-
-  //      admin email scoutkorea@kakao.com). Hits /api/auth/login, stores
-  //      the session token in localStorage.dp_admin_token (re-using the
-  //      existing key so every existing fetch() call keeps working unchanged).
-  //   2. Legacy ADMIN_TOKEN — fallback for ops / external automation.
-  //      Operator can switch tabs in the form.
+  // Email + password only. The session token is stored under the existing
+  // dp_admin_token localStorage key so every fetch() in the admin keeps
+  // working unchanged. ADMIN_TOKEN env on the server is still honoured for
+  // automation, but the UI doesn't expose it.
   function Gate() {
     const [token, setToken] = useState(() => localStorage.getItem('dp_admin_token') || '');
     const [authed, setAuthed] = useState(null);
-    const [mode, setMode] = useState('account');                  // 'account' | 'token'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [tokenInput, setTokenInput] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
 
-    // Verify a bearer is admin-capable. Hits /api/admin/integrations/status
-    // (admin-only); 200 = admin, 401 = not.
     async function verify(t) {
       try {
         const r = await fetch('/api/admin/integrations/status', { headers: { authorization: 'Bearer ' + t } });
@@ -6215,7 +6442,7 @@
       e.preventDefault();
       if (busy) return;
       const e_ = email.trim().toLowerCase();
-      if (!e_ || !password) { setError(mode === 'account' ? '이메일과 비밀번호를 입력하세요.' : 'Enter email and password.'); return; }
+      if (!e_ || !password) { setError('이메일과 비밀번호를 입력하세요.'); return; }
       setBusy(true); setError('');
       try {
         const r = await fetch('/api/auth/login', {
@@ -6225,7 +6452,6 @@
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.token) { setError('이메일 또는 비밀번호가 올바르지 않습니다.'); return; }
-        // Confirm the session belongs to an admin before letting them in.
         const ok = await verify(d.token);
         if (!ok) { setError('관리자 권한이 없는 계정입니다.'); return; }
         localStorage.setItem('dp_admin_token', d.token);
@@ -6235,21 +6461,10 @@
       } finally { setBusy(false); }
     }
 
-    async function loginToken(e) {
-      e.preventDefault();
-      if (!tokenInput.trim() || busy) return;
-      setBusy(true); setError('');
-      const ok = await verify(tokenInput.trim());
-      setBusy(false);
-      if (!ok) { setError('Invalid token.'); return; }
-      localStorage.setItem('dp_admin_token', tokenInput.trim());
-      setToken(tokenInput.trim()); setAuthed(true);
-    }
-
     function logout() {
       localStorage.removeItem('dp_admin_token');
       setToken(''); setAuthed(false);
-      setEmail(''); setPassword(''); setTokenInput('');
+      setEmail(''); setPassword('');
     }
 
     if (authed === null) {
@@ -6258,50 +6473,24 @@
     if (!authed) {
       return (
         <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--canvas-white)',padding:24}}>
-          <div style={{width:'100%',maxWidth:420,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid var(--border-subtle)'}}>
+          <form onSubmit={loginAccount} style={{width:'100%',maxWidth:420,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid var(--border-subtle)'}}>
             <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--brand-text)'}}>KoreaDreamPath Admin</h1>
-            <p style={{margin:'0 0 20px',color:'var(--fg-muted)',fontSize:14}}>{mode === 'account' ? '관리자 계정으로 로그인하세요.' : 'Sign in with the admin token (legacy).'}</p>
-
-            <div style={{display:'flex',gap:6,marginBottom:18,padding:3,background:'var(--bg-muted)',borderRadius:8}}>
-              <button type="button" onClick={() => { setMode('account'); setError(''); }}
-                style={{flex:1,padding:'8px 12px',background: mode === 'account' ? 'var(--bg-elevated)' : 'transparent',border:'none',borderRadius:6,fontSize:13,fontWeight:600,color: mode === 'account' ? 'var(--brand-text)' : 'var(--fg-muted)',cursor:'pointer'}}>
-                ID / 비밀번호
-              </button>
-              <button type="button" onClick={() => { setMode('token'); setError(''); }}
-                style={{flex:1,padding:'8px 12px',background: mode === 'token' ? 'var(--bg-elevated)' : 'transparent',border:'none',borderRadius:6,fontSize:13,fontWeight:600,color: mode === 'token' ? 'var(--brand-text)' : 'var(--fg-muted)',cursor:'pointer'}}>
-                Admin token
-              </button>
-            </div>
-
-            {mode === 'account' ? (
-              <form onSubmit={loginAccount}>
-                <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>이메일</label>
-                <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="you@koreadreampath.com" autoFocus
-                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
-                <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>비밀번호</label>
-                <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
-                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
-                {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
-                <button type="submit" disabled={busy} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
-                  {busy ? '로그인 중…' : '로그인'}
-                </button>
-                <p style={{margin:'14px 0 0',fontSize:12,color:'var(--fg-muted)',textAlign:'center'}}>
-                  비밀번호를 잊었다면 <a href="/reset-password" style={{color:'var(--brand-text)',textDecoration:'underline'}}>여기서 재설정</a>.
-                </p>
-              </form>
-            ) : (
-              <form onSubmit={loginToken}>
-                <input type="password" autoComplete="current-password" value={tokenInput} onChange={e => setTokenInput(e.target.value)}
-                  placeholder="Admin token" autoFocus
-                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,fontFamily:'var(--font-mono, monospace)',background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
-                {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
-                <button type="submit" disabled={busy || !tokenInput.trim()} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
-                  {busy ? 'Verifying…' : 'Sign in'}
-                </button>
-              </form>
-            )}
-          </div>
+            <p style={{margin:'0 0 20px',color:'var(--fg-muted)',fontSize:14}}>관리자 계정으로 로그인하세요.</p>
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>이메일</label>
+            <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@koreadreampath.com" autoFocus
+              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>비밀번호</label>
+            <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+            {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
+            <button type="submit" disabled={busy} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
+              {busy ? '로그인 중…' : '로그인'}
+            </button>
+            <p style={{margin:'14px 0 0',fontSize:12,color:'var(--fg-muted)',textAlign:'center'}}>
+              비밀번호를 잊었다면 <a href="/reset-password" style={{color:'var(--brand-text)',textDecoration:'underline'}}>여기서 재설정</a>.
+            </p>
+          </form>
         </div>
       );
     }

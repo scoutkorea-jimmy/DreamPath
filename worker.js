@@ -80,15 +80,40 @@ export default {
       // Read the raw RFC 822 message into memory. CF caps email size at
       // ~25 MB so this is safe.
       const raw = await readEmailRaw(message.raw);
-      const { text, html } = extractBody(raw);
+      const { text, html, attachments } = extractParts(raw);
       const ts = new Date().toISOString();
-      await env.DB.prepare(
+      const ins = await env.DB.prepare(
         'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         ts, message.to, fromAddr, fromName, subject || '(no subject)',
         text || '', html || '', message.rawSize || raw.length,
         messageId, inReplyTo
       ).run();
+      const emailId = ins.meta?.last_row_id;
+      // Upload attachments to R2 (best-effort). 50MB / 10-files cap; oversize
+      // truncates the list rather than rejecting the whole message — partial
+      // delivery is better than a bounce when an attachment is too big.
+      if (emailId && env.ATTACHMENTS && attachments.length) {
+        const MAX_FILES = 10, MAX_TOTAL = 50 * 1024 * 1024;
+        let total = 0;
+        const accepted = [];
+        for (const a of attachments) {
+          if (accepted.length >= MAX_FILES) break;
+          if (total + a.bytes.byteLength > MAX_TOTAL) break;
+          accepted.push(a); total += a.bytes.byteLength;
+        }
+        for (let i = 0; i < accepted.length; i++) {
+          const a = accepted[i];
+          const safe = String(a.filename || ('attachment-' + (i + 1))).replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
+          const key = `attachments/inbound/${emailId}/${i}-${safe}`;
+          try {
+            await env.ATTACHMENTS.put(key, a.bytes, { httpMetadata: { contentType: a.mime || 'application/octet-stream' } });
+            await env.DB.prepare(
+              'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            ).bind(emailId, 'inbound', ts, a.filename, a.mime || 'application/octet-stream', a.bytes.byteLength, key).run();
+          } catch (e) { /* swallow per-attachment failures */ }
+        }
+      }
     } catch (err) {
       // Don't reject the message — that bounces it back to the sender.
       // Log instead so we can debug.
@@ -152,60 +177,83 @@ function decodeRFC2047(s) {
     } catch { return _; }
   }).replace(/\?=\s+=\?/g, '?==?');  // join adjacent encoded-words
 }
-// Extract { text, html } from a full / part RFC 822 message string. Handles
-// multipart/* recursively, decodes Content-Transfer-Encoding (base64 +
-// quoted-printable). Plain text wins as preview; html stored separately
-// for the detail view.
-function extractBody(raw) {
-  const sep = raw.indexOf('\r\n\r\n');
-  if (sep < 0) return { text: raw, html: '' };
-  const headers = raw.slice(0, sep);
-  const body    = raw.slice(sep + 4);
-
-  const ctMatch = headers.match(/^Content-Type:\s*([^\r\n]+(?:\r\n[ \t][^\r\n]+)*)/im);
-  const ct = ctMatch ? ctMatch[1].replace(/\r\n[ \t]/g, ' ').trim() : 'text/plain';
-  const ctLower = ct.toLowerCase();
-
-  if (ctLower.startsWith('multipart/')) {
-    const bMatch = ct.match(/boundary="?([^";\s]+)"?/i);
-    if (!bMatch) return { text: body.trim(), html: '' };
-    const parts = body.split('--' + bMatch[1]);
-    let text = '', html = '';
-    for (const p of parts) {
-      const trimmed = p.replace(/^\r?\n/, '');
-      if (!trimmed || trimmed.startsWith('--')) continue;
-      const inner = extractBody(trimmed);
-      if (inner.text && !text) text = inner.text;
-      if (inner.html && !html) html = inner.html;
-    }
-    return { text, html };
-  }
-
-  // Single part — decode according to Content-Transfer-Encoding.
-  const cte = (headers.match(/^Content-Transfer-Encoding:\s*([^\r\n]+)/im)?.[1] || '7bit').toLowerCase().trim();
-  let decoded = body;
+// Decode a single part's body to a Uint8Array based on Content-Transfer-Encoding.
+function decodePartBytes(body, cte) {
+  const enc = (cte || '7bit').toLowerCase().trim();
   try {
-    if (cte === 'base64') {
+    if (enc === 'base64') {
       const bin = atob(body.replace(/\s/g, ''));
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      decoded = new TextDecoder('utf-8').decode(bytes);
-    } else if (cte === 'quoted-printable') {
+      return bytes;
+    }
+    if (enc === 'quoted-printable') {
       const collapsed = body.replace(/=\r?\n/g, '');
-      const bytes = [];
+      const arr = [];
       for (let i = 0; i < collapsed.length; i++) {
         if (collapsed[i] === '=' && i + 2 < collapsed.length) {
-          bytes.push(parseInt(collapsed.substr(i+1, 2), 16)); i += 2;
-        } else {
-          bytes.push(collapsed.charCodeAt(i));
-        }
+          arr.push(parseInt(collapsed.substr(i+1, 2), 16)); i += 2;
+        } else arr.push(collapsed.charCodeAt(i));
       }
-      decoded = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+      return new Uint8Array(arr);
     }
   } catch {}
+  // 7bit / 8bit / binary: assume text; encode as UTF-8 bytes.
+  return new TextEncoder().encode(body);
+}
 
-  if (ctLower.startsWith('text/html')) return { text: '', html: decoded.trim() };
-  return { text: decoded.trim(), html: '' };
+// Extract { text, html, attachments[] } from a full RFC 822 message.
+// Walks multipart/* recursively. Parts with Content-Disposition: attachment
+// (or any inline part with a filename / Content-Type name= parameter)
+// are collected as attachments; the first text/plain and text/html parts
+// without an attachment marker become the body.
+function extractParts(raw) {
+  const out = { texts: [], htmls: [], attachments: [] };
+  function walk(part) {
+    const sep = part.indexOf('\r\n\r\n');
+    if (sep < 0) return;
+    const headers = part.slice(0, sep);
+    const body    = part.slice(sep + 4);
+    const ctMatch = headers.match(/^Content-Type:\s*([^\r\n]+(?:\r\n[ \t][^\r\n]+)*)/im);
+    const ct = ctMatch ? ctMatch[1].replace(/\r\n[ \t]/g, ' ').trim() : 'text/plain';
+    const ctLower = ct.toLowerCase();
+    if (ctLower.startsWith('multipart/')) {
+      const bMatch = ct.match(/boundary="?([^";\s]+)"?/i);
+      if (!bMatch) return;
+      const parts = body.split('--' + bMatch[1]);
+      for (const p of parts) {
+        const trimmed = p.replace(/^\r?\n/, '');
+        if (!trimmed || trimmed.startsWith('--')) continue;
+        walk(trimmed);
+      }
+      return;
+    }
+    const cte  = headers.match(/^Content-Transfer-Encoding:\s*([^\r\n]+)/im)?.[1];
+    const cdH  = headers.match(/^Content-Disposition:\s*([^\r\n]+(?:\r\n[ \t][^\r\n]+)*)/im)?.[1];
+    const cd   = cdH ? cdH.replace(/\r\n[ \t]/g, ' ').trim() : '';
+    const cdLow = cd.toLowerCase();
+    const filenameMatch = cd.match(/filename\*?="?([^";]+)"?/i)
+                       || ct.match(/name\*?="?([^";]+)"?/i);
+    const looksLikeAttachment = cdLow.startsWith('attachment') || (!!filenameMatch && !ctLower.startsWith('text/'));
+    if (looksLikeAttachment) {
+      const filename = decodeRFC2047(filenameMatch ? filenameMatch[1] : 'attachment.bin');
+      const bytes = decodePartBytes(body, cte);
+      out.attachments.push({ filename, mime: ctLower.split(';')[0].trim(), bytes });
+      return;
+    }
+    const bytes = decodePartBytes(body, cte);
+    let decoded;
+    try { decoded = new TextDecoder('utf-8').decode(bytes); }
+    catch { decoded = ''; }
+    if (ctLower.startsWith('text/html')) out.htmls.push(decoded.trim());
+    else                                 out.texts.push(decoded.trim());
+  }
+  walk(raw);
+  return {
+    text: out.texts[0] || '',
+    html: out.htmls[0] || '',
+    attachments: out.attachments,
+  };
 }
 
 function rewriteRequest(request, newPath) {
@@ -425,9 +473,10 @@ async function handleApi(request, env, url) {
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
-  // ── Mailbox: inbound (Cloudflare Email Worker → D1) + outbound (Resend) ─
-  // Admin lists / reads / replies. Inbound rows arrive via the email() handler
-  // in the export default block below.
+  // ── Mailbox v2 — folders + soft-delete + attachments + export ──────────
+  // Folders are derived from columns: starred=1, spam=1, trashed_at NOT NULL.
+  // Inbox = active mail not flagged as spam/trash.
+  // Mode comes from ?mode=inbox|starred|spam|trash. Default 'inbox'.
   if (path === '/api/admin/inbox' && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50',  10) || 50,  500);
@@ -435,19 +484,35 @@ async function handleApi(request, env, url) {
     const to     = url.searchParams.get('to') || '';
     const q      = (url.searchParams.get('q') || '').trim().toLowerCase();
     const onlyUnread = url.searchParams.get('unread') === '1';
+    const mode   = url.searchParams.get('mode') || 'inbox';
     const where = []; const binds = [];
     if (to) { where.push('to_addr = ?'); binds.push(to.toLowerCase()); }
     if (q)  { where.push('(LOWER(subject) LIKE ? OR LOWER(from_addr) LIKE ? OR LOWER(from_name) LIKE ? OR LOWER(body_text) LIKE ?)'); const pat = '%' + q + '%'; binds.push(pat, pat, pat, pat); }
     if (onlyUnread) where.push('read_at IS NULL');
-    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    if (mode === 'trash')   where.push('trashed_at IS NOT NULL');
+    else                    where.push('trashed_at IS NULL');
+    if (mode === 'starred') where.push('starred = 1');
+    if (mode === 'spam')    where.push('spam = 1');
+    if (mode === 'inbox')   where.push('spam = 0');
+    const whereSql = 'WHERE ' + where.join(' AND ');
     const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM inbound_emails ' + whereSql).bind(...binds).first();
     const { results } = await env.DB.prepare(
       'SELECT id, ts, to_addr, from_addr, from_name, subject, ' +
       'SUBSTR(COALESCE(body_text, body_html, \'\'), 1, 240) AS preview, ' +
-      'read_at, starred, spam, message_id, in_reply_to ' +
+      'read_at, starred, spam, trashed_at, message_id, in_reply_to ' +
       'FROM inbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
     ).bind(...binds, limit, offset).all();
-    return json({ items: results || [], total: total?.n || 0, limit, offset });
+    // Sidebar counters — single shot so the UI doesn't fan out.
+    const countsRow = await env.DB.prepare(
+      "SELECT " +
+      "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND spam = 0 THEN 1 ELSE 0 END), 0) AS inbox," +
+      "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND spam = 0 AND read_at IS NULL THEN 1 ELSE 0 END), 0) AS unread," +
+      "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND starred = 1 THEN 1 ELSE 0 END), 0) AS starred," +
+      "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND spam = 1 THEN 1 ELSE 0 END), 0) AS spam," +
+      "  COALESCE(SUM(CASE WHEN trashed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS trash " +
+      "FROM inbound_emails"
+    ).first();
+    return json({ items: results || [], total: total?.n || 0, limit, offset, counts: countsRow || {} });
   }
   const inboxItemM = path.match(/^\/api\/admin\/inbox\/(\d+)$/);
   if (inboxItemM) {
@@ -456,12 +521,17 @@ async function handleApi(request, env, url) {
     if (method === 'GET') {
       const row = await env.DB.prepare('SELECT * FROM inbound_emails WHERE id = ?').bind(id).first();
       if (!row) return json({ error: 'not_found' }, 404);
-      // Auto-mark-read on first GET, mirroring user notification behaviour.
       if (!row.read_at) {
         const now = new Date().toISOString();
         await env.DB.prepare('UPDATE inbound_emails SET read_at = ? WHERE id = ?').bind(now, id).run();
         row.read_at = now;
       }
+      // Attach metadata for the email's R2 attachments. The download URL is
+      // /api/admin/attachment/:id/download — the R2 fetch happens server-side.
+      const { results: atts } = await env.DB.prepare(
+        'SELECT id, filename, mime, size FROM email_attachments WHERE side = ? AND email_id = ? ORDER BY id ASC'
+      ).bind('inbound', id).all();
+      row.attachments = atts || [];
       return json(row);
     }
     if (method === 'PATCH') {
@@ -476,24 +546,86 @@ async function handleApi(request, env, url) {
       return json({ ok: true });
     }
     if (method === 'DELETE') {
-      await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(id).run();
-      return json({ ok: true });
+      // Soft delete → 휴지통. Use ?permanent=1 to actually purge (admin only).
+      const permanent = url.searchParams.get('permanent') === '1';
+      if (permanent) {
+        // Drop R2 objects first (best-effort) then row + attachments.
+        const { results: atts } = await env.DB.prepare('SELECT r2_key FROM email_attachments WHERE side = ? AND email_id = ?').bind('inbound', id).all();
+        if (env.ATTACHMENTS) for (const a of atts || []) { try { await env.ATTACHMENTS.delete(a.r2_key); } catch {} }
+        await env.DB.prepare('DELETE FROM email_attachments WHERE side = ? AND email_id = ?').bind('inbound', id).run();
+        await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(id).run();
+        return json({ ok: true, purged: true });
+      }
+      await env.DB.prepare('UPDATE inbound_emails SET trashed_at = ? WHERE id = ?').bind(new Date().toISOString(), id).run();
+      return json({ ok: true, trashed: true });
     }
     return json({ error: 'method_not_allowed' }, 405);
   }
-  // Sent folder
+  const inboxRestoreM = path.match(/^\/api\/admin\/inbox\/(\d+)\/restore$/);
+  if (inboxRestoreM && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    await env.DB.prepare('UPDATE inbound_emails SET trashed_at = NULL WHERE id = ?').bind(parseInt(inboxRestoreM[1], 10)).run();
+    return json({ ok: true });
+  }
+  // Empty-trash: hard-delete every trashed inbound + outbound + their R2.
+  if (path === '/api/admin/inbox/empty-trash' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const { results: trashed } = await env.DB.prepare('SELECT id FROM inbound_emails WHERE trashed_at IS NOT NULL').all();
+    let purged = 0;
+    for (const t of trashed || []) {
+      const { results: atts } = await env.DB.prepare('SELECT r2_key FROM email_attachments WHERE side = ? AND email_id = ?').bind('inbound', t.id).all();
+      if (env.ATTACHMENTS) for (const a of atts || []) { try { await env.ATTACHMENTS.delete(a.r2_key); } catch {} }
+      await env.DB.prepare('DELETE FROM email_attachments WHERE side = ? AND email_id = ?').bind('inbound', t.id).run();
+      await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(t.id).run();
+      purged++;
+    }
+    return json({ ok: true, purged });
+  }
+  // Export inbox — CSV (default) or JSON.
+  if (path === '/api/admin/inbox/export' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const fmt = url.searchParams.get('format') || 'csv';
+    const mode = url.searchParams.get('mode') || 'all';
+    let where = ''; const binds = [];
+    if (mode === 'inbox')   { where = 'WHERE trashed_at IS NULL AND spam = 0'; }
+    else if (mode === 'starred') { where = 'WHERE trashed_at IS NULL AND starred = 1'; }
+    else if (mode === 'spam')    { where = 'WHERE trashed_at IS NULL AND spam = 1'; }
+    else if (mode === 'trash')   { where = 'WHERE trashed_at IS NOT NULL'; }
+    const { results } = await env.DB.prepare(
+      'SELECT id, ts, to_addr, from_addr, from_name, subject, body_text, body_html, message_id, in_reply_to, read_at, starred, spam, trashed_at FROM inbound_emails ' + where + ' ORDER BY ts DESC LIMIT 5000'
+    ).bind(...binds).all();
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (fmt === 'json') {
+      return new Response(JSON.stringify({ exported_at: new Date().toISOString(), count: (results || []).length, items: results || [] }, null, 2), {
+        headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="dreampath-inbox-${stamp}.json"` },
+      });
+    }
+    // CSV — RFC 4180-ish; no embedded newlines or quotes are common in
+    // headers but we escape defensively.
+    const cols = ['id','ts','to_addr','from_addr','from_name','subject','body_text','message_id','in_reply_to','read_at','starred','spam','trashed_at'];
+    const esc = v => { const s = (v == null) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+    const rows = [cols.join(',')].concat((results || []).map(r => cols.map(k => esc(r[k])).join(',')));
+    return new Response(rows.join('\n'), {
+      headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="dreampath-inbox-${stamp}.csv"` },
+    });
+  }
+
+  // Sent folder — same pattern as inbox.
   if (path === '/api/admin/sent' && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50', 10) || 50, 500);
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',  10) || 0,  0);
     const from   = url.searchParams.get('from') || '';
+    const mode   = url.searchParams.get('mode') || 'sent';
     const where = []; const binds = [];
     if (from) { where.push('from_addr = ?'); binds.push(from.toLowerCase()); }
-    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    if (mode === 'trash') where.push('trashed_at IS NOT NULL');
+    else                  where.push('trashed_at IS NULL');
+    const whereSql = 'WHERE ' + where.join(' AND ');
     const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM outbound_emails ' + whereSql).bind(...binds).first();
     const { results } = await env.DB.prepare(
       'SELECT id, ts, from_addr, to_addr, subject, ' +
-      'SUBSTR(COALESCE(body_text, \'\'), 1, 240) AS preview, status, in_reply_to, resend_id ' +
+      'SUBSTR(COALESCE(body_text, \'\'), 1, 240) AS preview, status, in_reply_to, resend_id, trashed_at ' +
       'FROM outbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
     ).bind(...binds, limit, offset).all();
     return json({ items: results || [], total: total?.n || 0, limit, offset });
@@ -503,14 +635,52 @@ async function handleApi(request, env, url) {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const row = await env.DB.prepare('SELECT * FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).first();
     if (!row) return json({ error: 'not_found' }, 404);
+    const { results: atts } = await env.DB.prepare(
+      'SELECT id, filename, mime, size FROM email_attachments WHERE side = ? AND email_id = ? ORDER BY id ASC'
+    ).bind('outbound', parseInt(sentItemM[1], 10)).all();
+    row.attachments = atts || [];
     return json(row);
   }
   if (sentItemM && method === 'DELETE') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    await env.DB.prepare('DELETE FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).run();
+    const id = parseInt(sentItemM[1], 10);
+    const permanent = url.searchParams.get('permanent') === '1';
+    if (permanent) {
+      const { results: atts } = await env.DB.prepare('SELECT r2_key FROM email_attachments WHERE side = ? AND email_id = ?').bind('outbound', id).all();
+      if (env.ATTACHMENTS) for (const a of atts || []) { try { await env.ATTACHMENTS.delete(a.r2_key); } catch {} }
+      await env.DB.prepare('DELETE FROM email_attachments WHERE side = ? AND email_id = ?').bind('outbound', id).run();
+      await env.DB.prepare('DELETE FROM outbound_emails WHERE id = ?').bind(id).run();
+      return json({ ok: true, purged: true });
+    }
+    await env.DB.prepare('UPDATE outbound_emails SET trashed_at = ? WHERE id = ?').bind(new Date().toISOString(), id).run();
+    return json({ ok: true, trashed: true });
+  }
+  const sentRestoreM = path.match(/^\/api\/admin\/sent\/(\d+)\/restore$/);
+  if (sentRestoreM && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    await env.DB.prepare('UPDATE outbound_emails SET trashed_at = NULL WHERE id = ?').bind(parseInt(sentRestoreM[1], 10)).run();
     return json({ ok: true });
   }
-  // Compose / reply send
+  // Attachment download — proxy R2 object so the admin token gates access.
+  const attDownloadM = path.match(/^\/api\/admin\/attachment\/(\d+)\/download$/);
+  if (attDownloadM && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    const att = await env.DB.prepare('SELECT * FROM email_attachments WHERE id = ?').bind(parseInt(attDownloadM[1], 10)).first();
+    if (!att) return json({ error: 'not_found' }, 404);
+    const obj = await env.ATTACHMENTS.get(att.r2_key);
+    if (!obj) return json({ error: 'gone' }, 410);
+    return new Response(obj.body, {
+      headers: {
+        'content-type': att.mime || 'application/octet-stream',
+        'content-disposition': `attachment; filename="${encodeURIComponent(att.filename || 'attachment')}"`,
+        'content-length': String(att.size || 0),
+      },
+    });
+  }
+  // Compose / reply send. Body shape:
+  //   { from, to, subject, body, in_reply_to?,
+  //     attachments?: [{ filename, mime, content_base64 }] }   // ≤10 files, 50 MB total
   if (path === '/api/admin/mail/send' && method === 'POST') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
@@ -524,8 +694,30 @@ async function handleApi(request, env, url) {
     if (!isEmail(toAddr))   return json({ error: 'invalid_to' }, 400);
     if (!subject)           return json({ error: 'subject_required' }, 400);
     if (!text)              return json({ error: 'body_required' }, 400);
-    const ts = new Date().toISOString();
 
+    // Attachments: cap 10 files / 50 MB total raw. Resend allows ≤40 MB
+    // total per email so we additionally fail if the outbound payload would
+    // exceed 40 MB.
+    const ATT_MAX_FILES = 10, ATT_MAX_TOTAL_RAW = 50 * 1024 * 1024, RESEND_MAX_TOTAL = 40 * 1024 * 1024;
+    const incoming = Array.isArray(body.attachments) ? body.attachments : [];
+    if (incoming.length > ATT_MAX_FILES) return json({ error: 'too_many_attachments', max: ATT_MAX_FILES }, 413);
+    const decoded = [];
+    let totalRaw = 0;
+    for (const a of incoming) {
+      const filename = String(a.filename || 'attachment').slice(0, 200);
+      const mime     = String(a.mime || 'application/octet-stream').slice(0, 100);
+      const b64      = String(a.content_base64 || '').replace(/\s/g, '');
+      if (!b64) return json({ error: 'empty_attachment', filename }, 400);
+      let bytes;
+      try { const bin = atob(b64); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+      catch { return json({ error: 'invalid_base64', filename }, 400); }
+      totalRaw += bytes.byteLength;
+      if (totalRaw > ATT_MAX_TOTAL_RAW) return json({ error: 'attachments_too_large', max_bytes: ATT_MAX_TOTAL_RAW }, 413);
+      decoded.push({ filename, mime, bytes, b64 });
+    }
+    if (totalRaw > RESEND_MAX_TOTAL) return json({ error: 'resend_payload_too_large', detail: 'Resend caps each email at 40 MB total including attachments.', max_bytes: RESEND_MAX_TOTAL }, 413);
+
+    const ts = new Date().toISOString();
     let sendResult = { sent: false, reason: 'no_key' };
     let resendId = null, error = null, status = 'queued';
     if (env.RESEND_API_KEY) {
@@ -543,6 +735,7 @@ async function handleApi(request, env, url) {
             text,
             html: textToHtml(text),
             ...(inReplyTo ? { headers: { 'In-Reply-To': inReplyTo, 'References': inReplyTo } } : {}),
+            ...(decoded.length ? { attachments: decoded.map(a => ({ filename: a.filename, content: a.b64, content_type: a.mime })) } : {}),
           }),
         });
         if (r.ok) {
@@ -564,10 +757,26 @@ async function handleApi(request, env, url) {
       status = 'queued';
       error = 'RESEND_API_KEY not configured — message stored as queued.';
     }
-    await env.DB.prepare(
+    const ins = await env.DB.prepare(
       'INSERT INTO outbound_emails (ts, from_addr, to_addr, subject, body_text, in_reply_to, resend_id, status, error, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(ts, fromAddr, toAddr, subject, text, inReplyTo, resendId, status, error, 'admin').run();
-    return json({ ok: sendResult.sent, status, resend_id: resendId, error });
+    const emailId = ins.meta?.last_row_id;
+    // Persist attachments to R2 + metadata regardless of send outcome so the
+    // operator can see what they tried to send + retry.
+    if (emailId && env.ATTACHMENTS && decoded.length) {
+      for (let i = 0; i < decoded.length; i++) {
+        const a = decoded[i];
+        const safe = a.filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
+        const key = `attachments/outbound/${emailId}/${i}-${safe}`;
+        try {
+          await env.ATTACHMENTS.put(key, a.bytes, { httpMetadata: { contentType: a.mime } });
+          await env.DB.prepare(
+            'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          ).bind(emailId, 'outbound', ts, a.filename, a.mime, a.bytes.byteLength, key).run();
+        } catch {}
+      }
+    }
+    return json({ ok: sendResult.sent, status, resend_id: resendId, error, attachments: decoded.length });
   }
 
   // ── Notifications (admin → specific users, visible only on My Page) ─────

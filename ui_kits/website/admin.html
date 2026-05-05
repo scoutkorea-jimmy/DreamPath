@@ -2928,6 +2928,201 @@
   //      stored in c.site_verifications. Editable here; injected by App.jsx.
   // Truly secret values are NEVER stored in c.* / KV / sessionStorage; only
   // their setdness is reported. See KMS · 9. API & 통합 보안 모델.
+  // Step-by-step setup guides per service id. Rendered inline as <details>
+  // panels next to the matching row. Operators can do the entire flow
+  // without leaving the admin tab.
+  const INTEGRATION_GUIDES = {
+    ADMIN_TOKEN: {
+      title: '관리자 토큰 회전 (공개 런칭 전 필수)',
+      where: 'Cloudflare Workers Secret Store',
+      steps: [
+        '터미널에서 64자 랜덤 토큰 생성: <code>node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"</code>',
+        '출력된 값 복사 (한 줄, 64자 hex).',
+        '프로젝트 폴더로 이동: <code>cd /Users/jimmy_macmini/Desktop/VS_Code/DreamPath</code>',
+        '<code>wrangler secret put ADMIN_TOKEN</code> 실행 → 프롬프트에 토큰 붙여넣기 → Enter.',
+        '브라우저 어드민에서 로그아웃 → 새 토큰으로 로그인 (localStorage 청소).',
+        '⚠ 새 토큰은 password manager에 보관 — 잊으면 같은 명령으로 재발급해야 함.',
+      ],
+    },
+    RESEND_API_KEY: {
+      title: 'Resend (트랜잭션 이메일)',
+      where: 'https://resend.com',
+      steps: [
+        '<a href="https://resend.com/signup" target="_blank" rel="noopener">resend.com</a> 가입/로그인.',
+        '좌측 메뉴 <strong>API Keys</strong> → <strong>Create API Key</strong>.',
+        'Name: <code>dreampath-prod</code>, Permission: <strong>Full access</strong>, Domain: <strong>All</strong>.',
+        '생성된 키(<code>re_...</code>) 즉시 복사 — 한 번만 표시됨.',
+        '터미널: <code>cd /Users/jimmy_macmini/Desktop/VS_Code/DreamPath && wrangler secret put RESEND_API_KEY</code> → 프롬프트에 붙여넣기.',
+        '⚠ 발신 도메인 인증 필요: Resend → <strong>Domains</strong> → <strong>Add Domain</strong> → <code>koreadreampath.com</code>.',
+        'Resend가 표시하는 DNS 레코드(SPF/DKIM/Return-Path) 4개를 도메인 DNS에 추가 → <strong>Verify DNS Records</strong> 클릭.',
+        '인증 완료 후 어드민 → Email templates → 📨 Send test 로 실제 발송 확인.',
+      ],
+    },
+    STRIPE_SECRET_KEY: {
+      title: 'Stripe (글로벌 결제)',
+      where: 'https://stripe.com',
+      steps: [
+        '<a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener">dashboard.stripe.com</a> 가입.',
+        '좌측 메뉴 <strong>Developers → API keys</strong>.',
+        '<strong>Secret key</strong> 옆 <strong>Reveal live key</strong> 클릭 → <code>sk_live_...</code> 복사 (테스트는 <code>sk_test_...</code>).',
+        '<code>wrangler secret put STRIPE_SECRET_KEY</code> 실행 → 붙여넣기.',
+        'Webhook 추가: <strong>Developers → Webhooks → Add endpoint</strong> → URL <code>https://koreadreampath.com/api/webhooks/stripe</code>, Events <code>payment_intent.succeeded</code>, <code>payment_intent.payment_failed</code>.',
+        'Webhook signing secret(<code>whsec_...</code>) 복사 → <code>wrangler secret put STRIPE_WEBHOOK_SECRET</code>.',
+        '결제 통합은 별도 라운드 — 시크릿만 미리 등록해두는 것은 OK.',
+      ],
+    },
+    TOSS_SECRET_KEY: {
+      title: 'Toss Payments (한국 결제)',
+      where: 'https://tosspayments.com',
+      steps: [
+        '<a href="https://www.tosspayments.com/" target="_blank" rel="noopener">tosspayments.com</a> 회원가입 + 사업자 인증.',
+        '<strong>개발자센터 → API 키</strong>.',
+        '<strong>시크릿 키</strong>(<code>test_sk_...</code> 또는 <code>live_sk_...</code>) 복사.',
+        '<code>wrangler secret put TOSS_SECRET_KEY</code> → 붙여넣기.',
+        '<strong>웹훅 등록</strong>: 개발자센터 → 웹훅 → URL <code>https://koreadreampath.com/api/webhooks/toss</code>, 이벤트: 결제 승인 / 가상계좌 입금 / 환불 완료.',
+        '결제 통합은 별도 라운드.',
+      ],
+    },
+    KAKAOPAY_SECRET_KEY: {
+      title: 'KakaoPay (한국 모바일 결제)',
+      where: 'https://payment.kakaopay.com',
+      steps: [
+        '<a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a> 가입 + 비즈니스 채널 등록.',
+        '카카오페이 가맹점 신청 → 심사 (영업일 1–3일).',
+        '심사 통과 후 <strong>Admin Key</strong> 또는 <strong>Service App Key</strong>(SECRET) 발급.',
+        '<code>wrangler secret put KAKAOPAY_SECRET_KEY</code> → 붙여넣기.',
+        '결제 통합은 별도 라운드.',
+      ],
+    },
+    PORTONE_API_KEY: {
+      title: 'PortOne / 아임포트 (한국 멀티-게이트웨이 통합)',
+      where: 'https://portone.io',
+      steps: [
+        '<a href="https://portone.io" target="_blank" rel="noopener">portone.io</a> 가입.',
+        '<strong>관리자 콘솔 → 결제 연동</strong>에서 사용할 PG들(KCP, 토스, 카카오페이 등) 활성화.',
+        '<strong>API Keys</strong> 메뉴에서 <strong>API Key</strong> + <strong>API Secret</strong> 복사.',
+        '<code>wrangler secret put PORTONE_API_KEY</code> → 붙여넣기 (필요시 SECRET도 별도).',
+        'Webhook URL: <code>https://koreadreampath.com/api/webhooks/portone</code>.',
+        '결제 통합은 별도 라운드.',
+      ],
+    },
+    CF_API_TOKEN: {
+      title: 'Cloudflare API Token (자동화용)',
+      where: 'https://dash.cloudflare.com',
+      steps: [
+        'Cloudflare 대시보드 → 우상단 프로필 → <strong>My Profile → API Tokens → Create Token</strong>.',
+        'Template <strong>"Edit Cloudflare Workers"</strong> 선택 (또는 Custom Token으로 D1 / KV / Workers Scripts:Edit 권한 부여).',
+        'Account Resources: <code>scoutkorea@kakao.com\'s Account</code>로 제한.',
+        '<strong>Create Token</strong> → 표시된 토큰 즉시 복사 (한 번만 표시됨).',
+        '<code>wrangler secret put CF_API_TOKEN</code> → 붙여넣기.',
+        '용도: 자동 시크릿 회전, 스케줄 백업, 외부 모니터링 통합 등.',
+      ],
+    },
+    GOOGLE_OAUTH_SECRET: {
+      title: 'Google OAuth (소셜 로그인)',
+      where: 'https://console.cloud.google.com',
+      steps: [
+        '<a href="https://console.cloud.google.com" target="_blank" rel="noopener">Google Cloud Console</a> → 프로젝트 생성/선택.',
+        '<strong>APIs & Services → OAuth consent screen</strong> 설정 (External, 앱 이름 KoreaDreamPath).',
+        '<strong>APIs & Services → Credentials → Create Credentials → OAuth client ID</strong>.',
+        'Application type: <strong>Web application</strong>.',
+        'Authorized redirect URIs: <code>https://koreadreampath.com/api/auth/oauth/google/callback</code>.',
+        '생성된 <strong>Client ID</strong>(공개)는 어드민 → Setup → OAuth providers (예정)에 입력.',
+        '<strong>Client secret</strong>(비밀)은 <code>wrangler secret put GOOGLE_OAUTH_SECRET</code>.',
+        'OAuth 통합은 별도 라운드.',
+      ],
+    },
+    KAKAO_OAUTH_SECRET: {
+      title: 'Kakao OAuth (카카오 로그인)',
+      where: 'https://developers.kakao.com',
+      steps: [
+        '<a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a> 로그인 → <strong>내 애플리케이션 → 애플리케이션 추가</strong>.',
+        '<strong>제품 설정 → 카카오 로그인</strong> → 활성화.',
+        '<strong>Redirect URI</strong>: <code>https://koreadreampath.com/api/auth/oauth/kakao/callback</code>.',
+        '<strong>앱 키 → REST API 키</strong>는 client_id 역할(공개).',
+        '<strong>보안 → Client Secret</strong> 활성화 → 키 발급 후 <code>wrangler secret put KAKAO_OAUTH_SECRET</code>.',
+        'OAuth 통합은 별도 라운드.',
+      ],
+    },
+    APPLE_OAUTH_SECRET: {
+      title: 'Apple Sign In',
+      where: 'https://developer.apple.com',
+      steps: [
+        'Apple Developer 계정($99/년) 필요.',
+        '<strong>Certificates, IDs &amp; Profiles → Identifiers → Services IDs</strong> → 새로 생성.',
+        '"Sign In with Apple" 활성화 + Return URL <code>https://koreadreampath.com/api/auth/oauth/apple/callback</code>.',
+        '<strong>Keys</strong> → <strong>+</strong> → "Sign In with Apple" 활성화 → key 다운로드 (.p8 파일, 한 번만).',
+        '클라이언트 시크릿 JWT 생성 (key + team_id + key_id) → <code>wrangler secret put APPLE_OAUTH_SECRET</code>.',
+        'Apple은 시크릿이 6개월마다 만료됨 — 자동 갱신 cron 필요.',
+        'OAuth 통합은 별도 라운드.',
+      ],
+    },
+  };
+
+  const VERIFICATION_GUIDES = {
+    google: {
+      title: 'Google Search Console',
+      steps: [
+        '<a href="https://search.google.com/search-console" target="_blank" rel="noopener">Search Console</a> → <strong>속성 추가</strong> → URL 접두사 → <code>https://koreadreampath.com</code>.',
+        '소유권 확인 방법 중 <strong>HTML 태그</strong> 선택.',
+        '표시되는 <code>&lt;meta name="google-site-verification" content="ABC123..."&gt;</code> 에서 <strong>content="..." 안의 값만</strong> 복사.',
+        '아래 입력란에 붙여넣고 저장.',
+        'Search Console로 돌아가서 <strong>확인</strong> 클릭. App.jsx가 head에 meta 태그를 즉시 주입.',
+        '확인 완료 후 <strong>Sitemaps</strong> 메뉴에서 <code>https://koreadreampath.com/sitemap.xml</code> 제출.',
+      ],
+    },
+    naver: {
+      title: 'Naver Search Advisor',
+      steps: [
+        '<a href="https://searchadvisor.naver.com" target="_blank" rel="noopener">searchadvisor.naver.com</a> 로그인 → <strong>웹마스터 도구 → 사이트 등록</strong>.',
+        'URL <code>https://koreadreampath.com</code> 입력.',
+        '소유권 확인: <strong>HTML 태그</strong>.',
+        'content 값만 복사 → 아래 붙여넣고 저장.',
+        '네이버에서 <strong>소유확인</strong> 클릭.',
+        '<strong>요청 → 사이트맵 제출</strong> → <code>sitemap.xml</code>, <strong>RSS 제출</strong> → 옵션.',
+      ],
+    },
+    bing: {
+      title: 'Bing Webmaster Tools',
+      steps: [
+        '<a href="https://www.bing.com/webmasters/" target="_blank" rel="noopener">bing.com/webmasters</a> 로그인.',
+        '<strong>Add a site</strong> → URL 입력 → 옵션 중 <strong>Import from Google Search Console</strong> 추천 (이미 GSC 등록돼 있으면 1-click).',
+        '수동: <strong>Meta tag</strong> 옵션 → content 값 복사 → 아래 붙여넣고 저장.',
+        'Bing에서 <strong>Verify</strong> 클릭.',
+        '<strong>Sitemaps</strong> 메뉴 → <code>sitemap.xml</code> 제출.',
+      ],
+    },
+    facebook: {
+      title: 'Facebook Domain Verification',
+      steps: [
+        '<a href="https://business.facebook.com/" target="_blank" rel="noopener">business.facebook.com</a> → <strong>Brand Safety → Domains → Add</strong>.',
+        '<code>koreadreampath.com</code> 입력.',
+        'Verify 방법 중 <strong>Meta-tag verification</strong>.',
+        'content 값만 복사 → 아래 입력란에 붙여넣고 저장.',
+        'Facebook에서 <strong>Verify domain</strong> 클릭.',
+        '용도: Facebook/Instagram 광고에서 도메인 신뢰도 / Open Graph 우선권.',
+      ],
+    },
+    pinterest: {
+      title: 'Pinterest Site Verification',
+      steps: [
+        '<a href="https://www.pinterest.com/business/create/" target="_blank" rel="noopener">Pinterest Business</a> 계정 생성.',
+        '<strong>Settings → Claimed accounts → Websites → Claim</strong>.',
+        'Add HTML tag 옵션 선택 → content 값만 복사 → 아래 붙여넣고 저장.',
+        'Pinterest에서 <strong>Submit for review</strong>. 통과까지 최대 24시간.',
+      ],
+    },
+    yandex: {
+      title: 'Yandex Webmaster',
+      steps: [
+        '<a href="https://webmaster.yandex.com/" target="_blank" rel="noopener">webmaster.yandex.com</a> 로그인.',
+        '<strong>Add site</strong> → URL 입력.',
+        'Verify 방법: <strong>Meta tag</strong> → content 값 복사 → 아래 붙여넣고 저장.',
+        'Yandex에서 <strong>Verify</strong>. 러시아권 SEO 필요시에만.',
+      ],
+    },
+  };
+
   function IntegrationsTab({ c, set }) {
     const [statusItems, setStatusItems] = useState([]);
     const [statusLoading, setStatusLoading] = useState(true);
@@ -2982,33 +3177,45 @@
             <button type="button" className="icon-btn" onClick={refreshStatus} disabled={statusLoading}>{statusLoading ? '…' : 'Refresh'}</button>
           </div>
           {statusErr && <div role="alert" style={{color:'var(--state-danger)',fontSize:13}}>{statusErr}</div>}
-          <div style={{overflowX:'auto'}}>
-            <table className="apps-table">
-              <thead><tr><th>Service</th><th>Secret name</th><th>Status</th><th style={{textAlign:'right'}}></th></tr></thead>
-              <tbody>
-                {statusItems.map(s => {
-                  const cmd = `wrangler secret put ${s.id}`;
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <strong>{s.label}</strong>
-                        {s.critical && !s.configured && <span style={{marginLeft:8,fontSize:11,color:'var(--state-danger)',fontWeight:700}}>· REQUIRED</span>}
-                      </td>
-                      <td><code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{s.id}</code></td>
-                      <td>
-                        {s.configured
-                          ? <span className="pill" style={{background:'var(--state-success-bg)',color:'var(--state-success)'}}>✓ Configured ({s.length} chars)</span>
-                          : <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>— Not set</span>}
-                      </td>
-                      <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
-                        <code style={{fontSize:11,fontFamily:'var(--font-mono)',background:'var(--bg-muted)',padding:'4px 8px',borderRadius:6,marginRight:6}}>{cmd}</code>
-                        <button type="button" className="icon-btn" onClick={() => copy(cmd)}>Copy</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div>
+            {statusItems.map(s => {
+              const cmd = `wrangler secret put ${s.id}`;
+              const guide = INTEGRATION_GUIDES[s.id];
+              return (
+                <div key={s.id} style={{padding:'14px 0',borderBottom:'1px solid var(--border-hair)'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+                    <div style={{flex:'1 1 280px',minWidth:0}}>
+                      <strong>{s.label}</strong>
+                      {s.critical && !s.configured && <span style={{marginLeft:8,fontSize:11,color:'var(--state-danger)',fontWeight:700}}>· REQUIRED</span>}
+                      <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-muted)',marginTop:2}}>{s.id}</div>
+                    </div>
+                    <div>
+                      {s.configured
+                        ? <span className="pill" style={{background:'var(--state-success-bg)',color:'var(--state-success)'}}>✓ Configured ({s.length} chars)</span>
+                        : <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>— Not set</span>}
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <code style={{fontSize:11,fontFamily:'var(--font-mono)',background:'var(--bg-muted)',padding:'4px 8px',borderRadius:6}}>{cmd}</code>
+                      <button type="button" className="icon-btn" onClick={() => copy(cmd)}>Copy</button>
+                    </div>
+                  </div>
+                  {guide && (
+                    <details style={{marginTop:10,marginLeft:0}}>
+                      <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+                      <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
+                        <div style={{fontWeight:700,marginBottom:6}}>{guide.title}</div>
+                        {guide.where && <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10,fontFamily:'var(--font-mono)'}}>{guide.where}</div>}
+                        <ol style={{margin:0,paddingLeft:22}}>
+                          {guide.steps.map((step, i) => (
+                            <li key={i} style={{marginBottom:6}} dangerouslySetInnerHTML={{ __html: step }} />
+                          ))}
+                        </ol>
+                      </div>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <details style={{marginTop:14,fontSize:13,color:'var(--fg-secondary)'}}>
             <summary style={{cursor:'pointer',fontWeight:600}}>왜 어드민에서 직접 등록하지 않나요?</summary>
@@ -3025,27 +3232,43 @@
         <div className="card">
           <h3>Site verification · 공개 인증 토큰</h3>
           <p className="desc">검색엔진·소셜 플랫폼에 도메인 소유권 증명. 입력한 값은 모든 페이지의 <code>&lt;head&gt;</code>에 자동 주입됩니다. 값이 비어있는 항목은 무시됩니다.</p>
-          {VERIFY_ROWS.map(row => (
-            <div className="grid-3 tight" key={row.key} style={{marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
-              <div className="field">
-                <label>{row.label}</label>
-                <a href={row.docs} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--brand-text)',textDecoration:'underline'}}>{row.docs.replace(/^https?:\/\//, '')} ↗</a>
+          {VERIFY_ROWS.map(row => {
+            const guide = VERIFICATION_GUIDES[row.key];
+            const isSet = !!sv[row.key];
+            return (
+              <div key={row.key} style={{padding:'14px 0',borderBottom:'1px solid var(--border-hair)'}}>
+                <div className="grid-3 tight">
+                  <div className="field">
+                    <label>{row.label}</label>
+                    <a href={row.docs} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--brand-text)',textDecoration:'underline'}}>{row.docs.replace(/^https?:\/\//, '')} ↗</a>
+                    <div style={{marginTop:6}}>
+                      {isSet
+                        ? <span className="pill" style={{background:'var(--state-success-bg)',color:'var(--state-success)'}}>✓ Active</span>
+                        : <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>— Empty</span>}
+                    </div>
+                  </div>
+                  <div className="field span-2">
+                    <label>Verification value</label>
+                    <input type="text" value={sv[row.key] || ''} onChange={e => set(['site_verifications',row.key], e.target.value)} placeholder='content="..." 값만 붙여넣기' />
+                    <span className="hint">{row.hint}</span>
+                  </div>
+                </div>
+                {guide && (
+                  <details style={{marginTop:10}}>
+                    <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+                    <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
+                      <div style={{fontWeight:700,marginBottom:10}}>{guide.title}</div>
+                      <ol style={{margin:0,paddingLeft:22}}>
+                        {guide.steps.map((step, i) => (
+                          <li key={i} style={{marginBottom:6}} dangerouslySetInnerHTML={{ __html: step }} />
+                        ))}
+                      </ol>
+                    </div>
+                  </details>
+                )}
               </div>
-              <div className="field span-2">
-                <label>Verification value</label>
-                <input type="text" value={sv[row.key] || ''} onChange={e => set(['site_verifications',row.key], e.target.value)} placeholder='content="..." 값만 붙여넣기' />
-                <span className="hint">{row.hint}</span>
-              </div>
-            </div>
-          ))}
-          <details style={{marginTop:8,fontSize:13,color:'var(--fg-secondary)'}}>
-            <summary style={{cursor:'pointer',fontWeight:600}}>How to verify</summary>
-            <ol style={{marginTop:8,lineHeight:1.7}}>
-              <li>각 서비스에서 도메인 등록 → "HTML 태그" / "Meta tag" 옵션 선택.</li>
-              <li>제공되는 <code>&lt;meta name="..." content="VALUE"&gt;</code>에서 <strong>VALUE 부분만</strong> 위에 붙여넣기.</li>
-              <li>저장 후 1–2분 기다렸다가 각 서비스의 "Verify" 버튼 클릭. App.jsx가 첫 페인트시 head에 태그를 삽입.</li>
-            </ol>
-          </details>
+            );
+          })}
         </div>
       </>
     );

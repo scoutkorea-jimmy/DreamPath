@@ -24,8 +24,16 @@ const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]
 function viewFromLocation() {
   const path = window.location.pathname;
   if (path.startsWith('/program/')) return 'program';
+  if (path.startsWith('/news/'))    return 'newsdetail';
+  if (path.startsWith('/stories/')) return 'storydetail';
   if (path === '/' || path === '') return 'home';
   return PATH_TO_VIEW[path] || PATH_TO_VIEW[path.replace(/\/$/, '')] || 'err404';
+}
+// Pull the trailing id segment out of a /collection/:id URL (decoded, no slash).
+function detailIdFromPath(prefix) {
+  const p = window.location.pathname;
+  if (!p.startsWith(prefix)) return '';
+  return decodeURIComponent(p.slice(prefix.length).replace(/\/$/, ''));
 }
 
 function App() {
@@ -35,6 +43,10 @@ function App() {
     if (p.startsWith('/program/')) return decodeURIComponent(p.slice('/program/'.length).replace(/\/$/, ''));
     return localStorage.getItem('dp_prog') || 'korean-studies';
   });
+  // Detail-page ids for /news/:id and /stories/:id. Restored from URL on
+  // direct page load + on browser back/forward.
+  const [newsId, setNewsId]   = useStateR(() => detailIdFromPath('/news/'));
+  const [storyId, setStoryId] = useStateR(() => detailIdFromPath('/stories/'));
   const [lang, setLang] = useStateR(() => localStorage.getItem('dp_lang') || 'ko');
   const [authOpen, setAuthOpen] = useStateR(false);
   const [authMode, setAuthMode] = useStateR('login');
@@ -99,11 +111,15 @@ function App() {
 
   const go = (v, arg, opts) => {
     if (v === 'program' && arg) setProgramId(arg);
+    if (v === 'newsdetail'  && arg) setNewsId(arg);
+    if (v === 'storydetail' && arg) setStoryId(arg);
     setView(v);
     // Push a real URL so back-button + sharing work
-    const newPath = v === 'program' && arg
-      ? '/program/' + encodeURIComponent(arg)
-      : (VIEW_TO_PATH[v] || '/');
+    const newPath =
+      v === 'program'     && arg ? '/program/'   + encodeURIComponent(arg) :
+      v === 'newsdetail'  && arg ? '/news/'      + encodeURIComponent(arg) :
+      v === 'storydetail' && arg ? '/stories/'   + encodeURIComponent(arg) :
+      (VIEW_TO_PATH[v] || '/');
     let qs = '';
     if (opts && typeof opts === 'object') {
       const usp = new URLSearchParams();
@@ -124,8 +140,14 @@ function App() {
       const v = viewFromLocation();
       setView(v);
       if (v === 'program') {
-        const id = decodeURIComponent(window.location.pathname.slice('/program/'.length).replace(/\/$/, ''));
+        const id = detailIdFromPath('/program/');
         if (id) setProgramId(id);
+      } else if (v === 'newsdetail') {
+        const id = detailIdFromPath('/news/');
+        if (id) setNewsId(id);
+      } else if (v === 'storydetail') {
+        const id = detailIdFromPath('/stories/');
+        if (id) setStoryId(id);
       }
     };
     window.addEventListener('popstate', onPop);
@@ -166,8 +188,10 @@ function App() {
     case 'program':      content_view = safe(window.ProgramDetail, { ...baseProps, programId }); break;
     case 'apply':        content_view = safe(window.Apply, { lang, c: content }); break;
     case 'partners':     content_view = safe(window.Partners, { lang, c: content }); break;
-    case 'stories':      content_view = safe(window.Stories, { lang, c: content }); break;
-    case 'news':         content_view = safe(window.News, { lang, c: content }); break;
+    case 'stories':      content_view = safe(window.Stories, { go, lang, c: content }); break;
+    case 'storydetail':  content_view = safe(window.StoryDetail, { go, lang, c: content, storyId }); break;
+    case 'news':         content_view = safe(window.News, { go, lang, c: content }); break;
+    case 'newsdetail':   content_view = safe(window.NewsDetail, { go, lang, c: content, newsId }); break;
     case 'contact':      content_view = safe(window.Contact, { lang, c: content }); break;
     case 'team':         content_view = safe(window.Team, baseProps); break;
     case 'scholarships': content_view = safe(window.Scholarships, baseProps); break;

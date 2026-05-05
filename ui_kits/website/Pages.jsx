@@ -40,7 +40,11 @@ function Partners({ lang, c }) {
   );
 }
 
-function Stories({ lang, c }) {
+// Resolve a story's stable id. We prefer an explicit `id`/`slug`, then fall
+// back to `s1`, `s2`, ... so legacy stories without an id still get a URL.
+function storyIdOf(s, i) { return (s && (s.id || s.slug)) || ('s' + (i + 1)); }
+
+function Stories({ go, lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.stories) || window.STORIES;
   const h = ((c && c.page_heros && c.page_heros.stories && c.page_heros.stories[lang]) || {});
@@ -50,19 +54,27 @@ function Stories({ lang, c }) {
       <section className="section">
         <div className="container">
           <div className="stories-grid">
-            {list.map((s, i) => (
-              <div key={i} className="story" style={{'--c1': s.tag_color, '--c2': '#622599'}}>
-                <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
-                <blockquote className={isKo ? '' : 'en'}>"{isKo ? s.quote_ko : s.quote_en}"</blockquote>
-                <div className="story-foot">
-                  <div className="story-avatar" />
-                  <div>
-                    <div className="story-name">{s.name}</div>
-                    <div className="story-prog">{s.program}</div>
+            {list.map((s, i) => {
+              const sid = storyIdOf(s, i);
+              return (
+                <button
+                  key={sid}
+                  type="button"
+                  onClick={() => go && go('storydetail', sid)}
+                  className="story"
+                  style={{'--c1': s.tag_color, '--c2': '#622599', textAlign:'left', cursor:'pointer', font:'inherit', color:'inherit'}}>
+                  <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
+                  <blockquote className={isKo ? '' : 'en'}>"{isKo ? s.quote_ko : s.quote_en}"</blockquote>
+                  <div className="story-foot">
+                    <div className="story-avatar" />
+                    <div>
+                      <div className="story-name">{s.name}</div>
+                      <div className="story-prog">{s.program}</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -70,7 +82,67 @@ function Stories({ lang, c }) {
   );
 }
 
-function News({ lang, c }) {
+// /stories/:id — single-story detail view. Pulls the story by id (or
+// position-based fallback) from c.stories and renders an extended layout.
+// 404s back to /stories if the id doesn't match.
+function StoryDetail({ go, lang, c, storyId }) {
+  const isKo = lang === 'ko';
+  const list = (c && Array.isArray(c.stories)) ? c.stories : [];
+  const idx = list.findIndex((s, i) => storyIdOf(s, i) === storyId);
+  if (idx < 0) {
+    return (
+      <div data-screen-label="StoryDetail" className="container" style={{padding:'80px 24px',textAlign:'center'}}>
+        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '후기를 찾을 수 없습니다' : 'Story not found'}</h1>
+        <p style={{color:'var(--fg-muted)'}}>{isKo ? '삭제됐거나 잘못된 링크일 수 있어요.' : 'It may have been removed or the link is wrong.'}</p>
+        <button type="button" className="btn btn-primary" onClick={() => go('stories')} style={{marginTop:18}}>
+          {isKo ? '전체 후기로' : 'All stories'}
+        </button>
+      </div>
+    );
+  }
+  const s = list[idx];
+  return (
+    <div data-screen-label="StoryDetail">
+      <div className="phead">
+        <div className="inner">
+          <div className="sec-kicker">{s.tag}</div>
+          <h1 className={isKo ? '' : 'en'}>{s.name}</h1>
+          <p>{s.program}</p>
+        </div>
+      </div>
+      <section className="section">
+        <div className="container-narrow">
+          <blockquote
+            className={isKo ? '' : 'en'}
+            style={{
+              fontSize:'clamp(22px, 3vw, 32px)', fontWeight:600, lineHeight:1.45,
+              borderLeft:`4px solid ${s.tag_color || 'var(--scouting-purple)'}`,
+              padding:'8px 24px', margin:'0 0 32px', color:'var(--fg-primary)',
+            }}>
+            "{isKo ? s.quote_ko : s.quote_en}"
+          </blockquote>
+          <div style={{display:'flex',gap:14,alignItems:'center',color:'var(--fg-secondary)'}}>
+            <div className="story-avatar" style={{flex:'0 0 auto'}} />
+            <div>
+              <div style={{fontWeight:700,color:'var(--fg-primary)'}}>{s.name}</div>
+              <div style={{fontSize:14}}>{s.program}</div>
+            </div>
+          </div>
+          <div style={{marginTop:48,display:'flex',gap:8}}>
+            <button type="button" className="btn btn-secondary" onClick={() => go('stories')}>
+              ← {isKo ? '전체 후기로' : 'All stories'}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => { try { navigator.clipboard.writeText(window.location.href); } catch {} }}>
+              🔗 {isKo ? '링크 복사' : 'Copy link'}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function News({ go, lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
   const canEdit = auth.user && (auth.user.role === 'admin' || auth.user.role === 'member');
@@ -144,7 +216,7 @@ function News({ lang, c }) {
             <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '등록된 소식이 없습니다.' : 'No posts yet.'}</div>
           ) : (
             <div className="news-list">
-              {items.map(n => <NewsRow key={n.id} n={n} isKo={isKo} canEdit={canEdit} onEdit={() => setEditing(n)} onDelete={() => deletePost(n.id)} />)}
+              {items.map(n => <NewsRow key={n.id} n={n} isKo={isKo} canEdit={canEdit} go={go} onEdit={() => setEditing(n)} onDelete={() => deletePost(n.id)} />)}
             </div>
           )}
         </div>
@@ -154,33 +226,93 @@ function News({ lang, c }) {
   );
 }
 
-function NewsRow({ n, isKo, canEdit, onEdit, onDelete }) {
-  const [open, setOpen] = React.useState(false);
-  const body = isKo ? n.body_ko : n.body_en;
-  const hasBody = body && body.replace(/<[^>]+>/g, '').trim().length > 0;
+// Each news row navigates to /news/:id when the title or "자세히" is clicked.
+// Inline expand-in-place is gone — single-source linkable URLs are nicer for
+// sharing and analytics, and the detail view fits a longer body anyway.
+function NewsRow({ n, isKo, canEdit, go, onEdit, onDelete }) {
   return (
-    <div className={'news-item' + (open ? ' open' : '')}
+    <div className="news-item"
       style={{display:'block',padding:'16px 20px',borderRadius:14,marginBottom:8,background:'var(--bg-elevated)',border:'1px solid var(--border-hair)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}
-        onClick={() => hasBody && setOpen(o => !o)}
-        role={hasBody ? 'button' : undefined} tabIndex={hasBody ? 0 : undefined}>
+      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
         <span className="news-tag" style={{background: (n.tag_color || 'var(--fg-muted)') + '22', color: n.tag_color || 'var(--fg-muted)'}}>{n.tag}</span>
         <span className="news-date">{n.date}</span>
-        <span className={'news-title' + (isKo ? '' : ' en')} style={{flex:1,minWidth:0}}>{isKo ? n.title_ko : n.title_en}</span>
+        <button type="button"
+          className={'news-title' + (isKo ? '' : ' en')}
+          onClick={() => go && go('newsdetail', n.id)}
+          style={{flex:1,minWidth:0,background:'none',border:'none',font:'inherit',color:'inherit',cursor:'pointer',textAlign:'left',padding:0}}>
+          {isKo ? n.title_ko : n.title_en}
+        </button>
         {canEdit && (
-          <span style={{display:'flex',gap:6}} onClick={e => e.stopPropagation()}>
+          <span style={{display:'flex',gap:6}}>
             <button className="icon-btn" onClick={onEdit}>{isKo ? '수정' : 'Edit'}</button>
             <button className="icon-btn danger" onClick={onDelete}>{isKo ? '삭제' : 'Delete'}</button>
           </span>
         )}
-        {hasBody && (
-          <i data-lucide={open ? 'chevron-up' : 'chevron-down'} width="18" height="18" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
-        )}
+        <button type="button" className="icon-btn" onClick={() => go && go('newsdetail', n.id)} title={isKo ? '자세히 보기' : 'Read more'}>
+          <i data-lucide="arrow-right" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
+        </button>
       </div>
-      {open && hasBody && (
-        <div className="news-body" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--border-hair)',color:'var(--fg-secondary)',lineHeight:1.7}}
-          dangerouslySetInnerHTML={{ __html: body }} />
-      )}
+    </div>
+  );
+}
+
+// /news/:id — single-post detail. Loads the post via /api/news/:id (public)
+// and renders the full HTML body. 404s back to /news on a bad id.
+function NewsDetail({ go, lang, c, newsId }) {
+  const isKo = lang === 'ko';
+  const [post, setPost] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState('');
+  React.useEffect(() => {
+    if (!newsId) { setLoading(false); return; }
+    setLoading(true); setErr('');
+    fetch('/api/news/' + encodeURIComponent(newsId))
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('http_' + r.status)))
+      .then(setPost)
+      .catch(e => setErr(String(e.message || e)))
+      .finally(() => setLoading(false));
+  }, [newsId]);
+
+  if (loading) return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+  if (err || !post) {
+    return (
+      <div data-screen-label="NewsDetail" className="container" style={{padding:'80px 24px',textAlign:'center'}}>
+        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '소식을 찾을 수 없습니다' : 'Post not found'}</h1>
+        <p style={{color:'var(--fg-muted)'}}>{isKo ? '삭제됐거나 잘못된 링크일 수 있어요.' : 'It may have been removed or the link is wrong.'}</p>
+        <button type="button" className="btn btn-primary" onClick={() => go('news')} style={{marginTop:18}}>
+          {isKo ? '전체 소식으로' : 'All news'}
+        </button>
+      </div>
+    );
+  }
+  const title = isKo ? post.title_ko : post.title_en;
+  const body  = isKo ? post.body_ko  : post.body_en;
+  return (
+    <div data-screen-label="NewsDetail">
+      <div className="phead">
+        <div className="inner">
+          <div className="sec-kicker">
+            {post.tag && <span className="news-tag" style={{background: (post.tag_color || 'var(--fg-muted)') + '22', color: post.tag_color || 'var(--fg-muted)', marginRight:8}}>{post.tag}</span>}
+            <span style={{color:'var(--fg-muted)',fontFamily:'var(--font-mono)',fontSize:13}}>{post.date}</span>
+          </div>
+          <h1 className={isKo ? '' : 'en'}>{title}</h1>
+        </div>
+      </div>
+      <section className="section">
+        <div className="container-narrow">
+          {body && body.trim()
+            ? <div style={{color:'var(--fg-primary)',lineHeight:1.75,fontSize:16}} dangerouslySetInnerHTML={{ __html: body }} />
+            : <p style={{color:'var(--fg-muted)'}}>{isKo ? '본문이 비어 있습니다.' : 'No body content.'}</p>}
+          <div style={{marginTop:48,display:'flex',gap:8}}>
+            <button type="button" className="btn btn-secondary" onClick={() => go('news')}>
+              ← {isKo ? '전체 소식으로' : 'All news'}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => { try { navigator.clipboard.writeText(window.location.href); } catch {} }}>
+              🔗 {isKo ? '링크 복사' : 'Copy link'}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -398,6 +530,8 @@ function InquiryForm({ lang, c }) {
 window.InquiryForm = InquiryForm;
 window.Partners = Partners;
 window.Stories = Stories;
+window.StoryDetail = StoryDetail;
 window.News = News;
+window.NewsDetail = NewsDetail;
 window.NewsEditor = NewsEditor;
 window.Contact = Contact;

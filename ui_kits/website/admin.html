@@ -1331,6 +1331,9 @@
           <div className="grid-2 tight">
             <Text label="ID" value={program.id} onChange={v => set(['programs',index,'id'], v)} hint="URL-friendly. Used in /program/:id" />
             <Text label="Kicker" value={program.kicker} onChange={v => set(['programs',index,'kicker'], v)} />
+            <Text label="Category (slug)" value={program.category || ''} onChange={v => set(['programs',index,'category'], v)} hint="Used in /programs?cat=...; e.g. micro-degree" />
+            <Text label="Category label (KO)" value={program.category_ko || ''} onChange={v => set(['programs',index,'category_ko'], v)} lang="ko" hint="Display name in KO. Falls back to kicker first segment." />
+            <Text label="Category label (EN)" value={program.category_en || ''} onChange={v => set(['programs',index,'category_en'], v)} lang="en" hint="Display name in EN. Falls back to kicker first segment." />
             <Text label="Title (KO)" value={program.title_ko} onChange={v => set(['programs',index,'title_ko'], v)} lang="ko" />
             <Text label="Title (EN)" value={program.title_en} onChange={v => set(['programs',index,'title_en'], v)} lang="en" />
             <Area label="Short subtitle (KO)" value={program.sub_ko} onChange={v => set(['programs',index,'sub_ko'], v)} lang="ko" rows={2} />

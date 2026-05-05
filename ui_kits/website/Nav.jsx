@@ -16,18 +16,22 @@ function Nav({ view, go, lang, setLang, c }) {
     else setThemeChoice(next);
   }
 
-  // Build the "프로그램" submenu by category from current c.programs
+  // Build the "프로그램" submenu by category from current c.programs.
+  // Per-program editable labels (category_ko / category_en) take precedence;
+  // legacy programs without those fields fall back to the slug or the
+  // first segment of the kicker. Slug is the URL key for /programs?cat=.
   const programs = (c && Array.isArray(c.programs)) ? c.programs : [];
   const categories = (() => {
     const seen = new Set();
     const out = [];
     programs.forEach(p => {
-      const raw = p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '');
-      if (!raw) return;
-      const key = raw.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push({ key, label: raw });
+      const fallback = p.kicker ? p.kicker.split('·')[0].trim() : '';
+      const slug = (p.category || fallback).toLowerCase();
+      if (!slug) return;
+      if (seen.has(slug)) return;
+      seen.add(slug);
+      const label = (isKo ? (p.category_ko || fallback) : (p.category_en || fallback)) || fallback;
+      out.push({ key: slug, label });
     });
     return out;
   })();

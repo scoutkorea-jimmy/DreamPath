@@ -54,7 +54,10 @@ export default {
     if (ADMIN_PATHS.has(url.pathname)) {
       return env.ASSETS.fetch(rewriteRequest(request, SITE_ADMIN));
     }
-    if (SPA_PATHS.has(url.pathname) || url.pathname.startsWith('/program/')) {
+    if (SPA_PATHS.has(url.pathname)
+        || url.pathname.startsWith('/program/')
+        || url.pathname.startsWith('/news/')
+        || url.pathname.startsWith('/stories/')) {
       return env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX));
     }
 
@@ -100,14 +103,30 @@ async function sitemapXml(env, url) {
     }
   } catch {}
 
-  // Dynamic: each news post
+  // Dynamic: each news post → /news/:id
   let newsPaths = [];
   try {
-    const { results } = await env.DB.prepare('SELECT id FROM news_posts ORDER BY date DESC LIMIT 200').all();
-    // (no per-post route yet; news lives under /news with anchor — leave for now)
+    const { results } = await env.DB.prepare('SELECT id, date FROM news_posts ORDER BY date DESC LIMIT 200').all();
+    newsPaths = (results || [])
+      .filter(n => n && n.id)
+      .map(n => ({ path: '/news/' + encodeURIComponent(n.id), priority: 0.6, change: 'monthly' }));
   } catch {}
 
-  const all = [...STATIC, ...programPaths, ...newsPaths];
+  // Dynamic: each story → /stories/:id (stories live in c.stories[])
+  let storyPaths = [];
+  try {
+    const raw = await env.CONTENT_KV.get('dp_content_v1');
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (Array.isArray(c.stories)) {
+        storyPaths = c.stories
+          .map((s, i) => ({ id: s && (s.id || s.slug) || ('s' + (i + 1)) }))
+          .map(s => ({ path: '/stories/' + encodeURIComponent(s.id), priority: 0.5, change: 'monthly' }));
+      }
+    }
+  } catch {}
+
+  const all = [...STATIC, ...programPaths, ...newsPaths, ...storyPaths];
 
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -314,6 +333,14 @@ async function handleApi(request, env, url) {
   }
   const newsM = path.match(/^\/api\/news\/([A-Za-z0-9_-]+)$/);
   if (newsM) {
+    // Public GET — used by /news/:id detail page on the SPA. CORS-friendly.
+    if (method === 'GET') {
+      const row = await env.DB.prepare(
+        'SELECT id, tag, tag_color, date, title_ko, title_en, body_ko, body_en, created_at, updated_at FROM news_posts WHERE id = ?'
+      ).bind(newsM[1]).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      return cors(json(row));
+    }
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
     if (method === 'PUT')    return updateNews(request, env, user, newsM[1]);

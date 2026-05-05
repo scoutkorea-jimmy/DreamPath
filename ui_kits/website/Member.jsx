@@ -212,16 +212,24 @@ function MemberNotifications({ isKo, onChange }) {
     const subj = isKo ? (opened.subject_ko || opened.subject_en) : (opened.subject_en || opened.subject_ko);
     const body = isKo ? (opened.body_ko || opened.body_en) : (opened.body_en || opened.body_ko);
     return (
-      <div className="member-card" style={{maxWidth:760}}>
-        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14,fontSize:13,color:'var(--fg-muted)'}}>
+      <div className="member-card" style={{padding:0,overflow:'hidden'}}>
+        {/* Header band — back link, sender meta, timestamp on one row. */}
+        <div style={{display:'flex',gap:12,alignItems:'center',padding:'16px 24px',borderBottom:'1px solid var(--border-hair)',background:'var(--bg-muted)'}}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpened(null)}>← {isKo ? '목록으로' : 'Back to inbox'}</button>
           <span style={{flex:1}} />
-          <span>{new Date(opened.ts).toLocaleString()}</span>
-          <span style={{fontFamily:'var(--font-mono)',fontSize:11}}>· {opened.sender}</span>
+          <span style={{fontSize:12,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{opened.sender}</span>
+          <span style={{fontSize:12,color:'var(--fg-muted)'}}>{new Date(opened.ts).toLocaleString()}</span>
         </div>
-        <h2 style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,letterSpacing:'-0.01em',margin:'0 0 18px',color:'var(--brand-text)'}}>{subj}</h2>
-        <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,color:'var(--fg-primary)',fontSize:15}}>{body}</div>
-        <div style={{marginTop:24,display:'flex',gap:8,justifyContent:'flex-end'}}>
+        {/* Subject + body. Generous padding so the card reads like a letter
+            rather than a chat bubble. */}
+        <div style={{padding:'28px 28px 8px'}}>
+          <div className="sec-kicker" style={{marginBottom:8}}>{isKo ? '받은 알림' : 'Notification'}</div>
+          <h2 style={{fontFamily:'var(--font-kr)',fontSize:26,fontWeight:700,letterSpacing:'-0.01em',margin:'0 0 18px',color:'var(--brand-text)'}}>{subj}</h2>
+          <div style={{whiteSpace:'pre-wrap',lineHeight:1.75,color:'var(--fg-primary)',fontSize:15,minHeight:120}}>{body}</div>
+        </div>
+        {/* Action footer — separated by a hairline so primary content stays
+            clean. Mark-read on the left, destructive delete on the right. */}
+        <div style={{display:'flex',gap:8,justifyContent:'space-between',padding:'18px 24px',borderTop:'1px solid var(--border-hair)',background:'var(--bg-muted)'}}>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => toggleRead(opened)}>
             {opened.read_at ? (isKo ? '안 읽음으로' : 'Mark unread') : (isKo ? '읽음 처리' : 'Mark read')}
           </button>

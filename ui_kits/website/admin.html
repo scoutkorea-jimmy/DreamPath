@@ -2918,6 +2918,7 @@
         )}
 
         {view !== 'compose' && (
+          <>
           {/* Bulk action bar — appears whenever ≥1 row is checked. Sticky above
               the list so scrolling doesn't lose access to the actions. */}
           {selectedIds.size > 0 && (
@@ -3114,6 +3115,7 @@
               )}
             </div>
           </div>
+          </>
         )}
 
         {view === 'compose' && (

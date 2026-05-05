@@ -209,7 +209,7 @@ function News({ go, lang, c }) {
               </button>
             </div>
           )}
-          {err && <div role="alert" style={{color:'var(--state-danger)',marginBottom:16}}>{err}</div>}
+          {err && <div role="alert" style={{padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:14,marginBottom:16}}>{err}</div>}
           {loading ? (
             <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>
           ) : items.length === 0 ? (
@@ -517,7 +517,7 @@ function InquiryForm({ lang, c }) {
         <label>{isKo ? '내용 * (10자 이상)' : 'Message * (min 10 chars)'}</label>
         <textarea rows="6" value={form.body} onChange={upd('body')} required minLength={10} />
       </div>
-      {err && <div role="alert" style={{color:'var(--state-danger)',marginTop:8,fontSize:14}}>{err}</div>}
+      {err && <div role="alert" style={{padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:14,marginTop:8}}>{err}</div>}
       <div className="form-actions" style={{marginTop:20,justifyContent:'flex-end',display:'flex',gap:8}}>
         <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? (isKo ? '제출 중…' : 'Sending…') : (isKo ? '문의 보내기' : 'Send message')}

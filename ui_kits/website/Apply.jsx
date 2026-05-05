@@ -275,7 +275,7 @@ function Apply({ lang, c }) {
               )}
             </div>
             {submitError && (
-              <div role="alert" style={{marginTop:12,color:'var(--state-danger)',fontSize:14}}>{submitError}</div>
+              <div role="alert" style={{marginTop:12,padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:14}}>{submitError}</div>
             )}
             {docOpen && <window.LegalModal doc={docOpen} lang={lang} onClose={() => setDocOpen(null)} />}
           </div>

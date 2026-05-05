@@ -144,7 +144,7 @@ function ResetPasswordView({ go, lang }) {
             <span>{isKo ? '새 비밀번호 (8자 이상)' : 'New password (min 8 chars)'}</span>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" required minLength={8} />
           </label>
-          {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginTop:8}}>{err}</div>}
+          {err && <div role="alert" style={{padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13,marginTop:8}}>{err}</div>}
           <button type="submit" className="btn btn-primary btn-block" style={{marginTop:14}} disabled={busy}>
             {busy ? (isKo ? '처리 중…' : 'Working…') : (isKo ? '비밀번호 재설정' : 'Reset password')}
           </button>
@@ -168,7 +168,7 @@ function ResetPasswordView({ go, lang }) {
               <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
             </label>
           )}
-        {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginTop:8}}>{err}</div>}
+        {err && <div role="alert" style={{padding:'8px 12px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13,marginTop:8}}>{err}</div>}
         {done === 'requested' && (
           <div role="status" style={{padding:'10px 14px',background:'var(--state-success-bg)',color:'var(--state-success)',borderRadius:8,marginTop:12,fontSize:14}}>
             {isKo ? '재설정 링크가 발송되었습니다 (해당 이메일이 등록된 경우).' : 'If that email exists, a reset link is on its way.'}

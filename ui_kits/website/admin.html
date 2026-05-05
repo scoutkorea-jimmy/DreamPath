@@ -790,6 +790,10 @@
   // editor + live-preview iframe. The value is the public route to load
   // for the preview. Edits don't autosave — the user must click Save.
   // Tabs not in this map render as plain editors with the existing autosave.
+  // Mirror of worker.js's ALWAYS_ADMIN_EMAIL — used to lock the role toggle
+  // on the member detail panel.
+  const ALWAYS_ADMIN_EMAIL = 'scoutkorea@kakao.com';
+
   const PREVIEW_PATHS = {
     // Homepage sections
     hero:           '/',
@@ -2081,22 +2085,74 @@
                 </div>
               </div>
               <div className="app-modal-body">
-                {!detail ? <p style={{color:'var(--fg-muted)'}}>Loading…</p> : (
+                {!detail ? <p style={{color:'var(--fg-muted)'}}>Loading…</p> : (() => {
+                  // Render every column we know about, with "empty" placeholder
+                  // when the field is null/undefined/blank. This matches the
+                  // operator's "see all signup data" requirement instead of
+                  // hiding empty fields.
+                  const Empty = () => <span style={{color:'var(--fg-muted)',fontStyle:'italic'}}>empty</span>;
+                  const v = (val, fmt) => (val === null || val === undefined || val === '') ? <Empty /> : (fmt ? fmt(val) : String(val));
+                  const u = detail.user || {};
+                  const p = detail.profile || {};
+                  // Every member_profiles column we want to surface, in stable order.
+                  const PROFILE_KEYS = ['country','birthdate','current_school','current_major','goal','interests','korean_level','english_level','career_summary'];
+                  return (
                   <>
-                    <div className="app-sec">Profile</div>
-                    <div className="app-row"><div className="app-k">ID</div><div className="app-v" style={{fontFamily:'var(--font-mono)'}}>{detail.user.id}</div></div>
-                    <div className="app-row"><div className="app-k">Name</div><div className="app-v">{detail.user.name || '—'}</div></div>
-                    <div className="app-row"><div className="app-k">Role</div><div className="app-v">{detail.user.role}</div></div>
-                    <div className="app-row"><div className="app-k">Joined</div><div className="app-v">{new Date(detail.user.created_at).toLocaleString()}</div></div>
-                    <div className="app-row"><div className="app-k">Last login</div><div className="app-v">{detail.user.last_login ? new Date(detail.user.last_login).toLocaleString() : 'never'}</div></div>
-                    {detail.profile && (
-                      <>
-                        <div className="app-sec">Career profile</div>
-                        {Object.entries(detail.profile).filter(([k]) => !['user_id','created_at','updated_at'].includes(k) && detail.profile[k]).map(([k, v]) => (
-                          <div className="app-row" key={k}><div className="app-k">{k}</div><div className="app-v">{String(v)}</div></div>
-                        ))}
-                      </>
+                    {p.photo && (
+                      <div style={{display:'flex',gap:18,alignItems:'center',marginBottom:18,padding:'14px 16px',background:'var(--bg-muted)',borderRadius:10}}>
+                        <img src={p.photo} alt="" style={{width:96,height:96,borderRadius:'50%',objectFit:'cover',border:'2px solid var(--border-default)'}} />
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:'var(--fg-primary)'}}>{u.name || '(no name)'}</div>
+                          <div style={{fontSize:12,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{u.email}</div>
+                          {p.photo_size && <div style={{fontSize:11,color:'var(--fg-muted)',marginTop:4}}>Photo {(p.photo_size / 1024).toFixed(0)} KB</div>}
+                        </div>
+                      </div>
                     )}
+                    <div className="app-sec">Account</div>
+                    <div className="app-row"><div className="app-k">ID</div><div className="app-v" style={{fontFamily:'var(--font-mono)'}}>{v(u.id)}</div></div>
+                    <div className="app-row"><div className="app-k">Email</div><div className="app-v">{v(u.email)}</div></div>
+                    <div className="app-row"><div className="app-k">Name</div><div className="app-v">{v(u.name)}</div></div>
+                    <div className="app-row">
+                      <div className="app-k">Role</div>
+                      <div className="app-v">
+                        <span className="pill" style={{background:u.role==='admin'?'var(--sunshine-yellow)':'var(--bg-muted)',color:u.role==='admin'?'var(--midnight-purple)':'var(--fg-secondary)'}}>{u.role || 'member'}</span>
+                        {u.email !== ALWAYS_ADMIN_EMAIL && (
+                          <button type="button" className="icon-btn" style={{marginLeft:8}}
+                            onClick={async () => {
+                              const newRole = u.role === 'admin' ? 'member' : 'admin';
+                              if (!confirm(`Change role to ${newRole}?`)) return;
+                              const tok = localStorage.getItem('dp_admin_token') || '';
+                              const r = await fetch('/api/admin/users/' + encodeURIComponent(u.id), {
+                                method: 'PATCH',
+                                headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+                                body: JSON.stringify({ role: newRole, note: 'role toggle from member detail' }),
+                              });
+                              if (r.ok) { setTick(t => t + 1); }
+                              else alert('Failed: HTTP ' + r.status);
+                            }}>
+                            {u.role === 'admin' ? '관리자 해제' : '관리자로 지정'}
+                          </button>
+                        )}
+                        {u.email === ALWAYS_ADMIN_EMAIL && <span style={{marginLeft:8,fontSize:11,color:'var(--fg-muted)'}}>· 시스템 항상-관리자 (변경 불가)</span>}
+                      </div>
+                    </div>
+                    <div className="app-row"><div className="app-k">Email verified</div><div className="app-v">{u.email_verified ? '✓ verified' : <Empty />}</div></div>
+                    <div className="app-row"><div className="app-k">Joined</div><div className="app-v">{v(u.created_at, x => new Date(x).toLocaleString())}</div></div>
+                    <div className="app-row"><div className="app-k">Updated</div><div className="app-v">{v(u.updated_at, x => new Date(x).toLocaleString())}</div></div>
+                    <div className="app-row"><div className="app-k">Last login</div><div className="app-v">{v(u.last_login, x => new Date(x).toLocaleString())}</div></div>
+
+                    <div className="app-sec">Career profile</div>
+                    {PROFILE_KEYS.map(k => (
+                      <div className="app-row" key={k}><div className="app-k">{k}</div><div className="app-v">{v(p[k])}</div></div>
+                    ))}
+                    <div className="app-row"><div className="app-k">photo</div><div className="app-v">{p.photo ? <span>✓ uploaded ({((p.photo_size || 0) / 1024).toFixed(0)} KB)</span> : <Empty />}</div></div>
+                    <div className="app-row"><div className="app-k">profile updated</div><div className="app-v">{v(p.updated_at, x => new Date(x).toLocaleString())}</div></div>
+                  </>
+                  );
+                })()}
+                {detail && (
+                  <>
+                    {/* Audit, consents — already rendered below; preserve original structure. */}
                     <div className="app-sec">Audit log ({(detail.audits || []).length})</div>
                     {(!detail.audits || detail.audits.length === 0) ? <p style={{color:'var(--fg-muted)',fontSize:13}}>No recorded changes.</p> : (
                       <table className="apps-table" style={{fontSize:12}}>
@@ -6118,76 +6174,134 @@
   }
 
   // ---- Auth gate -----------------------------------------------------------
+  // Two-mode login:
+  //   1. Email + password — for users whose role is 'admin' (or the always-
+  //      admin email scoutkorea@kakao.com). Hits /api/auth/login, stores
+  //      the session token in localStorage.dp_admin_token (re-using the
+  //      existing key so every existing fetch() call keeps working unchanged).
+  //   2. Legacy ADMIN_TOKEN — fallback for ops / external automation.
+  //      Operator can switch tabs in the form.
   function Gate() {
     const [token, setToken] = useState(() => localStorage.getItem('dp_admin_token') || '');
-    const [authed, setAuthed] = useState(null); // null = checking, true/false = result
-    const [input, setInput] = useState('');
+    const [authed, setAuthed] = useState(null);
+    const [mode, setMode] = useState('account');                  // 'account' | 'token'
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [tokenInput, setTokenInput] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
 
+    // Verify a bearer is admin-capable. Hits /api/admin/integrations/status
+    // (admin-only); 200 = admin, 401 = not.
     async function verify(t) {
       try {
-        const res = await fetch('/api/applications?limit=1', {
-          headers: { 'authorization': 'Bearer ' + t },
-        });
-        return res.ok;
+        const r = await fetch('/api/admin/integrations/status', { headers: { authorization: 'Bearer ' + t } });
+        return r.ok;
       } catch { return false; }
     }
 
     useEffect(() => {
       if (!token) { setAuthed(false); return; }
       verify(token).then(ok => {
-        if (ok) { setAuthed(true); }
+        if (ok) setAuthed(true);
         else {
           localStorage.removeItem('dp_admin_token');
-          setToken('');
-          setAuthed(false);
+          setToken(''); setAuthed(false);
         }
       });
     }, []);
 
-    async function login(e) {
+    async function loginAccount(e) {
       e.preventDefault();
-      if (!input.trim() || busy) return;
-      setBusy(true);
-      setError('');
-      const ok = await verify(input.trim());
+      if (busy) return;
+      const e_ = email.trim().toLowerCase();
+      if (!e_ || !password) { setError(mode === 'account' ? '이메일과 비밀번호를 입력하세요.' : 'Enter email and password.'); return; }
+      setBusy(true); setError('');
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: e_, password }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.token) { setError('이메일 또는 비밀번호가 올바르지 않습니다.'); return; }
+        // Confirm the session belongs to an admin before letting them in.
+        const ok = await verify(d.token);
+        if (!ok) { setError('관리자 권한이 없는 계정입니다.'); return; }
+        localStorage.setItem('dp_admin_token', d.token);
+        setToken(d.token); setAuthed(true);
+      } catch (err) {
+        setError('로그인 실패: ' + (err.message || err));
+      } finally { setBusy(false); }
+    }
+
+    async function loginToken(e) {
+      e.preventDefault();
+      if (!tokenInput.trim() || busy) return;
+      setBusy(true); setError('');
+      const ok = await verify(tokenInput.trim());
       setBusy(false);
       if (!ok) { setError('Invalid token.'); return; }
-      localStorage.setItem('dp_admin_token', input.trim());
-      setToken(input.trim());
-      setAuthed(true);
+      localStorage.setItem('dp_admin_token', tokenInput.trim());
+      setToken(tokenInput.trim()); setAuthed(true);
     }
 
     function logout() {
       localStorage.removeItem('dp_admin_token');
-      setToken('');
-      setAuthed(false);
+      setToken(''); setAuthed(false);
+      setEmail(''); setPassword(''); setTokenInput('');
     }
 
     if (authed === null) {
-      return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#666'}}>Checking session…</div>;
+      return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--fg-muted)'}}>Checking session…</div>;
     }
     if (!authed) {
       return (
         <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--canvas-white)',padding:24}}>
-          <form onSubmit={login} style={{width:'100%',maxWidth:380,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #eee'}}>
-            <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--midnight-purple)'}}>DreamPath Admin</h1>
-            <p style={{margin:'0 0 20px',color:'#666',fontSize:14}}>Enter the admin token to continue.</p>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Admin token"
-              style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid #ddd',borderRadius:8,marginBottom:12,fontFamily:'var(--font-mono, monospace)'}}
-              autoFocus
-            />
-            {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
-            <button type="submit" disabled={busy || !input.trim()} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
-              {busy ? 'Verifying…' : 'Sign in'}
-            </button>
-          </form>
+          <div style={{width:'100%',maxWidth:420,background:'var(--bg-elevated)',padding:32,borderRadius:16,boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid var(--border-subtle)'}}>
+            <h1 style={{fontFamily:'var(--font-en)',fontSize:24,margin:'0 0 6px',color:'var(--brand-text)'}}>KoreaDreamPath Admin</h1>
+            <p style={{margin:'0 0 20px',color:'var(--fg-muted)',fontSize:14}}>{mode === 'account' ? '관리자 계정으로 로그인하세요.' : 'Sign in with the admin token (legacy).'}</p>
+
+            <div style={{display:'flex',gap:6,marginBottom:18,padding:3,background:'var(--bg-muted)',borderRadius:8}}>
+              <button type="button" onClick={() => { setMode('account'); setError(''); }}
+                style={{flex:1,padding:'8px 12px',background: mode === 'account' ? 'var(--bg-elevated)' : 'transparent',border:'none',borderRadius:6,fontSize:13,fontWeight:600,color: mode === 'account' ? 'var(--brand-text)' : 'var(--fg-muted)',cursor:'pointer'}}>
+                ID / 비밀번호
+              </button>
+              <button type="button" onClick={() => { setMode('token'); setError(''); }}
+                style={{flex:1,padding:'8px 12px',background: mode === 'token' ? 'var(--bg-elevated)' : 'transparent',border:'none',borderRadius:6,fontSize:13,fontWeight:600,color: mode === 'token' ? 'var(--brand-text)' : 'var(--fg-muted)',cursor:'pointer'}}>
+                Admin token
+              </button>
+            </div>
+
+            {mode === 'account' ? (
+              <form onSubmit={loginAccount}>
+                <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>이메일</label>
+                <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="you@koreadreampath.com" autoFocus
+                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+                <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--fg-secondary)',marginBottom:6}}>비밀번호</label>
+                <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+                {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
+                <button type="submit" disabled={busy} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
+                  {busy ? '로그인 중…' : '로그인'}
+                </button>
+                <p style={{margin:'14px 0 0',fontSize:12,color:'var(--fg-muted)',textAlign:'center'}}>
+                  비밀번호를 잊었다면 <a href="/reset-password" style={{color:'var(--brand-text)',textDecoration:'underline'}}>여기서 재설정</a>.
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={loginToken}>
+                <input type="password" autoComplete="current-password" value={tokenInput} onChange={e => setTokenInput(e.target.value)}
+                  placeholder="Admin token" autoFocus
+                  style={{width:'100%',padding:'12px 14px',fontSize:14,border:'1px solid var(--border-default)',borderRadius:8,marginBottom:12,fontFamily:'var(--font-mono, monospace)',background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
+                {error && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:12}}>{error}</div>}
+                <button type="submit" disabled={busy || !tokenInput.trim()} style={{width:'100%',padding:'12px 14px',background:'var(--midnight-purple)',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',opacity:busy?0.6:1}}>
+                  {busy ? 'Verifying…' : 'Sign in'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       );
     }

@@ -342,14 +342,14 @@ async function handleApi(request, env, url) {
       return new Response(raw || '{}', { headers: JSON_HEADERS });
     }
     if (method === 'PUT' || method === 'POST') {
-      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       const body = await request.text();
       try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
       await env.CONTENT_KV.put(CONTENT_KEY, body);
       return json({ ok: true });
     }
     if (method === 'DELETE') {
-      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       await env.CONTENT_KV.delete(CONTENT_KEY);
       return json({ ok: true });
     }
@@ -371,7 +371,7 @@ async function handleApi(request, env, url) {
       return submitApplication(request, env);
     }
     if (method === 'GET') {
-      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       return listApplications(env, url);
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -380,7 +380,7 @@ async function handleApi(request, env, url) {
   // Bulk operations on applications. Body: { ids: [...], op: 'delete' | 'status', status?: '...' }
   // Replaces having to PATCH/DELETE one row at a time when triaging dozens.
   if (path === '/api/applications/bulk' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body || !Array.isArray(body.ids) || !body.ids.length) return json({ error: 'no_ids' }, 400);
     const ids = body.ids.filter(x => typeof x === 'string').slice(0, 500);
@@ -400,7 +400,7 @@ async function handleApi(request, env, url) {
   const m = path.match(/^\/api\/applications\/([A-Za-z0-9_-]+)$/);
   if (m) {
     const id = m[1];
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'DELETE') {
       await env.DB.prepare('DELETE FROM applications WHERE id = ?').bind(id).run();
       return json({ ok: true });
@@ -429,7 +429,7 @@ async function handleApi(request, env, url) {
   // Admin lists / reads / replies. Inbound rows arrive via the email() handler
   // in the export default block below.
   if (path === '/api/admin/inbox' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50',  10) || 50,  500);
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',   10) || 0,   0);
     const to     = url.searchParams.get('to') || '';
@@ -451,7 +451,7 @@ async function handleApi(request, env, url) {
   }
   const inboxItemM = path.match(/^\/api\/admin\/inbox\/(\d+)$/);
   if (inboxItemM) {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = parseInt(inboxItemM[1], 10);
     if (method === 'GET') {
       const row = await env.DB.prepare('SELECT * FROM inbound_emails WHERE id = ?').bind(id).first();
@@ -483,7 +483,7 @@ async function handleApi(request, env, url) {
   }
   // Sent folder
   if (path === '/api/admin/sent' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '50', 10) || 50, 500);
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0',  10) || 0,  0);
     const from   = url.searchParams.get('from') || '';
@@ -500,19 +500,19 @@ async function handleApi(request, env, url) {
   }
   const sentItemM = path.match(/^\/api\/admin\/sent\/(\d+)$/);
   if (sentItemM && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const row = await env.DB.prepare('SELECT * FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).first();
     if (!row) return json({ error: 'not_found' }, 404);
     return json(row);
   }
   if (sentItemM && method === 'DELETE') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     await env.DB.prepare('DELETE FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).run();
     return json({ ok: true });
   }
   // Compose / reply send
   if (path === '/api/admin/mail/send' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
     const fromAddr = String(body.from || '').trim().toLowerCase();
@@ -574,7 +574,7 @@ async function handleApi(request, env, url) {
   // Admin sends to one or many user_ids; each recipient gets their own row
   // so reads + deletes don't leak across recipients.
   if (path === '/api/admin/notifications' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
     const ids = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
@@ -655,7 +655,7 @@ async function handleApi(request, env, url) {
   // "Configured / Not configured" pills. Secrets stay where they belong
   // (env), the UI just confirms they're plugged in.
   if (path === '/api/admin/integrations/status' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const known = [
       { id: 'RESEND_API_KEY',      label: 'Resend (transactional email)',     critical: true },
       { id: 'STRIPE_SECRET_KEY',   label: 'Stripe (payments)',                critical: false },
@@ -688,7 +688,7 @@ async function handleApi(request, env, url) {
   // Admin test-send: trigger a template against an arbitrary email so the
   // operator can verify Resend keys + DNS without doing a real signup.
   if (path === '/api/admin/email/test' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => ({}));
     const to = String(body.to || '').trim().toLowerCase();
     const slug = String(body.slug || '').trim();
@@ -854,7 +854,7 @@ async function handleApi(request, env, url) {
     if (row.status !== 'paid') return json({ error: 'not_paid' }, 400);
 
     const tokenParam = url.searchParams.get('token') || '';
-    const isAdminAuth = isAdmin(request, env);
+    const isAdminAuth = await isAdmin(request, env);
     const u = await currentUser(request, env);
     const isOwner = u && row.user_id && row.user_id === u.id;
     const tokenMatch = row.receipt_token && safeEqual(tokenParam, row.receipt_token);
@@ -954,7 +954,7 @@ async function handleApi(request, env, url) {
   // ── Consents (GDPR audit trail) ──────────────────────────────────────────
   if (path === '/api/consents' && method === 'POST') return recordConsent(request, env);
   if (path === '/api/consents' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10) || 30, 365);
     const since = new Date(Date.now() - days * 86400 * 1000).toISOString();
     const userId = url.searchParams.get('user_id');
@@ -971,7 +971,7 @@ async function handleApi(request, env, url) {
   // Lists every registered user with last-login (latest session.created_at) and
   // application count. Used by the admin Members → Member directory tab.
   if (path === '/api/admin/users' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const limit  = Math.min(Math.max(parseInt(url.searchParams.get('limit')  || '20', 10) || 20, 1), 100);
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
     const q = (url.searchParams.get('q') || '').trim().toLowerCase();
@@ -993,7 +993,7 @@ async function handleApi(request, env, url) {
   // Admin: create a new member directly. Bypasses the public signup form so
   // the operator can pre-provision accounts (e.g. for a new admin teammate).
   if (path === '/api/admin/users' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
     const email    = String(body.email || '').trim().toLowerCase();
@@ -1020,7 +1020,7 @@ async function handleApi(request, env, url) {
   // Single member detail (basic profile + recent consents + audit log)
   const memM = path.match(/^\/api\/admin\/users\/([A-Za-z0-9_-]+)$/);
   if (memM && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = memM[1];
     const user = await env.DB.prepare(
       'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?'
@@ -1046,7 +1046,7 @@ async function handleApi(request, env, url) {
   // PATCH /api/admin/users/:id — update name / role / email; optional password reset.
   // Each changed column writes one member_audits row for the trail.
   if (memM && method === 'PATCH') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = memM[1];
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
@@ -1103,7 +1103,7 @@ async function handleApi(request, env, url) {
     return json({ ok: true, changed: audits.length + (passwordReset ? 1 : 0) });
   }
   if (memM && method === 'DELETE') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = memM[1];
     const cur = await env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(id).first();
     if (!cur) return json({ error: 'not_found' }, 404);
@@ -1120,7 +1120,7 @@ async function handleApi(request, env, url) {
   if (path === '/api/errors') {
     if (method === 'POST') return reportClientError(request, env);
     if (method === 'GET') {
-      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 1000);
       const level    = url.searchParams.get('level');
       const source   = url.searchParams.get('source');
@@ -1139,7 +1139,7 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
   if (path === '/api/errors/clear' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     await env.DB.prepare('DELETE FROM error_logs').run();
     return json({ ok: true });
   }
@@ -1149,7 +1149,7 @@ async function handleApi(request, env, url) {
   // the dashboard. Resolved rows still appear unless filtered out.
   const errResM = path.match(/^\/api\/errors\/(\d+)$/);
   if (errResM && method === 'PATCH') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = parseInt(errResM[1], 10);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
@@ -1171,11 +1171,11 @@ async function handleApi(request, env, url) {
     return ingestEvents(request, env);
   }
   if (path === '/api/analytics/summary' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     return analyticsSummary(env, url);
   }
   if (path === '/api/analytics/journeys' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     return analyticsJourneys(env, url);
   }
 
@@ -1187,7 +1187,7 @@ async function handleApi(request, env, url) {
       const row = await env.DB.prepare('SELECT * FROM program_details WHERE program_id = ?').bind(id).first();
       return json(row || { program_id: id });
     }
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'PUT' || method === 'POST') {
       const body = await request.json().catch(() => null);
       if (!body) return json({ error: 'invalid_json' }, 400);
@@ -1227,7 +1227,7 @@ async function handleApi(request, env, url) {
   if (path === '/api/inquiries') {
     if (method === 'POST') return submitInquiry(request, env);
     if (method === 'GET') {
-      if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       const { results } = await env.DB.prepare(
         'SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500'
       ).all();
@@ -1237,7 +1237,7 @@ async function handleApi(request, env, url) {
   }
   // Bulk inquiries — same shape as /api/applications/bulk.
   if (path === '/api/inquiries/bulk' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body || !Array.isArray(body.ids) || !body.ids.length) return json({ error: 'no_ids' }, 400);
     const ids = body.ids.filter(x => typeof x === 'string').slice(0, 500);
@@ -1255,7 +1255,7 @@ async function handleApi(request, env, url) {
   }
   const inqM = path.match(/^\/api\/inquiries\/([A-Za-z0-9_-]+)$/);
   if (inqM) {
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'PATCH') {
       const body = await request.json().catch(() => ({}));
       if (body.status) {
@@ -1279,7 +1279,7 @@ async function handleApi(request, env, url) {
       const raw = await env.CONTENT_KV.get(key);
       return new Response(raw || '{}', { headers: JSON_HEADERS });
     }
-    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'PUT' || method === 'POST') {
       const body = await request.text();
       try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
@@ -1313,10 +1313,14 @@ async function signup(request, env) {
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
   const now = new Date().toISOString();
+  // Auto-promote the always-admin email so future role queries return 'admin'
+  // directly. The runtime userIsAdmin() check would also catch it, but
+  // persisting the role keeps the DB consistent with what the UI shows.
+  const role = (email === ALWAYS_ADMIN_EMAIL) ? 'admin' : 'member';
 
   await env.DB.prepare(
     'INSERT INTO users (id, email, password_hash, password_salt, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(id, email, hash, salt, name || null, 'member', now, now).run();
+  ).bind(id, email, hash, salt, name || null, role, now, now).run();
 
   // Mint a verification token + send the verify email via Resend.
   // If RESEND_API_KEY isn't configured the send is skipped and the token
@@ -1336,7 +1340,7 @@ async function signup(request, env) {
 
   const session = await createSession(env, id);
   return json({
-    user: { id, email, name, role: 'member', email_verified: 0 },
+    user: { id, email, name, role, email_verified: 0 },
     token: session.token,
     expires_at: session.expires_at,
     email_sent: send.sent,
@@ -1363,8 +1367,15 @@ async function login(request, env) {
   if (!u) return json({ error: 'invalid_credentials' }, 401);
   const hash = await hashPassword(password, u.password_salt);
   if (!safeEqual(hash, u.password_hash)) return json({ error: 'invalid_credentials' }, 401);
+  // Self-heal the always-admin role on every login — covers legacy accounts
+  // that signed up before this rule existed and ones that were demoted by
+  // mistake.
+  if (email === ALWAYS_ADMIN_EMAIL && u.role !== 'admin') {
+    await env.DB.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').bind('admin', new Date().toISOString(), u.id).run();
+    u.role = 'admin';
+  }
   const session = await createSession(env, u.id);
-  return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role }, token: session.token, expires_at: session.expires_at });
+  return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at });
 }
 
 async function logout(request, env) {
@@ -1507,12 +1518,33 @@ async function sendEmail(env, { to, slug, lang, vars }) {
 // ── Member profile ─────────────────────────────────────────────────────────
 const PROFILE_FIELDS = ['country','birthdate','current_school','current_major','goal','interests','korean_level','english_level','career_summary'];
 
+// 2 MB raw image cap → ~2.7 MB base64. Reject anything larger so a single
+// huge upload can't blow up the row size.
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const PROFILE_PHOTO_DATA_MAX_LENGTH = Math.ceil(PROFILE_PHOTO_MAX_BYTES * 4 / 3) + 200;  // base64 + small data: prefix slack
+
 async function saveProfile(env, userId, body) {
   const now = new Date().toISOString();
-  const cols = ['user_id', ...PROFILE_FIELDS, 'updated_at'];
-  const values = [userId, ...PROFILE_FIELDS.map(k => str(body[k])), now];
+  // Validate the photo payload (data URL) if present. Empty / null clears it.
+  let photo = body.photo;
+  let photoSize = null;
+  if (photo === null || photo === '' || photo === undefined) {
+    photo = null;
+  } else {
+    if (typeof photo !== 'string' || !photo.startsWith('data:image/')) {
+      return json({ error: 'invalid_photo' }, 400);
+    }
+    if (photo.length > PROFILE_PHOTO_DATA_MAX_LENGTH) {
+      return json({ error: 'photo_too_large', max_bytes: PROFILE_PHOTO_MAX_BYTES }, 413);
+    }
+    // Approximate the raw size from the base64 portion length.
+    const b64 = photo.split(',')[1] || '';
+    photoSize = Math.floor(b64.length * 3 / 4);
+  }
+  const cols = ['user_id', ...PROFILE_FIELDS, 'photo', 'photo_size', 'updated_at'];
+  const values = [userId, ...PROFILE_FIELDS.map(k => str(body[k])), photo, photoSize, now];
   const placeholders = cols.map(() => '?').join(',');
-  const updateSet = [...PROFILE_FIELDS, 'updated_at'].map(k => `${k} = excluded.${k}`).join(', ');
+  const updateSet = [...PROFILE_FIELDS, 'photo', 'photo_size', 'updated_at'].map(k => `${k} = excluded.${k}`).join(', ');
   const sql = `INSERT INTO member_profiles (${cols.join(',')}) VALUES (${placeholders})
                ON CONFLICT(user_id) DO UPDATE SET ${updateSet}`;
   await env.DB.prepare(sql).bind(...values).run();
@@ -1905,13 +1937,29 @@ async function deleteNews(env, user, id) {
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
-function isAdmin(request, env) {
-  const token = env.ADMIN_TOKEN;
-  if (!token) return false;
+// Hardcoded super-admin: this email is always treated as admin regardless
+// of the role column in users (covers the case where they sign up before
+// we provision admin accounts, and prevents accidental demotion).
+const ALWAYS_ADMIN_EMAIL = 'scoutkorea@kakao.com';
+
+function userIsAdmin(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.email && String(user.email).toLowerCase() === ALWAYS_ADMIN_EMAIL) return true;
+  return false;
+}
+
+// Async admin check. The bearer can be either:
+//   (A) the legacy ADMIN_TOKEN secret (for ops / external automation), or
+//   (B) a session token belonging to an admin-role user.
+// We try (A) first since it's cheap; fall through to (B) only if needed.
+async function isAdmin(request, env) {
   const auth = request.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ')) return false;
   const provided = auth.slice(7);
-  return safeEqual(provided, token);
+  if (env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN)) return true;
+  const user = await currentUser(request, env);
+  return userIsAdmin(user);
 }
 
 function safeEqual(a, b) {
@@ -1955,7 +2003,7 @@ async function canRole(env, roleId, pageId, action) {
 // Convenience: gate an HTTP handler. Returns null on allow, or a 403 Response on deny.
 // Admin token always allows.
 async function requireRole(request, env, pageId, action) {
-  if (isAdmin(request, env)) return null;
+  if (await isAdmin(request, env)) return null;
   const u = await currentUser(request, env);
   if (!u) return json({ error: 'unauthorized' }, 401);
   const ok = await canRole(env, u.role, pageId, action);

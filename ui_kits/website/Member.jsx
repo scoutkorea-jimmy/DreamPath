@@ -298,9 +298,13 @@ function MemberCareer({ isKo }) {
     country: '', birthdate: '', current_school: '', current_major: '',
     goal: '', interests: '', korean_level: '', english_level: '', career_summary: '',
   });
+  const [photo, setPhoto] = useStateM('');                  // data URL
+  const [photoSize, setPhotoSize] = useStateM(0);
+  const [photoErr, setPhotoErr] = useStateM('');
   const [loading, setLoading] = useStateM(true);
   const [savedAt, setSavedAt] = useStateM(null);
   const [err, setErr] = useStateM('');
+  const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 
   useEffectM(() => {
     (async () => {
@@ -309,11 +313,25 @@ function MemberCareer({ isKo }) {
         if (res.ok) {
           const data = await res.json();
           setForm(prev => ({ ...prev, ...Object.fromEntries(Object.entries(data).filter(([k,v]) => v != null && k in prev)) }));
+          if (data.photo) { setPhoto(data.photo); setPhotoSize(data.photo_size || 0); }
         }
       } catch {}
       setLoading(false);
     })();
   }, []);
+
+  function pickPhoto(e) {
+    setPhotoErr('');
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { setPhotoErr(isKo ? '이미지 파일만 업로드할 수 있습니다.' : 'Image files only.'); return; }
+    if (f.size > PHOTO_MAX_BYTES) { setPhotoErr(isKo ? '2MB 이하의 이미지만 업로드 가능합니다.' : 'Max 2 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setPhoto(String(reader.result || '')); setPhotoSize(f.size); };
+    reader.onerror = () => setPhotoErr(isKo ? '읽기 실패' : 'Read failed');
+    reader.readAsDataURL(f);
+  }
+  function clearPhoto() { setPhoto(''); setPhotoSize(0); setPhotoErr(''); }
 
   async function save(e) {
     e.preventDefault();
@@ -322,12 +340,17 @@ function MemberCareer({ isKo }) {
       const res = await window.DreamPathAuth.authFetch('/api/me/profile', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, photo: photo || null }),
       });
-      if (!res.ok) throw new Error('save_failed');
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        if (d.error === 'photo_too_large') throw new Error(isKo ? '사진이 2MB를 초과합니다.' : 'Photo exceeds 2 MB.');
+        if (d.error === 'invalid_photo')   throw new Error(isKo ? '사진 형식이 올바르지 않습니다.' : 'Invalid photo format.');
+        throw new Error('save_failed');
+      }
       setSavedAt(new Date());
     } catch (e) {
-      setErr(isKo ? '저장 실패. 다시 시도해주세요.' : 'Save failed. Please try again.');
+      setErr(e.message && e.message !== 'save_failed' ? e.message : (isKo ? '저장 실패. 다시 시도해주세요.' : 'Save failed. Please try again.'));
     }
   }
 
@@ -344,6 +367,37 @@ function MemberCareer({ isKo }) {
 
   return (
     <form onSubmit={save} className="apply-card" style={{maxWidth:760,margin:'0 auto'}}>
+      <h3 className="apply-sub">{isKo ? '프로필 사진' : 'Profile photo'}</h3>
+      <div style={{display:'flex',gap:18,alignItems:'center',marginBottom:14,padding:'14px 16px',background:'var(--bg-muted)',borderRadius:10}}>
+        <div style={{width:96,height:96,borderRadius:'50%',background:'var(--bg-elevated)',border:'2px solid var(--border-default)',display:'grid',placeItems:'center',overflow:'hidden',flexShrink:0}}>
+          {photo
+            ? <img src={photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+            : <i data-lucide="user" width="36" height="36" style={{color:'var(--fg-muted)'}}></i>}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,color:'var(--fg-secondary)',marginBottom:8}}>
+            {isKo ? '2MB 이하의 이미지(JPG·PNG·WEBP). 정사각형 권장.' : 'Image up to 2 MB (JPG / PNG / WEBP). Square recommended.'}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <label className="btn btn-secondary btn-sm" style={{cursor:'pointer'}}>
+              {isKo ? '이미지 선택' : 'Choose image'}
+              <input type="file" accept="image/*" onChange={pickPhoto} style={{display:'none'}} />
+            </label>
+            {photo && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={clearPhoto}>
+                {isKo ? '제거' : 'Remove'}
+              </button>
+            )}
+          </div>
+          {photoSize > 0 && (
+            <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:6,fontFamily:'var(--font-mono)'}}>
+              {(photoSize / 1024).toFixed(0)} KB
+            </div>
+          )}
+          {photoErr && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginTop:6}}>{photoErr}</div>}
+        </div>
+      </div>
+
       <h3 className="apply-sub">{isKo ? '학력 · 배경' : 'Background'}</h3>
       <div className="form-row">
         <F k="country" label={isKo ? '국가' : 'Country'} />

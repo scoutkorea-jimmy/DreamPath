@@ -2511,6 +2511,11 @@
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [selected, setSelected] = useState(null);
     const [tick, setTick] = useState(0);
+    // Bulk-select state — Set of message ids checked in the current list.
+    // Cleared whenever the visible list changes (view / filter / search /
+    // unreadOnly / refresh) so stale selections don't survive a context flip.
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    useEffect(() => { setSelectedIds(new Set()); }, [view, filter, search, unreadOnly, tick]);
 
     // Compose state. composeFrom defaults to the locked account when present
     // (per-account tabs); otherwise the first available inbox.
@@ -2609,6 +2614,52 @@
       if (!confirm('휴지통의 모든 메일을 영구 삭제합니다. 계속할까요?')) return;
       const r = await fetch('/api/admin/inbox/empty-trash', { method: 'POST', headers: authHeaders() });
       if (r.ok) setTick(t => t + 1);
+    }
+    // ── Bulk operations ────────────────────────────────────────────────────
+    // All bulk endpoints work on inbound only (즐겨찾기/스팸/읽음 상태는 받은
+    // 메일에만 의미가 있고, 휴지통은 양쪽 다 처리). Loops the existing
+    // single-id endpoints — small N (≤100) so client-side fan-out is fine.
+    function toggleSelect(id) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      });
+    }
+    function selectAllVisible() {
+      setSelectedIds(prev => {
+        const allVisible = items.map(m => m.id);
+        const allChecked = allVisible.every(id => prev.has(id));
+        if (allChecked) return new Set();          // toggle off when everything was already selected
+        return new Set(allVisible);
+      });
+    }
+    async function bulkPatch(body) {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      await Promise.all(ids.map(id => fetch('/api/admin/inbox/' + id, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(body),
+      }).catch(() => null)));
+      setSelectedIds(new Set()); setTick(t => t + 1);
+      if (selected && ids.includes(selected.id)) setSelected(null);
+    }
+    async function bulkTrash() {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      if (!confirm(`${ids.length}개 메일을 휴지통으로 이동합니다.`)) return;
+      const path = sideOfView === 'inbox' ? '/api/admin/inbox/' : '/api/admin/sent/';
+      await Promise.all(ids.map(id => fetch(path + id, { method: 'DELETE', headers: authHeaders() }).catch(() => null)));
+      setSelectedIds(new Set()); setTick(t => t + 1); setSelected(null);
+    }
+    async function bulkPurge() {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      if (!confirm(`${ids.length}개 메일을 영구 삭제합니다. 복구할 수 없습니다.`)) return;
+      const path = sideOfView === 'inbox' ? '/api/admin/inbox/' : '/api/admin/sent/';
+      await Promise.all(ids.map(id => fetch(path + id + '?permanent=1', { method: 'DELETE', headers: authHeaders() }).catch(() => null)));
+      setSelectedIds(new Set()); setTick(t => t + 1); setSelected(null);
     }
 
     function startReply(msg) {
@@ -2867,8 +2918,55 @@
         )}
 
         {view !== 'compose' && (
+          {/* Bulk action bar — appears whenever ≥1 row is checked. Sticky above
+              the list so scrolling doesn't lose access to the actions. */}
+          {selectedIds.size > 0 && (
+            <div style={{padding:'10px 14px',background:'var(--midnight-purple)',color:'#fff',borderRadius:10,marginBottom:8,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',position:'sticky',top:8,zIndex:5}}>
+              <strong style={{fontSize:13}}>{selectedIds.size}개 선택됨</strong>
+              <span aria-hidden style={{flex:'0 0 1px',height:18,background:'rgba(255,255,255,0.30)'}} />
+              {sideOfView === 'inbox' && (
+                <>
+                  <button type="button" className="icon-btn" onClick={() => bulkPatch({ starred: true })}
+                    style={{background:'rgba(255,255,255,0.10)',color:'#fff',borderColor:'rgba(255,255,255,0.20)'}}>★ 즐겨찾기</button>
+                  <button type="button" className="icon-btn" onClick={() => bulkPatch({ starred: false })}
+                    style={{background:'rgba(255,255,255,0.10)',color:'#fff',borderColor:'rgba(255,255,255,0.20)'}}>☆ 즐겨찾기 해제</button>
+                  <button type="button" className="icon-btn" onClick={() => bulkPatch({ spam: true })}
+                    style={{background:'rgba(255,255,255,0.10)',color:'#fff',borderColor:'rgba(255,255,255,0.20)'}}>스팸으로</button>
+                  <button type="button" className="icon-btn" onClick={() => bulkPatch({ read: true })}
+                    style={{background:'rgba(255,255,255,0.10)',color:'#fff',borderColor:'rgba(255,255,255,0.20)'}}>읽음 표시</button>
+                  <button type="button" className="icon-btn" onClick={() => bulkPatch({ read: false })}
+                    style={{background:'rgba(255,255,255,0.10)',color:'#fff',borderColor:'rgba(255,255,255,0.20)'}}>안 읽음 표시</button>
+                </>
+              )}
+              {(view === 'trash' || view === 'sent_trash') ? (
+                <button type="button" className="icon-btn" onClick={bulkPurge}
+                  style={{background:'var(--state-danger)',color:'#fff',borderColor:'var(--state-danger)'}}>영구 삭제</button>
+              ) : (
+                <button type="button" className="icon-btn" onClick={bulkTrash}
+                  style={{background:'var(--state-danger)',color:'#fff',borderColor:'var(--state-danger)'}}>휴지통으로</button>
+              )}
+              <span style={{flex:1}} />
+              <button type="button" className="icon-btn" onClick={() => setSelectedIds(new Set())}
+                style={{background:'transparent',color:'#fff',borderColor:'rgba(255,255,255,0.30)'}}>선택 해제</button>
+            </div>
+          )}
+
           <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
             <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
+              {/* Select-all header — only when there's at least one row */}
+              {items.length > 0 && (
+                <div style={{padding:'8px 16px',borderBottom:'1px solid var(--border-default)',background:'var(--bg-muted)',display:'flex',alignItems:'center',gap:8,position:'sticky',top:0,zIndex:2}}>
+                  <input type="checkbox"
+                    checked={items.length > 0 && items.every(m => selectedIds.has(m.id))}
+                    ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && !items.every(m => selectedIds.has(m.id)); }}
+                    onChange={selectAllVisible}
+                    aria-label="모두 선택"
+                    style={{width:14,height:14,cursor:'pointer'}} />
+                  <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
+                    {selectedIds.size > 0 ? `${selectedIds.size} / ${items.length}` : `${items.length}개`}
+                  </span>
+                </div>
+              )}
               {loading
                 ? <div style={{padding:32,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
                 : items.length === 0
@@ -2876,9 +2974,18 @@
                   : items.map(m => {
                     const isUnread = sideOfView === 'inbox' && !m.read_at;
                     const isSelected = selected && selected.id === m.id;
+                    const isChecked = selectedIds.has(m.id);
                     return (
-                      <button key={m.id} type="button" onClick={() => setSelected({ ...m, _loaded: false })}
-                        style={{display:'block',width:'100%',padding:'12px 16px',background: isSelected ? 'var(--bg-muted)' : 'transparent',border:'none',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                      <div key={m.id}
+                        style={{display:'flex',alignItems:'flex-start',gap:10,padding:'12px 16px',background: isChecked ? 'rgba(98,37,153,0.10)' : (isSelected ? 'var(--bg-muted)' : 'transparent'),borderBottom:'1px solid var(--border-hair)'}}>
+                        <input type="checkbox" checked={isChecked} onChange={() => toggleSelect(m.id)}
+                          aria-label="선택"
+                          style={{marginTop:4,width:14,height:14,cursor:'pointer',flexShrink:0}}
+                          onClick={e => e.stopPropagation()} />
+                        <div onClick={() => setSelected({ ...m, _loaded: false })}
+                          role="button" tabIndex={0}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected({ ...m, _loaded: false }); } }}
+                          style={{flex:1,minWidth:0,cursor:'pointer'}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
                           {sideOfView === 'inbox' && (
                             <span style={{flex:'0 0 auto',width:8,height:8,borderRadius:'50%',background: isUnread ? 'var(--state-info)' : 'transparent', border: isUnread ? 'none' : '1px solid var(--border-default)'}} />
@@ -2904,7 +3011,8 @@
                           {m.spam ? <span className="pill" style={{background:'var(--state-danger-bg)',color:'var(--state-danger)'}}>spam</span> : null}
                           {m.trashed_at ? <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>휴지통</span> : null}
                         </div>
-                      </button>
+                        </div>
+                      </div>
                     );
                   })}
             </div>
@@ -2984,9 +3092,16 @@
                   )}
                   {/* Prefer rich HTML when present (always true for outbound
                       sent via the new compose flow); fall back to plain text
-                      for inbound messages that only carried text/plain. */}
+                      for inbound messages that only carried text/plain.
+                      In dark mode we prepend a small style block so the
+                      sandboxed iframe doesn't render a glaring white slab
+                      against the dark admin canvas. */}
                   {selected.body_html
-                    ? <iframe sandbox="" title="Email body" srcDoc={selected.body_html} style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
+                    ? <iframe sandbox="" title="Email body"
+                        srcDoc={(document.documentElement.getAttribute('data-theme') === 'dark'
+                          ? '<style>:root{color-scheme:dark}html,body{background:#15131C;color:#F2F0F7}a{color:#C7A5FF}blockquote{border-left:3px solid #3A3842;padding-left:12px;color:#B8B5C2}code,pre{background:#1F1D29;color:#F2F0F7}img{max-width:100%}</style>'
+                          : '<style>html,body{background:#fff;color:#15131A}img{max-width:100%}</style>') + selected.body_html}
+                        style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
                     : selected.body_text
                       ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
                       : <div style={{color:'var(--fg-muted)',fontStyle:'italic'}}>(본문 없음)</div>}
@@ -3153,67 +3268,62 @@
     return (
       <>
         <div className="card">
-          <h3>Send notification</h3>
+          <h3>내부 알림 보내기</h3>
           <p className="desc">
-            Internal "email-like" message delivered to selected users' My Page (개인만 볼 수 있음).
-            Nothing leaves the site — for outbound email use admin → Email templates instead.
+            선택한 회원의 마이페이지에만 표시되는 내부 메시지입니다 (외부로 발송되지 않음).
+            외부 이메일이 필요하면 메일함 → 새 메일을 사용하세요.
           </p>
         </div>
 
-        <div className="grid-2" style={{alignItems:'flex-start'}}>
-          {/* Recipients picker */}
-          <div className="card">
-            <h3>Recipients · {picked.size} selected</h3>
-            <input type="search" placeholder="Search name / email" value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
-            <div style={{display:'flex',gap:6,marginBottom:8}}>
-              <button type="button" className="icon-btn" onClick={pickAllVisible}>Select all visible</button>
-              <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>Clear</button>
-            </div>
-            <div style={{maxHeight:420,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
-              {loading
-                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
-                : filtered.length === 0
-                  ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>No matches.</div>
-                  : filtered.map(u => (
-                    <label key={u.id}
-                      style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
-                        background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
-                      <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
-                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        <strong style={{fontSize:13}}>{u.name || u.email}</strong>
-                        {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
-                      </span>
-                      <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
-                    </label>
-                  ))}
-            </div>
+        {/* Recipients picker — single column. */}
+        <div className="card">
+          <h3>받는 사람 · {picked.size}명 선택됨</h3>
+          <input type="search" placeholder="이름 또는 이메일 검색" value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
+          <div style={{display:'flex',gap:6,marginBottom:8}}>
+            <button type="button" className="icon-btn" onClick={pickAllVisible}>보이는 항목 모두 선택</button>
+            <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>선택 해제</button>
           </div>
+          <div style={{maxHeight:360,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+            {loading
+              ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+              : filtered.length === 0
+                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>일치하는 회원이 없습니다.</div>
+                : filtered.map(u => (
+                  <label key={u.id}
+                    style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
+                      background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                    <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
+                    <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <strong style={{fontSize:13}}>{u.name || u.email}</strong>
+                      {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
+                    </span>
+                    <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
+                  </label>
+                ))}
+          </div>
+        </div>
 
-          {/* Composer */}
-          <div className="card">
-            <h3>Compose</h3>
-            <div className="grid-2 tight">
-              <Text label="Sender label" value={sender} onChange={setSender} hint="Free-form. Shown to the recipient." />
-              <div /> {/* spacer */}
-              <Text label="Subject (KO)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
-              <Text label="Subject (EN)" value={subjectEn} onChange={setSubjectEn} lang="en" />
-              <Area label="Body (KO)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={10} />
-              <Area label="Body (EN)" value={bodyEn} onChange={setBodyEn} lang="en" rows={10} />
+        {/* Composer — single-column form: 발신자 → 제목(KO/EN) → 본문(KO/EN). */}
+        <div className="card">
+          <h3>내용 작성</h3>
+          <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
+          <Text label="제목 (한국어)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
+          <Text label="제목 (English)" value={subjectEn} onChange={setSubjectEn} lang="en" />
+          <Area label="본문 (한국어)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={8} />
+          <Area label="본문 (English)" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
+          {result && (
+            <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
+              background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
+              color: result.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
+              {result.ok ? `✓ ${result.count}명에게 발송됨.` : `✗ 실패: ${result.msg}`}
             </div>
-            {result && (
-              <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
-                background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
-                color: result.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
-                {result.ok ? `✓ Sent to ${result.count} recipient${result.count===1?'':'s'}.` : `✗ Failed: ${result.msg}`}
-              </div>
-            )}
-            <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
-                {busy ? 'Sending…' : `📨 Send to ${picked.size} recipient${picked.size===1?'':'s'}`}
-              </button>
-            </div>
+          )}
+          <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
+            <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
+              {busy ? '발송 중…' : `📨 ${picked.size}명에게 발송`}
+            </button>
           </div>
         </div>
       </>

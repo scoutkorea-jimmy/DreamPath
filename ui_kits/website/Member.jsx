@@ -384,13 +384,16 @@ function MemberCareer({ isKo }) {
 
   if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
 
+  // Use the global .field primitive (label above input, full width, padded)
+  // — apply-field was a typo that no CSS targets, so the form rendered with
+  // raw browser defaults (label inline + tiny input).
   const F = ({ k, label, type = 'text', area = false }) => (
-    <label className="apply-field">
-      <span>{label}</span>
+    <div className="field">
+      <label>{label}</label>
       {area
         ? <textarea value={form[k] || ''} onChange={e => setForm({ ...form, [k]: e.target.value })} rows={4} />
         : <input type={type} value={form[k] || ''} onChange={e => setForm({ ...form, [k]: e.target.value })} />}
-    </label>
+    </div>
   );
 
   return (

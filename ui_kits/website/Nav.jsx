@@ -208,7 +208,13 @@ function Nav({ view, go, lang, setLang, c }) {
                   aria-haspopup="true" aria-expanded={bellOpen}
                   aria-label={isKo ? '알림' : 'Notifications'} title={isKo ? '알림' : 'Notifications'}
                   style={{position:'relative',width:36,height:36,display:'inline-flex',alignItems:'center',justifyContent:'center',background:'transparent',border:'1px solid var(--border-default)',borderRadius:10,cursor:'pointer',color:'var(--fg-primary)'}}>
-                  <i data-lucide="bell" width="16" height="16" strokeWidth="2" aria-hidden="true"></i>
+                  {/* Inline SVG instead of <i data-lucide=...> so the icon
+                      renders even before lucide.createIcons() has scanned this
+                      branch. Uses currentColor so dark mode picks up fg-primary. */}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
                   {unread > 0 && (
                     <span aria-hidden="true"
                       style={{position:'absolute',top:-4,right:-4,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>

@@ -362,6 +362,42 @@ async function handleApi(request, env, url) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Integrations: status of every known external secret ─────────────────
+  // Reports whether each Workers-secret env var is set, WITHOUT ever
+  // returning the value. The admin UI uses this to render
+  // "Configured / Not configured" pills. Secrets stay where they belong
+  // (env), the UI just confirms they're plugged in.
+  if (path === '/api/admin/integrations/status' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const known = [
+      { id: 'RESEND_API_KEY',      label: 'Resend (transactional email)',     critical: true },
+      { id: 'STRIPE_SECRET_KEY',   label: 'Stripe (payments)',                critical: false },
+      { id: 'TOSS_SECRET_KEY',     label: 'Toss Payments (payments, KR)',     critical: false },
+      { id: 'KAKAOPAY_SECRET_KEY', label: 'KakaoPay (payments, KR)',          critical: false },
+      { id: 'PORTONE_API_KEY',     label: 'PortOne / aimport (payments, KR)', critical: false },
+      { id: 'CF_API_TOKEN',        label: 'Cloudflare API token (automation)',critical: false },
+      { id: 'GOOGLE_OAUTH_SECRET', label: 'Google OAuth client secret',       critical: false },
+      { id: 'KAKAO_OAUTH_SECRET',  label: 'Kakao OAuth client secret',        critical: false },
+      { id: 'APPLE_OAUTH_SECRET',  label: 'Apple OAuth client secret',        critical: false },
+    ];
+    const status = known.map(s => ({
+      ...s,
+      configured: !!env[s.id],
+      // Length only — useful for visually distinguishing "set but maybe wrong"
+      // from "wholly missing" without leaking the value.
+      length: env[s.id] ? String(env[s.id]).length : 0,
+    }));
+    // Admin token is special — its absence breaks /admin entirely, so report it.
+    status.unshift({
+      id: 'ADMIN_TOKEN',
+      label: 'Admin Bearer token (this console)',
+      critical: true,
+      configured: !!env.ADMIN_TOKEN,
+      length: env.ADMIN_TOKEN ? String(env.ADMIN_TOKEN).length : 0,
+    });
+    return json({ items: status });
+  }
+
   // Admin test-send: trigger a template against an arbitrary email so the
   // operator can verify Resend keys + DNS without doing a real signup.
   if (path === '/api/admin/email/test' && method === 'POST') {

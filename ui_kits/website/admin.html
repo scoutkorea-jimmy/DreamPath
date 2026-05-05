@@ -723,7 +723,7 @@
         send_notification:'Send notification',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
-        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template',
+        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
@@ -754,7 +754,7 @@
         send_notification:'알림 보내기',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
-        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿',
+        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
@@ -851,6 +851,7 @@
     { id: 'og_images',     group: 'Setup' },
     { id: 'email_templates', group: 'Setup' },
     { id: 'receipt_template', group: 'Setup' },
+    { id: 'integrations', group: 'Setup' },
     { id: 'legal',         group: 'Setup' },
 
     { id: 'hero',          group: 'Homepage' },
@@ -2915,6 +2916,137 @@
             </div>
           </div>
         ))}
+      </>
+    );
+  }
+
+  // ---- API & integrations -------------------------------------------------
+  // Two-section dashboard for everything the operator plugs the site into.
+  //   1. Workers Secrets — read-only status (configured / not). Values
+  //      stay in env; admin shows the wrangler command + a "Copy" button.
+  //   2. Site verifications — public meta-tag tokens (Google / Naver / etc.)
+  //      stored in c.site_verifications. Editable here; injected by App.jsx.
+  // Truly secret values are NEVER stored in c.* / KV / sessionStorage; only
+  // their setdness is reported. See KMS · 9. API & 통합 보안 모델.
+  function IntegrationsTab({ c, set }) {
+    const [statusItems, setStatusItems] = useState([]);
+    const [statusLoading, setStatusLoading] = useState(true);
+    const [statusErr, setStatusErr] = useState('');
+
+    async function refreshStatus() {
+      setStatusLoading(true); setStatusErr('');
+      try {
+        const token = localStorage.getItem('dp_admin_token') || '';
+        const r = await fetch('/api/admin/integrations/status', { headers: { authorization: 'Bearer ' + token } });
+        if (!r.ok) throw new Error('http_' + r.status);
+        const d = await r.json();
+        setStatusItems(d.items || []);
+      } catch (e) { setStatusErr(String(e.message || e)); }
+      finally { setStatusLoading(false); }
+    }
+    useEffect(() => { refreshStatus(); }, []);
+
+    function copy(text) {
+      try { navigator.clipboard.writeText(text); } catch {}
+    }
+
+    const sv = c.site_verifications || {};
+    const VERIFY_ROWS = [
+      { key: 'google',    label: 'Google Search Console',     hint: 'Search Console → 속성 추가 → HTML 태그 → content="..." 값만 붙여넣기',                    docs: 'https://search.google.com/search-console' },
+      { key: 'naver',     label: 'Naver Search Advisor',      hint: '네이버 서치어드바이저 → 사이트 등록 → HTML 태그 → content="..." 값',                       docs: 'https://searchadvisor.naver.com/' },
+      { key: 'bing',      label: 'Bing Webmaster Tools',      hint: 'Bing Webmaster → Add Site → Meta tag → content="..." 값',                                  docs: 'https://www.bing.com/webmasters/' },
+      { key: 'facebook',  label: 'Facebook Domain Verification', hint: 'Meta Business Suite → Brand Safety → Domains → Meta-tag verification',                  docs: 'https://business.facebook.com/' },
+      { key: 'pinterest', label: 'Pinterest Site Verification', hint: 'Pinterest Business → Settings → Claimed accounts → Add HTML tag',                        docs: 'https://www.pinterest.com/business/' },
+      { key: 'yandex',    label: 'Yandex Webmaster',          hint: 'Yandex Webmaster → 사이트 추가 → Meta-tag verification',                                   docs: 'https://webmaster.yandex.com/' },
+    ];
+
+    return (
+      <>
+        {/* Security model preface — operators must understand WHY some
+            keys live in env and others in KV. */}
+        <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}>
+          <h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>두 가지 종류의 키</h3>
+          <div className="desc" style={{color:'var(--state-info)',fontSize:13,lineHeight:1.6}}>
+            <p style={{margin:'0 0 8px'}}><strong>1. 시크릿 (env에만 보관):</strong> Resend API 키, 결제 시크릿, OAuth client_secret 등. <code>/api/content</code>는 public이므로 KV에 절대 저장하지 않습니다. 등록 방법: <code>wrangler secret put NAME</code></p>
+            <p style={{margin:0}}><strong>2. 공개 인증 토큰 (KV에 보관):</strong> Google / Naver / Bing 등 검색엔진 도메인 verification. 어차피 HTML head에 노출돼야 정상 작동하므로 어드민에서 직접 입력합니다.</p>
+          </div>
+        </div>
+
+        {/* Section 1: Workers secrets — read-only status */}
+        <div className="card">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div>
+              <h3 style={{margin:0}}>Workers Secrets · 시크릿 상태</h3>
+              <p className="desc" style={{margin:'4px 0 0'}}>각 시크릿이 등록되어 있는지만 표시 — 값은 절대 어드민에 노출되지 않습니다.</p>
+            </div>
+            <button type="button" className="icon-btn" onClick={refreshStatus} disabled={statusLoading}>{statusLoading ? '…' : 'Refresh'}</button>
+          </div>
+          {statusErr && <div role="alert" style={{color:'var(--state-danger)',fontSize:13}}>{statusErr}</div>}
+          <div style={{overflowX:'auto'}}>
+            <table className="apps-table">
+              <thead><tr><th>Service</th><th>Secret name</th><th>Status</th><th style={{textAlign:'right'}}></th></tr></thead>
+              <tbody>
+                {statusItems.map(s => {
+                  const cmd = `wrangler secret put ${s.id}`;
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <strong>{s.label}</strong>
+                        {s.critical && !s.configured && <span style={{marginLeft:8,fontSize:11,color:'var(--state-danger)',fontWeight:700}}>· REQUIRED</span>}
+                      </td>
+                      <td><code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{s.id}</code></td>
+                      <td>
+                        {s.configured
+                          ? <span className="pill" style={{background:'var(--state-success-bg)',color:'var(--state-success)'}}>✓ Configured ({s.length} chars)</span>
+                          : <span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-muted)'}}>— Not set</span>}
+                      </td>
+                      <td style={{textAlign:'right',whiteSpace:'nowrap'}}>
+                        <code style={{fontSize:11,fontFamily:'var(--font-mono)',background:'var(--bg-muted)',padding:'4px 8px',borderRadius:6,marginRight:6}}>{cmd}</code>
+                        <button type="button" className="icon-btn" onClick={() => copy(cmd)}>Copy</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <details style={{marginTop:14,fontSize:13,color:'var(--fg-secondary)'}}>
+            <summary style={{cursor:'pointer',fontWeight:600}}>왜 어드민에서 직접 등록하지 않나요?</summary>
+            <ul style={{marginTop:8,lineHeight:1.7}}>
+              <li><code>/api/content</code>(KV blob)는 SPA가 콘텐츠를 가져오기 위한 <strong>public 엔드포인트</strong>입니다. KV에 키를 넣으면 모든 방문자 브라우저로 흘러갑니다.</li>
+              <li>sessionStorage에도 캐싱되므로 같은 디바이스의 다음 방문자에게도 노출됩니다.</li>
+              <li>"JSON 내보내기" 백업 파일에도 그대로 들어갑니다.</li>
+              <li><code>wrangler secret put</code>은 값을 Cloudflare에 직접 업로드 — 코드/git/콘솔 어디에도 안 남습니다. 워커가 실행될 때만 <code>env.NAME</code>으로 읽힙니다.</li>
+            </ul>
+          </details>
+        </div>
+
+        {/* Section 2: Public verification tokens — editable */}
+        <div className="card">
+          <h3>Site verification · 공개 인증 토큰</h3>
+          <p className="desc">검색엔진·소셜 플랫폼에 도메인 소유권 증명. 입력한 값은 모든 페이지의 <code>&lt;head&gt;</code>에 자동 주입됩니다. 값이 비어있는 항목은 무시됩니다.</p>
+          {VERIFY_ROWS.map(row => (
+            <div className="grid-3 tight" key={row.key} style={{marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+              <div className="field">
+                <label>{row.label}</label>
+                <a href={row.docs} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--brand-text)',textDecoration:'underline'}}>{row.docs.replace(/^https?:\/\//, '')} ↗</a>
+              </div>
+              <div className="field span-2">
+                <label>Verification value</label>
+                <input type="text" value={sv[row.key] || ''} onChange={e => set(['site_verifications',row.key], e.target.value)} placeholder='content="..." 값만 붙여넣기' />
+                <span className="hint">{row.hint}</span>
+              </div>
+            </div>
+          ))}
+          <details style={{marginTop:8,fontSize:13,color:'var(--fg-secondary)'}}>
+            <summary style={{cursor:'pointer',fontWeight:600}}>How to verify</summary>
+            <ol style={{marginTop:8,lineHeight:1.7}}>
+              <li>각 서비스에서 도메인 등록 → "HTML 태그" / "Meta tag" 옵션 선택.</li>
+              <li>제공되는 <code>&lt;meta name="..." content="VALUE"&gt;</code>에서 <strong>VALUE 부분만</strong> 위에 붙여넣기.</li>
+              <li>저장 후 1–2분 기다렸다가 각 서비스의 "Verify" 버튼 클릭. App.jsx가 첫 페인트시 head에 태그를 삽입.</li>
+            </ol>
+          </details>
+        </div>
       </>
     );
   }
@@ -5212,6 +5344,7 @@
       og_images: OgImagesTab,
       email_templates: EmailTemplatesTab,
       receipt_template: ReceiptTemplateTab,
+      integrations: IntegrationsTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,

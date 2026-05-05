@@ -332,6 +332,19 @@
         },
       ],
     },
+    // ─── Public site-verification meta tags ─────────────────────────────
+    // These are NOT secrets — they're domain ownership proofs that need to
+    // be in the public HTML head for the verification crawler to read.
+    // Operator pastes the value from each search-console UI; App.jsx
+    // injects matching <meta> tags on every page.
+    site_verifications: {
+      google:        '',  // <meta name="google-site-verification" content="...">
+      naver:         '',  // <meta name="naver-site-verification" content="...">
+      bing:          '',  // <meta name="msvalidate.01" content="...">
+      facebook:      '',  // <meta name="facebook-domain-verification" content="...">
+      pinterest:     '',  // <meta name="p:domain_verify" content="...">
+      yandex:        '',  // <meta name="yandex-verification" content="...">
+    },
     // ─── Receipt template (auto-fill PDF) ────────────────────────────────
     // Operator-uploaded background image (e.g. their letterhead / receipt
     // form) + a list of named fields with absolute coordinates. The public

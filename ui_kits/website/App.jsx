@@ -65,6 +65,34 @@ function App() {
     document.documentElement.lang = lang;
   }, [lang]);
 
+  // Site-verification meta tags (Google / Naver / Bing / Facebook / Yandex /
+  // Pinterest). These are public proofs the search consoles look for once,
+  // so they only need to be in <head> — no need to update on route change.
+  // Inserted once when content first loads; the helper is idempotent so
+  // re-runs don't duplicate tags. Empty values are skipped.
+  useEffectR(() => {
+    if (!content || !content.site_verifications) return;
+    const v = content.site_verifications;
+    const TAGS = [
+      { name: 'google-site-verification',     value: v.google },
+      { name: 'naver-site-verification',      value: v.naver },
+      { name: 'msvalidate.01',                value: v.bing },
+      { name: 'facebook-domain-verification', value: v.facebook },
+      { name: 'p:domain_verify',              value: v.pinterest },
+      { name: 'yandex-verification',          value: v.yandex },
+    ];
+    for (const t of TAGS) {
+      if (!t.value) continue;
+      let el = document.head.querySelector(`meta[name="${t.name}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('name', t.name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', t.value);
+    }
+  }, [content && content.site_verifications]);
+
   // Per-route SEO meta. Reads c.og.{default, pages[view]} and updates
   // <title>, <meta name=description>, og:title, og:description, og:image,
   // og:url. Empty fields cascade: page → default → static <head> values.

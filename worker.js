@@ -283,6 +283,85 @@ async function handleApi(request, env, url) {
   if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
+  // ── Notifications (admin → specific users, visible only on My Page) ─────
+  // Admin sends to one or many user_ids; each recipient gets their own row
+  // so reads + deletes don't leak across recipients.
+  if (path === '/api/admin/notifications' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const ids = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
+    if (!ids.length) return json({ error: 'no_recipients' }, 400);
+    if (!body.subject_ko && !body.subject_en) return json({ error: 'subject_required' }, 400);
+    if (!body.body_ko && !body.body_en) return json({ error: 'body_required' }, 400);
+    const ts = new Date().toISOString();
+    const sender = String(body.sender || 'admin').slice(0, 80);
+    let written = 0;
+    for (const uid of ids.slice(0, 1000)) {
+      const id = 'NTF-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+      try {
+        await env.DB.prepare(
+          'INSERT INTO notifications (id, user_id, ts, sender, subject_ko, subject_en, body_ko, body_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(id, uid, ts, sender,
+                body.subject_ko ? String(body.subject_ko) : null,
+                body.subject_en ? String(body.subject_en) : null,
+                body.body_ko    ? String(body.body_ko)    : null,
+                body.body_en    ? String(body.body_en)    : null).run();
+        written++;
+      } catch {}
+    }
+    return json({ ok: true, sent_to: written });
+  }
+  // List recipients (with pagination + search) for the admin compose form.
+  // Just an alias of /api/admin/users for the picker UI's convenience.
+
+  // ── My notifications ─────────────────────────────────────────────────────
+  if (path === '/api/me/notifications') {
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'unauthorized' }, 401);
+    if (method === 'GET') {
+      const { results } = await env.DB.prepare(
+        'SELECT id, ts, sender, subject_ko, subject_en, body_ko, body_en, read_at FROM notifications WHERE user_id = ? ORDER BY ts DESC LIMIT 200'
+      ).bind(u.id).all();
+      const items = results || [];
+      const unread = items.filter(n => !n.read_at).length;
+      return json({ items, unread });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  // Single notification — GET returns + (optionally) marks read; PATCH lets
+  // the user toggle read; DELETE removes their copy.
+  const myNotifM = path.match(/^\/api\/me\/notifications\/([A-Z0-9_-]+)$/);
+  if (myNotifM) {
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'unauthorized' }, 401);
+    const id = myNotifM[1];
+    if (method === 'GET') {
+      const row = await env.DB.prepare(
+        'SELECT * FROM notifications WHERE id = ? AND user_id = ?'
+      ).bind(id, u.id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      // Auto-mark-read on first GET — matches "open the post" gesture.
+      if (!row.read_at) {
+        const now = new Date().toISOString();
+        await env.DB.prepare('UPDATE notifications SET read_at = ? WHERE id = ?').bind(now, id).run();
+        row.read_at = now;
+      }
+      return json(row);
+    }
+    if (method === 'PATCH') {
+      const body = await request.json().catch(() => ({}));
+      const next = body.read === false ? null : new Date().toISOString();
+      await env.DB.prepare('UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ?').bind(next, id, u.id).run();
+      return json({ ok: true, read_at: next });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').bind(id, u.id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
   // Admin test-send: trigger a template against an arbitrary email so the
   // operator can verify Resend keys + DNS without doing a real signup.
   if (path === '/api/admin/email/test' && method === 'POST') {

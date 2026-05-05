@@ -4,6 +4,23 @@ function Nav({ view, go, lang, setLang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
   const [menuOpen, setMenuOpen] = React.useState(false);
+  // Unread admin notification count for the user-menu badge. Polled lazily.
+  const [unread, setUnread] = React.useState(0);
+  React.useEffect(() => {
+    if (!auth.user) { setUnread(0); return; }
+    let alive = true;
+    async function tick() {
+      try {
+        const r = await window.DreamPathAuth.authFetch('/api/me/notifications');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (alive) setUnread(d.unread || 0);
+      } catch {}
+    }
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, [auth.user]);
   // Theme toggle state — re-render when the theme store fires.
   const [themeChoice, setThemeChoice] = React.useState(() => (window.DreamPathTheme && window.DreamPathTheme.choice) || 'system');
   React.useEffect(() => {
@@ -154,7 +171,14 @@ function Nav({ view, go, lang, setLang, c }) {
           {auth.ready && auth.user && (
             <div className="user-menu">
               <button type="button" className="user-trigger" onClick={() => setMenuOpen(o => !o)} aria-haspopup="true" aria-expanded={menuOpen}>
-                <span className="user-avatar" aria-hidden="true">{(auth.user.name || auth.user.email || '?').charAt(0).toUpperCase()}</span>
+                <span className="user-avatar" aria-hidden="true" style={{position:'relative'}}>
+                  {(auth.user.name || auth.user.email || '?').charAt(0).toUpperCase()}
+                  {unread > 0 && (
+                    <span aria-label={`${unread} unread`} style={{position:'absolute',top:-4,right:-6,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
+                </span>
                 <span className="user-label">{auth.user.name || auth.user.email}</span>
               </button>
               {menuOpen && (

@@ -4,12 +4,30 @@ const { useState: useStateM, useEffect: useEffectM } = React;
 function Member({ go, lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth();
-  const [section, setSection] = useStateM('overview'); // overview | applications | career | recommendations
+  const [section, setSection] = useStateM('overview'); // overview | applications | career | recommendations | privacy | notifications
+  // Unread notification count — drives the badge on the tab. Polled from
+  // /api/me/notifications on mount + every 60s while the page is open.
+  const [unread, setUnread] = useStateM(0);
   useEffectM(() => {
     const h = (e) => setSection(e.detail);
     window.addEventListener('dp-member-section', h);
     return () => window.removeEventListener('dp-member-section', h);
   }, []);
+  useEffectM(() => {
+    if (!auth.user) return;
+    let alive = true;
+    async function tick() {
+      try {
+        const res = await window.DreamPathAuth.authFetch('/api/me/notifications');
+        if (!res.ok) return;
+        const d = await res.json();
+        if (alive) setUnread(d.unread || 0);
+      } catch {}
+    }
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, [auth.user, section]);
 
   if (!auth.ready) {
     return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '로딩 중…' : 'Loading…'}</div>;
@@ -49,6 +67,7 @@ function Member({ go, lang, c }) {
           <div className="member-tabs" role="tablist">
             {[
               { k: 'overview', l_ko: '대시보드', l_en: 'Dashboard' },
+              { k: 'notifications', l_ko: '알림', l_en: 'Notifications' },
               { k: 'applications', l_ko: '내 지원 · 영수증', l_en: 'My applications · receipts' },
               { k: 'career',   l_ko: '커리어 등록', l_en: 'Career profile' },
               { k: 'recommendations', l_ko: '추천 프로그램', l_en: 'Recommendations' },
@@ -58,11 +77,15 @@ function Member({ go, lang, c }) {
                 className={'member-tab' + (section === t.k ? ' active' : '')}
                 onClick={() => setSection(t.k)}>
                 {isKo ? t.l_ko : t.l_en}
+                {t.k === 'notifications' && unread > 0 && (
+                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{unread}</span>
+                )}
               </button>
             ))}
           </div>
 
-          {section === 'overview' && <MemberOverview go={go} isKo={isKo} c={c} />}
+          {section === 'overview' && <MemberOverview go={go} isKo={isKo} c={c} unread={unread} setSection={setSection} />}
+          {section === 'notifications' && <MemberNotifications isKo={isKo} onChange={setUnread} />}
           {section === 'applications' && <MemberApplications isKo={isKo} c={c} />}
           {section === 'career' && <MemberCareer isKo={isKo} />}
           {section === 'recommendations' && <MemberRecommendations isKo={isKo} c={c} go={go} />}
@@ -73,9 +96,17 @@ function Member({ go, lang, c }) {
   );
 }
 
-function MemberOverview({ go, isKo, c }) {
+function MemberOverview({ go, isKo, c, unread, setSection }) {
   return (
     <div className="member-grid">
+      {unread > 0 && (
+        <div className="member-card" style={{borderColor:'var(--state-info)',background:'var(--state-info-bg)',color:'var(--state-info)'}}>
+          <div className="sec-kicker" style={{color:'var(--state-info)'}}>{isKo ? '00 · 알림' : '00 · NOTIFICATIONS'}</div>
+          <h3 style={{color:'var(--state-info)'}}>{isKo ? `읽지 않은 알림 ${unread}건` : `${unread} unread notification${unread===1?'':'s'}`}</h3>
+          <p style={{color:'var(--state-info)'}}>{isKo ? '관리자가 보낸 새로운 알림이 있습니다.' : 'You have new messages from the team.'}</p>
+          <button className="btn btn-primary" onClick={() => setSection && setSection('notifications')}>{isKo ? '알림 보기' : 'View'} →</button>
+        </div>
+      )}
       <div className="member-card">
         <div className="sec-kicker">{isKo ? '01 · 지원' : '01 · APPLY'}</div>
         <h3>{isKo ? '프로그램 지원하기' : 'Apply for a program'}</h3>
@@ -94,6 +125,108 @@ function MemberOverview({ go, isKo, c }) {
         <p>{isKo ? '커리어 정보 기반으로 가장 잘 맞는 프로그램을 제안합니다.' : 'Get programs ranked by fit, based on your profile.'}</p>
         <button className="btn btn-secondary" onClick={() => window.dispatchEvent(new CustomEvent('dp-member-section', { detail: 'recommendations' }))}>{isKo ? '확인' : 'View'} →</button>
       </div>
+    </div>
+  );
+}
+
+// Inbox-style list of admin notifications. List view + click-to-read detail.
+// Auto-marks read on first open (server side); Reopen toggles back to unread.
+function MemberNotifications({ isKo, onChange }) {
+  const [items, setItems] = useStateM([]);
+  const [loading, setLoading] = useStateM(true);
+  const [opened, setOpened] = useStateM(null);     // detail object | null
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/notifications');
+      if (!r.ok) throw new Error('http_' + r.status);
+      const d = await r.json();
+      setItems(d.items || []);
+      onChange && onChange(d.unread || 0);
+    } catch {} finally { setLoading(false); }
+  }
+  useEffectM(() => { load(); }, []);
+
+  async function open(n) {
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/notifications/' + encodeURIComponent(n.id));
+      if (!r.ok) return;
+      const d = await r.json();
+      setOpened(d);
+      // Reflect read state in the list immediately.
+      setItems(prev => prev.map(x => x.id === n.id ? { ...x, read_at: d.read_at } : x));
+      onChange && onChange((items.filter(x => !x.read_at && x.id !== n.id).length));
+    } catch {}
+  }
+  async function toggleRead(n) {
+    const next = !!n.read_at ? false : true;
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/notifications/' + encodeURIComponent(n.id), {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ read: next }),
+      });
+      if (!r.ok) return;
+      load();
+    } catch {}
+  }
+  async function remove(n) {
+    if (!confirm(isKo ? '이 알림을 삭제할까요?' : 'Delete this notification?')) return;
+    try {
+      await window.DreamPathAuth.authFetch('/api/me/notifications/' + encodeURIComponent(n.id), { method: 'DELETE' });
+      setOpened(null);
+      load();
+    } catch {}
+  }
+
+  if (opened) {
+    const subj = isKo ? (opened.subject_ko || opened.subject_en) : (opened.subject_en || opened.subject_ko);
+    const body = isKo ? (opened.body_ko || opened.body_en) : (opened.body_en || opened.body_ko);
+    return (
+      <div className="member-card" style={{maxWidth:760}}>
+        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14,fontSize:13,color:'var(--fg-muted)'}}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpened(null)}>← {isKo ? '목록으로' : 'Back to inbox'}</button>
+          <span style={{flex:1}} />
+          <span>{new Date(opened.ts).toLocaleString()}</span>
+          <span style={{fontFamily:'var(--font-mono)',fontSize:11}}>· {opened.sender}</span>
+        </div>
+        <h2 style={{fontFamily:'var(--font-en)',fontSize:24,fontWeight:700,letterSpacing:'-0.01em',margin:'0 0 18px',color:'var(--brand-text)'}}>{subj}</h2>
+        <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,color:'var(--fg-primary)',fontSize:15}}>{body}</div>
+        <div style={{marginTop:24,display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => toggleRead(opened)}>
+            {opened.read_at ? (isKo ? '안 읽음으로' : 'Mark unread') : (isKo ? '읽음 처리' : 'Mark read')}
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={() => remove(opened)}>
+            {isKo ? '삭제' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="member-card" style={{textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+  if (!items.length) return <div className="member-card" style={{textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '받은 알림이 없습니다.' : 'No notifications yet.'}</div>;
+
+  return (
+    <div className="member-card" style={{padding:0,overflow:'hidden'}}>
+      <ul style={{listStyle:'none',margin:0,padding:0}}>
+        {items.map(n => {
+          const isUnread = !n.read_at;
+          const subj = isKo ? (n.subject_ko || n.subject_en) : (n.subject_en || n.subject_ko);
+          return (
+            <li key={n.id}>
+              <button type="button" onClick={() => open(n)}
+                style={{display:'flex',alignItems:'center',gap:14,width:'100%',padding:'14px 18px',background:'none',border:'none',
+                  borderBottom:'1px solid var(--border-hair)',cursor:'pointer',textAlign:'left',font:'inherit',color:'inherit'}}>
+                <span style={{flex:'0 0 auto',width:8,height:8,borderRadius:'50%',background: isUnread ? 'var(--state-info)' : 'transparent', border: isUnread ? 'none' : '1px solid var(--border-default)'}} aria-label={isUnread ? 'unread' : 'read'} />
+                <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight: isUnread ? 700 : 500}}>{subj}</span>
+                <span style={{fontSize:12,color:'var(--fg-muted)',whiteSpace:'nowrap'}}>{new Date(n.ts).toLocaleDateString()}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

@@ -720,6 +720,7 @@
       tab: {
         dashboard:'Dashboard',
         members:'Member directory', member_roles:'Roles & permissions',
+        send_notification:'Send notification',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates',
@@ -750,6 +751,7 @@
       tab: {
         dashboard:'대시보드',
         members:'회원 목록', member_roles:'등급 / 권한',
+        send_notification:'알림 보내기',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿',
@@ -883,9 +885,10 @@
 
     // Members — registered users, their consent trails, and the role/permission
     // matrix that governs what each role can do.
-    { id: 'members',       group: 'Members' },
-    { id: 'member_roles',  group: 'Members' },
-    { id: 'consent_log',   group: 'Members' },
+    { id: 'members',         group: 'Members' },
+    { id: 'member_roles',    group: 'Members' },
+    { id: 'send_notification', group: 'Members' },
+    { id: 'consent_log',     group: 'Members' },
 
     { id: 'wiki_kms',      group: 'Wiki' },
     { id: 'wiki_color',    group: 'Wiki' },
@@ -2318,6 +2321,133 @@
   // ---- Inquiry categories CRUD --------------------------------------------
   // Drives the 문의 유형 dropdown on the public Contact form. Operator can
   // add / rename / reorder / delete categories. Stored as c.inquiry_categories.
+  // ---- Send notification --------------------------------------------------
+  // Composes an internal "email-like" notification and ships one row per
+  // recipient via POST /api/admin/notifications. Recipients see the result
+  // on their own My Page; nobody else can read another user's notifications.
+  function SendNotificationTab() {
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [picked, setPicked] = useState(() => new Set());
+    const [subjectKo, setSubjectKo] = useState('');
+    const [subjectEn, setSubjectEn] = useState('');
+    const [bodyKo, setBodyKo] = useState('');
+    const [bodyEn, setBodyEn] = useState('');
+    const [sender, setSender] = useState('admin');
+    const [busy, setBusy] = useState(false);
+    const [result, setResult] = useState(null);
+
+    useEffect(() => {
+      const token = localStorage.getItem('dp_admin_token') || '';
+      fetch('/api/admin/users?limit=500', { headers: { authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(d => { setUsers(d.items || []); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, []);
+
+    const filtered = search.trim()
+      ? users.filter(u => (u.email + ' ' + (u.name || '')).toLowerCase().includes(search.toLowerCase()))
+      : users;
+    function togglePick(id) { setPicked(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
+    function pickAllVisible() { setPicked(new Set(filtered.map(u => u.id))); }
+    function clearPicks() { setPicked(new Set()); }
+
+    async function send() {
+      if (!picked.size) { alert('Pick at least one recipient.'); return; }
+      if (!subjectKo && !subjectEn) { alert('Subject required (KO or EN).'); return; }
+      if (!bodyKo && !bodyEn) { alert('Body required (KO or EN).'); return; }
+      setBusy(true); setResult(null);
+      const token = localStorage.getItem('dp_admin_token') || '';
+      try {
+        const r = await fetch('/api/admin/notifications', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            user_ids: [...picked], sender,
+            subject_ko: subjectKo, subject_en: subjectEn,
+            body_ko: bodyKo, body_en: bodyEn,
+          }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { setResult({ ok: false, msg: d.error || ('http_' + r.status) }); return; }
+        setResult({ ok: true, count: d.sent_to });
+        setSubjectKo(''); setSubjectEn(''); setBodyKo(''); setBodyEn('');
+        clearPicks();
+      } catch (e) { setResult({ ok: false, msg: String(e.message || e) }); }
+      finally { setBusy(false); }
+    }
+
+    return (
+      <>
+        <div className="card">
+          <h3>Send notification</h3>
+          <p className="desc">
+            Internal "email-like" message delivered to selected users' My Page (개인만 볼 수 있음).
+            Nothing leaves the site — for outbound email use admin → Email templates instead.
+          </p>
+        </div>
+
+        <div className="grid-2" style={{alignItems:'flex-start'}}>
+          {/* Recipients picker */}
+          <div className="card">
+            <h3>Recipients · {picked.size} selected</h3>
+            <input type="search" placeholder="Search name / email" value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)',marginBottom:10}} />
+            <div style={{display:'flex',gap:6,marginBottom:8}}>
+              <button type="button" className="icon-btn" onClick={pickAllVisible}>Select all visible</button>
+              <button type="button" className="icon-btn" onClick={clearPicks} disabled={!picked.size}>Clear</button>
+            </div>
+            <div style={{maxHeight:420,overflowY:'auto',border:'1px solid var(--border-subtle)',borderRadius:8}}>
+              {loading
+                ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>Loading…</div>
+                : filtered.length === 0
+                  ? <div style={{padding:20,color:'var(--fg-muted)',textAlign:'center'}}>No matches.</div>
+                  : filtered.map(u => (
+                    <label key={u.id}
+                      style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderBottom:'1px solid var(--border-hair)',cursor:'pointer',
+                        background: picked.has(u.id) ? 'var(--state-info-bg)' : 'transparent'}}>
+                      <input type="checkbox" checked={picked.has(u.id)} onChange={() => togglePick(u.id)} />
+                      <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        <strong style={{fontSize:13}}>{u.name || u.email}</strong>
+                        {u.name && <span style={{color:'var(--fg-muted)',fontSize:12,marginLeft:6}}>· {u.email}</span>}
+                      </span>
+                      <span className="pill" style={{background: u.role==='admin' ? 'var(--sunshine-yellow)' : 'var(--bg-muted)', color: u.role==='admin' ? 'var(--midnight-purple)' : 'var(--fg-secondary)'}}>{u.role}</span>
+                    </label>
+                  ))}
+            </div>
+          </div>
+
+          {/* Composer */}
+          <div className="card">
+            <h3>Compose</h3>
+            <div className="grid-2 tight">
+              <Text label="Sender label" value={sender} onChange={setSender} hint="Free-form. Shown to the recipient." />
+              <div /> {/* spacer */}
+              <Text label="Subject (KO)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
+              <Text label="Subject (EN)" value={subjectEn} onChange={setSubjectEn} lang="en" />
+              <Area label="Body (KO)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={10} />
+              <Area label="Body (EN)" value={bodyEn} onChange={setBodyEn} lang="en" rows={10} />
+            </div>
+            {result && (
+              <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
+                background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
+                color: result.ok ? 'var(--state-success)' : 'var(--state-danger)',fontSize:14}}>
+                {result.ok ? `✓ Sent to ${result.count} recipient${result.count===1?'':'s'}.` : `✗ Failed: ${result.msg}`}
+              </div>
+            )}
+            <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button type="button" className="btn-add" onClick={send} disabled={busy || !picked.size}>
+                {busy ? 'Sending…' : `📨 Send to ${picked.size} recipient${picked.size===1?'':'s'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   function InquiryCategoriesTab({ c, set, addItem, removeItem }) {
     const cats = Array.isArray(c.inquiry_categories) ? c.inquiry_categories : [];
     function move(from, to) {
@@ -4918,6 +5048,7 @@
       legal: LegalTab, api_dir: ApiDirectoryTab,
       apps: ApplicationsTab,
       members: MembersTab, member_roles: MemberRolesTab,
+      send_notification: SendNotificationTab,
       inquiry_categories: InquiryCategoriesTab,
     }[tab];
 

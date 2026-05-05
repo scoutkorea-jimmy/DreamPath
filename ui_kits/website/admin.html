@@ -4761,7 +4761,7 @@
       Promise.all([
         get('/api/applications?limit=500'),
         get('/api/inquiries'),
-        get('/api/errors?limit=100'),
+        get('/api/errors?limit=100&resolved=0'),   // dashboard counts unresolved only
         get('/api/analytics/summary?days=7'),
         get('/api/analytics/summary?days=30'),
         get('/api/admin/users'),

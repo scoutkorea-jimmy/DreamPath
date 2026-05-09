@@ -325,9 +325,179 @@ function MemberApplications({ isKo, c }) {
                 </a>
               </div>
             )}
+            <ApplicationFiles appId={a.id} isKo={isKo} />
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// File panel inside each MemberApplications row. Lists every file attached
+// to the application and exposes a Replace / Remove control per slot, plus
+// an Upload control for any of the three "academic" slots that are still
+// empty. Re-uploads call POST /api/applications/upload with the same
+// application_id; the worker enforces ownership via session token.
+function ApplicationFiles({ appId, isKo }) {
+  const [files, setFiles] = useStateM([]);
+  const [loading, setLoading] = useStateM(true);
+  const [err, setErr] = useStateM('');
+
+  // Three primary academic slots that we surface as "always-visible" upload
+  // targets. Recommendation letters are listed as-is (one per recommender)
+  // and any legacy 'transcript' file is shown at the top of the list.
+  const ACADEMIC_SLOTS = [
+    { kind: 'transcript_graduation',  label_ko: '졸업(예정)증명서', label_en: 'Certificate of Graduation' },
+    { kind: 'transcript_recognition', label_ko: '아포스티유 / 학력인정확인서 / 영사확인',
+                                      label_en: 'Apostille / Academic Recognition / Consular' },
+    { kind: 'transcript_translation', label_ko: '한글번역공증본 (KO/EN 외)',
+                                      label_en: 'Notarized Korean translation' },
+  ];
+
+  async function load() {
+    setLoading(true); setErr('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(appId) + '/files');
+      if (!r.ok) throw new Error('http_' + r.status);
+      const d = await r.json();
+      setFiles(d.items || []);
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  }
+  useEffectM(() => { load(); }, [appId]);
+
+  // Find current file for one of the academic slots (or null if not uploaded).
+  function fileFor(kind) { return files.find(f => f.kind === kind) || null; }
+
+  async function uploadToSlot(kind, file, recommenderIdx) {
+    if (!file) return;
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+    if (file.type && !allowed.includes(file.type)) { setErr(isKo ? 'PDF / 이미지만 가능합니다.' : 'PDF or image only.'); return; }
+    if (file.size > 10 * 1024 * 1024) { setErr(isKo ? '최대 10MB.' : 'Max 10 MB.'); return; }
+    setErr('');
+    const b64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const dataUrl = String(r.result || '');
+        const i = dataUrl.indexOf(',');
+        res(i >= 0 ? dataUrl.slice(i + 1) : dataUrl);
+      };
+      r.onerror = () => rej(new Error('read_failed'));
+      r.readAsDataURL(file);
+    }).catch(() => null);
+    if (!b64) { setErr(isKo ? '파일을 읽지 못했습니다.' : 'Could not read the file.'); return; }
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/applications/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind,
+          recommender_idx: recommenderIdx == null ? null : recommenderIdx,
+          application_id: appId,
+          filename: file.name,
+          mime: file.type || 'application/pdf',
+          content_base64: b64,
+        }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || ('http_' + r.status));
+      }
+      await load();
+    } catch (e) { setErr(e.message || (isKo ? '업로드 실패' : 'Upload failed')); }
+  }
+
+  async function replaceFile(prevFile, file) {
+    // Atomic-ish: upload new first, only then delete the old. If upload
+    // fails the old file is preserved so the application is never left
+    // in a documents-missing state.
+    const before = files;
+    await uploadToSlot(prevFile.kind, file, prevFile.recommender_idx);
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/application-files/' + prevFile.id, { method: 'DELETE' });
+      if (!r.ok) throw new Error('http_' + r.status);
+      await load();
+    } catch (e) {
+      setErr((isKo ? '교체 실패: 새 파일은 업로드되었지만 기존 파일 삭제에 실패했습니다. ' : 'Replace failed: new file uploaded but old file delete failed. ') + (e.message || ''));
+      // Don't roll back — leaving both is safer than losing the new one.
+      void before;
+    }
+  }
+
+  async function removeFile(f) {
+    if (!confirm(isKo ? '이 파일을 삭제할까요?' : 'Delete this file?')) return;
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/application-files/' + f.id, { method: 'DELETE' });
+      if (!r.ok) throw new Error('http_' + r.status);
+      await load();
+    } catch (e) { setErr(e.message); }
+  }
+
+  function downloadHref(f) { return '/api/me/application-files/' + f.id + '/download'; }
+
+  if (loading) return null;
+
+  // Files outside the 3 academic slots — recommendation letters + legacy
+  // single-transcript uploads. Listed as-is below the slotted area.
+  const otherFiles = files.filter(f => !ACADEMIC_SLOTS.some(s => s.kind === f.kind));
+
+  return (
+    <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border-hair)'}}>
+      <div className="sec-kicker" style={{margin:'0 0 10px'}}>{isKo ? '제출 서류' : 'SUBMITTED DOCUMENTS'}</div>
+
+      {ACADEMIC_SLOTS.map(slot => {
+        const cur = fileFor(slot.kind);
+        return (
+          <div key={slot.kind} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'var(--bg-muted)',borderRadius:8,marginBottom:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:'var(--fg-primary)'}}>{isKo ? slot.label_ko : slot.label_en}</div>
+              {cur ? (
+                <a href={downloadHref(cur)} style={{fontSize:12,color:'var(--scouting-purple)',textDecoration:'underline',display:'block',marginTop:2,wordBreak:'break-all'}}>
+                  {cur.filename} ({Math.round(cur.size/1024)} KB)
+                </a>
+              ) : (
+                <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{isKo ? '아직 업로드되지 않음' : 'Not uploaded yet'}</div>
+              )}
+            </div>
+            <label className="btn btn-secondary btn-sm" style={{cursor:'pointer'}}>
+              {cur ? (isKo ? '교체' : 'Replace') : (isKo ? '업로드' : 'Upload')}
+              <input type="file" accept="application/pdf,image/*" style={{display:'none'}}
+                onChange={e => {
+                  const f = e.target.files && e.target.files[0];
+                  e.target.value = '';
+                  if (!f) return;
+                  if (cur) replaceFile(cur, f); else uploadToSlot(slot.kind, f, null);
+                }} />
+            </label>
+            {cur && (
+              <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={() => removeFile(cur)}>
+                {isKo ? '삭제' : 'Remove'}
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {otherFiles.length > 0 && (
+        <div style={{marginTop:12}}>
+          <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:6}}>{isKo ? '기타 첨부' : 'Other files'}</div>
+          {otherFiles.map(f => (
+            <div key={f.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-muted)',borderRadius:8,marginBottom:6}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,color:'var(--fg-secondary)'}}>{f.kind}{f.recommender_idx != null ? ` · #${f.recommender_idx + 1}` : ''}</div>
+                <a href={downloadHref(f)} style={{fontSize:13,color:'var(--scouting-purple)',textDecoration:'underline',wordBreak:'break-all'}}>
+                  {f.filename} ({Math.round(f.size/1024)} KB)
+                </a>
+              </div>
+              <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={() => removeFile(f)}>
+                {isKo ? '삭제' : 'Remove'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {err && <div role="alert" style={{marginTop:8,padding:'6px 10px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:6,fontSize:12}}>{err}</div>}
     </div>
   );
 }
@@ -456,12 +626,36 @@ function MemberCareer({ isKo }) {
 
       <h3 className="apply-sub">{isKo ? '언어' : 'Languages'}</h3>
       <div className="form-row">
-        <F k="korean_level"  label={isKo ? '한국어 레벨' : 'Korean level'} />
+        <div className="field">
+          <label>{isKo ? '한국어 레벨' : 'Korean level'}</label>
+          <select value={form.korean_level || ''} onChange={e => setForm({ ...form, korean_level: e.target.value })}>
+            <option value="">{isKo ? '선택해주세요' : 'Select your level'}</option>
+            <option value="5">(5) Native Speaker</option>
+            <option value="4">(4) Professional (TOPIK 5~6)</option>
+            <option value="3">(3) Intermediate (TOPIK 3~4)</option>
+            <option value="2">(2) Basic (TOPIK 1~2)</option>
+            <option value="1">(1) Beginner (Test Needed)</option>
+          </select>
+        </div>
         <F k="english_level" label={isKo ? '영어 레벨' : 'English level'} />
       </div>
 
       <h3 className="apply-sub">{isKo ? '간단 자기소개' : 'Short summary'}</h3>
-      <F k="career_summary" label={isKo ? '한 단락으로 자신을 소개해주세요.' : 'A short paragraph about yourself.'} area />
+      <div className="field">
+        <label>{isKo ? '한 단락으로 자신을 소개해주세요. (500자 내외)' : 'A short paragraph about yourself. (~500 characters)'}</label>
+        <textarea
+          value={form.career_summary || ''}
+          onChange={e => {
+            const v = e.target.value;
+            if (v.length <= 500) setForm({ ...form, career_summary: v });
+          }}
+          rows={6}
+          maxLength={500}
+        />
+        <div style={{fontSize:12,color:(form.career_summary||'').length >= 500 ? 'var(--state-danger)' : 'var(--fg-muted)',fontFamily:'var(--font-mono)',marginTop:6,textAlign:'right'}}>
+          {(form.career_summary || '').length} / 500
+        </div>
+      </div>
 
       {err && <div role="alert" style={{color:'var(--state-danger)',marginTop:12}}>{err}</div>}
       <div className="form-actions" style={{marginTop:24}}>

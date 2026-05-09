@@ -172,6 +172,23 @@
       news_arrow: 'arrow-up-right',
       faq_toggle: 'plus',
     },
+    // ─── Apply essay questions (admin-editable) ─────────────────────────
+    // Each entry powers one essay slot in the public Apply form (Step 4).
+    // Add / remove items to control how many essays the applicant must
+    // answer. min_chars / max_chars cap the body length; the textarea
+    // refuses input past max_chars and shows a live counter.
+    essay_questions: [
+      { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, 그리고 DreamPath를 통해 이루고 싶은 것에 대해 작성하세요.',
+        prompt_en: 'Learning across borders — write about your background, interests, and what you hope to achieve through DreamPath.',
+        placeholder_ko: '본인의 이야기를 자유롭게 작성하세요.',
+        placeholder_en: 'Tell us your story.',
+        min_chars: 500, max_chars: 1500 },
+      { prompt_ko: '5년 후의 나 — 학업 계획, 커리어 목표, 그리고 DreamPath 이후의 길에 대해 작성하세요.',
+        prompt_en: 'Where I see myself in 5 years — academic plan, career goals, and your path after DreamPath.',
+        placeholder_ko: '학업 · 커리어 · 영향력에 대해 작성하세요.',
+        placeholder_en: 'Studies, career, impact.',
+        min_chars: 500, max_chars: 1500 },
+    ],
     // ─── Error page copy (per code × language) ──────────────────────────
     // Each entry: { title, body, primary_label, secondary_label, helpful_note }.
     // Errors.jsx reads c.errors[code][lang] with fallback to the hardcoded

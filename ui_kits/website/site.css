@@ -213,6 +213,42 @@ body {
 /* ── Misc ───────────────────────────────────────────────────────────── */
 .btn-block { width: 100%; }
 
+/* ── Dark-mode tuning ────────────────────────────────────────────────────
+   In dark mode --scouting-purple is intentionally lightened to a lavender
+   (#D4B8FF) so it stays legible as *text* on dark surfaces. As a *button
+   fill* with white text it lands at ~1.4:1, which reads as "disabled" even
+   when the button is the primary CTA. Override the primary/secondary/ghost
+   variants with a saturated violet that gives white text real weight, and
+   give secondary/ghost a brighter rest state so they don't disappear. */
+[data-theme="dark"] .btn-primary {
+  background: #7C3AED;
+  color: #fff;
+  border-color: #7C3AED;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.42);
+}
+[data-theme="dark"] .btn-primary:hover {
+  background: #9466F2;
+  border-color: #9466F2;
+  box-shadow: 0 8px 26px rgba(148, 102, 242, 0.50);
+}
+[data-theme="dark"] .btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: #9466F2;
+  color: #fff;
+}
+[data-theme="dark"] .btn-ghost {
+  color: var(--fg-link);
+}
+[data-theme="dark"] .btn-ghost:hover {
+  background: rgba(199, 165, 255, 0.14);
+  color: #E9D5FF;
+}
+
 /* ============ HERO ============ */
 .hero {
   position: relative;

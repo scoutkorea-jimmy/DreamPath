@@ -151,6 +151,7 @@ export default {
   // Designed to be cheap: a single SELECT per job + bounded UPDATE/DELETE.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(activationCron(env));
+    ctx.waitUntil(applyDraftCron(env));   // v01.031 — purge drafts older than 72h
   },
 };
 
@@ -419,6 +420,29 @@ async function handleApi(request, env, url) {
     });
   }
 
+  // ── Version ──────────────────────────────────────────────────────────────
+  // Returns the currently-deployed site version. The client polls this
+  // every minute and compares against window.DREAMPATH_VERSION (snapshot
+  // at page load). When they differ, the user is prompted to hard-reload.
+  // Source of truth is /ui_kits/website/version.js — we parse it once per
+  // request (tiny file, served from ASSETS edge cache).
+  if (path === '/api/version') {
+    if (method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+    let version = '00.000.00';
+    try {
+      const assetUrl = new URL('/ui_kits/website/version.js', url.origin);
+      const r = await env.ASSETS.fetch(new Request(assetUrl.toString()));
+      if (r.ok) {
+        const txt = await r.text();
+        const m = txt.match(/DREAMPATH_VERSION\s*=\s*['"]([\d.]+)['"]/);
+        if (m) version = m[1];
+      }
+    } catch {}
+    return new Response(JSON.stringify({ version }), {
+      headers: { ...JSON_HEADERS, 'cache-control': 'no-store, max-age=0' },
+    });
+  }
+
   // ── Content ──────────────────────────────────────────────────────────────
   if (path === '/api/content') {
     if (method === 'GET') {
@@ -473,8 +497,33 @@ async function handleApi(request, env, url) {
     if (!body) return json({ error: 'invalid_json' }, 400);
     const application_id = String(body.application_id || '').slice(0, 64);
     const kind = String(body.kind || '').toLowerCase();
-    const allowedKinds = ['transcript', 'recommendation', 'portfolio', 'id_doc'];
+    // 'transcript' kept as a legacy alias for the original single-file
+    // upload (pre-v01.028); new applications use the three split slots.
+    const allowedKinds = [
+      'transcript',
+      'transcript_graduation',
+      'transcript_recognition',
+      'transcript_translation',
+      'recommendation',
+      'portfolio',
+      'id_doc',
+    ];
     if (!allowedKinds.includes(kind)) return json({ error: 'invalid_kind' }, 400);
+    // Ownership guard: when application_id targets an existing row, only the
+    // owner (or an admin) may attach more files. Anonymous form-time uploads
+    // (application_id === '') stay unrestricted because the row does not
+    // exist yet — those rows get adopted on submit via file_ids[].
+    if (application_id) {
+      const owner = await env.DB.prepare(
+        'SELECT user_id FROM applications WHERE id = ?'
+      ).bind(application_id).first();
+      if (owner) {
+        const u = await currentUser(request, env);
+        const isOwner = u && owner.user_id && owner.user_id === u.id;
+        const adminAuth = await isAdmin(request, env);
+        if (!isOwner && !adminAuth) return json({ error: 'forbidden' }, 403);
+      }
+    }
     const recommender_idx = body.recommender_idx != null ? Math.max(0, Math.min(20, parseInt(body.recommender_idx, 10) || 0)) : null;
     const filename = String(body.filename || 'upload.pdf').slice(0, 200);
     const mime     = String(body.mime || 'application/pdf').slice(0, 100);
@@ -1372,6 +1421,124 @@ async function handleApi(request, env, url) {
     return json({ items: results || [] });
   }
 
+  // ── Apply form draft (server-side persistence) ───────────────────────────
+  // One draft per logged-in user, mirrored from the client every ~5s and
+  // on every step change. The client falls back to sessionStorage when
+  // logged out, but logged-in members always get the durable copy too —
+  // this is how a user can resume the application from a different device
+  // or after clearing browser storage. Cap: 256 KB JSON to prevent abuse.
+  if (path === '/api/me/apply-draft') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    const TTL_MS = 72 * 60 * 60 * 1000;   // 72 hours
+    if (method === 'GET') {
+      const row = await env.DB.prepare(
+        'SELECT form_json, step, updated_at FROM apply_drafts WHERE user_id = ?'
+      ).bind(user.id).first();
+      if (!row) return json({ exists: false, ttl_hours: 72 });
+      // Hard expiry: if the draft is older than 72 hours, drop it eagerly
+      // and tell the client to start fresh. The hourly cron also sweeps
+      // expired drafts, but checking on read closes the race window.
+      const updatedTs = Date.parse(row.updated_at || '') || 0;
+      const ageMs = Date.now() - updatedTs;
+      if (updatedTs && ageMs > TTL_MS) {
+        try { await env.DB.prepare('DELETE FROM apply_drafts WHERE user_id = ?').bind(user.id).run(); } catch {}
+        return json({ exists: false, expired: true, ttl_hours: 72 });
+      }
+      let form = null;
+      try { form = JSON.parse(row.form_json); }
+      catch { return json({ exists: false, error: 'corrupt_draft', ttl_hours: 72 }); }
+      const expires_at = new Date(updatedTs + TTL_MS).toISOString();
+      return json({ exists: true, form, step: row.step || 0, updated_at: row.updated_at, expires_at, ttl_hours: 72 });
+    }
+    if (method === 'PUT') {
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== 'object') return json({ error: 'invalid_json' }, 400);
+      const form = body.form;
+      const step = Math.max(0, Math.min(20, parseInt(body.step, 10) || 0));
+      if (!form || typeof form !== 'object') return json({ error: 'invalid_form' }, 400);
+      // PCI backstop: strip card_exp + card_cvc before persisting. The
+      // client also strips them, but the server defends-in-depth so a
+      // malformed/older client never lands them in our DB.
+      if ('card_exp' in form) delete form.card_exp;
+      if ('card_cvc' in form) delete form.card_cvc;
+      let formJson;
+      try { formJson = JSON.stringify(form); }
+      catch { return json({ error: 'invalid_form' }, 400); }
+      const MAX = 256 * 1024;
+      if (formJson.length > MAX) return json({ error: 'draft_too_large', max_bytes: MAX, got: formJson.length }, 413);
+      const ts = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO apply_drafts (user_id, form_json, step, updated_at, size_bytes) VALUES (?, ?, ?, ?, ?) ' +
+        'ON CONFLICT(user_id) DO UPDATE SET form_json = excluded.form_json, step = excluded.step, updated_at = excluded.updated_at, size_bytes = excluded.size_bytes'
+      ).bind(user.id, formJson, step, ts, formJson.length).run();
+      const expires_at = new Date(Date.now() + TTL_MS).toISOString();
+      return json({ ok: true, updated_at: ts, size_bytes: formJson.length, expires_at, ttl_hours: 72 });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM apply_drafts WHERE user_id = ?').bind(user.id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // ── Member-side application files ────────────────────────────────────────
+  // List, download, and delete files for one of the caller's own applications.
+  // GET  /api/me/applications/:id/files     → list metadata
+  // GET  /api/me/application-files/:id/download
+  // DELETE /api/me/application-files/:id
+  // Re-upload uses the existing POST /api/applications/upload with the same
+  // application_id; the ownership guard up there restricts it to the owner.
+  const meAppFilesM = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/files$/);
+  if (meAppFilesM && method === 'GET') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    const aid = meAppFilesM[1];
+    const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(aid).first();
+    if (!owner) return json({ error: 'not_found' }, 404);
+    if (owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    const { results } = await env.DB.prepare(
+      'SELECT id, uploaded_at, kind, recommender_idx, filename, mime, size FROM application_files WHERE application_id = ? ORDER BY id ASC'
+    ).bind(aid).all();
+    return json({ items: results || [] });
+  }
+  const meAppFileDLM = path.match(/^\/api\/me\/application-files\/(\d+)\/download$/);
+  if (meAppFileDLM && method === 'GET') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    const fid = parseInt(meAppFileDLM[1], 10);
+    const f = await env.DB.prepare('SELECT * FROM application_files WHERE id = ?').bind(fid).first();
+    if (!f) return json({ error: 'not_found' }, 404);
+    // Ownership check via the parent application row.
+    const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(f.application_id).first();
+    if (!owner || owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    const obj = await env.ATTACHMENTS.get(f.r2_key);
+    if (!obj) return json({ error: 'gone' }, 410);
+    return new Response(obj.body, {
+      headers: {
+        'content-type': f.mime || 'application/octet-stream',
+        'content-disposition': `attachment; filename="${encodeURIComponent(f.filename || 'file')}"`,
+        'content-length': String(f.size || 0),
+      },
+    });
+  }
+  const meAppFileM = path.match(/^\/api\/me\/application-files\/(\d+)$/);
+  if (meAppFileM && method === 'DELETE') {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    const fid = parseInt(meAppFileM[1], 10);
+    const f = await env.DB.prepare('SELECT * FROM application_files WHERE id = ?').bind(fid).first();
+    if (!f) return json({ error: 'not_found' }, 404);
+    const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(f.application_id).first();
+    if (!owner || owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    // Best-effort R2 delete — if R2 is unbound or the object is missing we
+    // still drop the DB row so the user's UI updates.
+    try { if (env.ATTACHMENTS && f.r2_key) await env.ATTACHMENTS.delete(f.r2_key); } catch {}
+    await env.DB.prepare('DELETE FROM application_files WHERE id = ?').bind(fid).run();
+    return json({ ok: true });
+  }
+
   // ── Receipt lookup (paid applications) ───────────────────────────────────
   // Auth: either (a) admin token, (b) owner is logged in, or (c) URL has matching ?token=
   const receiptM = path.match(/^\/api\/applications\/([A-Za-z0-9_-]+)\/receipt$/);
@@ -1991,6 +2158,17 @@ async function activateAccount(request, env) {
     token: session.token,
     expires_at: session.expires_at,
   });
+}
+
+// Hourly purge of Apply form drafts that haven't been touched in 72h. The
+// /api/me/apply-draft GET handler also enforces the same cutoff so a user
+// resuming on a stale row gets a clean slate; this cron just keeps the
+// table from growing unbounded with abandoned drafts.
+async function applyDraftCron(env) {
+  try {
+    const cutoff = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+    await env.DB.prepare('DELETE FROM apply_drafts WHERE updated_at < ?').bind(cutoff).run();
+  } catch {}
 }
 
 // Hourly cron job — purge expired pending signups + send a one-shot reminder
@@ -2698,12 +2876,16 @@ const APP_FIELDS = [
   'country','prior_school','prior_major','prior_gpa','transcript_note',
   // Step 3 — essays + recommender list (JSON)
   'essay_title','essay_body','essay_title_2','essay_body_2',
+  'essays_json',          // v01.031 — full essays array (admin-editable count)
   'recommenders_json',
   // Legacy single-recommender columns (kept for backward compat)
   'nso','recommender_name','recommender_email','recommender_role','recommender_letter',
   'scout_member_country','scout_training_level','recommendation_letter_filename',
   // Step 4
   'track','partial_tier','program','payment_method','card_last4',
+  // PCI: card_exp / card_cvc are *intentionally* NOT in this list. They are
+  // collected only for the (future) gateway round-trip and must never land
+  // in our DB. Only card_last4 is persisted.
   'lang'
 ];
 
@@ -2750,6 +2932,13 @@ async function submitApplication(request, env) {
         ).bind(id, n).run();
       } catch {}
     }
+  }
+
+  // Drop the server-side draft on successful submit so the user doesn't
+  // see a stale draft on their next visit. Logged-in users only.
+  if (user_id) {
+    try { await env.DB.prepare('DELETE FROM apply_drafts WHERE user_id = ?').bind(user_id).run(); }
+    catch {}
   }
 
   // Best-effort confirmation email. Non-blocking — swallow failures so the

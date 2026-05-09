@@ -814,6 +814,7 @@
         errors_copy:'Error pages copy',
         programs:'Programs', program_detail:'Program detail',
         partners:'Partners', stories:'Stories', faq:'FAQ',
+        essays:'Apply essays',
         translations:'KO ↔ EN translations',
         design_system:'Design System (live)', error_preview:'Error pages preview',
         wiki_kms:'KMS (coding)', wiki_color:'Color guide', wiki_design:'Design guide',
@@ -847,6 +848,7 @@
         errors_copy:'에러 페이지 텍스트',
         programs:'프로그램', program_detail:'프로그램 상세',
         partners:'파트너', stories:'스토리', faq:'FAQ',
+        essays:'지원 에세이 문항',
         translations:'KO ↔ EN 번역',
         design_system:'디자인 시스템 (실시간)', error_preview:'에러 페이지 미리보기',
         wiki_kms:'KMS (코딩)', wiki_color:'컬러 가이드', wiki_design:'디자인 가이드',
@@ -967,6 +969,7 @@
       { id: 'partners',      group: 'Content' },
       { id: 'stories',       group: 'Content' },
       { id: 'faq',           group: 'Content' },
+      { id: 'essays',        group: 'Content' },
 
       // Mail — one tab per managed inbox. Stays its own group.
       ...mailboxTabs,
@@ -1677,6 +1680,84 @@
           </div>
         ))}
         <button className="btn-add" onClick={() => addItem(['faq'], { q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
+      </div>
+    );
+  }
+
+  // ---- Apply essays ------------------------------------------------------
+  // Essay prompts shown in the public Apply form (Step 4). Each entry has a
+  // KO / EN prompt + placeholder, and per-question min/max char limits that
+  // the public textarea enforces (refuses input past max, shows live count).
+  function EssaysTab({ c, set, addItem, removeItem }) {
+    const list = Array.isArray(c.essay_questions) ? c.essay_questions : [];
+    function setMin(i, v) {
+      const n = Math.max(0, Math.min(10000, parseInt(v, 10) || 0));
+      set(['essay_questions', i, 'min_chars'], n);
+    }
+    function setMax(i, v) {
+      const n = Math.max(1, Math.min(20000, parseInt(v, 10) || 0));
+      set(['essay_questions', i, 'max_chars'], n);
+    }
+    return (
+      <div className="card">
+        <h3>Apply essays · 지원 에세이 문항</h3>
+        <p className="desc" style={{marginTop:0}}>
+          Each entry adds one essay slot to the public Apply form (Step 4 — Essays). Reorder, edit, or remove freely. Length limits are enforced by the textarea (input is blocked past Max).
+        </p>
+        {list.length === 0 && (
+          <div style={{padding:'14px 16px',background:'rgba(180,83,9,0.10)',border:'1px solid rgba(180,83,9,0.20)',borderRadius:8,marginBottom:12,color:'var(--state-warning, #b45309)'}}>
+            현재 등록된 에세이 문항이 없습니다. 기본값(2개)이 임시로 적용됩니다. + Add essay question 으로 운영자 정의 문항을 추가하세요.
+          </div>
+        )}
+        {list.map((q, i) => (
+          <div className="rep-item" key={i}>
+            <div className="rep-head">
+              <strong>Essay {i + 1}</strong>
+              <div className="ctrls">
+                {i > 0 && (
+                  <button className="icon-btn" onClick={() => {
+                    const next = list.slice();
+                    [next[i-1], next[i]] = [next[i], next[i-1]];
+                    set(['essay_questions'], next);
+                  }}>↑</button>
+                )}
+                {i < list.length - 1 && (
+                  <button className="icon-btn" onClick={() => {
+                    const next = list.slice();
+                    [next[i+1], next[i]] = [next[i], next[i+1]];
+                    set(['essay_questions'], next);
+                  }}>↓</button>
+                )}
+                <button className="icon-btn danger" onClick={() => removeItem(['essay_questions'], i)}>Delete</button>
+              </div>
+            </div>
+            <div className="grid-2 tight">
+              <Area label="Prompt (KO)" value={q.prompt_ko || ''} onChange={v => set(['essay_questions',i,'prompt_ko'], v)} lang="ko" rows={3} />
+              <Area label="Prompt (EN)" value={q.prompt_en || ''} onChange={v => set(['essay_questions',i,'prompt_en'], v)} lang="en" rows={3} />
+              <Text label="Placeholder (KO)" value={q.placeholder_ko || ''} onChange={v => set(['essay_questions',i,'placeholder_ko'], v)} lang="ko" />
+              <Text label="Placeholder (EN)" value={q.placeholder_en || ''} onChange={v => set(['essay_questions',i,'placeholder_en'], v)} lang="en" />
+            </div>
+            <div className="grid-2 tight" style={{marginTop:8}}>
+              <div className="field">
+                <label>Min characters</label>
+                <input type="number" min="0" max="10000" value={q.min_chars ?? 500}
+                  onChange={e => setMin(i, e.target.value)} />
+                <span className="hint">아래 길이로 작성하면 제출 시 검증에서 막힙니다.</span>
+              </div>
+              <div className="field">
+                <label>Max characters</label>
+                <input type="number" min="1" max="20000" value={q.max_chars ?? 1500}
+                  onChange={e => setMax(i, e.target.value)} />
+                <span className="hint">초과하면 textarea에서 입력이 차단됩니다.</span>
+              </div>
+            </div>
+          </div>
+        ))}
+        <button className="btn-add" onClick={() => addItem(['essay_questions'], {
+          prompt_ko: '', prompt_en: '',
+          placeholder_ko: '', placeholder_en: '',
+          min_chars: 500, max_chars: 1500,
+        })}>+ Add essay question</button>
       </div>
     );
   }
@@ -7076,6 +7157,7 @@
       errors_copy: ErrorsCopyTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
+      essays: EssaysTab,
       translations: TranslationsTab,
       design_system: DesignSystemTab, error_preview: ErrorPreviewTab,
       wiki_kms: KmsTab, wiki_color: ColorGuideTab, wiki_design: DesignGuideTab,

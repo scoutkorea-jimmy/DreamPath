@@ -91,11 +91,11 @@ export default {
       const safeHtml = html ? await sanitizeHtml(html) : '';
       const ts = new Date().toISOString();
       const ins = await env.DB.prepare(
-        'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to, sanitized_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         ts, message.to, fromAddr, fromName, subject || '(no subject)',
         text || '', safeHtml, message.rawSize || raw.length,
-        messageId, inReplyTo
+        messageId, inReplyTo, ts
       ).run();
       const emailId = ins.meta?.last_row_id;
       // Upload attachments to R2. Per-attachment failures are logged (not
@@ -160,6 +160,8 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(activationCron(env));
     ctx.waitUntil(applyDraftCron(env));   // v01.031 — purge drafts older than 72h
+    ctx.waitUntil(piiBackfillCron(env));  // v01.043 — encrypt legacy plaintext phone rows
+    ctx.waitUntil(inboundSanitizeCron(env)); // v01.043 — re-sanitize legacy inbound HTML
   },
 };
 
@@ -2986,6 +2988,84 @@ async function applyDraftCron(env) {
   try {
     const cutoff = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
     await env.DB.prepare('DELETE FROM apply_drafts WHERE updated_at < ?').bind(cutoff).run();
+  } catch {}
+}
+
+// P2-5 backfill (v01.043) — when the operator sets PII_ENCRYPTION_KEY,
+// new rows are immediately written encrypted, but rows that pre-date the
+// rotation still hold plaintext in phone_country / phone_national /
+// inquiries.phone. This cron sweeps a bounded batch each tick: pulls
+// rows with plaintext + empty _enc, encrypts them, NULLs the plaintext
+// column. Bounded so we don't blow the cron budget; runs every hour
+// so a backlog of ~200 rows clears within a day. No-op when the key
+// is unset (encryptPii returns null → we skip rather than wiping
+// plaintext into nothing).
+async function piiBackfillCron(env) {
+  if (!env.PII_ENCRYPTION_KEY) return; // No key → can't encrypt; skip.
+  const BATCH = 100;
+  try {
+    // users.phone_country
+    const { results: usersWithCountry } = await env.DB.prepare(
+      'SELECT id, phone_country FROM users ' +
+      'WHERE phone_country IS NOT NULL AND phone_country_enc IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const u of usersWithCountry || []) {
+      const enc = await encryptPii(env, u.phone_country);
+      if (!enc) continue;
+      await env.DB.prepare(
+        'UPDATE users SET phone_country_enc = ?, phone_country = NULL, updated_at = ? WHERE id = ?'
+      ).bind(enc, new Date().toISOString(), u.id).run();
+    }
+    // users.phone_national
+    const { results: usersWithNational } = await env.DB.prepare(
+      'SELECT id, phone_national FROM users ' +
+      'WHERE phone_national IS NOT NULL AND phone_national_enc IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const u of usersWithNational || []) {
+      const enc = await encryptPii(env, u.phone_national);
+      if (!enc) continue;
+      await env.DB.prepare(
+        'UPDATE users SET phone_national_enc = ?, phone_national = NULL, updated_at = ? WHERE id = ?'
+      ).bind(enc, new Date().toISOString(), u.id).run();
+    }
+    // inquiries.phone
+    const { results: inqs } = await env.DB.prepare(
+      'SELECT id, phone FROM inquiries ' +
+      'WHERE phone IS NOT NULL AND phone_enc IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const iq of inqs || []) {
+      const enc = await encryptPii(env, iq.phone);
+      if (!enc) continue;
+      await env.DB.prepare(
+        'UPDATE inquiries SET phone_enc = ?, phone = NULL WHERE id = ?'
+      ).bind(enc, iq.id).run();
+    }
+  } catch {}
+}
+
+// P1-1 backfill (v01.043) — inbound_emails rows persisted before v01.040
+// still carry un-sanitized HTML. Cron re-runs sanitizeHtml() over each
+// row that hasn't been marked sanitized_at, then sets the marker. Once
+// every legacy row is processed the cron becomes a fast no-op (just a
+// SELECT returning zero rows).
+async function inboundSanitizeCron(env) {
+  const BATCH = 50;
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT id, body_html FROM inbound_emails ' +
+      'WHERE sanitized_at IS NULL ' +
+      'ORDER BY id ASC LIMIT ?'
+    ).bind(BATCH).all();
+    const now = new Date().toISOString();
+    for (const r of results || []) {
+      const safe = r.body_html ? await sanitizeHtml(String(r.body_html)) : '';
+      await env.DB.prepare(
+        'UPDATE inbound_emails SET body_html = ?, sanitized_at = ? WHERE id = ?'
+      ).bind(safe, now, r.id).run();
+    }
   } catch {}
 }
 

@@ -84,12 +84,17 @@ export default {
       // ~25 MB so this is safe.
       const raw = await readEmailRaw(message.raw);
       const { text, html, attachments } = extractParts(raw);
+      // P1-1: inbound HTML comes from arbitrary external senders. Sanitize
+      // hard before persisting — admin views these via dangerouslySetInnerHTML
+      // (or an iframe), and the inbox is the most adversarial channel we
+      // have. Plain-text body stays untouched.
+      const safeHtml = html ? await sanitizeHtml(html) : '';
       const ts = new Date().toISOString();
       const ins = await env.DB.prepare(
         'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         ts, message.to, fromAddr, fromName, subject || '(no subject)',
-        text || '', html || '', message.rawSize || raw.length,
+        text || '', safeHtml, message.rawSize || raw.length,
         messageId, inReplyTo
       ).run();
       const emailId = ins.meta?.last_row_id;
@@ -313,7 +318,9 @@ async function writeAdminAudit(env, request, payload) {
       const auth = request.headers.get('authorization') || '';
       if (!auth.startsWith('Bearer ')) return false;
       const provided = auth.slice(7);
-      return !!env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN);
+      const m1 = env.ADMIN_TOKEN      && safeEqual(provided, env.ADMIN_TOKEN);
+      const m2 = env.ADMIN_TOKEN_NEXT && safeEqual(provided, env.ADMIN_TOKEN_NEXT);
+      return m1 || m2;
     })();
     await env.DB.prepare(
       'INSERT INTO admin_audit (ts, actor_user_id, via_admin_token, action, target_type, target_id, detail, ip, user_agent) ' +
@@ -350,6 +357,95 @@ async function writeLoginActivity(env, request, user) {
       (request.headers.get('user-agent') || '').slice(0, 500),
     ).run();
   } catch {}
+}
+
+// ── HTML sanitizer (P1-1) ────────────────────────────────────────────────
+// HTMLRewriter-backed allowlist sanitizer for rich-text fields that get
+// stored and later rendered via dangerouslySetInnerHTML. Strips every
+// element/attribute not on the allowlist; for URL-bearing attrs
+// (href/src) it also vets the scheme so javascript:, data:, and
+// vbscript: URLs can't sneak through.
+//
+// Why allowlist: blocklists are a losing game — every new HTML feature
+// adds another injection vector. Allowlist gives a stable, predictable
+// surface.
+//
+// Why HTMLRewriter: it's a Cloudflare-native streaming HTML parser, well
+// hardened against mXSS / parser-confusion attacks. Writing a regex
+// sanitizer for arbitrary attacker HTML (inbound email!) would be
+// strictly worse.
+const SANITIZE_ALLOWED_TAGS = new Set([
+  'p', 'br', 'hr', 'div', 'span',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'strong', 'em', 'u', 's', 'b', 'i',
+  'ul', 'ol', 'li',
+  'a',
+  'blockquote', 'code', 'pre',
+  'img',
+  'table', 'thead', 'tbody', 'tr', 'td', 'th',
+  'details', 'summary',
+]);
+// Elements that must be removed with their content (executable / framing
+// surface). Anything else not in the allowlist gets removeAndKeepContent.
+const SANITIZE_DROP_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'form',
+  'input', 'button', 'select', 'option', 'textarea', 'link', 'meta',
+  'svg', 'math', 'base', 'frame', 'frameset', 'applet',
+]);
+const SANITIZE_ATTRS_BY_TAG = {
+  a: ['href', 'title'],
+  img: ['src', 'alt', 'title', 'width', 'height'],
+  td: ['colspan', 'rowspan'],
+  th: ['colspan', 'rowspan'],
+};
+function sanitizeUrlOk(value) {
+  // Empty or relative paths are fine.
+  if (!value) return false;
+  const v = value.trim();
+  if (!v) return false;
+  // Allow same-doc anchors, relative paths, and explicit http(s) / mailto.
+  if (v.startsWith('#') || v.startsWith('/') || v.startsWith('./') || v.startsWith('../')) return true;
+  // Block everything that isn't http(s) / mailto / tel.
+  const lower = v.toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://')) return true;
+  if (lower.startsWith('mailto:') || lower.startsWith('tel:')) return true;
+  // Special case: data: URIs — only allow image MIME types (for inline images
+  // pasted into TipTap). Everything else (data:text/html etc.) gets blocked.
+  if (lower.startsWith('data:image/')) return true;
+  return false;
+}
+
+async function sanitizeHtml(html) {
+  if (!html || typeof html !== 'string') return '';
+  try {
+    const rewriter = new HTMLRewriter().on('*', {
+      element(el) {
+        const tag = el.tagName.toLowerCase();
+        if (SANITIZE_DROP_TAGS.has(tag)) { el.remove(); return; }
+        if (!SANITIZE_ALLOWED_TAGS.has(tag)) { el.removeAndKeepContent(); return; }
+        const allowed = SANITIZE_ATTRS_BY_TAG[tag] || [];
+        // Snapshot attributes first — el.attributes is a live iterator and
+        // we mutate during the loop.
+        const attrs = [];
+        for (const a of el.attributes) attrs.push(a);
+        for (const [name, value] of attrs) {
+          if (!allowed.includes(name)) {
+            el.removeAttribute(name);
+            continue;
+          }
+          if ((name === 'href' || name === 'src') && !sanitizeUrlOk(value)) {
+            el.removeAttribute(name);
+          }
+        }
+      },
+    });
+    const resp = rewriter.transform(new Response(html));
+    return await resp.text();
+  } catch {
+    // Fail closed — if the parser blows up on a pathological input, return
+    // empty rather than passing potentially-dangerous markup through.
+    return '';
+  }
 }
 
 // Origin / Referer same-origin guard. Returns true when:
@@ -1035,7 +1131,11 @@ async function handleApi(request, env, url, ctx) {
     const subject  = String(body.subject || '').trim();
     // body_html (rich, from TipTap) takes priority. body_text is derived from
     // it for plain-text fallback. Legacy { body } is treated as plain text.
-    const bodyHtml = body.body_html ? String(body.body_html) : '';
+    // P1-1: sanitize the HTML before we either send it or persist it. Admin
+    // is trusted to write copy but not trusted to bypass the allowlist;
+    // also covers the case where a copy-paste from a malicious source
+    // brings in <script> / on* attributes.
+    const bodyHtml = body.body_html ? await sanitizeHtml(String(body.body_html)) : '';
     const bodyText = body.body_text != null ? String(body.body_text)
                    : bodyHtml ? htmlToPlainText(bodyHtml)
                    : String(body.body || '');
@@ -1549,6 +1649,17 @@ async function handleApi(request, env, url, ctx) {
       critical: true,
       configured: !!env.ADMIN_TOKEN,
     });
+    // Surface ADMIN_TOKEN_NEXT only when it's set so the operator can see
+    // a rotation is in progress. When unset it stays hidden to avoid
+    // confusing the dashboard.
+    if (env.ADMIN_TOKEN_NEXT) {
+      status.splice(1, 0, {
+        id: 'ADMIN_TOKEN_NEXT',
+        label: 'Admin Bearer token (rotation candidate)',
+        critical: false,
+        configured: true,
+      });
+    }
     return json({ items: status });
   }
 
@@ -2227,6 +2338,20 @@ async function handleApi(request, env, url, ctx) {
     if (method === 'PUT' || method === 'POST') {
       const body = await request.json().catch(() => null);
       if (!body) return json({ error: 'invalid_json' }, 400);
+      // P1-1: rich-text fields go through the allowlist sanitizer. Plain
+      // string fields (duration, format, …) are not HTML and stay as-is.
+      const rich = await Promise.all([
+        sanitizeHtml(str(body.overview_ko) || ''),
+        sanitizeHtml(str(body.overview_en) || ''),
+        sanitizeHtml(str(body.curriculum_ko) || ''),
+        sanitizeHtml(str(body.curriculum_en) || ''),
+        sanitizeHtml(str(body.outcomes_ko) || ''),
+        sanitizeHtml(str(body.outcomes_en) || ''),
+        sanitizeHtml(str(body.prerequisites_ko) || ''),
+        sanitizeHtml(str(body.prerequisites_en) || ''),
+        sanitizeHtml(str(body.instructor_bio_ko) || ''),
+        sanitizeHtml(str(body.instructor_bio_en) || ''),
+      ]);
       const cols = ['program_id','overview_ko','overview_en','curriculum_ko','curriculum_en',
                     'outcomes_ko','outcomes_en','prerequisites_ko','prerequisites_en',
                     'duration','format','language_required','start_date','cohort_size',
@@ -2234,14 +2359,14 @@ async function handleApi(request, env, url, ctx) {
                     'instructor_bio_ko','instructor_bio_en',
                     'cost_full','cost_currency','updated_at','updated_by'];
       const values = [id,
-                      str(body.overview_ko), str(body.overview_en),
-                      str(body.curriculum_ko), str(body.curriculum_en),
-                      str(body.outcomes_ko), str(body.outcomes_en),
-                      str(body.prerequisites_ko), str(body.prerequisites_en),
+                      rich[0] || null, rich[1] || null,
+                      rich[2] || null, rich[3] || null,
+                      rich[4] || null, rich[5] || null,
+                      rich[6] || null, rich[7] || null,
                       str(body.duration), str(body.format), str(body.language_required),
                       str(body.start_date), body.cohort_size != null ? Number(body.cohort_size) : null,
                       str(body.certification), str(body.instructor_name), str(body.instructor_title),
-                      str(body.instructor_bio_ko), str(body.instructor_bio_en),
+                      rich[8] || null, rich[9] || null,
                       body.cost_full != null ? Number(body.cost_full) : null,
                       str(body.cost_currency || 'USD'),
                       new Date().toISOString(), null];
@@ -2345,7 +2470,14 @@ async function handleApi(request, env, url, ctx) {
         if (typeof p.title !== 'string' || p.title.length > 200) return json({ error: 'invalid_page_title' }, 400);
         if (p.body && typeof p.body !== 'string') return json({ error: 'invalid_page_body' }, 400);
       }
-      await env.CONTENT_KV.put(key, body);
+      // P1-1: sanitize every page body before persisting so a malicious
+      // admin (or admin-token holder) can't drop <script> / event handlers
+      // into the wiki KV.
+      for (const p of parsed.pages) {
+        if (p.body) p.body = await sanitizeHtml(p.body);
+      }
+      const sanitizedBody = JSON.stringify(parsed);
+      await env.CONTENT_KV.put(key, sanitizedBody);
       return json({ ok: true });
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -3407,13 +3539,24 @@ function userIsAdmin(user) {
 
 // Async admin check. The bearer can be either:
 //   (A) the legacy ADMIN_TOKEN secret (for ops / external automation), or
+//   (A') ADMIN_TOKEN_NEXT — a second valid secret accepted during a
+//        rotation window so the operator can swap tokens with zero
+//        downtime. Procedure: set ADMIN_TOKEN_NEXT to the new strong
+//        64-char value, switch clients, then promote it to ADMIN_TOKEN
+//        and delete ADMIN_TOKEN_NEXT.
 //   (B) a session token belonging to an admin-role user.
-// We try (A) first since it's cheap; fall through to (B) only if needed.
+// Always check BOTH secrets (constant-time) before the role lookup so
+// timing can't tell an attacker which secret matched.
 async function isAdmin(request, env) {
   const auth = request.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ')) return false;
   const provided = auth.slice(7);
-  if (env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN)) return true;
+  // safeEqual short-circuits on length mismatch; that's an early-exit
+  // optimisation, not a leak — an attacker only learns "your token isn't
+  // length N" which is true of an infinite number of strings.
+  const matchesPrimary = env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN);
+  const matchesNext    = env.ADMIN_TOKEN_NEXT && safeEqual(provided, env.ADMIN_TOKEN_NEXT);
+  if (matchesPrimary || matchesNext) return true;
   const user = await currentUser(request, env);
   return userIsAdmin(user);
 }

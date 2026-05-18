@@ -201,12 +201,11 @@ function ActivateAccountView({ go, lang }) {
   const initialCode  = (params.get('code') || '').replace(/\D/g, '').slice(0, 6);
   const [email, setEmail] = useStateAV(initialEmail);
   const [code, setCode]   = useStateAV(initialCode);
-  const [state, setState] = useStateAV(initialEmail && initialCode.length === 6 ? 'working' : 'idle'); // idle | working | ok | invalid_code | expired | error
-  const [msg, setMsg]     = useStateAV('');
+  const [state, setState] = useStateAV(initialEmail && initialCode.length === 6 ? 'working' : 'idle'); // idle | working | ok | failed
   const [resentAt, setResentAt] = useStateAV(0);
 
   async function submitActivation(e_, c_) {
-    setState('working'); setMsg('');
+    setState('working');
     try {
       const r = await fetch('/api/auth/activate', {
         method: 'POST',
@@ -214,7 +213,7 @@ function ActivateAccountView({ go, lang }) {
         body: JSON.stringify({ email: e_, code: c_ }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok) {
+      if (r.ok && d.ok) {
         // Auto-login the activated user via the returned session token.
         if (d.token && window.DreamPathAuth && window.DreamPathAuth.adoptSession) {
           window.DreamPathAuth.adoptSession(d.token, d.user);
@@ -222,12 +221,13 @@ function ActivateAccountView({ go, lang }) {
         setState('ok');
         return;
       }
-      if (d.error === 'invalid_code')        setState('invalid_code');
-      else if (d.error === 'activation_expired') setState('expired');
-      else if (d.error === 'no_pending_activation') { setState('error'); setMsg(isKo ? '이미 활성화되었거나 인증 요청이 없습니다.' : 'No pending activation for this email.'); }
-      else { setState('error'); setMsg(d.error || ('http_' + r.status)); }
-    } catch (err) {
-      setState('error'); setMsg(String(err.message || err));
+      // Server returns one opaque failure shape for all rejection modes
+      // (no such email / expired / wrong code / locked / already active) so
+      // an attacker can't distinguish between them. We surface the same
+      // single message no matter what.
+      setState('failed');
+    } catch {
+      setState('failed');
     }
   }
 
@@ -287,11 +287,11 @@ function ActivateAccountView({ go, lang }) {
             autoComplete="one-time-code"
             style={{fontFamily:'var(--font-mono)',fontSize:20,letterSpacing:'0.4em',textAlign:'center'}} />
         </label>
-        {(state === 'invalid_code' || state === 'expired' || state === 'error') && (
+        {state === 'failed' && (
           <div className="auth-err" role="alert" style={{marginTop:8}}>
-            {state === 'invalid_code' ? (isKo ? '인증코드가 일치하지 않습니다.' : 'Code does not match.')
-             : state === 'expired'    ? (isKo ? '인증코드가 만료되었습니다. 새 코드를 요청하세요.' : 'This code has expired. Request a new one.')
-             : (msg || (isKo ? '오류가 발생했습니다.' : 'Something went wrong.'))}
+            {isKo
+              ? '활성화에 실패했습니다. 인증코드가 일치하지 않거나, 만료되었거나, 시도 횟수가 너무 많을 수 있습니다. 코드를 다시 확인하시거나, "다시 보내기"로 새 코드를 받으세요.'
+              : 'Activation failed. The code may be wrong, expired, or attempted too many times. Re-check it or request a new one with "Resend".'}
           </div>
         )}
         <button type="submit" className="btn btn-primary btn-block" style={{marginTop:14}} disabled={state === 'working' || code.length !== 6}>

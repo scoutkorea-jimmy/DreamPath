@@ -8,19 +8,20 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.032.00`
+- **버전**: `v01.033.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0023** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0024** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.032.00** (마이너 +5)
+- **이번 세션 누적**: v01.027.00 → **v01.033.00** (마이너 +6)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
   - +01.031 — Apply draft 서버 영속화 (72h TTL) + essays_json 컬럼 + PCI 카드 필드 strip
   - +01.032 — 로그인 무차별 대입 방어 (실패 카운트 + 지수 백오프 잠금)
+  - +01.033 — **방어 라운드 시작**: 활성화 throttle + 인증 4경로(login/activate/resend/lockout) timing + status 균질화. crypto-secure 활성화 코드. 정보 누출 헌법: 모든 인증 응답은 status code · body · wall-clock 모두 분기 무관 동일.
 
 ## 2. 스택 한눈에
 
@@ -38,7 +39,25 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.032)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.033)에 마친 큰 변경
+
+### 인증 4경로 timing + status 균질화 — v01.033 (방어 라운드 P0-1)
+- **운영자 지시**: "모든 코드는 외부에서 시간차이 혹은 반환 코드로 그 내역을 추측할 수 있도록 하면 안됨"
+- **변경 대상**: `/api/auth/login`, `/api/auth/activate`, `/api/auth/resend-activation`, login의 lockout 응답
+- **이전 누설 지점**:
+  - 로그인: `if (!u) return 401` 즉시 반환 → 이메일 존재 여부 timing oracle. `account_not_activated` 403 → 미활성 계정 식별. `too_many_attempts` 429 → 잠금 상태 식별. 즉 한 이메일에 대해 4가지 상태(존재안함 / 활성 / 미활성 / 잠금)를 응답 분석으로 모두 구분 가능.
+  - 활성화: 코드 brute-force 무방어(6자리 = 100만). `not_found` 404, `no_pending_activation` 400, `activation_expired` 410, `invalid_code` 401 — 모두 상태 누설.
+  - 활성화 코드 생성: `Math.random()` 사용 → 시드 예측 가능.
+  - resend-activation: 429 + `retry_after_seconds` → 해당 이메일이 존재하고 최근 발송된 적 있음을 누설. dev fallback이 RESEND 키 미설정 시 응답 body에 코드 노출.
+- **새 규칙**:
+  - **login**: 모든 실패 경로 → `401 {error:'invalid_credentials'}` 단일 응답. `hashPassword`는 분기 무관 항상 실행 (no-row일 때 dummy salt + dummy hash). 최소 350ms wall-clock pad.
+  - **activate**: 모든 실패 경로 → `401 {error:'invalid_request'}` 단일 응답. `safeEqual`은 분기 무관 항상 실행 (no-row/malformed일 때 dummy code). 최소 350ms wall-clock pad. 3회+ 실패 시 지수 백오프 잠금 (60·2^(n-3)s).
+  - **resend-activation**: 모든 경로 → `200 {ok:true}`. rate-limit 발동도 silent. dev fallback path 제거 (코드는 메일로만 전달).
+- **마이그레이션**: `0024_activation_throttle.sql` — `users.failed_activation_attempts` + `failed_activation_locked_until`.
+- **활성화 코드 생성**: `crypto.getRandomValues(Uint32Array)` → 1M 모듈로. modulo bias < 0.0000232% 허용.
+- **클라이언트**: `Auth.jsx` 로그인 에러 모든 분기 → 단일 메시지(원인 가능성 모두 안내 + 복구 방법 3가지 제시). `Auth.views.jsx` 활성화 페이지 동일 처리. retry_after_seconds 처리 제거.
+- **검증 (live)**: login(nonexistent + malformed) / activate(nonexistent + malformed) / resend(nonexistent) 모두 동일 status + body + ~550ms timing 확인.
+- **알려진 한계 / 후속**: signup의 `email_taken` 409, password reset의 timing 비대칭, signup의 dev `activation_code` 응답 노출은 P0-2 / P0-3에서 처리. CSRF · 보안 헤더 · localStorage 토큰 등은 P1/P2.
 
 ### 로그인 brute-force 방어 — v01.032 (이번 라운드 신규)
 - **문제**: 비밀번호 잘못 입력해도 무제한 시도 가능 → 자동화 공격에 취약

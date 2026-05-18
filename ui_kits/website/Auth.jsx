@@ -148,15 +148,15 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
       }
     } catch (e) {
       const msg = String(e.message || 'error');
-      // The backend returns "account_not_activated" + email — pivot the UI
-      // straight into the activation flow instead of leaving the user stuck.
-      if (msg === 'account_not_activated') {
-        setPendingEmail(email);
-        setMode('needs_activation');
-        return;
-      }
+      // The backend folds all login failure modes (wrong password, no such
+      // account, not activated, locked out from too many tries) into a
+      // single `invalid_credentials` 401 so an attacker can't tell which
+      // branch fired. We mirror that here — one generic message that hints
+      // at all possible causes plus the recovery paths the user has.
       const human = {
-        invalid_credentials:        isKo ? '이메일 또는 비밀번호가 올바르지 않습니다.' : 'Invalid email or password.',
+        invalid_credentials:        isKo
+          ? '이메일 또는 비밀번호가 일치하지 않거나, 계정이 아직 활성화되지 않았거나, 시도가 너무 많아 일시적으로 차단되었습니다. 잠시 후 다시 시도하거나, 활성화 메일을 다시 받거나, 비밀번호를 재설정하세요.'
+          : "Sign-in didn't succeed. The email or password may be wrong, the account may not be activated yet, or too many attempts may have been made. Wait a few minutes and try again, resend the activation email, or reset your password.",
         invalid_email:              isKo ? '이메일 형식이 올바르지 않습니다.' : 'Invalid email format.',
         password_too_short:         isKo ? '비밀번호는 최소 10자 이상이어야 합니다.' : 'Password must be at least 10 characters.',
         password_missing_uppercase: isKo ? '대문자가 포함되어야 합니다.' : 'Password must include an uppercase letter.',
@@ -167,16 +167,8 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
         invalid_phone_country:      isKo ? '국가번호 형식이 올바르지 않습니다.' : 'Invalid country code.',
         invalid_phone_national:     isKo ? '전화번호가 너무 짧습니다.' : 'Phone number is too short.',
         email_taken:                isKo ? '이미 가입된 이메일입니다.' : 'Email already registered.',
-        too_many_attempts:          isKo ? '로그인 시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.' : 'Too many login attempts. Please try again later.',
       }[msg] || (isKo ? '오류가 발생했습니다: ' + msg : 'Error: ' + msg);
-      if (msg === 'too_many_attempts' && e.retryAfterSeconds != null) {
-        const wait = e.retryAfterSeconds >= 60
-          ? isKo ? Math.ceil(e.retryAfterSeconds / 60) + '분 후 다시 시도해주세요.' : ' Please wait ' + Math.ceil(e.retryAfterSeconds / 60) + ' minute(s).'
-          : isKo ? Math.ceil(e.retryAfterSeconds) + '초 후 다시 시도해주세요.' : ' Please wait ' + Math.ceil(e.retryAfterSeconds) + ' second(s).';
-        setErr(human + wait);
-      } else {
-        setErr(human);
-      }
+      setErr(human);
     } finally {
       setBusy(false);
     }

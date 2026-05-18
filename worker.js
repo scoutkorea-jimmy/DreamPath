@@ -2006,11 +2006,39 @@ function passwordPolicyError(pw) {
 }
 function generateActivationCode() {
   // Six-digit zero-padded numeric — easiest format for users to type from a
-  // mobile mail client and matches what most consumer apps use.
-  const n = Math.floor(Math.random() * 1_000_000);
-  return String(n).padStart(6, '0');
+  // mobile mail client. Uses crypto.getRandomValues so the code is not
+  // predictable; Math.random() is seeded and not safe for security tokens.
+  // Modulo bias on 2^32 / 1_000_000 is negligible (< 0.0000232%) so we
+  // accept it instead of rejection-sampling for code clarity.
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(buf[0] % 1_000_000).padStart(6, '0');
 }
 const ACTIVATION_TTL_MS = 72 * 3600 * 1000;
+
+// Constant-time response padding for auth endpoints. The point isn't a
+// universally fixed wall-clock — it's that an attacker measuring response
+// time can't tell which branch ran (no row vs wrong code vs locked vs
+// expired etc.). We hold the response open until at least minMs have
+// elapsed since the route started. Pair this with always-running the DB
+// lookup + hash/safeEqual on every branch so the dominant work isn't
+// conditional. Anti-enumeration: the worker keeps no per-IP state here, so
+// a real attacker can still parallelise; throttling at the user-row level
+// (failed_login_*, failed_activation_*) is the actual rate cap.
+async function padTiming(startedAt, minMs) {
+  const elapsed = Date.now() - startedAt;
+  const remain = minMs - elapsed;
+  if (remain > 0) await new Promise(r => setTimeout(r, remain));
+}
+
+// Fixed dummy salt + a constant 64-char dummy hash so login can call
+// hashPassword and safeEqual on every branch — including the "no such
+// email" branch — and produce identical timing to the real path. The
+// dummy hash will never legitimately match any real password+salt
+// combination.
+const TIMING_DUMMY_SALT = 'kdp-timing-dummy-salt-not-secret';
+const TIMING_DUMMY_HASH = '0'.repeat(64);
+const TIMING_DUMMY_CODE = '999999';
 
 async function signup(request, env) {
   const body = await request.json().catch(() => null);
@@ -2107,49 +2135,64 @@ function baseUrl(request) {
   } catch { return 'https://koreadreampath.com'; }
 }
 
+// Login: every failure mode returns the SAME 401 / `invalid_credentials`
+// response and the SAME wall-clock duration (≥ LOGIN_MIN_MS). That includes
+// "no such email", "wrong password", "account not activated", and "too many
+// attempts" — an attacker watching status codes or timing cannot tell which
+// branch fired. The hash is always computed (against a dummy when the row
+// is missing) so PBKDF2 cost is paid on every request. Throttling still
+// happens (failed_login_attempts column from migration 0023) but the lock
+// state is never reported back to the caller; the only visible effect is
+// that wrong passwords keep returning the same generic 401.
+const LOGIN_MIN_MS = 350;
 async function login(request, env) {
+  const startedAt = Date.now();
+  const FAIL = async () => {
+    await padTiming(startedAt, LOGIN_MIN_MS);
+    return json({ error: 'invalid_credentials' }, 401);
+  };
+
   const body = await request.json().catch(() => null);
-  if (!body) return json({ error: 'invalid_json' }, 400);
-  const email = String(body.email || '').trim().toLowerCase();
-  const password = String(body.password || '');
-  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-  if (!u) return json({ error: 'invalid_credentials' }, 401);
+  const email = body ? String(body.email || '').trim().toLowerCase() : '';
+  const password = body ? String(body.password || '') : '';
+
+  const u = email
+    ? await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
+    : null;
+
+  // Always run PBKDF2 — same cost whether the row exists or not. The dummy
+  // salt + dummy hash mean safeEqual still runs on equal-length strings.
+  const salt = (u && u.password_salt) ? u.password_salt : TIMING_DUMMY_SALT;
+  const realHash = (u && u.password_hash) ? String(u.password_hash) : TIMING_DUMMY_HASH;
+  const candidateHash = await hashPassword(password, salt);
+  const passwordOK = safeEqual(candidateHash, realHash);
+
+  if (!u) return FAIL();
 
   const now = Date.now();
   const lockedUntilMs = u.failed_login_locked_until ? new Date(u.failed_login_locked_until).getTime() : 0;
-  if (lockedUntilMs > now) {
-    return json({
-      error: 'too_many_attempts',
-      retry_after_seconds: Math.ceil((lockedUntilMs - now) / 1000),
-    }, 429);
-  }
+  if (lockedUntilMs > now) return FAIL();
 
-  const hash = await hashPassword(password, u.password_salt);
-  if (!safeEqual(hash, u.password_hash)) {
+  if (!passwordOK) {
     const attempts = (u.failed_login_attempts || 0) + 1;
     const lockSeconds = attempts >= 3 ? 60 * Math.pow(2, attempts - 3) : 0;
     const lockedUntil = lockSeconds ? new Date(now + lockSeconds * 1000).toISOString() : null;
     await env.DB.prepare(
       'UPDATE users SET failed_login_attempts = ?, failed_login_locked_until = ?, updated_at = ? WHERE id = ?'
     ).bind(attempts, lockedUntil, new Date().toISOString(), u.id).run();
-
-    return json({
-      error: 'invalid_credentials',
-      ...(lockSeconds ? { retry_after_seconds: lockSeconds } : {}),
-    }, 401);
+    return FAIL();
   }
+
+  // Activation gate — quietly fold into the same generic failure so
+  // attackers can't distinguish "registered but not activated" from
+  // "wrong password". Legit users recover via the /activate page (which
+  // has its own resend flow).
+  if (!u.activated_at && u.email !== ALWAYS_ADMIN_EMAIL) return FAIL();
 
   if (u.failed_login_attempts || u.failed_login_locked_until) {
     await env.DB.prepare(
       'UPDATE users SET failed_login_attempts = 0, failed_login_locked_until = NULL, updated_at = ? WHERE id = ?'
     ).bind(new Date().toISOString(), u.id).run();
-  }
-
-  // Activation gate — accounts that haven't verified their email can't sign
-  // in. Always-admin email skips this so deploys can't lock us out. Returns
-  // 403 with email so the client can present the activation entry/resend UI.
-  if (!u.activated_at && u.email !== ALWAYS_ADMIN_EMAIL) {
-    return json({ error: 'account_not_activated', email: u.email }, 403);
   }
   // Self-heal the always-admin role on every login — covers legacy accounts
   // that signed up before this rule existed and ones that were demoted by
@@ -2159,28 +2202,74 @@ async function login(request, env) {
     u.role = 'admin';
   }
   const session = await createSession(env, u.id);
+  await padTiming(startedAt, LOGIN_MIN_MS);
   return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at });
 }
 
+// Activate: same response-equivalence rules as login(). Every failure mode
+// (no such email, no pending activation, expired, wrong code, locked,
+// already activated) returns the same 401 / `invalid_request` body and the
+// same wall-clock duration. The throttle tracks failed attempts on the
+// user row (failed_activation_*) — 3+ failures triggers the same
+// exponential lockout login uses (60 · 2^(n-3) seconds).
+const ACTIVATE_MIN_MS = 350;
 async function activateAccount(request, env) {
+  const startedAt = Date.now();
+  const FAIL = async () => {
+    await padTiming(startedAt, ACTIVATE_MIN_MS);
+    return json({ error: 'invalid_request' }, 401);
+  };
+
   const body = await request.json().catch(() => null);
-  if (!body) return json({ error: 'invalid_json' }, 400);
-  const email = String(body.email || '').trim().toLowerCase();
-  const code  = String(body.code || '').replace(/\D/g, '');
-  if (!isEmail(email) || !/^\d{6}$/.test(code)) return json({ error: 'invalid_request' }, 400);
-  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-  if (!u) return json({ error: 'not_found' }, 404);
-  if (u.activated_at) return json({ ok: true, already: true });
-  if (!u.activation_code || !u.activation_expires_at) return json({ error: 'no_pending_activation' }, 400);
-  if (new Date(u.activation_expires_at).getTime() < Date.now()) return json({ error: 'activation_expired' }, 410);
-  if (!safeEqual(code, String(u.activation_code))) return json({ error: 'invalid_code' }, 401);
-  const now = new Date().toISOString();
+  const email = body ? String(body.email || '').trim().toLowerCase() : '';
+  const code  = body ? String(body.code || '').replace(/\D/g, '') : '';
+
+  // Always do the lookup so the no-row branch costs the same as the
+  // row-present branch.
+  const u = email
+    ? await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
+    : null;
+
+  // Always run safeEqual on equal-length strings (6 digits vs 6 digits).
+  // Candidate is padded to 6 digits even when the request was malformed so
+  // the comparison cost is constant.
+  const realCode = (u && u.activation_code) ? String(u.activation_code) : TIMING_DUMMY_CODE;
+  const candidate = /^\d{6}$/.test(code) ? code : TIMING_DUMMY_CODE;
+  const codeMatches = safeEqual(candidate, realCode);
+
+  if (!u) return FAIL();
+
+  // Lockout — opaque failure.
+  const now = Date.now();
+  const lockedUntilMs = u.failed_activation_locked_until ? new Date(u.failed_activation_locked_until).getTime() : 0;
+  if (lockedUntilMs > now) return FAIL();
+
+  // No pending row, already activated, or expired — all map to the same
+  // generic failure. Legit users who clicked an old link will see the same
+  // error as an attacker; they can request a new code from /activate.
+  if (u.activated_at) return FAIL();
+  if (!u.activation_code || !u.activation_expires_at) return FAIL();
+  if (new Date(u.activation_expires_at).getTime() < now) return FAIL();
+
+  if (!codeMatches) {
+    const attempts = (u.failed_activation_attempts || 0) + 1;
+    const lockSeconds = attempts >= 3 ? 60 * Math.pow(2, attempts - 3) : 0;
+    const lockedUntil = lockSeconds ? new Date(now + lockSeconds * 1000).toISOString() : null;
+    await env.DB.prepare(
+      'UPDATE users SET failed_activation_attempts = ?, failed_activation_locked_until = ?, updated_at = ? WHERE id = ?'
+    ).bind(attempts, lockedUntil, new Date().toISOString(), u.id).run();
+    return FAIL();
+  }
+
+  const nowIso = new Date().toISOString();
   await env.DB.prepare(
-    'UPDATE users SET activated_at = ?, activation_code = NULL, activation_expires_at = NULL, updated_at = ? WHERE id = ?'
-  ).bind(now, now, u.id).run();
+    'UPDATE users SET activated_at = ?, activation_code = NULL, activation_expires_at = NULL, ' +
+    'failed_activation_attempts = 0, failed_activation_locked_until = NULL, updated_at = ? WHERE id = ?'
+  ).bind(nowIso, nowIso, u.id).run();
   // Issue a session so the user can proceed straight into the app — saves
   // the friction of a second login immediately after activation.
   const session = await createSession(env, u.id);
+  await padTiming(startedAt, ACTIVATE_MIN_MS);
   return json({
     ok: true,
     user: { id: u.id, email: u.email, name: u.name, role: u.role, activated: true },
@@ -2236,19 +2325,33 @@ async function activationCron(env) {
   return { purged: (expired.results || []).length, reminded: (pending.results || []).length };
 }
 
+// resendActivation: always returns { ok: true } 200 after a constant
+// baseline regardless of whether the email exists, is already activated,
+// is rate-limited, or invalid. Rate-limit (one send per 60s per row) is
+// enforced silently — attacker can't probe state by alternating valid /
+// invalid emails. Dev-fallback path that leaked the activation code in
+// the JSON is gone; codes only ever travel via email now.
+const RESEND_ACTIVATION_MIN_MS = 350;
 async function resendActivation(request, env) {
+  const startedAt = Date.now();
+  const ALWAYS_OK = async () => {
+    await padTiming(startedAt, RESEND_ACTIVATION_MIN_MS);
+    return json({ ok: true });
+  };
+
   const body = await request.json().catch(() => null);
-  if (!body) return json({ error: 'invalid_json' }, 400);
-  const email = String(body.email || '').trim().toLowerCase();
-  if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+  const email = body ? String(body.email || '').trim().toLowerCase() : '';
+  if (!isEmail(email)) return ALWAYS_OK();
+
   const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
-  // Don't disclose whether the email exists. Always claim success.
-  if (!u || u.activated_at) return json({ ok: true });
-  // Refresh the code + reset the 72h window. Cap the resend rate so we
-  // can't be used as a free email blast: at most one send per 60 s.
+  if (!u || u.activated_at) return ALWAYS_OK();
+  // Silent rate-limit — one send per 60s. Attacker calling repeatedly
+  // sees only ok:true and can't tell from response whether the throttle
+  // fired or the email simply doesn't exist.
   if (u.activation_sent_at && (Date.now() - new Date(u.activation_sent_at).getTime()) < 60_000) {
-    return json({ error: 'rate_limited', retry_after_seconds: 60 }, 429);
+    return ALWAYS_OK();
   }
+
   const code = generateActivationCode();
   const expires = new Date(Date.now() + ACTIVATION_TTL_MS).toISOString();
   const now = new Date().toISOString();
@@ -2257,11 +2360,11 @@ async function resendActivation(request, env) {
   ).bind(code, expires, now, now, u.id).run();
   const lang = (body.lang === 'en') ? 'en' : 'ko';
   const link = baseUrl(request) + '/activate?email=' + encodeURIComponent(email) + '&code=' + code;
-  const send = await sendEmail(env, {
+  await sendEmail(env, {
     to: email, slug: 'activate_account', lang,
     vars: { name: u.name || email, code, activation_url: link, expires_hours: '72' },
   });
-  return json({ ok: true, email_sent: send.sent, ...(send.sent ? {} : { activation_code: code }) });
+  return ALWAYS_OK();
 }
 
 async function logout(request, env) {

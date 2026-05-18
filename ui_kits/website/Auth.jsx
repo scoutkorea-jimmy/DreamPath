@@ -167,8 +167,16 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
         invalid_phone_country:      isKo ? '국가번호 형식이 올바르지 않습니다.' : 'Invalid country code.',
         invalid_phone_national:     isKo ? '전화번호가 너무 짧습니다.' : 'Phone number is too short.',
         email_taken:                isKo ? '이미 가입된 이메일입니다.' : 'Email already registered.',
+        too_many_attempts:          isKo ? '로그인 시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.' : 'Too many login attempts. Please try again later.',
       }[msg] || (isKo ? '오류가 발생했습니다: ' + msg : 'Error: ' + msg);
-      setErr(human);
+      if (msg === 'too_many_attempts' && e.retryAfterSeconds != null) {
+        const wait = e.retryAfterSeconds >= 60
+          ? isKo ? Math.ceil(e.retryAfterSeconds / 60) + '분 후 다시 시도해주세요.' : ' Please wait ' + Math.ceil(e.retryAfterSeconds / 60) + ' minute(s).'
+          : isKo ? Math.ceil(e.retryAfterSeconds) + '초 후 다시 시도해주세요.' : ' Please wait ' + Math.ceil(e.retryAfterSeconds) + ' second(s).';
+        setErr(human + wait);
+      } else {
+        setErr(human);
+      }
     } finally {
       setBusy(false);
     }

@@ -8,18 +8,19 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.031.00`
+- **버전**: `v01.032.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0022** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0023** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.031.00** (마이너 +4)
+- **이번 세션 누적**: v01.027.00 → **v01.032.00** (마이너 +5)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
   - +01.031 — Apply draft 서버 영속화 (72h TTL) + essays_json 컬럼 + PCI 카드 필드 strip
+  - +01.032 — 로그인 무차별 대입 방어 (실패 카운트 + 지수 백오프 잠금)
 
 ## 2. 스택 한눈에
 
@@ -37,9 +38,21 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.031)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.032)에 마친 큰 변경
 
-### Apply draft 서버 영속화 + 72h TTL — v01.031 (이번 라운드 신규)
+### 로그인 brute-force 방어 — v01.032 (이번 라운드 신규)
+- **문제**: 비밀번호 잘못 입력해도 무제한 시도 가능 → 자동화 공격에 취약
+- **해결**: `users` 테이블에 `failed_login_attempts` + `failed_login_locked_until` 두 컬럼 추가
+- **동작 (worker.js `login()`)**:
+  - 잠금 시각이 미래면 즉시 **429 + `retry_after_seconds`** 반환 (비번 검증 skip)
+  - 비번 틀림: `attempts++`, 3회 이상부터 지수 백오프 — `60 * 2^(attempts-3)`초
+    `1~2회: 잠금 없음 / 3회: 60s / 4회: 120s / 5회: 240s / 6회: 480s …`
+  - 로그인 성공 시 카운터·잠금 시각 모두 리셋
+- **UX (`Auth.jsx`)**: `too_many_attempts` 메시지 ko/en + 남은 대기시간 표시 (60s 이상이면 분, 미만이면 초)
+- **마이그레이션**: `0023_login_throttle.sql`
+- **알려진 한계**: 계정별 잠금 (IP 기반 아님). 다른 계정으로 시도 가능. 차후 Turnstile / IP rate-limit 검토 필요.
+
+### Apply draft 서버 영속화 + 72h TTL — v01.031
 - **문제**: v01.030까지 임시저장은 sessionStorage에만 → 다른 기기 / 브라우저 클리어 시 사라짐
 - **해결**: 새 D1 테이블 `apply_drafts (user_id PK, form_json, step, updated_at, size_bytes)` + 워커 API 3종
   - `GET /api/me/apply-draft` — 로그인 회원의 서버 draft 조회 (72h 초과 시 자동 삭제 + `expired:true` 반환)

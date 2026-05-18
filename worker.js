@@ -2114,8 +2114,37 @@ async function login(request, env) {
   const password = String(body.password || '');
   const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
   if (!u) return json({ error: 'invalid_credentials' }, 401);
+
+  const now = Date.now();
+  const lockedUntilMs = u.failed_login_locked_until ? new Date(u.failed_login_locked_until).getTime() : 0;
+  if (lockedUntilMs > now) {
+    return json({
+      error: 'too_many_attempts',
+      retry_after_seconds: Math.ceil((lockedUntilMs - now) / 1000),
+    }, 429);
+  }
+
   const hash = await hashPassword(password, u.password_salt);
-  if (!safeEqual(hash, u.password_hash)) return json({ error: 'invalid_credentials' }, 401);
+  if (!safeEqual(hash, u.password_hash)) {
+    const attempts = (u.failed_login_attempts || 0) + 1;
+    const lockSeconds = attempts >= 3 ? 60 * Math.pow(2, attempts - 3) : 0;
+    const lockedUntil = lockSeconds ? new Date(now + lockSeconds * 1000).toISOString() : null;
+    await env.DB.prepare(
+      'UPDATE users SET failed_login_attempts = ?, failed_login_locked_until = ?, updated_at = ? WHERE id = ?'
+    ).bind(attempts, lockedUntil, new Date().toISOString(), u.id).run();
+
+    return json({
+      error: 'invalid_credentials',
+      ...(lockSeconds ? { retry_after_seconds: lockSeconds } : {}),
+    }, 401);
+  }
+
+  if (u.failed_login_attempts || u.failed_login_locked_until) {
+    await env.DB.prepare(
+      'UPDATE users SET failed_login_attempts = 0, failed_login_locked_until = NULL, updated_at = ? WHERE id = ?'
+    ).bind(new Date().toISOString(), u.id).run();
+  }
+
   // Activation gate — accounts that haven't verified their email can't sign
   // in. Always-admin email skips this so deploys can't lock us out. Returns
   // 403 with email so the client can present the activation entry/resend UI.

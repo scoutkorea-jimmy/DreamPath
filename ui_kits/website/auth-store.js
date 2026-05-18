@@ -67,7 +67,11 @@
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'login_failed');
+    if (!res.ok) {
+      const err = new Error(data.error || 'login_failed');
+      if (data.retry_after_seconds != null) err.retryAfterSeconds = Number(data.retry_after_seconds);
+      throw err;
+    }
     setToken(data.token);
     _user = data.user;
     emit();

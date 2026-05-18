@@ -1392,6 +1392,131 @@ async function handleApi(request, env, url, ctx) {
   }
 
   // ── Integrations: status of every known external secret ─────────────────
+  // ── Admin global search ──────────────────────────────────────────────────
+  // Real-time cross-table search the operator uses from the sidebar input.
+  // Hits members / applications / inquiries / inbound + outbound emails
+  // and walks the wiki + KV content blob. Per-section cap so a vague query
+  // doesn't dump tens of thousands of rows. q is trimmed and capped at
+  // 100 chars; empty q returns an empty result set instead of everything.
+  if (path === '/api/admin/search' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const qRaw = (url.searchParams.get('q') || '').trim();
+    if (!qRaw) {
+      return json({ q: '', users: [], applications: [], inquiries: [], inbound_emails: [], outbound_emails: [], wiki: [], content: [] });
+    }
+    const q = qRaw.slice(0, 100);
+    const like = '%' + q + '%';
+    const PER = 10;
+    const qLow = q.toLowerCase();
+
+    // D1 lookups run in parallel — six small queries. Each one .all()
+    // returns { results: [...] } so we wrap in catch-fallbacks to keep
+    // a single slow table from blocking the rest of the response.
+    const safeAll = async (sql, ...binds) => {
+      try { const r = await env.DB.prepare(sql).bind(...binds).all(); return r.results || []; } catch { return []; }
+    };
+    const [users, applications, inquiries, inEmails, outEmails] = await Promise.all([
+      safeAll(
+        'SELECT id, email, name, role, created_at FROM users ' +
+        'WHERE email LIKE ? OR name LIKE ? OR phone_national LIKE ? OR id LIKE ? ' +
+        'ORDER BY created_at DESC LIMIT ?',
+        like, like, like, like, PER
+      ),
+      safeAll(
+        'SELECT id, email, name, status, created_at FROM applications ' +
+        'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? ' +
+        'ORDER BY created_at DESC LIMIT ?',
+        like, like, like, PER
+      ),
+      safeAll(
+        'SELECT id, email, name, subject, SUBSTR(body, 1, 200) AS preview, created_at, status FROM inquiries ' +
+        'WHERE email LIKE ? OR name LIKE ? OR subject LIKE ? OR body LIKE ? ' +
+        'ORDER BY created_at DESC LIMIT ?',
+        like, like, like, like, PER
+      ),
+      safeAll(
+        'SELECT id, ts, from_addr, to_addr, subject, SUBSTR(COALESCE(body_text, body_html), 1, 200) AS preview FROM inbound_emails ' +
+        'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+        'ORDER BY ts DESC LIMIT ?',
+        like, like, like, like, like, PER
+      ),
+      safeAll(
+        'SELECT id, ts, to_addr, subject, SUBSTR(COALESCE(body_text, body_html), 1, 200) AS preview FROM outbound_emails ' +
+        'WHERE to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+        'ORDER BY ts DESC LIMIT ?',
+        like, like, like, like, PER
+      ),
+    ]);
+
+    // Wiki search — walks all known wiki slugs and looks for the query
+    // in page title or body. Excerpts a window around the first match.
+    const wikiHits = [];
+    const slugs = ['kms', 'design', 'color', 'versions'];
+    for (const slug of slugs) {
+      if (wikiHits.length >= PER * 2) break;
+      try {
+        const raw = await env.CONTENT_KV.get('wiki:' + slug);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        for (const p of (data.pages || [])) {
+          const title = String(p.title || '');
+          const body  = String(p.body  || '');
+          const idxT = title.toLowerCase().indexOf(qLow);
+          const idxB = body.toLowerCase().indexOf(qLow);
+          if (idxT < 0 && idxB < 0) continue;
+          let excerpt;
+          if (idxB >= 0) {
+            // Strip HTML tags from the excerpt window so the operator
+            // sees prose, not markup.
+            const start = Math.max(0, idxB - 80);
+            const slice = body.slice(start, idxB + 120).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            excerpt = (start > 0 ? '… ' : '') + slice;
+          } else {
+            excerpt = title;
+          }
+          wikiHits.push({ slug, page_id: p.id, title, excerpt: excerpt.slice(0, 240) });
+          if (wikiHits.length >= PER * 2) break;
+        }
+      } catch {}
+    }
+
+    // CONTENT_KEY (dp_content_v1) search — walks the JSON tree and emits
+    // every string value containing q. Useful for finding which content
+    // field a piece of public-site copy lives in.
+    const contentHits = [];
+    try {
+      const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+      if (raw) {
+        const c = JSON.parse(raw);
+        const walk = (obj, p) => {
+          if (contentHits.length >= PER) return;
+          if (typeof obj === 'string') {
+            if (obj.toLowerCase().includes(qLow)) {
+              contentHits.push({ path: p.replace(/^\./, ''), value: obj.slice(0, 200) });
+            }
+            return;
+          }
+          if (Array.isArray(obj)) {
+            for (let i = 0; i < obj.length; i++) { walk(obj[i], p + '[' + i + ']'); if (contentHits.length >= PER) return; }
+            return;
+          }
+          if (obj && typeof obj === 'object') {
+            for (const k of Object.keys(obj)) { walk(obj[k], p + '.' + k); if (contentHits.length >= PER) return; }
+          }
+        };
+        walk(c, '');
+      }
+    } catch {}
+
+    return json({
+      q,
+      users, applications, inquiries,
+      inbound_emails: inEmails, outbound_emails: outEmails,
+      wiki: wikiHits,
+      content: contentHits,
+    });
+  }
+
   // Reports whether each Workers-secret env var is set, WITHOUT ever
   // returning the value. The admin UI uses this to render
   // "Configured / Not configured" pills. Secrets stay where they belong

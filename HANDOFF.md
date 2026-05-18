@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.037.00`
+- **버전**: `v01.038.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0025** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.037.00** (마이너 +10)
+- **이번 세션 누적**: v01.027.00 → **v01.038.00** (마이너 +11)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -26,6 +26,7 @@
   - +01.035 — **방어 라운드 P0-4/5/6/7**: 보안 헤더(CSP / HSTS / X-Frame / nosniff / Referrer-Policy / Permissions-Policy / COOP) 모든 응답 부착. 글로벌 500 catch handler 에러 메시지 generic화 (`{error:'internal'}`). ADMIN_TOKEN 등 시크릿 length 노출 제거. 파일 업로드에 KV rate-limit (20회/시간/IP) + R2 put 에러 메시지 generic화.
   - +01.036 — **방어 라운드 P1-2/3/4**: CDN 스크립트 SRI 해시 완비 (React production + Lucide 누락분 추가). `/api/admin/*` write 메서드에 CSRF Origin/Referer 검사 (cross-origin POST는 `403 origin_blocked`). 위키 PUT 스키마+크기 검증 (≤512KB, ≤200 pages, page shape 검증). P1-1 TipTap sanitize는 별도 라운드로 미룸 (DOMPurify 도입 여부 설계 필요).
   - +01.037 — **방어 라운드 P1-5/6 + P2-2/3 + 위키 버전탭 신설**: `admin_audit` + `login_activity` D1 테이블 + 6개 파괴적 액션 hook + 로그인 성공 활동 기록 (모두 fire-and-forget). R2 키 prefix를 `Date.now()` → `randomHex(8)`로 (기존 파일 영향 X). 세션 revoke를 role/email 변경 시까지 확장. **신규 admin → 위키 → "버전 기록" 탭** (`wiki:versions` KV에 12개 페이지 사전 입력 — v01.018~027 요약 + v01.028~037 개별).
+  - +01.038 — **관리자 전체 검색 + admin VersionWatcher + 다크모드 contrast 잔여 수정**: 신규 `GET /api/admin/search?q=...` — 회원·지원·문의·받은/보낸메일·위키·콘텐츠 6+1 영역 병렬 검색, 영역당 ≤10건. 사이드바 상단 `GlobalSearch` 컴포넌트 (300ms debounce, 부동 결과 패널). admin.html이 이제 `VersionWatcher.jsx` 로드 + 마운트해서 공개 사이트와 동일한 "새 버전 배포됨" 토스트 표시. WikiTab active 페이지 라벨 + 일부 Stat 카운터 + 분석 trail 라벨이 `--midnight-purple`(다크모드 fix dark) → `--brand-text`(다크모드 자동 light flip)로 교체 — contrast 1.5 → AA 통과.
 
 ## 2. 스택 한눈에
 
@@ -43,7 +44,13 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.037)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.038)에 마친 큰 변경
+
+### 관리자 전체 검색 + admin VersionWatcher + 다크모드 contrast 잔여 수정 — v01.038
+- **`GET /api/admin/search?q=...`**: 회원/지원/문의/받은메일/보낸메일/위키/콘텐츠 7개 영역 병렬 LIKE 검색, 영역당 최대 10건. `q` 길이 100자 cap. 위키 4개 슬러그(kms/design/color/versions) + CONTENT_KEY 전체 JSON 트리 walk + 매칭 string 경로 추출. 빈 q는 빈 결과 반환(전체 dump 방지).
+- **사이드바 GlobalSearch 컴포넌트**: 입력 후 300ms debounce → fetch → 부동 결과 패널 (영역별 그룹, 빈 영역 자동 숨김). ESC로 clear. 결과 항목은 read-only preview (deep-link은 다음 라운드).
+- **admin VersionWatcher**: 공개 사이트에 이미 있던 v01.029 컴포넌트를 `admin.html`에 동일하게 마운트. 새 배포가 들어오면 운영자도 우측 상단 토스트로 "새 버전이 배포되었습니다 vA→vB [새로고침][나중에]" 자동 알림.
+- **다크모드 contrast 잔여 수정**: 사용자 지적("아직도 명도대비 규칙이 적용 안된곳이 있는듯"). WikiTab 페이지 리스트 active 항목 + Stat 카드 기본 accent + Marketing journey trail type 라벨이 `--midnight-purple`(고정 dark) → `--brand-text`(다크 모드 자동 lavender) 토큰으로 교체. 다크 elevated 카드 위 dark purple 텍스트(contrast 1.5) → light lavender(contrast AA 통과).
 
 ### 감사 로그 · 로그인 활동 · R2 키 랜덤화 · 세션 revoke + 위키 버전탭 — v01.037 (방어 라운드 P1-5 + P1-6 + P2-2 + P2-3)
 - **P1-5 admin_audit 테이블**: 신규 D1 테이블 + 인덱스 3종(ts/actor/action). 6개 파괴적 admin 액션에 `ctx.waitUntil(writeAdminAudit(...))` hook. 모든 로그는 fire-and-forget이라 logging 장애가 본 흐름 막지 않음.

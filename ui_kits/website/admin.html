@@ -391,6 +391,11 @@
   <script src="/ui_kits/website/editor-loader.js"></script>
   <link rel="stylesheet" href="/ui_kits/website/site.css">
   <script type="text/babel" src="/ui_kits/website/RichEditor.jsx"></script>
+  <!-- VersionWatcher: same component public site uses. Polls /api/version
+       every 60s + on tab focus; if the deployed version differs from the
+       version this tab loaded, shows a top-right banner with a refresh
+       button. Operators get the same staleness notice as visitors. -->
+  <script type="text/babel" src="/ui_kits/website/VersionWatcher.jsx"></script>
 </head>
 <body>
   <a href="#main" class="skip-link">본문 바로가기</a>
@@ -1985,7 +1990,7 @@
                 {(j.trail || []).map((t, i) => (
                   <div key={i} style={{padding:'4px 0',display:'flex',gap:14,borderBottom:'1px dashed var(--border-hair)'}}>
                     <span style={{color:'var(--fg-muted)',width:140}}>{new Date(t.ts).toLocaleTimeString()}</span>
-                    <span style={{width:80,fontWeight:700,color:t.type === 'click' ? 'var(--scouting-purple)' : 'var(--midnight-purple)'}}>{t.type}</span>
+                    <span style={{width:80,fontWeight:700,color:t.type === 'click' ? 'var(--scouting-purple)' : 'var(--brand-text)'}}>{t.type}</span>
                     <span style={{flex:1}}>{t.path}{t.target ? ' · ' + t.target : ''}</span>
                     {t.source && <span style={{color:'var(--fg-muted)'}}>{t.source}</span>}
                   </div>
@@ -4904,7 +4909,7 @@
       return Math.round(((last7 - prev7) / prev7) * 100);
     })();
 
-    const Stat = ({ label, value, accent = 'var(--midnight-purple)', sub, onClick }) => (
+    const Stat = ({ label, value, accent = 'var(--brand-text)', sub, onClick }) => (
       <div className="card" onClick={onClick} style={{margin:0,padding:'18px 22px',display:'flex',flexDirection:'column',gap:4,cursor:onClick?'pointer':'default'}}>
         <span style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--fg-muted)'}}>{label}</span>
         <span style={{fontFamily:'var(--font-en)',fontSize:30,fontWeight:700,color:accent,lineHeight:1}}>{value === null ? '…' : value.toLocaleString()}</span>
@@ -5729,8 +5734,15 @@
             <button key={p.id} type="button"
               onClick={() => { setActiveId(p.id); setDraft(null); }}
               style={{display:'block',width:'100%',textAlign:'left',padding:'8px 10px',border:'none',borderRadius:8,
-                      background: activeId === p.id ? 'rgba(98,37,153,0.10)' : 'transparent',
-                      color: activeId === p.id ? 'var(--midnight-purple)' : 'var(--fg-primary)',
+                      // Active state: tinted purple pill + brand-text color.
+                      // --brand-text auto-flips to light lavender in dark mode
+                      // (--brand-text dark = #DCC2FF) so the active label stays
+                      // legible against --bg-elevated regardless of theme.
+                      // Previously used --midnight-purple (fixed dark) which
+                      // collapsed to ~1.5:1 contrast in dark mode — the same
+                      // class of bug v01.026.04 fixed elsewhere.
+                      background: activeId === p.id ? 'var(--scouting-purple-tint, rgba(98,37,153,0.10))' : 'transparent',
+                      color: activeId === p.id ? 'var(--brand-text)' : 'var(--fg-primary)',
                       fontFamily:'inherit',fontSize:13,fontWeight: activeId === p.id ? 700 : 500,
                       cursor:'pointer',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
               {p.title || '(untitled)'}
@@ -5801,6 +5813,176 @@
   function ColorGuideTab() { return <WikiTab slug="color" title="컬러 가이드" accent="#FFD400" />; }
   function DesignGuideTab() { return <WikiTab slug="design" title="디자인 가이드" accent="#FF8DFF" />; }
   function VersionsTab() { return <WikiTab slug="versions" title="버전 기록 · Version history" accent="#34D399" />; }
+
+  // GlobalSearch — sidebar search input + debounced /api/admin/search.
+  // Renders results in a floating panel grouped by section. Sections
+  // collapse when empty so the panel stays compact. Result rows are
+  // read-only summaries — clicking does not navigate yet (most matched
+  // entities don't have stable deep-link URLs in this single-page admin).
+  // The operator can scan the previews to confirm what they found and
+  // then click into the proper tab. ESC clears the query; clicking the
+  // input refocuses.
+  function GlobalSearch() {
+    const [q, setQ] = useState('');
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      const trimmed = q.trim();
+      if (!trimmed) { setData(null); return; }
+      let alive = true;
+      const id = setTimeout(async () => {
+        setLoading(true);
+        try {
+          const token = localStorage.getItem('dp_admin_token') || '';
+          const r = await fetch('/api/admin/search?q=' + encodeURIComponent(trimmed), {
+            headers: { authorization: 'Bearer ' + token },
+          });
+          const d = await r.json();
+          if (alive) setData(r.ok ? d : { error: d.error || 'failed' });
+        } catch (e) {
+          if (alive) setData({ error: 'network' });
+        } finally {
+          if (alive) setLoading(false);
+        }
+      }, 300);
+      return () => { alive = false; clearTimeout(id); };
+    }, [q]);
+
+    function onKey(e) {
+      if (e.key === 'Escape') { setQ(''); inputRef.current && inputRef.current.blur(); }
+    }
+
+    const totalHits = data && !data.error
+      ? (data.users?.length || 0) + (data.applications?.length || 0) + (data.inquiries?.length || 0)
+        + (data.inbound_emails?.length || 0) + (data.outbound_emails?.length || 0)
+        + (data.wiki?.length || 0) + (data.content?.length || 0)
+      : 0;
+
+    return (
+      <div style={{margin:'0 12px 12px',position:'relative'}}>
+        <div style={{position:'relative'}}>
+          <i data-lucide="search" width="14" height="14" aria-hidden="true"
+            style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,0.55)',pointerEvents:'none'}} />
+          <input
+            ref={inputRef}
+            type="search"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={onKey}
+            placeholder="전체 검색 (회원·지원·문의·메일·위키…)"
+            aria-label="Global admin search"
+            style={{
+              width:'100%',
+              padding:'8px 10px 8px 30px',
+              borderRadius:8,
+              fontSize:13,
+              background:'rgba(255,255,255,0.08)',
+              border:'1px solid rgba(255,255,255,0.12)',
+              color:'#fff',
+              outline:'none',
+            }} />
+          {q && (
+            <button type="button" onClick={() => setQ('')} aria-label="Clear search"
+              style={{position:'absolute',right:6,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'rgba(255,255,255,0.55)',cursor:'pointer',padding:'4px 6px',fontSize:14,lineHeight:1}}>×</button>
+          )}
+        </div>
+        {q.trim() && (
+          <div role="region" aria-label="Search results"
+            style={{
+              position:'absolute', top:'calc(100% + 6px)', left:-4, right:-4,
+              maxHeight:'calc(100vh - 200px)', overflowY:'auto', zIndex:50,
+              background:'var(--bg-elevated, #1a1525)',
+              border:'1px solid var(--border-default, rgba(255,255,255,0.14))',
+              borderRadius:12,
+              boxShadow:'0 16px 40px rgba(0,0,0,0.45)',
+              padding:'10px 12px',
+              color:'var(--fg-primary, #fff)',
+              fontSize:13, lineHeight:1.45,
+            }}>
+            {loading && <div style={{padding:'8px 4px',color:'var(--fg-muted, rgba(255,255,255,0.6))'}}>검색 중…</div>}
+            {!loading && data && data.error && (
+              <div style={{padding:'8px 4px',color:'var(--state-danger, #f87171)'}}>오류: {data.error}</div>
+            )}
+            {!loading && data && !data.error && totalHits === 0 && (
+              <div style={{padding:'8px 4px',color:'var(--fg-muted, rgba(255,255,255,0.6))'}}>일치하는 결과가 없습니다.</div>
+            )}
+            {!loading && data && !data.error && totalHits > 0 && (
+              <>
+                <SearchSection label="회원" items={data.users || []} renderItem={u => (
+                  <div>
+                    <strong>{u.name || '—'}</strong>
+                    <span style={{color:'var(--fg-muted)',marginLeft:8}}>{u.email}</span>
+                    <span style={{marginLeft:8,fontSize:11,padding:'1px 6px',borderRadius:99,background:'rgba(255,255,255,0.08)'}}>{u.role}</span>
+                  </div>
+                )} />
+                <SearchSection label="지원서" items={data.applications || []} renderItem={a => (
+                  <div>
+                    <strong style={{fontFamily:'var(--font-mono, monospace)',fontSize:11}}>{a.id}</strong>
+                    <span style={{marginLeft:8}}>{a.name || '—'}</span>
+                    <span style={{color:'var(--fg-muted)',marginLeft:8}}>{a.email}</span>
+                    {a.status && <span style={{marginLeft:8,fontSize:11,padding:'1px 6px',borderRadius:99,background:'rgba(255,255,255,0.08)'}}>{a.status}</span>}
+                  </div>
+                )} />
+                <SearchSection label="문의" items={data.inquiries || []} renderItem={iq => (
+                  <div>
+                    <strong>{iq.subject || '—'}</strong>
+                    <div style={{color:'var(--fg-muted)',fontSize:12}}>{iq.email} · {(iq.preview || '').slice(0, 100)}</div>
+                  </div>
+                )} />
+                <SearchSection label="받은 메일" items={data.inbound_emails || []} renderItem={m => (
+                  <div>
+                    <strong>{m.subject || '(제목 없음)'}</strong>
+                    <div style={{color:'var(--fg-muted)',fontSize:12}}>from {m.from_addr} · {(m.preview || '').slice(0, 100)}</div>
+                  </div>
+                )} />
+                <SearchSection label="보낸 메일" items={data.outbound_emails || []} renderItem={m => (
+                  <div>
+                    <strong>{m.subject || '(제목 없음)'}</strong>
+                    <div style={{color:'var(--fg-muted)',fontSize:12}}>to {m.to_addr} · {(m.preview || '').slice(0, 100)}</div>
+                  </div>
+                )} />
+                <SearchSection label="위키" items={data.wiki || []} renderItem={w => (
+                  <div>
+                    <strong>{w.title}</strong>
+                    <span style={{marginLeft:8,fontSize:11,padding:'1px 6px',borderRadius:99,background:'rgba(255,255,255,0.08)'}}>{w.slug}</span>
+                    <div style={{color:'var(--fg-muted)',fontSize:12}}>{w.excerpt}</div>
+                  </div>
+                )} />
+                <SearchSection label="콘텐츠" items={data.content || []} renderItem={c => (
+                  <div>
+                    <strong style={{fontFamily:'var(--font-mono, monospace)',fontSize:11}}>{c.path}</strong>
+                    <div style={{color:'var(--fg-muted)',fontSize:12}}>{c.value}</div>
+                  </div>
+                )} />
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function SearchSection({ label, items, renderItem }) {
+    if (!items || !items.length) return null;
+    return (
+      <div style={{marginBottom:8}}>
+        <div style={{
+          fontSize:10, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase',
+          color:'var(--fg-muted, rgba(255,255,255,0.55))', margin:'6px 4px 4px',
+        }}>{label} <span style={{opacity:0.7}}>({items.length})</span></div>
+        {items.map((it, i) => (
+          <div key={i} style={{
+            padding:'8px 8px',
+            borderRadius:6,
+            marginBottom:2,
+            background:'rgba(255,255,255,0.03)',
+          }}>{renderItem(it)}</div>
+        ))}
+      </div>
+    );
+  }
 
   // ---- Design System (live previews) -------------------------------------
   // Reads CSS variables from the document root so previews always reflect
@@ -7301,6 +7483,11 @@
             }}>
             ⏱ +30분 연장
           </button>
+          {/* Real-time global search — debounces by 300ms and hits
+              /api/admin/search across users / applications / inquiries /
+              emails / wiki / content. Result panel floats over the
+              sidebar so it doesn't push the nav. */}
+          <GlobalSearch />
           <nav className="groups" aria-label="Admin groups">
             {groups.map(g => {
               const active = g === activeGroupId;
@@ -7557,7 +7744,14 @@
   }
 
   const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<Gate />);
+  // Mount both the admin app and the VersionWatcher so the operator gets
+  // the same "new version available" banner the public site shows.
+  root.render(
+    <>
+      <Gate />
+      {window.VersionWatcher ? <window.VersionWatcher lang={(localStorage.getItem('dp_admin_lang') || 'ko')} /> : null}
+    </>
+  );
   </script>
 </body>
 </html>

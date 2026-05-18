@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.041.00`
+- **버전**: `v01.042.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0025** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0026** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.041.00** (마이너 +14)
+- **이번 세션 누적**: v01.027.00 → **v01.042.00** (마이너 +15)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -30,6 +30,7 @@
   - +01.039 — **VersionWatcher 강화 + WikiTab 페이지네이션 + 버전 위키 전면 재구조화**: 폴링 60→20초, `visibilitychange`/`online` 리스너 추가, 배너를 크게 + 슬라이드 인 + 펄스 강조. WikiTab 사이드바에 20개 단위 페이지네이션(activeId 자동 점프). `wiki:versions` 14페이지를 새 구조(① 주요 목적 ② 주요 내역 ③ 비개발자 기본 표시 + 개발자 접힘 ④ KMS 위키 반영)로 전면 재작성.
   - +01.040 — **P1-1 TipTap HTML sanitize + P2-4 ADMIN_TOKEN 이중 토큰**: HTMLRewriter 기반 allowlist sanitizer 추가. inbound 이메일(외부 발신자 → 적대적), outbound 이메일(admin TipTap), program_details 9개 리치 필드, 위키 PUT 페이지 본문 — 총 4개 write 지점에 sanitize 호출. javascript:/data:(non-image)/vbscript: URL은 href/src에서 자동 strip. `isAdmin()`이 `ADMIN_TOKEN` + `ADMIN_TOKEN_NEXT` 둘 다 허용 → 운영자 무중단 토큰 회전 가능. integrations status는 NEXT가 설정됐을 때만 노출.
   - +01.041 — **P2-1 HttpOnly 세션 쿠키 (서버 측, dual-auth)**: 로그인/활성화/skipActivation signup 성공 시 `Set-Cookie: dp_session=...; HttpOnly; Secure; SameSite=Lax; Path=/` 자동 부착. `bearerToken()`이 Authorization 헤더 OR `dp_session` 쿠키 둘 다 읽어 dual-auth. 로그아웃 시 쿠키도 즉시 만료. 클라이언트는 변경 없음(fetch 기본 `credentials: 'same-origin'`이 자동 첨부). XSS-via-localStorage 차단의 1단계 — 후속에서 client가 localStorage 의존을 끊으면 완전 차단.
+  - +01.042 — **P2-5 PII at-rest 암호화 (phone)**: 마이그레이션 0026으로 `users.phone_country_enc`, `users.phone_national_enc`, `inquiries.phone_enc` 추가. AES-GCM(IV 12바이트 + ciphertext + 16바이트 tag, base64). 키는 `env.PII_ENCRYPTION_KEY`를 SHA-256으로 derive. signup + inquiry 쓰기 시 키가 있으면 `_enc`만 채우고 평문 컬럼은 NULL; 키 미설정 시 종전대로 평문. admin 회원 조회 시 `_enc` 우선 decrypt + 평문 fallback. `/api/admin/search`에서 `phone_national LIKE` 제거(암호화된 컬럼은 LIKE 매칭 불가). 운영자가 `wrangler secret put PII_ENCRYPTION_KEY` 한 뒤부터 신규 데이터 즉시 암호화. 기존 평문 row는 별도 backfill로 점진 처리.
 
 ## 2. 스택 한눈에
 
@@ -47,7 +48,19 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.041)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.042)에 마친 큰 변경
+
+### PII at-rest 암호화 (phone) — v01.042 (P2-5)
+- **동기**: D1 백업 / KV 스냅샷 / 마이그레이션 export가 누설되어도 회원 전화번호가 평문으로 나가지 않게.
+- **마이그레이션 0026**: `users` 테이블에 `phone_country_enc`, `phone_national_enc`, `inquiries`에 `phone_enc` 추가. 모두 NULLable, 기존 컬럼은 그대로(legacy fallback용).
+- **암호화**: AES-GCM, 12-byte 랜덤 IV, 16-byte tag. 키는 `env.PII_ENCRYPTION_KEY`를 SHA-256으로 derive해서 256-bit AES 키 생성. 저장 형식: `base64(IV || ciphertext+tag)`.
+- **동작 (쓰기)**:
+  - 키 설정됨: `_enc` 컬럼에 암호화 저장, 평문 컬럼은 NULL.
+  - 키 미설정: 평문 컬럼에 저장(legacy). `_enc` NULL.
+- **동작 (읽기)**: `_enc`가 있으면 decrypt, 없으면 legacy 평문 컬럼 사용.
+- **운영자 액션**: `wrangler secret put PII_ENCRYPTION_KEY` (64자 이상 강력 passphrase) 실행 후부터 신규 데이터 자동 암호화. 기존 평문 row는 별도 backfill로 점진 처리(후속 commit에서 cron 추가 권장).
+- **search 영향**: `/api/admin/search`의 user 검색에서 `phone_national LIKE` 제거. 암호화된 컬럼은 LIKE-search 불가. 전화번호 부분일치 검색이 필요하면 차후 deterministic-hash 인덱스 별도 도입.
+- **충돌 방지**: 기존 컬럼 그대로 보존 → legacy row 읽기/쓰기 영향 없음. 키 미설정 시 시스템 100% 평문 동작 (역호환). 새 컬럼 모두 NULL 허용.
 
 ### HttpOnly 세션 쿠키 (서버 측) — v01.041 (P2-1)
 - **목적**: 세션 토큰이 `localStorage`에만 살면 XSS 한 번이면 탈취 가능. HttpOnly 쿠키로 옮기면 JS가 읽을 수 없어 XSS의 도달 범위가 축소됨.

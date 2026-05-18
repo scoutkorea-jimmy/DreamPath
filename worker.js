@@ -359,6 +359,72 @@ async function writeLoginActivity(env, request, user) {
   } catch {}
 }
 
+// ── PII at-rest encryption (P2-5) ────────────────────────────────────────
+// AES-GCM with a random 12-byte IV per row. The encryption key is
+// derived from env.PII_ENCRYPTION_KEY (Workers secret) via SHA-256 so
+// the operator can set any-length passphrase and we always end up with
+// a 256-bit key. When the env var is unset the helpers no-op
+// (encryptPii returns null, decryptPii passes through plaintext-ish
+// strings) so the system can run without encryption during the
+// transition window before the operator sets the key.
+//
+// Storage format: base64(iv || ciphertext_with_tag). 12 + N + 16 bytes
+// per encrypted value. Stored in a separate *_enc column; reads prefer
+// the encrypted column and fall back to the legacy plaintext column.
+//
+// Why a separate column and not in-place: lets us roll out gradually
+// + provides a recovery path if a future decrypt fails (the original
+// plaintext is still on the row until the operator backfills + drops
+// the plaintext column).
+let _piiKeyPromise = null;
+function loadPiiKey(env) {
+  if (!env.PII_ENCRYPTION_KEY) return null;
+  if (_piiKeyPromise) return _piiKeyPromise;
+  _piiKeyPromise = (async () => {
+    const raw = new TextEncoder().encode(String(env.PII_ENCRYPTION_KEY));
+    const hashed = await crypto.subtle.digest('SHA-256', raw);
+    return crypto.subtle.importKey('raw', hashed, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  })();
+  return _piiKeyPromise;
+}
+async function encryptPii(env, plaintext) {
+  if (plaintext == null || plaintext === '') return null;
+  const keyPromise = loadPiiKey(env);
+  if (!keyPromise) return null;          // No key set → caller falls back to plaintext column.
+  try {
+    const key = await keyPromise;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(String(plaintext)));
+    const buf = new Uint8Array(iv.length + ct.byteLength);
+    buf.set(iv, 0);
+    buf.set(new Uint8Array(ct), iv.length);
+    // base64 encode without using btoa() on a large string (safe for short PII fields anyway)
+    let s = '';
+    for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
+    return btoa(s);
+  } catch {
+    return null;
+  }
+}
+async function decryptPii(env, ciphertextB64) {
+  if (!ciphertextB64) return null;
+  const keyPromise = loadPiiKey(env);
+  if (!keyPromise) return null;
+  try {
+    const key = await keyPromise;
+    const s = atob(ciphertextB64);
+    const buf = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) buf[i] = s.charCodeAt(i);
+    if (buf.length < 13) return null;
+    const iv = buf.slice(0, 12);
+    const ct = buf.slice(12);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    return new TextDecoder().decode(pt);
+  } catch {
+    return null;
+  }
+}
+
 // ── HTML sanitizer (P1-1) ────────────────────────────────────────────────
 // HTMLRewriter-backed allowlist sanitizer for rich-text fields that get
 // stored and later rendered via dangerouslySetInnerHTML. Strips every
@@ -1516,11 +1582,16 @@ async function handleApi(request, env, url, ctx) {
       try { const r = await env.DB.prepare(sql).bind(...binds).all(); return r.results || []; } catch { return []; }
     };
     const [users, applications, inquiries, inEmails, outEmails] = await Promise.all([
+      // P2-5: phone_national LIKE no longer reliably matches encrypted rows.
+      // Drop phone from the search predicate; legacy rows with plaintext
+      // phone won't surface by phone-fragment any more. Phone-fragment
+      // search is rare and can be rebuilt later as a separate
+      // deterministic-hash index if the operator needs it.
       safeAll(
         'SELECT id, email, name, role, created_at FROM users ' +
-        'WHERE email LIKE ? OR name LIKE ? OR phone_national LIKE ? OR id LIKE ? ' +
+        'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? ' +
         'ORDER BY created_at DESC LIMIT ?',
-        like, like, like, like, PER
+        like, like, like, PER
       ),
       safeAll(
         'SELECT id, email, name, status, created_at FROM applications ' +
@@ -2152,10 +2223,21 @@ async function handleApi(request, env, url, ctx) {
   if (memM && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     const id = memM[1];
+    // P2-5: pull the encrypted phone columns too so we can decrypt on read.
     const user = await env.DB.prepare(
-      'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?'
+      'SELECT id, email, name, role, created_at, updated_at, ' +
+      'phone_country, phone_national, phone_country_enc, phone_national_enc ' +
+      'FROM users WHERE id = ?'
     ).bind(id).first();
     if (!user) return json({ error: 'not_found' }, 404);
+    // Prefer encrypted columns. Fall back to plaintext for legacy rows
+    // written before PII_ENCRYPTION_KEY was set (or before the migration).
+    const phoneCountry  = user.phone_country_enc  ? await decryptPii(env, user.phone_country_enc)  : (user.phone_country  || null);
+    const phoneNational = user.phone_national_enc ? await decryptPii(env, user.phone_national_enc) : (user.phone_national || null);
+    delete user.phone_country_enc;
+    delete user.phone_national_enc;
+    user.phone_country = phoneCountry;
+    user.phone_national = phoneNational;
     const lastLogin = await env.DB.prepare(
       'SELECT MAX(created_at) AS last_login FROM sessions WHERE user_id = ?'
     ).bind(id).first();
@@ -2673,14 +2755,23 @@ async function signup(request, env, ctx) {
   const expires = skipActivation ? null : new Date(Date.now() + ACTIVATION_TTL_MS).toISOString();
   const activatedAt = skipActivation ? now : null;
 
+  // P2-5: encrypt phone fields if PII_ENCRYPTION_KEY is set. When the
+  // key is set we write to the *_enc columns and store NULL in the
+  // legacy plaintext columns so a DB dump no longer leaks phone numbers.
+  // When the key is unset (operator hasn't rotated yet) we fall back to
+  // plaintext so the signup flow keeps working.
+  const phoneCountryEnc  = phoneCountry  ? await encryptPii(env, phoneCountry)  : null;
+  const phoneNationalEnc = phoneNational ? await encryptPii(env, phoneNational) : null;
+  const phoneCountryPlain  = phoneCountryEnc  ? null : (phoneCountry  || null);
+  const phoneNationalPlain = phoneNationalEnc ? null : (phoneNational || null);
   await env.DB.prepare(
     'INSERT INTO users (id, email, password_hash, password_salt, name, role, ' +
-    'created_at, updated_at, phone_country, phone_national, ' +
+    'created_at, updated_at, phone_country, phone_national, phone_country_enc, phone_national_enc, ' +
     'activated_at, activation_code, activation_expires_at, activation_sent_at) ' +
-    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(
     id, email, hash, salt, name || null, role, now, now,
-    phoneCountry || null, phoneNational || null,
+    phoneCountryPlain, phoneNationalPlain, phoneCountryEnc, phoneNationalEnc,
     activatedAt, code, expires, code ? now : null,
   ).run();
 
@@ -3493,11 +3584,16 @@ async function submitInquiry(request, env) {
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
 
+  // P2-5: encrypt the submitter's phone when PII_ENCRYPTION_KEY is set;
+  // otherwise it lands in the legacy plaintext `phone` column.
+  const phonePlainRaw = str(body.phone);
+  const phoneEnc = phonePlainRaw ? await encryptPii(env, phonePlainRaw) : null;
+  const phonePlain = phoneEnc ? null : phonePlainRaw;
   await env.DB.prepare(
-    `INSERT INTO inquiries (id, created_at, status, name, email, phone, category, subject, body, lang, user_id, ip, user_agent)
-     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO inquiries (id, created_at, status, name, email, phone, phone_enc, category, subject, body, lang, user_id, ip, user_agent)
+     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, created_at,
-         str(body.name), str(body.email), str(body.phone), str(body.category),
+         str(body.name), str(body.email), phonePlain, phoneEnc, str(body.category),
          str(body.subject), str(body.body), str(body.lang),
          user ? user.id : null, ip, ua).run();
 

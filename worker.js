@@ -427,6 +427,42 @@ async function decryptPii(env, ciphertextB64) {
   }
 }
 
+// v01.046 — deterministic HMAC for searchable PII (phone). The HMAC
+// key is bound to PII_ENCRYPTION_KEY via a domain-separated SHA-256
+// derivation so rotating the encryption secret invalidates the
+// lookup table at the same time (which is the desired behaviour:
+// the HMAC column is just a derived index over the encrypted data,
+// not a separate trust boundary).
+let _piiHmacKeyPromise = null;
+function loadPiiHmacKey(env) {
+  if (!env.PII_ENCRYPTION_KEY) return null;
+  if (_piiHmacKeyPromise) return _piiHmacKeyPromise;
+  _piiHmacKeyPromise = (async () => {
+    const raw = new TextEncoder().encode(String(env.PII_ENCRYPTION_KEY) + ':phone-hmac');
+    const hashed = await crypto.subtle.digest('SHA-256', raw);
+    return crypto.subtle.importKey('raw', hashed, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  })();
+  return _piiHmacKeyPromise;
+}
+async function computePiiHmac(env, value) {
+  if (value == null || value === '') return null;
+  const keyPromise = loadPiiHmacKey(env);
+  if (!keyPromise) return null;
+  try {
+    const key = await keyPromise;
+    // Normalise the input — digits only, so "+82-10-1234-5678" and
+    // "010 1234 5678" produce the same digest for typical Korean
+    // phones. Operator searching by the national part will match
+    // either entry style.
+    const norm = String(value).replace(/\D/g, '');
+    if (!norm) return null;
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(norm));
+    return Array.from(new Uint8Array(sig), b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return null;
+  }
+}
+
 // ── HTML sanitizer (P1-1) ────────────────────────────────────────────────
 // HTMLRewriter-backed allowlist sanitizer for rich-text fields that get
 // stored and later rendered via dangerouslySetInnerHTML. Strips every
@@ -1590,17 +1626,28 @@ async function handleApi(request, env, url, ctx) {
       try { const r = await env.DB.prepare(sql).bind(...binds).all(); return r.results || []; } catch { return []; }
     };
     const [users, applications, inquiries, inEmails, outEmails] = await Promise.all([
-      // P2-5: phone_national LIKE no longer reliably matches encrypted rows.
-      // Drop phone from the search predicate; legacy rows with plaintext
-      // phone won't surface by phone-fragment any more. Phone-fragment
-      // search is rare and can be rebuilt later as a separate
-      // deterministic-hash index if the operator needs it.
-      safeAll(
-        'SELECT id, email, name, role, created_at FROM users ' +
-        'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? ' +
-        'ORDER BY created_at DESC LIMIT ?',
-        like, like, like, PER
-      ),
+      // v01.046: phone exact match restored via HMAC column when q
+      // looks like phone digits. Phone-fragment / LIKE still impossible
+      // by design — the HMAC is a digest of the full number.
+      (async () => {
+        const digitsOnly = q.replace(/\D/g, '');
+        const isPhoneish = digitsOnly.length >= 4 && /^\+?\d+/.test(q.trim().replace(/[\s-]/g, ''));
+        const phoneH = isPhoneish ? await computePiiHmac(env, digitsOnly) : null;
+        if (phoneH) {
+          return safeAll(
+            'SELECT id, email, name, role, created_at FROM users ' +
+            'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? OR phone_national_h = ? ' +
+            'ORDER BY created_at DESC LIMIT ?',
+            like, like, like, phoneH, PER
+          );
+        }
+        return safeAll(
+          'SELECT id, email, name, role, created_at FROM users ' +
+          'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? ' +
+          'ORDER BY created_at DESC LIMIT ?',
+          like, like, like, PER
+        );
+      })(),
       safeAll(
         'SELECT id, email, name, status, created_at FROM applications ' +
         'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? ' +
@@ -2766,20 +2813,22 @@ async function signup(request, env, ctx) {
   // P2-5: encrypt phone fields if PII_ENCRYPTION_KEY is set. When the
   // key is set we write to the *_enc columns and store NULL in the
   // legacy plaintext columns so a DB dump no longer leaks phone numbers.
-  // When the key is unset (operator hasn't rotated yet) we fall back to
-  // plaintext so the signup flow keeps working.
+  // v01.046: also compute a deterministic HMAC of the national phone
+  // so the admin search can equality-match by digits even after
+  // encryption hides the plaintext.
   const phoneCountryEnc  = phoneCountry  ? await encryptPii(env, phoneCountry)  : null;
   const phoneNationalEnc = phoneNational ? await encryptPii(env, phoneNational) : null;
+  const phoneNationalH   = phoneNational ? await computePiiHmac(env, phoneNational) : null;
   const phoneCountryPlain  = phoneCountryEnc  ? null : (phoneCountry  || null);
   const phoneNationalPlain = phoneNationalEnc ? null : (phoneNational || null);
   await env.DB.prepare(
     'INSERT INTO users (id, email, password_hash, password_salt, name, role, ' +
-    'created_at, updated_at, phone_country, phone_national, phone_country_enc, phone_national_enc, ' +
+    'created_at, updated_at, phone_country, phone_national, phone_country_enc, phone_national_enc, phone_national_h, ' +
     'activated_at, activation_code, activation_expires_at, activation_sent_at) ' +
-    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(
     id, email, hash, salt, name || null, role, now, now,
-    phoneCountryPlain, phoneNationalPlain, phoneCountryEnc, phoneNationalEnc,
+    phoneCountryPlain, phoneNationalPlain, phoneCountryEnc, phoneNationalEnc, phoneNationalH,
     activatedAt, code, expires, code ? now : null,
   ).run();
 
@@ -3061,6 +3110,40 @@ async function piiBackfillCron(env) {
       await env.DB.prepare(
         'UPDATE applications SET birthdate_enc = ?, birthdate = NULL WHERE id = ?'
       ).bind(enc, a.id).run();
+    }
+
+    // v01.046 — HMAC recovery for rows that already went through
+    // encryption but predate the HMAC column. We can rebuild the digest
+    // from the decrypted plaintext, but only the operator (env with
+    // PII_ENCRYPTION_KEY set) is positioned to do it. Bounded per-tick
+    // to keep cron cheap.
+    const { results: usersHmacRecover } = await env.DB.prepare(
+      'SELECT id, phone_national_enc FROM users ' +
+      'WHERE phone_national_enc IS NOT NULL AND phone_national_h IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const u of usersHmacRecover || []) {
+      const plain = await decryptPii(env, u.phone_national_enc);
+      if (!plain) continue;
+      const h = await computePiiHmac(env, plain);
+      if (!h) continue;
+      await env.DB.prepare(
+        'UPDATE users SET phone_national_h = ?, updated_at = ? WHERE id = ?'
+      ).bind(h, new Date().toISOString(), u.id).run();
+    }
+    const { results: inqHmacRecover } = await env.DB.prepare(
+      'SELECT id, phone_enc FROM inquiries ' +
+      'WHERE phone_enc IS NOT NULL AND phone_h IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const iq of inqHmacRecover || []) {
+      const plain = await decryptPii(env, iq.phone_enc);
+      if (!plain) continue;
+      const h = await computePiiHmac(env, plain);
+      if (!h) continue;
+      await env.DB.prepare(
+        'UPDATE inquiries SET phone_h = ? WHERE id = ?'
+      ).bind(h, iq.id).run();
     }
   } catch {}
 }
@@ -3685,14 +3768,16 @@ async function submitInquiry(request, env) {
 
   // P2-5: encrypt the submitter's phone when PII_ENCRYPTION_KEY is set;
   // otherwise it lands in the legacy plaintext `phone` column.
+  // v01.046: also compute the deterministic HMAC for search recovery.
   const phonePlainRaw = str(body.phone);
   const phoneEnc = phonePlainRaw ? await encryptPii(env, phonePlainRaw) : null;
+  const phoneH   = phonePlainRaw ? await computePiiHmac(env, phonePlainRaw) : null;
   const phonePlain = phoneEnc ? null : phonePlainRaw;
   await env.DB.prepare(
-    `INSERT INTO inquiries (id, created_at, status, name, email, phone, phone_enc, category, subject, body, lang, user_id, ip, user_agent)
-     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO inquiries (id, created_at, status, name, email, phone, phone_enc, phone_h, category, subject, body, lang, user_id, ip, user_agent)
+     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, created_at,
-         str(body.name), str(body.email), phonePlain, phoneEnc, str(body.category),
+         str(body.name), str(body.email), phonePlain, phoneEnc, phoneH, str(body.category),
          str(body.subject), str(body.body), str(body.lang),
          user ? user.id : null, ip, ua).run();
 

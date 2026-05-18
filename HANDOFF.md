@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.045.00`
+- **버전**: `v01.046.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0028** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0029** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.045.00** (마이너 +18)
+- **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -34,6 +34,7 @@
   - +01.043 — **PII backfill cron + inbound HTML sanitize backfill cron**: 매시 cron에 `piiBackfillCron`(키 설정 시 평문 phone row 100개씩 암호화 + 평문 NULL) + `inboundSanitizeCron`(v01.040 이전 inbound 이메일 50개씩 HTML 재-sanitize) 추가. 마이그레이션 0027로 `inbound_emails.sanitized_at` 마커 컬럼. 키 미설정/legacy row 없음 시 cron 모두 no-op.
   - +01.044 — **P2-1 클라이언트 phase 2 (cookie-first)**: `auth-store.js` 전면 재작성. 신규 로그인/가입/활성화는 더 이상 `dp_user_token` localStorage 키를 작성하지 않음 → 서버가 설정한 HttpOnly `dp_session` 쿠키만 사용. legacy localStorage 토큰이 있으면 한 번 Bearer-bootstrap으로 `/api/auth/me` 호출해 세션을 인계받은 뒤 사용자가 재로그인 시 자동 폐기. `authFetch`/`signup`/`login`/`logout`이 `credentials: 'same-origin'` 명시. **XSS-via-localStorage 차단 완료** — 신규 세션은 JS로 토큰을 읽을 수 없음.
   - +01.045 — **PII 암호화 확장 (applications.birthdate)**: 마이그레이션 0028로 `applications.birthdate_enc` 추가. 신청서 제출 시 키 있으면 birthdate를 암호화해서 `_enc`에 저장 + 평문 NULL. admin 신청서 GET(목록/단일)에서 자동 decrypt. piiBackfillCron에 birthdate 백필 분기 추가.
+  - +01.046 — **암호화 phone의 정확 매칭 검색 부활 (HMAC)**: 마이그레이션 0029로 `users.phone_national_h`, `inquiries.phone_h` + 인덱스 추가. `computePiiHmac()` 헬퍼는 `PII_ENCRYPTION_KEY`에서 도메인-분리된 sub-key 도출 → HMAC-SHA256(digits-only normalized). signup/inquiry 쓰기 시 encrypt + HMAC 동시 저장. `/api/admin/search`가 q가 phone-like(4자리+) 시 HMAC 매칭 분기 추가. backfill cron이 (이미 암호화된) row를 decrypt → HMAC → 저장으로 점진 복구.
 
 ## 2. 스택 한눈에
 
@@ -51,7 +52,17 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.045)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.046)에 마친 큰 변경
+
+### 암호화 phone 정확 매칭 검색 부활 (HMAC) — v01.046
+- **문제**: v01.042의 AES-GCM 암호화는 row별 랜덤 IV라 같은 phone도 다른 ciphertext로 저장 → 동치 검색 불가. v01.042에서 `/api/admin/search`의 phone 검색 분기를 제거했었음.
+- **해결**: 결정론적 HMAC 컬럼을 부가. 같은 phone → 같은 digest → SQL `=` 매칭 가능.
+- **마이그레이션 0029**: `users.phone_national_h TEXT`, `inquiries.phone_h TEXT` + 인덱스 2종.
+- **HMAC 키 관리**: `env.PII_ENCRYPTION_KEY + ':phone-hmac'`을 SHA-256 한 결과를 HMAC-SHA256 키로 import. 도메인 분리해 암호화 키와 같은 secret이라도 다른 키 공간.
+- **쓰기**: signup + inquiry create에서 encrypt + HMAC을 같이 계산해 저장. 입력 정규화는 digits-only(공백/하이픈/괄호/`+` 제거)라 "+82-10-1234-5678"과 "010 1234 5678"가 같은 digest.
+- **읽기 / 검색**: `/api/admin/search`가 q가 phone-like(digits ≥ 4)면 HMAC 계산 후 `phone_national_h = ?` 조건 추가. q가 평범한 텍스트면 종전대로 email/name/id LIKE.
+- **백필 복구**: piiBackfillCron이 `_enc IS NOT NULL AND _h IS NULL` 패턴으로 decrypt → HMAC → 저장. 키 미설정 시 no-op.
+- **트레이드오프**: HMAC은 동치 매칭만 가능 — phone 부분 일치 / LIKE는 여전히 불가. 그래도 운영자의 99% 사용 케이스(전체 번호로 회원 찾기)는 회복.
 
 ### PII 암호화 확장 — applications.birthdate (v01.045)
 - **마이그레이션 0028**: `applications.birthdate_enc TEXT NULL`.

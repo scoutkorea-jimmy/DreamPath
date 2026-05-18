@@ -302,6 +302,56 @@ function rewriteRequest(request, newPath) {
   return new Request(u.toString(), request);
 }
 
+// P1-5 helper — append one row to admin_audit. Always called via
+// ctx.waitUntil so a logging failure (transient DB) cannot block the
+// admin's real action. Caller passes the request + env + a small
+// payload describing what changed.
+async function writeAdminAudit(env, request, payload) {
+  try {
+    const user = await currentUser(request, env).catch(() => null);
+    const hasAdminToken = (() => {
+      const auth = request.headers.get('authorization') || '';
+      if (!auth.startsWith('Bearer ')) return false;
+      const provided = auth.slice(7);
+      return !!env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN);
+    })();
+    await env.DB.prepare(
+      'INSERT INTO admin_audit (ts, actor_user_id, via_admin_token, action, target_type, target_id, detail, ip, user_agent) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      new Date().toISOString(),
+      user ? user.id : null,
+      hasAdminToken ? 1 : 0,
+      String(payload.action || '').slice(0, 64),
+      payload.target_type ? String(payload.target_type).slice(0, 32) : null,
+      payload.target_id ? String(payload.target_id).slice(0, 128) : null,
+      payload.detail ? JSON.stringify(payload.detail).slice(0, 4000) : null,
+      request.headers.get('cf-connecting-ip') || '',
+      (request.headers.get('user-agent') || '').slice(0, 500),
+    ).run();
+  } catch {
+    // Best-effort. The audit table is for forensics; it should not
+    // bring the request down if it momentarily can't be written.
+  }
+}
+
+// P1-6 helper — one row per successful login. Failures live on the
+// users row (failed_login_attempts column) so we don't store them
+// twice. Called via ctx.waitUntil from login().
+async function writeLoginActivity(env, request, user) {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO login_activity (ts, user_id, email, ip, user_agent) VALUES (?, ?, ?, ?, ?)'
+    ).bind(
+      new Date().toISOString(),
+      user.id,
+      user.email,
+      request.headers.get('cf-connecting-ip') || '',
+      (request.headers.get('user-agent') || '').slice(0, 500),
+    ).run();
+  } catch {}
+}
+
 // Origin / Referer same-origin guard. Returns true when:
 //   - Neither header is present (curl / server-to-server / mobile native) OR
 //   - Origin (or its Referer fallback) parses to the same origin as the URL
@@ -627,7 +677,11 @@ async function handleApi(request, env, url, ctx) {
     // hands us the real id and we link via DB row.
     const safe = filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
     const folder = application_id || ('drafts/' + new Date().toISOString().slice(0, 10));
-    const key = `apps/${folder}/${kind}${recommender_idx != null ? '-' + recommender_idx : ''}/${Date.now()}-${safe}`;
+    // P2-2 — random prefix (64 bits) instead of Date.now(). Even if a key
+    // path leaks through one channel, adjacent files in the same folder
+    // can't be guessed by incrementing the prefix. Existing files are
+    // unaffected because reads always use the r2_key stored in the DB.
+    const key = `apps/${folder}/${kind}${recommender_idx != null ? '-' + recommender_idx : ''}/${randomHex(8)}-${safe}`;
     try {
       await env.ATTACHMENTS.put(key, bytes, { httpMetadata: { contentType: mime } });
     } catch (e) {
@@ -684,11 +738,17 @@ async function handleApi(request, env, url, ctx) {
     if (body.op === 'delete') {
       const placeholders = ids.map(() => '?').join(',');
       await env.DB.prepare('DELETE FROM applications WHERE id IN (' + placeholders + ')').bind(...ids).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'application_bulk_delete', detail: { count: ids.length, ids: ids.slice(0, 20) },
+      }));
       return json({ ok: true, op: 'delete', count: ids.length });
     }
     if (body.op === 'status' && typeof body.status === 'string') {
       const placeholders = ids.map(() => '?').join(',');
       await env.DB.prepare('UPDATE applications SET status = ? WHERE id IN (' + placeholders + ')').bind(body.status, ...ids).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'application_bulk_status', detail: { count: ids.length, status: body.status },
+      }));
       return json({ ok: true, op: 'status', status: body.status, count: ids.length });
     }
     return json({ error: 'bad_op' }, 400);
@@ -700,6 +760,9 @@ async function handleApi(request, env, url, ctx) {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'DELETE') {
       await env.DB.prepare('DELETE FROM applications WHERE id = ?').bind(id).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'application_delete', target_type: 'application', target_id: id,
+      }));
       return json({ ok: true });
     }
     if (method === 'PATCH') {
@@ -825,9 +888,16 @@ async function handleApi(request, env, url, ctx) {
         if (env.ATTACHMENTS) for (const a of atts || []) { try { await env.ATTACHMENTS.delete(a.r2_key); } catch {} }
         await env.DB.prepare('DELETE FROM email_attachments WHERE side = ? AND email_id = ?').bind('inbound', id).run();
         await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(id).run();
+        ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+          action: 'email_purge', target_type: 'inbound_email', target_id: String(id),
+          detail: { attachments_purged: (atts || []).length },
+        }));
         return json({ ok: true, purged: true });
       }
       await env.DB.prepare('UPDATE inbound_emails SET trashed_at = ? WHERE id = ?').bind(new Date().toISOString(), id).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'email_trash', target_type: 'inbound_email', target_id: String(id),
+      }));
       return json({ ok: true, trashed: true });
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -850,6 +920,9 @@ async function handleApi(request, env, url, ctx) {
       await env.DB.prepare('DELETE FROM inbound_emails WHERE id = ?').bind(t.id).run();
       purged++;
     }
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'email_empty_trash', detail: { purged_count: purged },
+    }));
     return json({ ok: true, purged });
   }
   // Export inbox — CSV (default) or JSON.
@@ -1514,7 +1587,7 @@ async function handleApi(request, env, url, ctx) {
     }
     return json({ error: 'method_not_allowed' }, 405);
   }
-  if (path === '/api/auth/login'  && method === 'POST') return login(request, env);
+  if (path === '/api/auth/login'  && method === 'POST') return login(request, env, ctx);
   if (path === '/api/auth/logout' && method === 'POST') return logout(request, env);
   if (path === '/api/auth/me'     && method === 'GET')  return me(request, env);
 
@@ -1914,13 +1987,24 @@ async function handleApi(request, env, url, ctx) {
         'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(id, now, 'admin', 'update', a.field, a.old || null, a.new || null, note).run();
     }
+    // P2-3 — invalidate sessions when role or email changes too. Password
+    // change already does this below. Role/email change is privilege- or
+    // identity-affecting: a compromised account being demoted/relabeled
+    // should not keep its old sessions alive.
+    const roleOrEmailChanged = audits.some(a => a.field === 'role' || a.field === 'email');
     if (passwordReset) {
       await env.DB.prepare(
         'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?)'
       ).bind(id, now, 'admin', 'password_reset', note).run();
       // Invalidate every session for this user so the new password takes effect immediately.
       await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
+    } else if (roleOrEmailChanged) {
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
     }
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'user_update', target_type: 'user', target_id: id,
+      detail: { fields: audits.map(a => a.field), password_reset: passwordReset, sessions_revoked: passwordReset || roleOrEmailChanged },
+    }));
     return json({ ok: true, changed: audits.length + (passwordReset ? 1 : 0) });
   }
   if (memM && method === 'DELETE') {
@@ -1934,6 +2018,12 @@ async function handleApi(request, env, url, ctx) {
       'INSERT INTO member_audits (user_id, ts, actor, action, field, old_value, new_value, note) VALUES (?, ?, ?, ?, NULL, ?, NULL, NULL)'
     ).bind(id, now, 'admin', 'delete', cur.email).run();
     await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+    // P2-3: revoke any active sessions for the deleted user too (defensive — most
+    // delete flows will have already gone through soft-delete which clears these).
+    ctx && ctx.waitUntil && ctx.waitUntil(env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run());
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'user_delete', target_type: 'user', target_id: id, detail: { email: cur.email },
+    }));
     return json({ ok: true });
   }
 
@@ -2065,6 +2155,9 @@ async function handleApi(request, env, url, ctx) {
     if (body.op === 'delete') {
       const placeholders = ids.map(() => '?').join(',');
       await env.DB.prepare('DELETE FROM inquiries WHERE id IN (' + placeholders + ')').bind(...ids).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'inquiry_bulk_delete', detail: { count: ids.length, ids: ids.slice(0, 20) },
+      }));
       return json({ ok: true, op: 'delete', count: ids.length });
     }
     if (body.op === 'status' && typeof body.status === 'string') {
@@ -2086,6 +2179,9 @@ async function handleApi(request, env, url, ctx) {
     }
     if (method === 'DELETE') {
       await env.DB.prepare('DELETE FROM inquiries WHERE id = ?').bind(inqM[1]).run();
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'inquiry_delete', target_type: 'inquiry', target_id: inqM[1],
+      }));
       return json({ ok: true });
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -2386,7 +2482,7 @@ function baseUrl(request) {
 // state is never reported back to the caller; the only visible effect is
 // that wrong passwords keep returning the same generic 401.
 const LOGIN_MIN_MS = 1500;
-async function login(request, env) {
+async function login(request, env, ctx) {
   const startedAt = Date.now();
   const FAIL = async () => {
     await padTiming(startedAt, LOGIN_MIN_MS);
@@ -2443,6 +2539,9 @@ async function login(request, env) {
     u.role = 'admin';
   }
   const session = await createSession(env, u.id);
+  // P1-6 — record successful login for breach-response forensics.
+  // Fire-and-forget; never block the auth round-trip on the audit write.
+  ctx && ctx.waitUntil && ctx.waitUntil(writeLoginActivity(env, request, u));
   await padTiming(startedAt, LOGIN_MIN_MS);
   return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at });
 }

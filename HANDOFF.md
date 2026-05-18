@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.036.00`
+- **버전**: `v01.037.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0024** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0025** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.036.00** (마이너 +9)
+- **이번 세션 누적**: v01.027.00 → **v01.037.00** (마이너 +10)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -25,6 +25,7 @@
   - +01.034 — **방어 라운드 P0-2/P0-3**: signup의 `email_taken` 409 enumeration 제거 (PRETEND_OK silent), pwreset 양방향 timing 균질화, KV 기반 IP rate-limit + per-email rate-limit, `ctx.waitUntil(sendEmail)` 백그라운드화, 타이밍 floor 1500ms + 500ms jitter. 6-sample 검증으로 모든 분기 1.7-2.2s window 진입 — 통계적 구분 불가.
   - +01.035 — **방어 라운드 P0-4/5/6/7**: 보안 헤더(CSP / HSTS / X-Frame / nosniff / Referrer-Policy / Permissions-Policy / COOP) 모든 응답 부착. 글로벌 500 catch handler 에러 메시지 generic화 (`{error:'internal'}`). ADMIN_TOKEN 등 시크릿 length 노출 제거. 파일 업로드에 KV rate-limit (20회/시간/IP) + R2 put 에러 메시지 generic화.
   - +01.036 — **방어 라운드 P1-2/3/4**: CDN 스크립트 SRI 해시 완비 (React production + Lucide 누락분 추가). `/api/admin/*` write 메서드에 CSRF Origin/Referer 검사 (cross-origin POST는 `403 origin_blocked`). 위키 PUT 스키마+크기 검증 (≤512KB, ≤200 pages, page shape 검증). P1-1 TipTap sanitize는 별도 라운드로 미룸 (DOMPurify 도입 여부 설계 필요).
+  - +01.037 — **방어 라운드 P1-5/6 + P2-2/3 + 위키 버전탭 신설**: `admin_audit` + `login_activity` D1 테이블 + 6개 파괴적 액션 hook + 로그인 성공 활동 기록 (모두 fire-and-forget). R2 키 prefix를 `Date.now()` → `randomHex(8)`로 (기존 파일 영향 X). 세션 revoke를 role/email 변경 시까지 확장. **신규 admin → 위키 → "버전 기록" 탭** (`wiki:versions` KV에 12개 페이지 사전 입력 — v01.018~027 요약 + v01.028~037 개별).
 
 ## 2. 스택 한눈에
 
@@ -42,7 +43,17 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.036)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.037)에 마친 큰 변경
+
+### 감사 로그 · 로그인 활동 · R2 키 랜덤화 · 세션 revoke + 위키 버전탭 — v01.037 (방어 라운드 P1-5 + P1-6 + P2-2 + P2-3)
+- **P1-5 admin_audit 테이블**: 신규 D1 테이블 + 인덱스 3종(ts/actor/action). 6개 파괴적 admin 액션에 `ctx.waitUntil(writeAdminAudit(...))` hook. 모든 로그는 fire-and-forget이라 logging 장애가 본 흐름 막지 않음.
+  - 추적 액션: `user_delete`, `user_update`(role/email/password 변경 시), `email_trash`, `email_purge`, `email_empty_trash`, `application_delete`, `application_bulk_delete/status`, `inquiry_delete`, `inquiry_bulk_delete`.
+  - 컬럼: ts, actor_user_id (NULL이면 ADMIN_TOKEN 사용), via_admin_token, action, target_type, target_id, detail (JSON), ip, user_agent.
+- **P1-6 login_activity 테이블**: 신규 D1 테이블. 로그인 성공 시 ts/user_id/email/ip/user_agent 한 줄 기록. 실패는 `users.failed_login_attempts` 컬럼에서 이미 추적 — 중복 저장 X.
+- **P2-2 R2 키 prefix 랜덤화**: `apps/{folder}/{kind}/Date.now()-{file}` → `apps/{folder}/{kind}/{randomHex(8)}-{file}`. 64-bit 엔트로피로 인접 키 enumeration 차단. 기존 파일은 영향 없음(DB에 저장된 r2_key로 read).
+- **P2-3 세션 revoke 확장**: 비번 변경뿐 아니라 **role/email 변경 시에도** 해당 user_id 모든 sessions DELETE. 권한 강등/식별 변경 시 기존 로그인 세션 무효화.
+- **위키 → "버전 기록" 탭 신설**: admin 사이드바 → 위키 → "버전 기록 / Version history". WikiTab 재사용. `wiki:versions` KV에 12개 페이지 사전 populate (v01.018~027 묶음 + v01.028~037 개별).
+- **마이그레이션**: `0025_admin_audit_and_login_activity.sql`.
 
 ### SRI · CSRF · 위키 PUT 검증 — v01.036 (방어 라운드 P1-2 + P1-3 + P1-4)
 - **P1-2 SRI 해시**:

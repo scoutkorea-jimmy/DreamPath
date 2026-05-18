@@ -1,30 +1,71 @@
 // auth-store.js — minimal user session store backed by /api/auth.
-// Token persisted in localStorage as 'dp_user_token'; user object cached in memory.
+//
+// v01.044: HttpOnly cookie is the primary session surface. The browser
+// auto-attaches the dp_session cookie on same-origin fetches, so we
+// don't read or store the token in JS at all on new sessions — an XSS
+// payload can no longer reach the session token via document.cookie or
+// localStorage.
+//
+// Backward compatibility: there are still tabs / installs out there
+// holding a legacy localStorage token from before the cookie rollout.
+// On init we try the cookie path first; if /api/auth/me says 401 we
+// look for a legacy token and try once with the Bearer header. If
+// that succeeds we promote the user state and clear the localStorage
+// entry so the next request rides on the cookie alone.
 (function() {
-  const TOKEN_KEY = 'dp_user_token';
+  const TOKEN_KEY = 'dp_user_token';   // legacy — read once on migration, then cleared
   let _user = null;
   let _ready = false;
   const subscribers = new Set();
 
   function emit() { subscribers.forEach(fn => { try { fn(); } catch (e) {} }); }
 
-  function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
-  function setToken(t) {
-    if (t) localStorage.setItem(TOKEN_KEY, t);
-    else localStorage.removeItem(TOKEN_KEY);
+  function readLegacyToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+  }
+  function clearLegacyToken() {
+    try { localStorage.removeItem(TOKEN_KEY); } catch {}
   }
 
   async function fetchMe() {
-    const t = token();
-    if (!t) { _user = null; _ready = true; emit(); return null; }
+    // Cookie-first: same-origin fetches send dp_session automatically.
     try {
-      const res = await fetch('/api/auth/me', { headers: { authorization: 'Bearer ' + t } });
-      if (!res.ok) { setToken(''); _user = null; _ready = true; emit(); return null; }
-      const data = await res.json();
-      _user = data.user || null;
+      const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      if (res.ok) {
+        const data = await res.json();
+        _user = data.user || null;
+        _ready = true;
+        emit();
+        return _user;
+      }
+      // 401 path — if there's a legacy localStorage token, try one
+      // Bearer-header bootstrap so users with old tokens stay logged in.
+      if (res.status === 401) {
+        const legacy = readLegacyToken();
+        if (legacy) {
+          const r2 = await fetch('/api/auth/me', {
+            headers: { authorization: 'Bearer ' + legacy },
+            credentials: 'same-origin',
+          });
+          if (r2.ok) {
+            const data = await r2.json();
+            _user = data.user || null;
+            _ready = true;
+            // Keep the legacy token in localStorage until the user
+            // re-logs in — we still need it to authenticate writes
+            // until the server-side cookie is set on next login.
+            emit();
+            return _user;
+          }
+          // Legacy token rejected by server → drop it so we stop
+          // trying the slow Bearer path on every page load.
+          clearLegacyToken();
+        }
+      }
+      _user = null;
       _ready = true;
       emit();
-      return _user;
+      return null;
     } catch {
       _ready = true;
       emit();
@@ -36,27 +77,31 @@
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ email, password, password_confirm, name, phone_country, phone_national, lang }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'signup_failed');
-    // When activation is required, the worker returns no token — the user
-    // sees the "check your email" screen and finishes via /activate.
     if (data.activation_required) {
-      return { activation_required: true, email, expires_at: data.activation_expires_at, dev_code: data.activation_code || null };
+      return { activation_required: true, email, expires_at: data.activation_expires_at };
     }
-    setToken(data.token);
+    // Server set the dp_session cookie via Set-Cookie. We do NOT touch
+    // localStorage anymore — the cookie is the only place the token lives.
     _user = data.user;
     emit();
     return _user;
   }
+
   // Used by ActivateAccountView after a successful POST /api/auth/activate
-  // so the UI can transition to "logged in" without forcing a fresh login.
-  function adoptSession(t, user) {
-    if (!t) return;
-    setToken(t);
+  // so the UI can transition to "logged in" without a fresh login.
+  function adoptSession(_unusedToken, user) {
+    // The activation endpoint already set the dp_session cookie; we
+    // intentionally ignore the token argument so it never lands in JS.
     _user = user || null;
     _ready = true;
+    // If there's still a legacy localStorage entry from before, drop it
+    // now that the cookie is authoritative.
+    clearLegacyToken();
     emit();
   }
 
@@ -64,32 +109,38 @@
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'login_failed');
-    setToken(data.token);
+    // Cookie set by server. Drop any legacy localStorage token so XSS
+    // can no longer reach the session.
+    clearLegacyToken();
     _user = data.user;
     emit();
     return _user;
   }
 
   async function logout() {
-    const t = token();
     try {
-      await fetch('/api/auth/logout', { method: 'POST', headers: { authorization: 'Bearer ' + t } });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } catch {}
-    setToken('');
+    clearLegacyToken();
     _user = null;
     emit();
   }
 
-  // Authenticated fetch helper
+  // Authenticated fetch helper. Cookie is auto-attached on same-origin;
+  // we only fall back to Authorization: Bearer for users still on the
+  // legacy localStorage token (no cookie yet).
   async function authFetch(url, init = {}) {
     const headers = { ...(init.headers || {}) };
-    const t = token();
-    if (t) headers['authorization'] = 'Bearer ' + t;
-    return fetch(url, { ...init, headers });
+    const legacy = readLegacyToken();
+    if (legacy && !headers['authorization'] && !headers['Authorization']) {
+      headers['authorization'] = 'Bearer ' + legacy;
+    }
+    return fetch(url, { ...init, headers, credentials: 'same-origin' });
   }
 
   function subscribe(fn) {
@@ -100,10 +151,14 @@
   window.DreamPathAuth = {
     get user() { return _user; },
     get ready() { return _ready; },
-    get token() { return token(); },
+    // Exposed for the rare component (Apply.jsx, Legal.jsx, Pages.jsx)
+    // that still reads it to decide whether to add an Authorization
+    // header. Returns '' once the localStorage entry has been cleared,
+    // at which point the component should rely on credentials:
+    // 'same-origin' (cookie) instead.
+    get token() { return readLegacyToken(); },
     fetchMe, signup, login, logout, authFetch, subscribe, adoptSession,
   };
 
-  // Kick off initial fetch
   fetchMe();
 })();

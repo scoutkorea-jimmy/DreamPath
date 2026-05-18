@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.043.00`
+- **버전**: `v01.044.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0027** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.043.00** (마이너 +16)
+- **이번 세션 누적**: v01.027.00 → **v01.044.00** (마이너 +17)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -32,6 +32,7 @@
   - +01.041 — **P2-1 HttpOnly 세션 쿠키 (서버 측, dual-auth)**: 로그인/활성화/skipActivation signup 성공 시 `Set-Cookie: dp_session=...; HttpOnly; Secure; SameSite=Lax; Path=/` 자동 부착. `bearerToken()`이 Authorization 헤더 OR `dp_session` 쿠키 둘 다 읽어 dual-auth. 로그아웃 시 쿠키도 즉시 만료. 클라이언트는 변경 없음(fetch 기본 `credentials: 'same-origin'`이 자동 첨부). XSS-via-localStorage 차단의 1단계 — 후속에서 client가 localStorage 의존을 끊으면 완전 차단.
   - +01.042 — **P2-5 PII at-rest 암호화 (phone)**: 마이그레이션 0026으로 `users.phone_country_enc`, `users.phone_national_enc`, `inquiries.phone_enc` 추가. AES-GCM(IV 12바이트 + ciphertext + 16바이트 tag, base64). 키는 `env.PII_ENCRYPTION_KEY`를 SHA-256으로 derive. signup + inquiry 쓰기 시 키가 있으면 `_enc`만 채우고 평문 컬럼은 NULL; 키 미설정 시 종전대로 평문. admin 회원 조회 시 `_enc` 우선 decrypt + 평문 fallback. `/api/admin/search`에서 `phone_national LIKE` 제거(암호화된 컬럼은 LIKE 매칭 불가). 운영자가 `wrangler secret put PII_ENCRYPTION_KEY` 한 뒤부터 신규 데이터 즉시 암호화. 기존 평문 row는 별도 backfill로 점진 처리.
   - +01.043 — **PII backfill cron + inbound HTML sanitize backfill cron**: 매시 cron에 `piiBackfillCron`(키 설정 시 평문 phone row 100개씩 암호화 + 평문 NULL) + `inboundSanitizeCron`(v01.040 이전 inbound 이메일 50개씩 HTML 재-sanitize) 추가. 마이그레이션 0027로 `inbound_emails.sanitized_at` 마커 컬럼. 키 미설정/legacy row 없음 시 cron 모두 no-op.
+  - +01.044 — **P2-1 클라이언트 phase 2 (cookie-first)**: `auth-store.js` 전면 재작성. 신규 로그인/가입/활성화는 더 이상 `dp_user_token` localStorage 키를 작성하지 않음 → 서버가 설정한 HttpOnly `dp_session` 쿠키만 사용. legacy localStorage 토큰이 있으면 한 번 Bearer-bootstrap으로 `/api/auth/me` 호출해 세션을 인계받은 뒤 사용자가 재로그인 시 자동 폐기. `authFetch`/`signup`/`login`/`logout`이 `credentials: 'same-origin'` 명시. **XSS-via-localStorage 차단 완료** — 신규 세션은 JS로 토큰을 읽을 수 없음.
 
 ## 2. 스택 한눈에
 
@@ -49,7 +50,18 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.043)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.044)에 마친 큰 변경
+
+### 클라이언트 cookie-first 전환 — v01.044 (P2-1 phase 2)
+- **동기**: v01.041에서 서버는 `dp_session` HttpOnly 쿠키를 발급하기 시작했지만 클라이언트가 여전히 `localStorage.dp_user_token`을 작성·전송해서 XSS 위험이 남아 있었음. 이 라운드는 클라이언트가 localStorage에 토큰을 쓰지 않게 해서 XSS-via-localStorage를 완전 차단.
+- **auth-store.js 변경**:
+  - 로그인/가입/`adoptSession`에서 `setToken(...)` 호출 제거. 서버가 설정한 쿠키만 사용.
+  - `fetchMe()`: 우선 `credentials: 'same-origin'`로 쿠키 경로 시도. 401이면 legacy `localStorage.dp_user_token` 있는지 확인하고, 있으면 한 번 Bearer-bootstrap. 성공하면 사용자 인계, 실패하면 legacy 토큰 삭제.
+  - 로그인/활성화 성공 시 legacy 토큰 자동 삭제(`clearLegacyToken`).
+  - `authFetch`: 쿠키가 자동 첨부됨. legacy 토큰이 남아 있으면 후방 호환으로만 Authorization 헤더 추가.
+- **컴포넌트 영향 (Apply.jsx, Pages.jsx, Legal.jsx)**: 모두 이미 `if (token)` truthy 가드라 새 사용자(`token === ''`)는 자동으로 Authorization 헤더 없이 fetch만 호출 → 쿠키가 인증. 별도 수정 불요.
+- **XSS-via-localStorage 결과**: 신규 사용자 토큰이 localStorage에 존재하지 않음 → XSS payload가 토큰을 훔칠 경로가 사라짐. legacy 토큰을 가진 기존 사용자는 다음 로그인 또는 30일 세션 만료 시 자연스럽게 마이그레이션 완료.
+- **충돌 방지**: 서버 측 dual-auth(v01.041)가 그대로라 legacy 토큰도 계속 동작. 마이그레이션 무중단.
 
 ### Backfill cron 추가 — v01.043 (P2-5 + P1-1 백필)
 - **piiBackfillCron**: 매시 정각 cron에서 100 row 단위 처리. `users` 테이블에서 `phone_country IS NOT NULL AND phone_country_enc IS NULL` 패턴으로 legacy 평문 row를 찾아 암호화 + 평문 NULL. 같은 패턴으로 `phone_national`, `inquiries.phone` 처리. 키 미설정 시 즉시 return (no-op).

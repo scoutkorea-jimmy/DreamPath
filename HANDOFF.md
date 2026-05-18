@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.038.00`
+- **버전**: `v01.039.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0025** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.038.00** (마이너 +11)
+- **이번 세션 누적**: v01.027.00 → **v01.039.00** (마이너 +12)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -27,6 +27,7 @@
   - +01.036 — **방어 라운드 P1-2/3/4**: CDN 스크립트 SRI 해시 완비 (React production + Lucide 누락분 추가). `/api/admin/*` write 메서드에 CSRF Origin/Referer 검사 (cross-origin POST는 `403 origin_blocked`). 위키 PUT 스키마+크기 검증 (≤512KB, ≤200 pages, page shape 검증). P1-1 TipTap sanitize는 별도 라운드로 미룸 (DOMPurify 도입 여부 설계 필요).
   - +01.037 — **방어 라운드 P1-5/6 + P2-2/3 + 위키 버전탭 신설**: `admin_audit` + `login_activity` D1 테이블 + 6개 파괴적 액션 hook + 로그인 성공 활동 기록 (모두 fire-and-forget). R2 키 prefix를 `Date.now()` → `randomHex(8)`로 (기존 파일 영향 X). 세션 revoke를 role/email 변경 시까지 확장. **신규 admin → 위키 → "버전 기록" 탭** (`wiki:versions` KV에 12개 페이지 사전 입력 — v01.018~027 요약 + v01.028~037 개별).
   - +01.038 — **관리자 전체 검색 + admin VersionWatcher + 다크모드 contrast 잔여 수정**: 신규 `GET /api/admin/search?q=...` — 회원·지원·문의·받은/보낸메일·위키·콘텐츠 6+1 영역 병렬 검색, 영역당 ≤10건. 사이드바 상단 `GlobalSearch` 컴포넌트 (300ms debounce, 부동 결과 패널). admin.html이 이제 `VersionWatcher.jsx` 로드 + 마운트해서 공개 사이트와 동일한 "새 버전 배포됨" 토스트 표시. WikiTab active 페이지 라벨 + 일부 Stat 카운터 + 분석 trail 라벨이 `--midnight-purple`(다크모드 fix dark) → `--brand-text`(다크모드 자동 light flip)로 교체 — contrast 1.5 → AA 통과.
+  - +01.039 — **VersionWatcher 강화 + WikiTab 페이지네이션 + 버전 위키 전면 재구조화**: 폴링 60→20초, `visibilitychange`/`online` 리스너 추가, 배너를 크게 + 슬라이드 인 + 펄스 강조. WikiTab 사이드바에 20개 단위 페이지네이션(activeId 자동 점프). `wiki:versions` 14페이지를 새 구조(① 주요 목적 ② 주요 내역 ③ 비개발자 기본 표시 + 개발자 접힘 ④ KMS 위키 반영)로 전면 재작성.
 
 ## 2. 스택 한눈에
 
@@ -44,7 +45,12 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.038)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.039)에 마친 큰 변경
+
+### VersionWatcher 강화 + WikiTab 페이지네이션 + 버전 위키 재구조화 — v01.039
+- **VersionWatcher 강화** (사용자 긴급 요청): 폴링 주기 60s → **20s**. `focus` 외에 `visibilitychange`(탭 가시성) + `online`(네트워크 복귀) 리스너 추가. 배너를 슬라이드 인 + 잔잔한 보라색 펄스 + 36px 화살표 아이콘 + "지금 새로고침" 버튼으로 강조. 사용자가 의식하지 못한 채 옛 화면 쓰는 가능성 차단.
+- **WikiTab 사이드바 페이지네이션**: 20개 단위. `activeId` 변경 시 그 페이지로 자동 점프. 페이지 수 변경 시 인덱스 범위 자동 보정.
+- **wiki:versions 14페이지 재구조화** (사용자 요청): 각 페이지가 ① 이 버전의 주요 목적 ② 주요 업데이트 내역 ③ 세부 업데이트 내역(비개발자용 기본 표시 + 개발자용 접힘) ④ KMS 위키 반영 4섹션으로 표준화. `<details open>`/`<details>` 활용. 사용자(특히 운영자)가 한 라운드의 의도·결과·기술 디테일·문서 영향을 한 페이지에서 모두 볼 수 있게.
 
 ### 관리자 전체 검색 + admin VersionWatcher + 다크모드 contrast 잔여 수정 — v01.038
 - **`GET /api/admin/search?q=...`**: 회원/지원/문의/받은메일/보낸메일/위키/콘텐츠 7개 영역 병렬 LIKE 검색, 영역당 최대 10건. `q` 길이 100자 cap. 위키 4개 슬러그(kms/design/color/versions) + CONTENT_KEY 전체 JSON 트리 walk + 매칭 string 경로 추출. 빈 q는 빈 결과 반환(전체 dump 방지).

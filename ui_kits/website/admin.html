@@ -5686,12 +5686,36 @@
     const { data, setData, loading, err, saving } = useWiki(slug);
     const [activeId, setActiveId] = useState(null);
     const [draft, setDraft] = useState(null);
+    // Sidebar pagination — 20 pages per view. Operator request: long
+    // wiki lists (especially versions) must paginate so the sidebar
+    // doesn't run off the viewport. The active page is auto-located
+    // when the wiki loads so pageIdx jumps to wherever activeId lives.
+    const PAGES_PER_VIEW = 20;
+    const [pageIdx, setPageIdx] = useState(0);
+    const totalPages = Math.max(1, Math.ceil(data.pages.length / PAGES_PER_VIEW));
 
     useEffect(() => {
       if (!activeId && data.pages.length) setActiveId(data.pages[0].id);
     }, [data.pages, activeId]);
 
+    // Keep pageIdx in range when pages get added / removed.
+    useEffect(() => {
+      if (pageIdx > totalPages - 1) setPageIdx(Math.max(0, totalPages - 1));
+    }, [totalPages, pageIdx]);
+
+    // When the active page is on a different "page" of the list, jump
+    // there automatically so the sidebar always highlights the active.
+    useEffect(() => {
+      if (!activeId) return;
+      const idx = data.pages.findIndex(p => p.id === activeId);
+      if (idx < 0) return;
+      const targetPage = Math.floor(idx / PAGES_PER_VIEW);
+      if (targetPage !== pageIdx) setPageIdx(targetPage);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeId]);
+
     const active = data.pages.find(p => p.id === activeId);
+    const visiblePages = data.pages.slice(pageIdx * PAGES_PER_VIEW, (pageIdx + 1) * PAGES_PER_VIEW);
 
     function startEdit(p) { setDraft({ ...p }); }
     function cancelEdit() { setDraft(null); }
@@ -5730,7 +5754,7 @@
             <div style={{padding:14,fontSize:13,color:'var(--fg-muted)'}}>Loading…</div>
           ) : data.pages.length === 0 ? (
             <div style={{padding:14,fontSize:13,color:'var(--fg-muted)'}}>No pages yet.<br/>Click <em>+ New</em>.</div>
-          ) : data.pages.map(p => (
+          ) : visiblePages.map(p => (
             <button key={p.id} type="button"
               onClick={() => { setActiveId(p.id); setDraft(null); }}
               style={{display:'block',width:'100%',textAlign:'left',padding:'8px 10px',border:'none',borderRadius:8,

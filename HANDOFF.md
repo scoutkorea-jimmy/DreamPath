@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.044.00`
+- **버전**: `v01.045.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0027** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0028** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.044.00** (마이너 +17)
+- **이번 세션 누적**: v01.027.00 → **v01.045.00** (마이너 +18)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -33,6 +33,7 @@
   - +01.042 — **P2-5 PII at-rest 암호화 (phone)**: 마이그레이션 0026으로 `users.phone_country_enc`, `users.phone_national_enc`, `inquiries.phone_enc` 추가. AES-GCM(IV 12바이트 + ciphertext + 16바이트 tag, base64). 키는 `env.PII_ENCRYPTION_KEY`를 SHA-256으로 derive. signup + inquiry 쓰기 시 키가 있으면 `_enc`만 채우고 평문 컬럼은 NULL; 키 미설정 시 종전대로 평문. admin 회원 조회 시 `_enc` 우선 decrypt + 평문 fallback. `/api/admin/search`에서 `phone_national LIKE` 제거(암호화된 컬럼은 LIKE 매칭 불가). 운영자가 `wrangler secret put PII_ENCRYPTION_KEY` 한 뒤부터 신규 데이터 즉시 암호화. 기존 평문 row는 별도 backfill로 점진 처리.
   - +01.043 — **PII backfill cron + inbound HTML sanitize backfill cron**: 매시 cron에 `piiBackfillCron`(키 설정 시 평문 phone row 100개씩 암호화 + 평문 NULL) + `inboundSanitizeCron`(v01.040 이전 inbound 이메일 50개씩 HTML 재-sanitize) 추가. 마이그레이션 0027로 `inbound_emails.sanitized_at` 마커 컬럼. 키 미설정/legacy row 없음 시 cron 모두 no-op.
   - +01.044 — **P2-1 클라이언트 phase 2 (cookie-first)**: `auth-store.js` 전면 재작성. 신규 로그인/가입/활성화는 더 이상 `dp_user_token` localStorage 키를 작성하지 않음 → 서버가 설정한 HttpOnly `dp_session` 쿠키만 사용. legacy localStorage 토큰이 있으면 한 번 Bearer-bootstrap으로 `/api/auth/me` 호출해 세션을 인계받은 뒤 사용자가 재로그인 시 자동 폐기. `authFetch`/`signup`/`login`/`logout`이 `credentials: 'same-origin'` 명시. **XSS-via-localStorage 차단 완료** — 신규 세션은 JS로 토큰을 읽을 수 없음.
+  - +01.045 — **PII 암호화 확장 (applications.birthdate)**: 마이그레이션 0028로 `applications.birthdate_enc` 추가. 신청서 제출 시 키 있으면 birthdate를 암호화해서 `_enc`에 저장 + 평문 NULL. admin 신청서 GET(목록/단일)에서 자동 decrypt. piiBackfillCron에 birthdate 백필 분기 추가.
 
 ## 2. 스택 한눈에
 
@@ -50,7 +51,13 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.044)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.045)에 마친 큰 변경
+
+### PII 암호화 확장 — applications.birthdate (v01.045)
+- **마이그레이션 0028**: `applications.birthdate_enc TEXT NULL`.
+- **쓰기 (submitApplication)**: 키 설정 시 `encryptPii(birthdate)` → `birthdate_enc`, 평문 컬럼 NULL. 키 미설정 시 종전대로 평문.
+- **읽기 (listApplications / 단일 GET)**: `birthdate_enc` 있으면 decrypt → response `birthdate` 필드로 매핑, 응답 본문에서 `birthdate_enc` 제거. legacy 평문 row는 그대로 fallback.
+- **piiBackfillCron 확장**: `applications.birthdate IS NOT NULL AND birthdate_enc IS NULL` 패턴으로 100 row씩 점진 암호화 + 평문 NULL.
 
 ### 클라이언트 cookie-first 전환 — v01.044 (P2-1 phase 2)
 - **동기**: v01.041에서 서버는 `dp_session` HttpOnly 쿠키를 발급하기 시작했지만 클라이언트가 여전히 `localStorage.dp_user_token`을 작성·전송해서 XSS 위험이 남아 있었음. 이 라운드는 클라이언트가 localStorage에 토큰을 쓰지 않게 해서 XSS-via-localStorage를 완전 차단.

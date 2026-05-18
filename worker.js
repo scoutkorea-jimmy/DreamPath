@@ -940,6 +940,12 @@ async function handleApi(request, env, url, ctx) {
     if (method === 'GET') {
       const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
       if (!row) return json({ error: 'not_found' }, 404);
+      // P2-5: decrypt birthdate_enc when present.
+      if (row.birthdate_enc) {
+        const dec = await decryptPii(env, row.birthdate_enc);
+        if (dec) row.birthdate = dec;
+      }
+      delete row.birthdate_enc;
       return json(row);
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -3043,6 +3049,19 @@ async function piiBackfillCron(env) {
         'UPDATE inquiries SET phone_enc = ?, phone = NULL WHERE id = ?'
       ).bind(enc, iq.id).run();
     }
+    // applications.birthdate (v01.045)
+    const { results: apps } = await env.DB.prepare(
+      'SELECT id, birthdate FROM applications ' +
+      'WHERE birthdate IS NOT NULL AND birthdate_enc IS NULL ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const a of apps || []) {
+      const enc = await encryptPii(env, a.birthdate);
+      if (!enc) continue;
+      await env.DB.prepare(
+        'UPDATE applications SET birthdate_enc = ?, birthdate = NULL WHERE id = ?'
+      ).bind(enc, a.id).run();
+    }
   } catch {}
 }
 
@@ -3873,8 +3892,17 @@ async function submitApplication(request, env) {
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
 
-  const cols = ['id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency', ...APP_FIELDS];
-  const values = [id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD', ...APP_FIELDS.map(k => str(body[k]))];
+  // P2-5 expansion (v01.045): encrypt birthdate when key is available.
+  // The encrypted value goes to applications.birthdate_enc; the legacy
+  // birthdate column is NULLed so a DB dump doesn't carry both.
+  const birthdateRaw = str(body.birthdate) || null;
+  const birthdateEnc = birthdateRaw ? await encryptPii(env, birthdateRaw) : null;
+  const birthdatePlain = birthdateEnc ? null : birthdateRaw;
+  const cols = ['id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency', ...APP_FIELDS, 'birthdate_enc'];
+  const values = [id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD',
+    ...APP_FIELDS.map(k => k === 'birthdate' ? birthdatePlain : str(body[k])),
+    birthdateEnc,
+  ];
 
   const placeholders = cols.map(() => '?').join(',');
   const sql = `INSERT INTO applications (${cols.join(',')}) VALUES (${placeholders})`;
@@ -3927,7 +3955,22 @@ async function listApplications(env, url) {
   sql += ' ORDER BY submitted_at DESC LIMIT ?';
   binds.push(limit);
   const { results } = await env.DB.prepare(sql).bind(...binds).all();
-  return json({ items: results || [], count: (results || []).length });
+  // P2-5 (v01.045): decrypt birthdate_enc when present, fall back to
+  // legacy plaintext for rows that pre-date the encryption rollout.
+  // We sequentially await each decrypt — the list cap (≤500 items) +
+  // small ciphertext size keep this fast enough; if the cap grows later
+  // we can fan out via Promise.all.
+  const items = [];
+  for (const r of results || []) {
+    const out = { ...r };
+    if (r.birthdate_enc) {
+      const dec = await decryptPii(env, r.birthdate_enc);
+      if (dec) out.birthdate = dec;
+    }
+    delete out.birthdate_enc;
+    items.push(out);
+  }
+  return json({ items, count: items.length });
 }
 
 function validateApplication(b) {

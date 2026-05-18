@@ -30,7 +30,7 @@ export default {
 
     if (url.pathname.startsWith('/api/')) {
       try {
-        return headStrip(await handleApi(request, env, url, ctx));
+        return withSecurityHeaders(headStrip(await handleApi(request, env, url, ctx)));
       } catch (err) {
         // Log every uncaught server error to D1 for the admin error console
         ctx.waitUntil(logError(env, {
@@ -42,27 +42,30 @@ export default {
           ip: request.headers.get('cf-connecting-ip') || '',
           user_agent: (request.headers.get('user-agent') || '').slice(0, 500),
         }));
-        return json({ error: 'internal', message: String(err && err.message || err) }, 500);
+        // P0-5 — never echo the raw exception message back to the
+        // caller. Stack traces / SQL errors / table names are useful to
+        // an attacker and useless to the legitimate user.
+        return withSecurityHeaders(json({ error: 'internal' }, 500));
       }
     }
 
     // SEO endpoints
-    if (url.pathname === '/sitemap.xml')  return headStrip(await sitemapXml(env, url));
-    if (url.pathname === '/robots.txt')   return headStrip(await robotsTxt(url));
+    if (url.pathname === '/sitemap.xml')  return withSecurityHeaders(headStrip(await sitemapXml(env, url)));
+    if (url.pathname === '/robots.txt')   return withSecurityHeaders(headStrip(await robotsTxt(url)));
 
     // Friendly URL → real asset path. Use the same Request (preserves headers,
     // method) but with a rewritten URL. ASSETS binding handles HEAD natively.
     if (ADMIN_PATHS.has(url.pathname)) {
-      return env.ASSETS.fetch(rewriteRequest(request, SITE_ADMIN));
+      return withSecurityHeaders(await env.ASSETS.fetch(rewriteRequest(request, SITE_ADMIN)));
     }
     if (SPA_PATHS.has(url.pathname)
         || url.pathname.startsWith('/program/')
         || url.pathname.startsWith('/news/')
         || url.pathname.startsWith('/stories/')) {
-      return env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX));
+      return withSecurityHeaders(await env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX)));
     }
 
-    return env.ASSETS.fetch(request);
+    return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 
   // Cloudflare Email Workers entry point. Triggered by an Email Routing rule
@@ -299,6 +302,49 @@ function rewriteRequest(request, newPath) {
   return new Request(u.toString(), request);
 }
 
+// Security headers attached to every response served from the edge. CSP
+// is the loosest piece — Babel-in-browser needs 'unsafe-eval' to evaluate
+// JSX it transpiles at runtime, and inline style={{}} props all over the
+// React tree require 'unsafe-inline' for styles. The strict pieces
+// (HSTS / nosniff / frame-ancestors / connect-src / form-action /
+// Referrer-Policy / Permissions-Policy) still block the most common
+// attack classes (clickjacking, MIME-sniff XSS, exfiltration to
+// untrusted hosts, form hijack, sensor APIs).
+const CSP = [
+  "default-src 'self'",
+  // Babel-standalone transpiles JSX at runtime and the resulting code
+  // runs via Function/eval — hence 'unsafe-eval'. 'unsafe-inline' covers
+  // the babel-transformed script blocks that have no nonce/hash.
+  "script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'",
+  // Inline style={{}} attributes everywhere need 'unsafe-inline'. Once
+  // we move to a build step we can drop this.
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  // API + asset calls are all same-origin. wss/ws too in case future
+  // realtime endpoints attach.
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join('; ');
+
+function withSecurityHeaders(resp) {
+  // Don't mutate the original headers object — clone into a new Response
+  // so cached / immutable responses stay intact.
+  const h = new Headers(resp.headers);
+  // Set / overwrite the canonical security headers.
+  h.set('Content-Security-Policy', CSP);
+  h.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('X-Frame-Options', 'DENY');
+  h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=()');
+  h.set('Cross-Origin-Opener-Policy', 'same-origin');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+}
+
 // ── SEO: sitemap.xml + robots.txt ─────────────────────────────────────────
 async function sitemapXml(env, url) {
   const origin = url.origin;
@@ -490,9 +536,14 @@ async function handleApi(request, env, url, ctx) {
   // (PDF / image) base64-encoded and stores it in R2. Returns { id, r2_key,
   // filename, size }. The Apply form bundles these refs into the application
   // payload on submit so the file is linked once the row is committed.
-  // Cap: 10 MB per file, 4 files per minute per IP (loose; KV-less limiter).
+  // Cap: 10 MB per file, 20 files / hour per cf-connecting-ip via KV.
   if (path === '/api/applications/upload' && method === 'POST') {
     if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    if (ip) {
+      const rl = await rateLimit(env, 'rl:upload:' + ip, 20, 3600);
+      if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
+    }
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
     const application_id = String(body.application_id || '').slice(0, 64);
@@ -546,7 +597,14 @@ async function handleApi(request, env, url, ctx) {
     try {
       await env.ATTACHMENTS.put(key, bytes, { httpMetadata: { contentType: mime } });
     } catch (e) {
-      return json({ error: 'r2_put_failed', detail: String(e.message || e).slice(0, 200) }, 500);
+      // Log full detail to the error console; never echo to the caller.
+      ctx && ctx.waitUntil && ctx.waitUntil(logError(env, {
+        level: 'error', source: 'server',
+        message: 'r2_put_failed: ' + String(e && e.message || e),
+        path: '/api/applications/upload', method: 'POST', status: 500,
+        ip, user_agent: (request.headers.get('user-agent') || '').slice(0, 500),
+      }));
+      return json({ error: 'upload_failed' }, 500);
     }
     const ts = new Date().toISOString();
     const ins = await env.DB.prepare(
@@ -1244,20 +1302,20 @@ async function handleApi(request, env, url, ctx) {
       { id: 'KAKAO_OAUTH_SECRET',  label: 'Kakao OAuth client secret',        critical: false },
       { id: 'APPLE_OAUTH_SECRET',  label: 'Apple OAuth client secret',        critical: false },
     ];
+    // P0-6 — only report whether the secret is set. Returning the
+    // length narrowed brute-force search space for any attacker who
+    // managed to grab partial bits of a secret through another vector.
+    // Operators can verify a secret works by exercising the integration
+    // (e.g. /api/admin/email/test).
     const status = known.map(s => ({
       ...s,
       configured: !!env[s.id],
-      // Length only — useful for visually distinguishing "set but maybe wrong"
-      // from "wholly missing" without leaking the value.
-      length: env[s.id] ? String(env[s.id]).length : 0,
     }));
-    // Admin token is special — its absence breaks /admin entirely, so report it.
     status.unshift({
       id: 'ADMIN_TOKEN',
       label: 'Admin Bearer token (this console)',
       critical: true,
       configured: !!env.ADMIN_TOKEN,
-      length: env.ADMIN_TOKEN ? String(env.ADMIN_TOKEN).length : 0,
     });
     return json({ items: status });
   }

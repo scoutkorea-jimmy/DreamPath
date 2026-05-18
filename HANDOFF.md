@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.034.00`
+- **버전**: `v01.035.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0024** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.034.00** (마이너 +7)
+- **이번 세션 누적**: v01.027.00 → **v01.035.00** (마이너 +8)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -23,6 +23,7 @@
   - +01.032 — 로그인 무차별 대입 방어 (실패 카운트 + 지수 백오프 잠금)
   - +01.033 — **방어 라운드 시작**: 활성화 throttle + 인증 4경로(login/activate/resend/lockout) timing + status 균질화. crypto-secure 활성화 코드. 정보 누출 헌법: 모든 인증 응답은 status code · body · wall-clock 모두 분기 무관 동일.
   - +01.034 — **방어 라운드 P0-2/P0-3**: signup의 `email_taken` 409 enumeration 제거 (PRETEND_OK silent), pwreset 양방향 timing 균질화, KV 기반 IP rate-limit + per-email rate-limit, `ctx.waitUntil(sendEmail)` 백그라운드화, 타이밍 floor 1500ms + 500ms jitter. 6-sample 검증으로 모든 분기 1.7-2.2s window 진입 — 통계적 구분 불가.
+  - +01.035 — **방어 라운드 P0-4/5/6/7**: 보안 헤더(CSP / HSTS / X-Frame / nosniff / Referrer-Policy / Permissions-Policy / COOP) 모든 응답 부착. 글로벌 500 catch handler 에러 메시지 generic화 (`{error:'internal'}`). ADMIN_TOKEN 등 시크릿 length 노출 제거. 파일 업로드에 KV rate-limit (20회/시간/IP) + R2 put 에러 메시지 generic화.
 
 ## 2. 스택 한눈에
 
@@ -40,7 +41,17 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.034)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.035)에 마친 큰 변경
+
+### 헤더·에러·시크릿·업로드 강화 — v01.035 (방어 라운드 P0-4 + P0-5 + P0-6 + P0-7)
+- **P0-4 보안 헤더**: `withSecurityHeaders(resp)` 래퍼로 모든 응답(API, SPA, admin, sitemap, robots, 정적 자산)에 7개 헤더 부착.
+  - `Content-Security-Policy`: 외부 스크립트는 unpkg.com 만. Babel-in-browser 때문에 `'unsafe-inline' 'unsafe-eval'` 불가피, 대신 `connect-src 'self'`로 외부 exfil 차단, `frame-ancestors 'none'`로 clickjacking 차단, `object-src 'none'`로 Flash/Java applet 차단, `base-uri 'self'`로 base tag injection 차단, `form-action 'self'`로 form hijack 차단.
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` — HSTS preload 등록 가능.
+  - `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` 8개 센서 API 차단, `Cross-Origin-Opener-Policy: same-origin`.
+- **P0-5 에러 응답 generic화**: `/api/*` 글로벌 catch handler가 `{error:'internal', message: err.message}` 반환 → `{error:'internal'}` 단일. 상세 메시지는 D1 `error_logs`에만 기록 (운영자 콘솔에서 확인 가능). R2 put 실패 응답도 `upload_failed` 단일 + 상세는 로그.
+- **P0-6 시크릿 length 노출 제거**: `/api/admin/integrations/status`가 각 시크릿의 `length` 반환 → 제거. UI는 "✓ Configured" / "— Not set"만 표시. 운영자가 시크릿 작동 여부는 실제 통합 테스트로 확인.
+- **P0-7 파일 업로드 rate-limit**: `/api/applications/upload`에 KV 기반 20회/시간/IP cap. 이전 코멘트는 "4 files/min/IP"였으나 실제 구현 없었음. 초과 시 429 `rate_limited`.
+- 이상 P0 7개 항목 모두 완료. 다음 라운드는 P1 (TipTap sanitize, SRI 해시, CSRF, 감사 로그).
 
 ### Enumeration / timing 완전 차단 — v01.034 (방어 라운드 P0-2 + P0-3)
 - **운영자 헌법 재확인**: 응답 status · body · wall-clock 어느 차원으로도 분기 추론 불가.

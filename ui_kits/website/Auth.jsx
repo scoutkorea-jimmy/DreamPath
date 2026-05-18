@@ -166,7 +166,6 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
         password_mismatch:          isKo ? '비밀번호 확인이 일치하지 않습니다.' : 'Passwords do not match.',
         invalid_phone_country:      isKo ? '국가번호 형식이 올바르지 않습니다.' : 'Invalid country code.',
         invalid_phone_national:     isKo ? '전화번호가 너무 짧습니다.' : 'Phone number is too short.',
-        email_taken:                isKo ? '이미 가입된 이메일입니다.' : 'Email already registered.',
       }[msg] || (isKo ? '오류가 발생했습니다: ' + msg : 'Error: ' + msg);
       setErr(human);
     } finally {
@@ -205,7 +204,9 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               <br /><strong style={{color:'var(--fg-primary)'}}>{pendingEmail}</strong>
             </p>
             <p style={{color:'var(--fg-muted)',fontSize:12,margin:'0 0 18px'}}>
-              {isKo ? '인증코드는 72시간 동안 유효하며, 이 시간이 지나면 가입이 만료되어 다시 시도하셔야 합니다.' : 'Codes are valid for 72 hours; after that the signup expires.'}
+              {isKo
+                ? '인증코드는 72시간 동안 유효합니다. 이 이메일로 이미 계정이 있으시면 로그인 또는 비밀번호 재설정을 시도해 주세요.'
+                : "Codes are valid for 72 hours. If you already have an account with this email, try signing in or resetting your password instead."}
             </p>
             <button type="button" className="btn btn-primary btn-block" onClick={() => { window.location.href = '/activate?email=' + encodeURIComponent(pendingEmail); }}>
               {isKo ? '인증코드 입력하기' : 'Enter the code'}

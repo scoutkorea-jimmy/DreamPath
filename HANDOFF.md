@@ -8,20 +8,21 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.033.00`
+- **버전**: `v01.034.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0024** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.033.00** (마이너 +6)
+- **이번 세션 누적**: v01.027.00 → **v01.034.00** (마이너 +7)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
   - +01.031 — Apply draft 서버 영속화 (72h TTL) + essays_json 컬럼 + PCI 카드 필드 strip
   - +01.032 — 로그인 무차별 대입 방어 (실패 카운트 + 지수 백오프 잠금)
   - +01.033 — **방어 라운드 시작**: 활성화 throttle + 인증 4경로(login/activate/resend/lockout) timing + status 균질화. crypto-secure 활성화 코드. 정보 누출 헌법: 모든 인증 응답은 status code · body · wall-clock 모두 분기 무관 동일.
+  - +01.034 — **방어 라운드 P0-2/P0-3**: signup의 `email_taken` 409 enumeration 제거 (PRETEND_OK silent), pwreset 양방향 timing 균질화, KV 기반 IP rate-limit + per-email rate-limit, `ctx.waitUntil(sendEmail)` 백그라운드화, 타이밍 floor 1500ms + 500ms jitter. 6-sample 검증으로 모든 분기 1.7-2.2s window 진입 — 통계적 구분 불가.
 
 ## 2. 스택 한눈에
 
@@ -39,7 +40,39 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.033)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.034)에 마친 큰 변경
+
+### Enumeration / timing 완전 차단 — v01.034 (방어 라운드 P0-2 + P0-3)
+- **운영자 헌법 재확인**: 응답 status · body · wall-clock 어느 차원으로도 분기 추론 불가.
+- **signup**:
+  - 기존 `email_taken` 409 응답 → 가입된 이메일 enumeration 가능 → 제거.
+  - 신규 동작: 이미 가입된(또는 활성 pending) 이메일에 대해 PRETEND_OK 응답 — 실제 가입 응답과 구조·길이·필드 모두 동일.
+  - IP rate-limit: cf-connecting-ip 기준 5회/시간. 초과 시 silent PRETEND_OK.
+  - PRETEND_OK 경로에서도 dummy `hashPassword(password, TIMING_DUMMY_SALT)` 실행 → real 경로의 PBKDF2 비용 동등.
+  - 익명 첨부 업로드 path는 영향 없음.
+- **request-password-reset**:
+  - 모든 경로 → 200 ok:true.
+  - per-IP 10회/시간 + per-email 3회/시간 KV 기반 rate-limit. 초과해도 silent ALWAYS_OK.
+  - dev fallback (`d.token` 응답 노출) 제거. 토큰은 메일로만 전달.
+- **confirm-password-reset**:
+  - invalid_token / already_used / expired → 모두 401 `invalid_request` 단일 응답.
+  - password_too_short만 별도 (포맷 검증, 상태 비의존).
+- **ctx.waitUntil 백그라운드 sendEmail**:
+  - signup, request-password-reset, resend-activation 모두 `sendEmail`을 `ctx.waitUntil`로 fire-and-forget.
+  - 이전엔 sendEmail이 `await`되어 응답 시간에 600-1500ms 추가됨 → 존재/부재 timing oracle 형성. 백그라운드화로 차단.
+- **타이밍 floor 상향 + jitter**:
+  - 모든 인증 경로 floor 1500ms (이전 350ms). KV cold read + D1 INSERT의 1.0-1.5s 실측 변동을 floor 안에 묻기 위함.
+  - `AUTH_JITTER_MS = 500` — `crypto.getRandomValues` 기반 0-500ms 균등 jitter를 floor 위에 더해 인접 호출의 fingerprint도 무력화.
+- **rate-limit helper** (`rateLimit(env, key, max, windowSec)`):
+  - CONTENT_KV 기반 fixed-window. `{count, startedAt}` JSON + `expirationTtl` 자동 만료.
+  - 실패 시 fail-open (KV 일시 장애로 정상 사용자 잠그지 않음).
+  - 영역 키: `rl:signup:{ip}`, `rl:pwreset_ip:{ip}`, `rl:pwreset_email:{email}`.
+- **검증 (6-sample × 5 경로)**:
+  - signup NEW 평균 1.95s / TAKEN 평균 2.01s — diff 60ms (jitter 내)
+  - login NONEXISTENT 평균 1.91s
+  - pwreset NONEXISTENT 평균 1.98s / EXISTING 평균 1.96s — diff 20ms
+  - 모든 분기 1.7-2.2s window 내 — 통계적으로 구분 불가.
+- **UX 비용**: 모든 인증 round-trip 약 2초. 회원가입·로그인·비번 재설정 응답 체감 가능. 일말의 누설 차단 위해 수용.
 
 ### 인증 4경로 timing + status 균질화 — v01.033 (방어 라운드 P0-1)
 - **운영자 지시**: "모든 코드는 외부에서 시간차이 혹은 반환 코드로 그 내역을 추측할 수 있도록 하면 안됨"

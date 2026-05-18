@@ -75,25 +75,22 @@ function ResetPasswordView({ go, lang }) {
   const [busy, setBusy] = useStateAV(false);
   const [done, setDone] = useStateAV(null);   // 'requested' | 'reset'
   const [err, setErr] = useStateAV('');
-  const [devLink, setDevLink] = useStateAV('');
 
   async function requestReset(e) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true); setErr(''); setDevLink('');
+    setBusy(true); setErr('');
     try {
-      const r = await fetch('/api/auth/request-password-reset', {
+      await fetch('/api/auth/request-password-reset', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { setErr(d.error || ('http_' + r.status)); return; }
+      // The server always responds 200 ok=true regardless of whether the
+      // email exists / is rate-limited — so we always show the "check
+      // your email" confirmation. The dev fallback that returned the
+      // token in the response is gone; tokens travel via email only.
       setDone('requested');
-      // Until SMTP is wired the API returns the token directly so the
-      // operator can test the flow. Show it as a clickable link so they
-      // can hop straight to the reset form.
-      if (d.token) setDevLink(window.location.origin + '/reset-password?token=' + encodeURIComponent(d.token));
     } catch (e) { setErr(String(e.message || e)); }
     finally { setBusy(false); }
   }
@@ -109,10 +106,11 @@ function ResetPasswordView({ go, lang }) {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
+        // Server folds invalid / consumed / expired token into a single
+        // opaque response. password_too_short is a format error so it
+        // stays distinct.
         setErr({
-          invalid_token:        isKo ? '재설정 링크가 유효하지 않습니다.' : 'Invalid reset link.',
-          expired:              isKo ? '링크가 만료되었습니다. 새 링크를 요청해 주세요.' : 'Link expired. Please request a new one.',
-          already_used:         isKo ? '이미 사용된 링크입니다.' : 'This link was already used.',
+          invalid_request:      isKo ? '재설정 링크가 유효하지 않거나 만료되었거나 이미 사용되었습니다. 새 링크를 요청해 주세요.' : 'Reset link is invalid, expired, or already used. Please request a new one.',
           password_too_short:   isKo ? '비밀번호는 최소 8자 이상이어야 합니다.' : 'Password must be at least 8 characters.',
         }[d.error] || (d.error || ('http_' + r.status)));
         return;
@@ -172,13 +170,6 @@ function ResetPasswordView({ go, lang }) {
         {done === 'requested' && (
           <div role="status" style={{padding:'10px 14px',background:'var(--state-success-bg)',color:'var(--state-success)',borderRadius:8,marginTop:12,fontSize:14}}>
             {isKo ? '재설정 링크가 발송되었습니다 (해당 이메일이 등록된 경우).' : 'If that email exists, a reset link is on its way.'}
-            {devLink && (
-              <div style={{marginTop:8,fontSize:12,fontFamily:'var(--font-mono)'}}>
-                <strong>DEV:</strong>{' '}
-                <a href={devLink} style={{color:'inherit',textDecoration:'underline'}}>{devLink}</a>
-                <div style={{opacity:0.8,marginTop:4}}>{isKo ? 'SMTP 연동 전이라 토큰 링크를 직접 노출합니다. 운영 시 제거됩니다.' : 'Shown only until SMTP is wired; remove for production.'}</div>
-              </div>
-            )}
           </div>
         )}
         <button type="submit" className="btn btn-primary btn-block" style={{marginTop:14}} disabled={busy}>

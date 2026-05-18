@@ -30,7 +30,7 @@ export default {
 
     if (url.pathname.startsWith('/api/')) {
       try {
-        return headStrip(await handleApi(request, env, url));
+        return headStrip(await handleApi(request, env, url, ctx));
       } catch (err) {
         // Log every uncaught server error to D1 for the admin error console
         ctx.waitUntil(logError(env, {
@@ -396,7 +396,7 @@ function robotsTxt(url) {
   });
 }
 
-async function handleApi(request, env, url) {
+async function handleApi(request, env, url, ctx) {
   const path = url.pathname;
   let method = request.method.toUpperCase();
 
@@ -627,9 +627,9 @@ async function handleApi(request, env, url) {
   }
 
   // ── Auth ─────────────────────────────────────────────────────────────────
-  if (path === '/api/auth/signup' && method === 'POST') return signup(request, env);
+  if (path === '/api/auth/signup' && method === 'POST') return signup(request, env, ctx);
   if (path === '/api/auth/activate' && method === 'POST') return activateAccount(request, env);
-  if (path === '/api/auth/resend-activation' && method === 'POST') return resendActivation(request, env);
+  if (path === '/api/auth/resend-activation' && method === 'POST') return resendActivation(request, env, ctx);
   // Email verification — token consumed by the public /verify view.
   // Mints on signup; client requests a fresh one via POST /api/auth/verify-email.
   // ── Mailbox v2 — folders + soft-delete + attachments + export ──────────
@@ -1317,40 +1317,73 @@ async function handleApi(request, env, url) {
     });
   }
   // Password reset — request + confirm.
+  // The request endpoint always returns { ok: true } 200 after a constant
+  // baseline (PWRESET_MIN_MS). Whether the email exists, whether the
+  // per-IP / per-email rate-limit fired, and whether the mail provider
+  // accepted the message are all hidden from the caller. Dev-fallback
+  // that returned the reset token in the response body when Resend
+  // wasn't configured is gone — tokens travel via email only.
   if (path === '/api/auth/request-password-reset' && method === 'POST') {
+    const startedAt = Date.now();
+    const ALWAYS_OK = async () => {
+      await padTiming(startedAt, PWRESET_MIN_MS);
+      return json({ ok: true });
+    };
+
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || '').trim().toLowerCase();
-    if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
+    if (!isEmail(email)) return ALWAYS_OK();
+
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    if (ip) {
+      const rl = await rateLimit(env, 'rl:pwreset_ip:' + ip, PWRESET_IP_MAX_PER_HOUR, 3600);
+      if (!rl.allowed) return ALWAYS_OK();
+    }
+    // Per-email cap so an attacker rotating IPs can't mailbomb a single
+    // user. Tracked in KV so it's eventually consistent across regions.
+    const rlEmail = await rateLimit(env, 'rl:pwreset_email:' + email, PWRESET_EMAIL_MAX_PER_HOUR, 3600);
+    if (!rlEmail.allowed) return ALWAYS_OK();
+
     const u = await env.DB.prepare('SELECT id, email, name FROM users WHERE email = ?').bind(email).first();
-    // Always return ok=true regardless of whether the email exists, so an
-    // attacker can't enumerate accounts by trying random emails.
-    if (!u) return json({ ok: true });
+    if (!u) return ALWAYS_OK();
+
     const token = randomHex(24);
     const now = new Date().toISOString();
     const expires = new Date(Date.now() + 3600 * 1000).toISOString();   // 1 hour
-    const ip = request.headers.get('cf-connecting-ip') || '';
     await env.DB.prepare(
       'INSERT INTO password_resets (token, user_id, created_at, expires_at, ip) VALUES (?, ?, ?, ?, ?)'
     ).bind(token, u.id, now, expires, ip).run();
     const resetUrl = baseUrl(request) + '/reset-password?token=' + encodeURIComponent(token);
     const lang = (body.lang === 'en') ? 'en' : 'ko';
-    const send = await sendEmail(env, {
+    // Background the Resend API call via ctx.waitUntil so the response
+    // returns before the email round-trip completes. Without this, the
+    // existing-email branch is ~400ms slower than the no-row branch and
+    // the padTiming floor cannot hide it — the attacker would see the
+    // timing diff and infer account existence.
+    ctx.waitUntil(sendEmail(env, {
       to: u.email, slug: 'reset_password', lang,
       vars: { name: u.name || u.email, reset_url: resetUrl },
-    });
-    return json({
-      ok: true, email_sent: send.sent,
-      ...(send.sent ? {} : { token, expires_at: expires, dev_note: 'RESEND_API_KEY not set — token returned for manual reset.' }),
-    });
+    }));
+    return ALWAYS_OK();
   }
+  // confirm-password-reset: token validity is the actual auth check here,
+  // so all failure modes (no row, consumed, expired) collapse to one
+  // opaque 401 with a baseline timing pad. Format errors on the payload
+  // shape itself stay distinct because they don't depend on backend state.
   if (path === '/api/auth/confirm-password-reset' && method === 'POST') {
+    const startedAt = Date.now();
+    const FAIL = async () => {
+      await padTiming(startedAt, PWRESET_MIN_MS);
+      return json({ error: 'invalid_request' }, 401);
+    };
+
     const body = await request.json().catch(() => null);
     if (!body || !body.token || typeof body.password !== 'string') return json({ error: 'invalid_request' }, 400);
     if (body.password.length < 8) return json({ error: 'password_too_short' }, 400);
     const row = await env.DB.prepare('SELECT * FROM password_resets WHERE token = ?').bind(body.token).first();
-    if (!row) return json({ error: 'invalid_token' }, 400);
-    if (row.consumed_at) return json({ error: 'already_used' }, 400);
-    if (new Date(row.expires_at) < new Date()) return json({ error: 'expired' }, 400);
+    if (!row) return FAIL();
+    if (row.consumed_at) return FAIL();
+    if (new Date(row.expires_at) < new Date()) return FAIL();
     const salt = randomHex(16);
     const hash = await hashPassword(body.password, salt);
     const now = new Date().toISOString();
@@ -1358,6 +1391,7 @@ async function handleApi(request, env, url) {
     await env.DB.prepare('UPDATE password_resets SET consumed_at = ? WHERE token = ?').bind(now, body.token).run();
     // Invalidate every session for the user — force re-login with new pw.
     await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id).run();
+    await padTiming(startedAt, PWRESET_MIN_MS);
     return json({ ok: true });
   }
   // Apply draft sync — single-row-per-user blob in D1, so a user halfway
@@ -2020,14 +2054,23 @@ const ACTIVATION_TTL_MS = 72 * 3600 * 1000;
 // universally fixed wall-clock — it's that an attacker measuring response
 // time can't tell which branch ran (no row vs wrong code vs locked vs
 // expired etc.). We hold the response open until at least minMs have
-// elapsed since the route started. Pair this with always-running the DB
-// lookup + hash/safeEqual on every branch so the dominant work isn't
-// conditional. Anti-enumeration: the worker keeps no per-IP state here, so
-// a real attacker can still parallelise; throttling at the user-row level
-// (failed_login_*, failed_activation_*) is the actual rate cap.
+// elapsed since the route started, then add up to JITTER_MS of random
+// jitter on top so adjacent calls don't share an identical signature.
+// Pair this with always-running the DB lookup + hash/safeEqual on every
+// branch so the dominant work isn't conditional.
+// Auth floor is set so it exceeds the slowest real path (KV cold reads +
+// D1 INSERT can hit ~1.5s under load). Floor + jitter together give a
+// target window of [PWRESET_MIN_MS, PWRESET_MIN_MS + AUTH_JITTER_MS] —
+// anything that finishes faster waits, and the jitter randomises the
+// exact landing point so adjacent calls don't share a fingerprint.
+// Cost: every auth round-trip takes ~1.5–2s. Trade-off accepted to keep
+// timing channels closed.
+const AUTH_JITTER_MS = 500;
 async function padTiming(startedAt, minMs) {
   const elapsed = Date.now() - startedAt;
-  const remain = minMs - elapsed;
+  const jitter = Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] % AUTH_JITTER_MS);
+  const target = minMs + jitter;
+  const remain = target - elapsed;
   if (remain > 0) await new Promise(r => setTimeout(r, remain));
 }
 
@@ -2040,15 +2083,71 @@ const TIMING_DUMMY_SALT = 'kdp-timing-dummy-salt-not-secret';
 const TIMING_DUMMY_HASH = '0'.repeat(64);
 const TIMING_DUMMY_CODE = '999999';
 
-async function signup(request, env) {
+// Fixed-window per-IP rate limit, backed by CONTENT_KV. The KV record
+// stores { count, startedAt } and is set with expirationTtl so KV
+// auto-purges it when the window rolls over. Eventually-consistent across
+// regions — an attacker fanning out across many edges can still exceed
+// the cap globally, so this is a defence-in-depth layer; the throttles
+// on the user row remain the primary cap. Failure mode: if KV read/write
+// errors, we fail OPEN (allow the request) rather than locking everyone
+// out on a transient KV blip.
+async function rateLimit(env, key, max, windowSec) {
+  try {
+    const raw = await env.CONTENT_KV.get(key);
+    let count = 0;
+    let startedAt = Date.now();
+    if (raw) {
+      try {
+        const o = JSON.parse(raw);
+        if (typeof o.count === 'number') count = o.count;
+        if (typeof o.startedAt === 'number') startedAt = o.startedAt;
+      } catch {}
+    }
+    const newCount = count + 1;
+    await env.CONTENT_KV.put(
+      key,
+      JSON.stringify({ count: newCount, startedAt }),
+      { expirationTtl: windowSec },
+    );
+    return { allowed: newCount <= max, count: newCount };
+  } catch {
+    return { allowed: true, count: 0 };
+  }
+}
+
+// Signup: state-dependent failures (email already taken, IP rate-limited)
+// MUST NOT be distinguishable from a real signup, or the endpoint becomes
+// a free account-enumeration oracle. Format errors (invalid_email, weak
+// password, bad phone) are not state-dependent, so they keep their
+// distinct messages — an attacker who submits "x" learns nothing about
+// who is registered.
+//
+// IP rate-limit: 5 signups per hour per cf-connecting-ip via KV.
+// Exceeding the cap silently returns the same fake-success body and
+// commits nothing. Same for "email already taken (still active or in its
+// pending window)".
+//
+// Dev-fallback that previously returned the 6-digit code in the JSON body
+// when RESEND_API_KEY was unset is gone — codes only travel via email.
+const SIGNUP_MIN_MS = 1500;
+const SIGNUP_IP_MAX_PER_HOUR = 5;
+const PWRESET_MIN_MS = 1500;
+const PWRESET_IP_MAX_PER_HOUR = 10;
+const PWRESET_EMAIL_MAX_PER_HOUR = 3;
+async function signup(request, env, ctx) {
+  const startedAt = Date.now();
+
   const body = await request.json().catch(() => null);
   if (!body) return json({ error: 'invalid_json' }, 400);
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
   const passwordConfirm = body.password_confirm != null ? String(body.password_confirm) : password;
-  const name = String(body.name || '').trim();
+  const name = String(body.name || '').trim().slice(0, 80);
   const phoneCountry  = String(body.phone_country  || '').trim();   // e.g. "+82"
   const phoneNational = String(body.phone_national || '').replace(/\D/g, '');
+  // Format validation: pure syntactic checks, no DB state, safe to
+  // distinguish — an attacker submitting "foo" learns only that "foo"
+  // isn't a valid email, which they already knew.
   if (!isEmail(email)) return json({ error: 'invalid_email' }, 400);
   if (password !== passwordConfirm) return json({ error: 'password_mismatch' }, 400);
   const pwErr = passwordPolicyError(password);
@@ -2056,18 +2155,48 @@ async function signup(request, env) {
   if (phoneCountry && !/^\+\d{1,4}$/.test(phoneCountry)) return json({ error: 'invalid_phone_country' }, 400);
   if (phoneNational && phoneNational.length < 4)        return json({ error: 'invalid_phone_national' }, 400);
 
+  // A response shape that looks indistinguishable from a successful signup
+  // requiring activation. Used for the silent-throttle and silent-taken
+  // branches. The fake id matches the real id format so a client that
+  // round-trips it can't detect the difference. We also burn one PBKDF2
+  // here to match the cost of the real-insert path; without that, the
+  // throttled/taken branches were ~50ms faster than a real signup.
+  const fakeId = 'U-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const PRETEND_OK = async () => {
+    await hashPassword(password, TIMING_DUMMY_SALT);
+    await padTiming(startedAt, SIGNUP_MIN_MS);
+    return json({
+      user: { id: fakeId, email, name, role: 'member', activated: false },
+      activation_required: true,
+      activation_expires_at: new Date(Date.now() + ACTIVATION_TTL_MS).toISOString(),
+      email_sent: true,
+    });
+  };
+
+  // IP rate-limit — fail silently into PRETEND_OK so probing doesn't
+  // reveal the throttle fired. Skip when cf-connecting-ip is missing
+  // (local dev or tunneled requests).
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  if (ip) {
+    const rl = await rateLimit(env, 'rl:signup:' + ip, SIGNUP_IP_MAX_PER_HOUR, 3600);
+    if (!rl.allowed) return PRETEND_OK();
+  }
+
   // Squat-free signup: if an unactivated row already exists for this email
-  // and its 72h window expired, recycle the address. Active rows always 409.
+  // and its 72h window expired, recycle the address. Active or in-window
+  // rows pretend success silently — the legit owner of the email already
+  // has an account (or a pending one) and will resolve via the normal
+  // login / activation flows.
   const existing = await env.DB.prepare('SELECT id, activated_at, activation_expires_at FROM users WHERE email = ?').bind(email).first();
   if (existing) {
     const isActive = !!existing.activated_at;
     const expired  = existing.activation_expires_at && new Date(existing.activation_expires_at).getTime() < Date.now();
-    if (isActive || !expired) return json({ error: 'email_taken' }, 409);
+    if (isActive || !expired) return PRETEND_OK();
     // Expired pending account → wipe and let signup recreate.
     await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(existing.id).run();
   }
 
-  const id = 'U-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const id = fakeId;
   const salt = randomHex(16);
   const hash = await hashPassword(password, salt);
   const now = new Date().toISOString();
@@ -2091,10 +2220,12 @@ async function signup(request, env) {
   ).run();
 
   const lang = (body.lang === 'en') ? 'en' : 'ko';
-  let sendInfo = { sent: skipActivation };
   if (!skipActivation) {
     const link = baseUrl(request) + '/activate?email=' + encodeURIComponent(email) + '&code=' + code;
-    sendInfo = await sendEmail(env, {
+    // Background the Resend call. Without ctx.waitUntil the wall-clock
+    // diff between the real-INSERT branch and the PRETEND_OK branch is
+    // big enough (~1500ms+) that padTiming can't hide it.
+    ctx.waitUntil(sendEmail(env, {
       to: email, slug: 'activate_account', lang,
       vars: {
         name: name || email,
@@ -2102,28 +2233,26 @@ async function signup(request, env) {
         activation_url: link,
         expires_hours: '72',
       },
-    });
+    }));
   }
 
-  // No session minted for unactivated accounts — they must verify first.
-  const responseUser = { id, email, name, role, activated: skipActivation };
   if (skipActivation) {
     const session = await createSession(env, id);
+    await padTiming(startedAt, SIGNUP_MIN_MS);
     return json({
-      user: responseUser,
+      user: { id, email, name, role, activated: true },
       token: session.token,
       expires_at: session.expires_at,
       email_sent: true,
       activation_required: false,
     });
   }
+  await padTiming(startedAt, SIGNUP_MIN_MS);
   return json({
-    user: responseUser,
+    user: { id, email, name, role, activated: false },
     activation_required: true,
     activation_expires_at: expires,
-    email_sent: sendInfo.sent,
-    // Dev fallback — only when Resend isn't wired so manual testing works.
-    ...(sendInfo.sent ? {} : { activation_code: code }),
+    email_sent: true,
   });
 }
 
@@ -2144,7 +2273,7 @@ function baseUrl(request) {
 // happens (failed_login_attempts column from migration 0023) but the lock
 // state is never reported back to the caller; the only visible effect is
 // that wrong passwords keep returning the same generic 401.
-const LOGIN_MIN_MS = 350;
+const LOGIN_MIN_MS = 1500;
 async function login(request, env) {
   const startedAt = Date.now();
   const FAIL = async () => {
@@ -2212,7 +2341,7 @@ async function login(request, env) {
 // same wall-clock duration. The throttle tracks failed attempts on the
 // user row (failed_activation_*) — 3+ failures triggers the same
 // exponential lockout login uses (60 · 2^(n-3) seconds).
-const ACTIVATE_MIN_MS = 350;
+const ACTIVATE_MIN_MS = 1500;
 async function activateAccount(request, env) {
   const startedAt = Date.now();
   const FAIL = async () => {
@@ -2331,8 +2460,8 @@ async function activationCron(env) {
 // enforced silently — attacker can't probe state by alternating valid /
 // invalid emails. Dev-fallback path that leaked the activation code in
 // the JSON is gone; codes only ever travel via email now.
-const RESEND_ACTIVATION_MIN_MS = 350;
-async function resendActivation(request, env) {
+const RESEND_ACTIVATION_MIN_MS = 1500;
+async function resendActivation(request, env, ctx) {
   const startedAt = Date.now();
   const ALWAYS_OK = async () => {
     await padTiming(startedAt, RESEND_ACTIVATION_MIN_MS);
@@ -2360,10 +2489,12 @@ async function resendActivation(request, env) {
   ).bind(code, expires, now, now, u.id).run();
   const lang = (body.lang === 'en') ? 'en' : 'ko';
   const link = baseUrl(request) + '/activate?email=' + encodeURIComponent(email) + '&code=' + code;
-  await sendEmail(env, {
+  // Background the Resend call so the response timing doesn't reveal
+  // that this email exists + has a pending activation row.
+  ctx.waitUntil(sendEmail(env, {
     to: email, slug: 'activate_account', lang,
     vars: { name: u.name || email, code, activation_url: link, expires_hours: '72' },
-  });
+  }));
   return ALWAYS_OK();
 }
 

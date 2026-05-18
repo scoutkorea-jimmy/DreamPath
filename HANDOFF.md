@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.040.00`
+- **버전**: `v01.041.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0025** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.040.00** (마이너 +13)
+- **이번 세션 누적**: v01.027.00 → **v01.041.00** (마이너 +14)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -29,6 +29,7 @@
   - +01.038 — **관리자 전체 검색 + admin VersionWatcher + 다크모드 contrast 잔여 수정**: 신규 `GET /api/admin/search?q=...` — 회원·지원·문의·받은/보낸메일·위키·콘텐츠 6+1 영역 병렬 검색, 영역당 ≤10건. 사이드바 상단 `GlobalSearch` 컴포넌트 (300ms debounce, 부동 결과 패널). admin.html이 이제 `VersionWatcher.jsx` 로드 + 마운트해서 공개 사이트와 동일한 "새 버전 배포됨" 토스트 표시. WikiTab active 페이지 라벨 + 일부 Stat 카운터 + 분석 trail 라벨이 `--midnight-purple`(다크모드 fix dark) → `--brand-text`(다크모드 자동 light flip)로 교체 — contrast 1.5 → AA 통과.
   - +01.039 — **VersionWatcher 강화 + WikiTab 페이지네이션 + 버전 위키 전면 재구조화**: 폴링 60→20초, `visibilitychange`/`online` 리스너 추가, 배너를 크게 + 슬라이드 인 + 펄스 강조. WikiTab 사이드바에 20개 단위 페이지네이션(activeId 자동 점프). `wiki:versions` 14페이지를 새 구조(① 주요 목적 ② 주요 내역 ③ 비개발자 기본 표시 + 개발자 접힘 ④ KMS 위키 반영)로 전면 재작성.
   - +01.040 — **P1-1 TipTap HTML sanitize + P2-4 ADMIN_TOKEN 이중 토큰**: HTMLRewriter 기반 allowlist sanitizer 추가. inbound 이메일(외부 발신자 → 적대적), outbound 이메일(admin TipTap), program_details 9개 리치 필드, 위키 PUT 페이지 본문 — 총 4개 write 지점에 sanitize 호출. javascript:/data:(non-image)/vbscript: URL은 href/src에서 자동 strip. `isAdmin()`이 `ADMIN_TOKEN` + `ADMIN_TOKEN_NEXT` 둘 다 허용 → 운영자 무중단 토큰 회전 가능. integrations status는 NEXT가 설정됐을 때만 노출.
+  - +01.041 — **P2-1 HttpOnly 세션 쿠키 (서버 측, dual-auth)**: 로그인/활성화/skipActivation signup 성공 시 `Set-Cookie: dp_session=...; HttpOnly; Secure; SameSite=Lax; Path=/` 자동 부착. `bearerToken()`이 Authorization 헤더 OR `dp_session` 쿠키 둘 다 읽어 dual-auth. 로그아웃 시 쿠키도 즉시 만료. 클라이언트는 변경 없음(fetch 기본 `credentials: 'same-origin'`이 자동 첨부). XSS-via-localStorage 차단의 1단계 — 후속에서 client가 localStorage 의존을 끊으면 완전 차단.
 
 ## 2. 스택 한눈에
 
@@ -46,7 +47,17 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.040)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.041)에 마친 큰 변경
+
+### HttpOnly 세션 쿠키 (서버 측) — v01.041 (P2-1)
+- **목적**: 세션 토큰이 `localStorage`에만 살면 XSS 한 번이면 탈취 가능. HttpOnly 쿠키로 옮기면 JS가 읽을 수 없어 XSS의 도달 범위가 축소됨.
+- **이번 commit 범위 (서버 측만)**:
+  - `bearerToken()`이 `Authorization: Bearer ...` 헤더 또는 `dp_session` 쿠키 둘 다 읽음. 헤더가 있으면 헤더 우선.
+  - 로그인/활성화/skipActivation signup 성공 응답에 `Set-Cookie: dp_session=...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=...` 부착.
+  - 로그아웃 시 `Set-Cookie: dp_session=; Max-Age=0`으로 즉시 만료.
+- **클라이언트 변경 없음**: `fetch`는 기본 `credentials: 'same-origin'`이라 쿠키 자동 첨부. 기존 Authorization 헤더 흐름도 그대로.
+- **후속**: 클라이언트가 `localStorage.dp_user_token` 의존을 완전 끊으면 그때 XSS-via-localStorage 봉쇄 완료. 작업 범위: `auth-store.js` + `Apply.jsx` / `Pages.jsx` / `Legal.jsx`의 `DreamPathAuth.token` 참조 제거 + 로그인 응답에서 body의 `token` 사용 안 함.
+- **충돌 방지**: 헤더 인증 경로 100% 보존. 쿠키는 추가 채널일 뿐. 기존 사용자 세션 무영향.
 
 ### TipTap HTML sanitize + ADMIN_TOKEN 이중 토큰 — v01.040 (P1-1 + P2-4)
 - **P1-1 sanitizeHtml(html)** — HTMLRewriter 기반 allowlist (Cloudflare-native streaming HTML parser):

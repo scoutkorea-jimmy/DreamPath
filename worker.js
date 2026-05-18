@@ -2704,13 +2704,16 @@ async function signup(request, env, ctx) {
   if (skipActivation) {
     const session = await createSession(env, id);
     await padTiming(startedAt, SIGNUP_MIN_MS);
-    return json({
-      user: { id, email, name, role, activated: true },
-      token: session.token,
-      expires_at: session.expires_at,
-      email_sent: true,
-      activation_required: false,
-    });
+    return withSessionCookie(
+      json({
+        user: { id, email, name, role, activated: true },
+        token: session.token,
+        expires_at: session.expires_at,
+        email_sent: true,
+        activation_required: false,
+      }),
+      session.token, session.expires_at,
+    );
   }
   await padTiming(startedAt, SIGNUP_MIN_MS);
   return json({
@@ -2800,7 +2803,13 @@ async function login(request, env, ctx) {
   // Fire-and-forget; never block the auth round-trip on the audit write.
   ctx && ctx.waitUntil && ctx.waitUntil(writeLoginActivity(env, request, u));
   await padTiming(startedAt, LOGIN_MIN_MS);
-  return json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at });
+  // P2-1: also set the HttpOnly session cookie alongside the body
+  // token. Legacy clients keep reading the body token; new clients can
+  // rely on the cookie alone (auto-sent on same-origin fetches).
+  return withSessionCookie(
+    json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified || 0 }, token: session.token, expires_at: session.expires_at }),
+    session.token, session.expires_at,
+  );
 }
 
 // Activate: same response-equivalence rules as login(). Every failure mode
@@ -2867,12 +2876,15 @@ async function activateAccount(request, env) {
   // the friction of a second login immediately after activation.
   const session = await createSession(env, u.id);
   await padTiming(startedAt, ACTIVATE_MIN_MS);
-  return json({
-    ok: true,
-    user: { id: u.id, email: u.email, name: u.name, role: u.role, activated: true },
-    token: session.token,
-    expires_at: session.expires_at,
-  });
+  return withSessionCookie(
+    json({
+      ok: true,
+      user: { id: u.id, email: u.email, name: u.name, role: u.role, activated: true },
+      token: session.token,
+      expires_at: session.expires_at,
+    }),
+    session.token, session.expires_at,
+  );
 }
 
 // Hourly purge of Apply form drafts that haven't been touched in 72h. The
@@ -2969,7 +2981,9 @@ async function resendActivation(request, env, ctx) {
 async function logout(request, env) {
   const token = bearerToken(request);
   if (token) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
-  return json({ ok: true });
+  // P2-1: also clear the HttpOnly session cookie so subsequent requests
+  // from the same browser don't carry a now-invalid token.
+  return clearSessionCookie(json({ ok: true }));
 }
 
 async function me(request, env) {
@@ -2994,10 +3008,41 @@ async function currentUser(request, env) {
   return { id: row.id, email: row.email, name: row.name, role: row.role };
 }
 
+// Reads the caller's session token from either:
+//   - Authorization: Bearer <tok>  (legacy clients, admin token, curl)
+//   - Cookie: dp_session=<tok>     (P2-1, HttpOnly cookie set on login)
+// The header wins when both are present so explicit caller intent
+// (curl with a bearer token) doesn't get overridden by a stale cookie.
 function bearerToken(request) {
   const auth = request.headers.get('authorization') || '';
-  if (!auth.startsWith('Bearer ')) return null;
-  return auth.slice(7);
+  if (auth.startsWith('Bearer ')) return auth.slice(7);
+  const cookieH = request.headers.get('cookie') || '';
+  if (!cookieH) return null;
+  const m = cookieH.match(/(?:^|;\s*)dp_session=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// P2-1 — append a Set-Cookie header to a Response so the browser can
+// store the session token outside JS reach. HttpOnly closes the XSS
+// exfiltration path (an XSS payload reading document.cookie won't see
+// this cookie). SameSite=Lax keeps the session usable when the user
+// follows an external link to the site (common case: clicking a link
+// in an email), while still blocking cross-site POST CSRF. The Origin
+// guard from v01.036 stays as a belt-and-braces second layer.
+const SESSION_COOKIE_NAME = 'dp_session';
+function withSessionCookie(resp, token, expiresAtIso) {
+  const maxAge = Math.max(0, Math.floor((new Date(expiresAtIso).getTime() - Date.now()) / 1000));
+  const h = new Headers(resp.headers);
+  const cookie = SESSION_COOKIE_NAME + '=' + encodeURIComponent(token)
+    + '; HttpOnly; Secure; SameSite=Lax; Path=/'
+    + '; Max-Age=' + maxAge;
+  h.append('set-cookie', cookie);
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+}
+function clearSessionCookie(resp) {
+  const h = new Headers(resp.headers);
+  h.append('set-cookie', SESSION_COOKIE_NAME + '=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
 }
 
 async function createSession(env, userId) {

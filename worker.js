@@ -302,6 +302,26 @@ function rewriteRequest(request, newPath) {
   return new Request(u.toString(), request);
 }
 
+// Origin / Referer same-origin guard. Returns true when:
+//   - Neither header is present (curl / server-to-server / mobile native) OR
+//   - Origin (or its Referer fallback) parses to the same origin as the URL
+// Returns false when the browser sent an Origin/Referer that points
+// somewhere else. The check is intentionally fail-open on missing headers
+// because Bearer auth (current model) already isn't auto-attached by the
+// browser cross-origin — this is purely a belt-and-braces guard.
+function sameOriginOrEmpty(request, url) {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  if (!origin && !referer) return true;
+  try {
+    const expected = url.origin;
+    if (origin) return origin === expected;
+    return new URL(referer).origin === expected;
+  } catch {
+    return false;
+  }
+}
+
 // Security headers attached to every response served from the edge. CSP
 // is the loosest piece — Babel-in-browser needs 'unsafe-eval' to evaluate
 // JSX it transpiles at runtime, and inline style={{}} props all over the
@@ -464,6 +484,20 @@ async function handleApi(request, env, url, ctx) {
         'access-control-max-age': '86400',
       },
     });
+  }
+
+  // P1-3 — CSRF guard for /api/admin/* write methods. Today the worker
+  // authenticates admins via Bearer header (Authorization: Bearer ...)
+  // which the browser does NOT auto-attach cross-origin, so CSRF is
+  // structurally improbable. But this is cheap defence-in-depth — if
+  // we ever swap to HttpOnly cookies (P2-1) the check is already there.
+  // Origin is preferred; Referer is a fallback (older clients). If the
+  // browser sent neither, we allow (curl / server-to-server). If it sent
+  // one and it points off-site, we reject.
+  if (path.startsWith('/api/admin/') && method !== 'GET') {
+    if (!sameOriginOrEmpty(request, url)) {
+      return json({ error: 'origin_blocked' }, 403);
+    }
   }
 
   // ── Version ──────────────────────────────────────────────────────────────
@@ -2058,6 +2092,13 @@ async function handleApi(request, env, url, ctx) {
   }
 
   // ── Wiki (admin-only) — slugs: 'kms', 'design' ───────────────────────────
+  // P1-4 — PUT validates that the body parses as JSON, sits under a
+  // hard size cap, and is shaped { pages: [{ id, title, ... }, ...] }.
+  // Without these guards an admin (or admin-token holder) could write
+  // arbitrarily-large or malformed blobs into KV and crash every client
+  // that reads them.
+  const WIKI_MAX_BYTES = 512 * 1024;          // 512 KB
+  const WIKI_MAX_PAGES = 200;
   const wikiM = path.match(/^\/api\/wiki\/([a-z0-9_-]{1,32})$/);
   if (wikiM) {
     const slug = wikiM[1];
@@ -2069,7 +2110,20 @@ async function handleApi(request, env, url, ctx) {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (method === 'PUT' || method === 'POST') {
       const body = await request.text();
-      try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
+      if (body.length > WIKI_MAX_BYTES) return json({ error: 'wiki_too_large', max_bytes: WIKI_MAX_BYTES }, 413);
+      let parsed;
+      try { parsed = JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return json({ error: 'invalid_shape' }, 400);
+      }
+      if (!Array.isArray(parsed.pages)) return json({ error: 'invalid_shape' }, 400);
+      if (parsed.pages.length > WIKI_MAX_PAGES) return json({ error: 'too_many_pages', max: WIKI_MAX_PAGES }, 413);
+      for (const p of parsed.pages) {
+        if (!p || typeof p !== 'object') return json({ error: 'invalid_page' }, 400);
+        if (typeof p.id !== 'string' || p.id.length === 0 || p.id.length > 64) return json({ error: 'invalid_page_id' }, 400);
+        if (typeof p.title !== 'string' || p.title.length > 200) return json({ error: 'invalid_page_title' }, 400);
+        if (p.body && typeof p.body !== 'string') return json({ error: 'invalid_page_body' }, 400);
+      }
       await env.CONTENT_KV.put(key, body);
       return json({ ok: true });
     }

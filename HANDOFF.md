@@ -8,14 +8,14 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.035.00`
+- **버전**: `v01.036.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0024** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
-- **이번 세션 누적**: v01.027.00 → **v01.035.00** (마이너 +8)
+- **이번 세션 누적**: v01.027.00 → **v01.036.00** (마이너 +9)
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화
@@ -24,6 +24,7 @@
   - +01.033 — **방어 라운드 시작**: 활성화 throttle + 인증 4경로(login/activate/resend/lockout) timing + status 균질화. crypto-secure 활성화 코드. 정보 누출 헌법: 모든 인증 응답은 status code · body · wall-clock 모두 분기 무관 동일.
   - +01.034 — **방어 라운드 P0-2/P0-3**: signup의 `email_taken` 409 enumeration 제거 (PRETEND_OK silent), pwreset 양방향 timing 균질화, KV 기반 IP rate-limit + per-email rate-limit, `ctx.waitUntil(sendEmail)` 백그라운드화, 타이밍 floor 1500ms + 500ms jitter. 6-sample 검증으로 모든 분기 1.7-2.2s window 진입 — 통계적 구분 불가.
   - +01.035 — **방어 라운드 P0-4/5/6/7**: 보안 헤더(CSP / HSTS / X-Frame / nosniff / Referrer-Policy / Permissions-Policy / COOP) 모든 응답 부착. 글로벌 500 catch handler 에러 메시지 generic화 (`{error:'internal'}`). ADMIN_TOKEN 등 시크릿 length 노출 제거. 파일 업로드에 KV rate-limit (20회/시간/IP) + R2 put 에러 메시지 generic화.
+  - +01.036 — **방어 라운드 P1-2/3/4**: CDN 스크립트 SRI 해시 완비 (React production + Lucide 누락분 추가). `/api/admin/*` write 메서드에 CSRF Origin/Referer 검사 (cross-origin POST는 `403 origin_blocked`). 위키 PUT 스키마+크기 검증 (≤512KB, ≤200 pages, page shape 검증). P1-1 TipTap sanitize는 별도 라운드로 미룸 (DOMPurify 도입 여부 설계 필요).
 
 ## 2. 스택 한눈에
 
@@ -41,7 +42,21 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.035)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.036)에 마친 큰 변경
+
+### SRI · CSRF · 위키 PUT 검증 — v01.036 (방어 라운드 P1-2 + P1-3 + P1-4)
+- **P1-2 SRI 해시**:
+  - `index.html` react.production / react-dom.production / lucide 누락 → SHA-384 추가.
+  - `admin.html` lucide 누락 → 추가.
+  - 기존 Babel-standalone + admin의 react.dev / react-dom.dev은 이미 적용돼 있던 상태.
+  - SRI 해시는 `curl -sL URL | openssl dgst -sha384 -binary | openssl base64 -A`로 생성.
+- **P1-3 CSRF Origin/Referer 검사**:
+  - `/api/admin/*` non-GET 메서드에 적용. Origin/Referer 둘 다 없으면 통과(curl·server-to-server), 한쪽이라도 있고 미스매치면 `403 origin_blocked`.
+  - 현 시점 Bearer 인증 모델에선 CSRF는 구조적으로 어렵지만(브라우저가 `Authorization` 헤더를 cross-origin에 자동 부착 안 함), P2-1 HttpOnly 쿠키 전환 시 자동으로 보호 인계받음. 비용 거의 0의 방어 심화.
+- **P1-4 위키 PUT 검증**:
+  - 본문 ≤ 512KB, JSON parse 가능, top-level object, `pages` 배열 ≤ 200개, 각 page는 `id` (1-64 char string) + `title` (≤200 char string) + `body` (optional string).
+  - 검증 실패 시 400-413 응답으로 거부. KV에 corrupted blob 저장 차단.
+- **P1-1 TipTap sanitize 미진행 사유**: 워커 환경에서 DOMPurify를 isomorphic 모드로 도입할지, 화이트리스트 자체 파서를 짤지 설계 결정 필요. 라이브러리 도입은 CLAUDE.md "No new build step" 원칙과 부딪힘. 다음 별도 라운드로.
 
 ### 헤더·에러·시크릿·업로드 강화 — v01.035 (방어 라운드 P0-4 + P0-5 + P0-6 + P0-7)
 - **P0-4 보안 헤더**: `withSecurityHeaders(resp)` 래퍼로 모든 응답(API, SPA, admin, sitemap, robots, 정적 자산)에 7개 헤더 부착.

@@ -157,7 +157,11 @@ function Nav({ view, go, lang, setLang, c }) {
     <nav className="nav" aria-label={isKo ? '주요 메뉴' : 'Primary navigation'}>
       <div className="nav-inner">
         <button className="nav-logo" onClick={() => go('home')} aria-label={isKo ? '홈으로' : 'Home'} type="button">
-          <img src={c.brand.logo_mark} alt="" width="32" height="32" />
+          {/* Two marks, CSS swaps which one is visible by theme. The colored
+              SVG reads better on the light nav (light mode); the mono-light
+              (#EDE7F6) SVG reads better on the dark nav (dark mode). */}
+          <img src={c.brand.logo_mark} alt="" width="32" height="32" className="mark-color" />
+          <img src="/assets/logo-dreampath-mark-mono-light.svg" alt="" width="32" height="32" className="mark-mono" />
           <span className="wm" aria-hidden="true">{c.brand.wordmark_mark || 'KoreaDream'}<span className="pt">{c.brand.wordmark_accent || 'Path'}</span></span>
         </button>
 

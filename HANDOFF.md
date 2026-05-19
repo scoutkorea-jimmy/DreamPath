@@ -8,10 +8,15 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.046.00`
+- **버전**: `v01.049.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0029** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
+
+### 테스트 계정 (2026-05-19 표준화)
+- **컨벤션**: email `qa+xxx@example.invalid`(RFC 6761 예약 도메인) + name `[TEST] xxx`. 최대 5개.
+- **현재 시드**: `qa+basic`, `qa+apply`, `qa+paid`, `qa+admin`, `qa+spare`. admin → 회원 정보 상단 카운터 카드 + 각 행에 노란 TEST 배지로 자동 식별.
+- **자세히**: KMS 위키 → `4-1. 테스트 계정 규약`.
 
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)

@@ -2171,6 +2171,17 @@
   // Operator can add a member directly (provisioning), edit name/email/role,
   // reset password, or delete an account. Every change is logged into
   // member_audits and surfaced in the detail panel.
+  // QA / test-account convention (set 2026-05-19): email starts with `qa+`
+  // AND name starts with `[TEST]`. Soft cap of 5 — the admin UI counts and
+  // warns above the cap. Real members must NEVER use the qa+ prefix.
+  const TEST_ACCOUNT_LIMIT = 5;
+  function isTestAccount(m) {
+    if (!m) return false;
+    const e = String(m.email || '').toLowerCase();
+    const n = String(m.name  || '');
+    return e.startsWith('qa+') || n.startsWith('[TEST]');
+  }
+
   function MembersTab() {
     const PAGE_SIZE = 20;
     const [items, setItems] = useState([]);
@@ -2183,6 +2194,7 @@
     const [detail, setDetail] = useState(null);
     const [editing, setEditing] = useState(null);     // { mode: 'create' } | { mode: 'edit', user, profile }
     const [tick, setTick] = useState(0);              // bump to refetch
+    const [testCount, setTestCount] = useState(0);    // total qa+/[TEST] members across all pages
 
     function authHeaders() {
       const tok = localStorage.getItem('dp_admin_token') || '';
@@ -2204,6 +2216,23 @@
       return () => ctrl.abort();
     }, [page, filter, roleFilter, tick]);
 
+    // Count test accounts across all pages — cheap side request (typically <=5
+    // rows). Keeps the cap warning accurate even when the current page is
+    // filtered or paginated past the test-account block.
+    useEffect(() => {
+      const ctrl = new AbortController();
+      fetch('/api/admin/users?q=qa%2B&limit=50', { headers: authHeaders(), signal: ctrl.signal })
+        .then(r => r.ok ? r.json() : { items: [] })
+        .then(d => {
+          const items = d.items || [];
+          // Server-side `q` LIKE-matches on multiple columns so include a final
+          // client-side check for the qa+ prefix / [TEST] name marker.
+          setTestCount(items.filter(isTestAccount).length);
+        })
+        .catch(() => {});
+      return () => ctrl.abort();
+    }, [tick]);
+
     useEffect(() => {
       if (!selected) { setDetail(null); return; }
       setDetail(null);
@@ -2223,8 +2252,24 @@
       setTick(t => t + 1);
     }
 
+    const overLimit = testCount > TEST_ACCOUNT_LIMIT;
     return (
       <>
+        <div className="card" style={{
+          padding:'10px 14px', marginBottom:10, fontSize:12,
+          background: overLimit ? 'var(--state-danger-bg, #fde8e8)' : 'var(--bg-muted)',
+          color: overLimit ? 'var(--state-danger, #b91c1c)' : 'var(--fg-secondary)',
+          borderLeft: '3px solid ' + (overLimit ? 'var(--state-danger, #b91c1c)' : 'var(--sunshine-yellow)'),
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:14,
+        }}>
+          <div>
+            <strong>테스트 계정 {testCount} / {TEST_ACCOUNT_LIMIT}</strong>
+            <span style={{marginLeft:10, color: overLimit ? 'inherit' : 'var(--fg-muted)'}}>
+              컨벤션: <code>qa+xxx@example.invalid</code> + 이름 앞에 <code>[TEST]</code>. 최대 {TEST_ACCOUNT_LIMIT}개 유지.
+            </span>
+          </div>
+          {overLimit && <span><strong>한도 초과</strong> — 오래된 테스트 계정 정리 필요</span>}
+        </div>
         <div className="card">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:14,flexWrap:'wrap'}}>
             <div>
@@ -2251,8 +2296,17 @@
             <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Joined</th><th>Last login</th><th>Apps</th><th style={{textAlign:'right',width:120}}></th></tr></thead>
             <tbody>
               {items.map(m => (
-                <tr key={m.id}>
-                  <td onClick={() => setSelected(m.id)} style={{cursor:'pointer'}}>{m.email}</td>
+                <tr key={m.id} style={isTestAccount(m) ? { background: 'var(--bg-muted)' } : null}>
+                  <td onClick={() => setSelected(m.id)} style={{cursor:'pointer'}}>
+                    {isTestAccount(m) && (
+                      <span className="pill" style={{
+                        background:'var(--sunshine-yellow)',
+                        color:'var(--midnight-purple)',
+                        marginRight:8, fontSize:10, fontWeight:700, letterSpacing:'0.04em'
+                      }}>TEST</span>
+                    )}
+                    {m.email}
+                  </td>
                   <td onClick={() => setSelected(m.id)} style={{cursor:'pointer'}}>{m.name || <span style={{color:'var(--fg-muted)'}}>—</span>}</td>
                   <td><span className="pill" style={{background:m.role==='admin'?'var(--sunshine-yellow)':'var(--bg-muted)',color:m.role==='admin'?'var(--midnight-purple)':'var(--fg-secondary)'}}>{m.role}</span></td>
                   <td><span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--fg-muted)'}}>{m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</span></td>

@@ -44,12 +44,16 @@
         cta1: 'Explore programs',
         cta2: 'How it works',
       },
-      // Hero accent dots
+      // Hero accent stars (brand sparkle motif) — count drives how many
+      // stars render; actual color cycles through 3 brand tones in CSS
+      // (Star Gold / Vivid Purple / Deep Indigo). The `color` field
+      // is informational only and ignored at render time so the page
+      // stays in palette even if accidentally edited.
       dots: [
-        { color: '#FF8DFF', label: 'Pink' },
-        { color: '#82E6DE', label: 'Teal' },
-        { color: '#9FED8F', label: 'Green' },
-        { color: '#FFAE80', label: 'Orange' },
+        { color: '#F4B72E', label: 'Star Gold (lead)' },
+        { color: '#6B2DBE', label: 'Vivid Purple' },
+        { color: '#1E1654', label: 'Deep Indigo' },
+        { color: '#F4B72E', label: 'Star Gold (echo)' },
       ],
     },
     how: {

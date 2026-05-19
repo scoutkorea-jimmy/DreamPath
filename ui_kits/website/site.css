@@ -273,12 +273,21 @@ body {
 .hero-title.en { font-family: var(--font-en); letter-spacing: -0.03em; }
 .hero-sub { font-size: 18px; line-height: 1.55; color: rgba(255,255,255,0.85); max-width: 620px; margin: 0 0 40px; }
 .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
-.hero-dots { position: absolute; right: 5%; top: 15%; display: flex; flex-direction: column; gap: 24px; z-index: 1; }
-.hero-dots .d { width: 14px; height: 14px; border-radius: 50%; }
-.hero-dots .d1 { background: var(--blossom-pink); transform: translateX(60px); }
-.hero-dots .d2 { background: var(--ocean-blue); transform: translateX(-20px); }
-.hero-dots .d3 { background: var(--leaf-green); transform: translateX(80px); }
-.hero-dots .d4 { background: var(--ember-orange); }
+/* Hero accents — brand star sparkles (extracted from the logo mark).
+   Class kept as `.d` for back-compat with stored `c.hero.dots[]` schema;
+   the visual is now a star, not a circle. Three brand tones only:
+   Star Gold (one-only accent), Vivid Purple, Deep Indigo. */
+.hero-dots { position: absolute; right: 5%; top: 15%; display: flex; flex-direction: column; gap: 28px; z-index: 1; }
+.hero-dots .d {
+  width: 22px; height: 22px;
+  background-color: currentColor;
+  -webkit-mask: url(/assets/icons/star-spark.svg) center/contain no-repeat;
+          mask: url(/assets/icons/star-spark.svg) center/contain no-repeat;
+}
+.hero-dots .d1 { color: var(--sunshine-yellow); width: 26px; height: 26px; transform: translateX(60px); } /* Star Gold (the lead) */
+.hero-dots .d2 { color: var(--scouting-purple); width: 18px; height: 18px; transform: translateX(-20px); }
+.hero-dots .d3 { color: var(--midnight-purple); width: 20px; height: 20px; transform: translateX(80px); }
+.hero-dots .d4 { color: var(--sunshine-yellow); width: 14px; height: 14px; opacity: 0.7; }
 
 /* ============ PARTNER STRIP (home) ============ */
 /* Quiet trust band — partner logos / names in grayscale, color on hover.
@@ -696,11 +705,18 @@ body {
 }
 .errpage-circle i { color: var(--midnight-purple); }
 
-.errpage-dot { position: absolute; border-radius: 50%; }
-.errpage-dot.d1 { width: 22px; height: 22px; top: 6%;  right: 18%; background: var(--blossom-pink); }
-.errpage-dot.d2 { width: 18px; height: 18px; top: 28%; right: 4%;  background: #82E6DE; /* teal */ }
-.errpage-dot.d3 { width: 18px; height: 18px; bottom: 12%; left: 8%; background: var(--leaf-green); }
-.errpage-dot.d4 { width: 22px; height: 22px; bottom: 4%; right: 22%; background: var(--ember-orange); }
+/* Error page accents — same brand star motif as hero. Position +
+   size variation keeps visual rhythm; color cycles 3 brand tones. */
+.errpage-dot {
+  position: absolute;
+  background-color: currentColor;
+  -webkit-mask: url(/assets/icons/star-spark.svg) center/contain no-repeat;
+          mask: url(/assets/icons/star-spark.svg) center/contain no-repeat;
+}
+.errpage-dot.d1 { width: 28px; height: 28px; top: 6%;  right: 18%; color: var(--sunshine-yellow); }
+.errpage-dot.d2 { width: 22px; height: 22px; top: 28%; right: 4%;  color: var(--scouting-purple); }
+.errpage-dot.d3 { width: 22px; height: 22px; bottom: 12%; left: 8%; color: var(--midnight-purple); }
+.errpage-dot.d4 { width: 28px; height: 28px; bottom: 4%; right: 22%; color: var(--sunshine-yellow); opacity: 0.6; }
 
 .errpage-helpful-wrap { padding: 0 32px 96px; max-width: 1200px; margin: 0 auto; }
 .errpage-helpful {

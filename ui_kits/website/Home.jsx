@@ -7,8 +7,12 @@ function Home({ go, lang, c }) {
       {/* HERO */}
       <section className="hero" data-screen-label="Hero" aria-labelledby="hero-title">
         <div className="hero-dots" aria-hidden="true">
-          {c.hero.dots.map((d, i) => (
-            <span key={i} className={'d d' + (i+1)} style={{background: d.color}} />
+          {/* Hero accent stars (brand sparkle motif). Color cycles three brand
+              tones via CSS .d1–.d4 classes — stored `c.hero.dots[i].color` is
+              kept in schema for back-compat but no longer drives the visual
+              so the page always renders in-palette. */}
+          {c.hero.dots.map((_d, i) => (
+            <span key={i} className={'d d' + (i+1)} />
           ))}
         </div>
         <div className="hero-inner">

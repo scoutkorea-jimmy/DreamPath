@@ -334,19 +334,17 @@ function Apply({ lang, c }) {
       const headers = { 'content-type': 'application/json' };
       const tk = window.DreamPathAuth && window.DreamPathAuth.token;
       if (tk) headers['authorization'] = 'Bearer ' + tk;
-      // Pair each pre-uploaded file id with its upload_token so the server
-      // can prove the submitter is the original uploader before adopting
-      // the orphan row (sec fix P2-6, 2026-05-19).
-      const file_ids = [];
+      // Pre-uploaded files are linked by upload_token only — the server
+      // looks the row up by token, never by row id (sec hotfix 2026-05-19).
+      // Never send the row id; we don't even keep it client-side anymore.
       const file_tokens = [];
       ['transcript_graduation', 'transcript_recognition', 'transcript_translation'].forEach(k => {
         const f = form[k];
-        if (f && f.id) { file_ids.push(f.id); file_tokens.push(f.upload_token || ''); }
+        if (f && f.upload_token) file_tokens.push(f.upload_token);
       });
       (form.recommenders || []).forEach(r => {
-        if (r && r.letter_file && r.letter_file.id) {
-          file_ids.push(r.letter_file.id);
-          file_tokens.push(r.letter_file.upload_token || '');
+        if (r && r.letter_file && r.letter_file.upload_token) {
+          file_tokens.push(r.letter_file.upload_token);
         }
       });
       // Map first 2 essays to legacy columns for backward compat. Full list
@@ -359,7 +357,6 @@ function Apply({ lang, c }) {
         essay_title_2: e1.title, essay_body_2: e1.body,
         essays_json: JSON.stringify(form.essays || []),
         recommenders_json: JSON.stringify(form.recommenders || []),
-        file_ids,
         file_tokens,
         lang,
       };

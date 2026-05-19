@@ -899,12 +899,16 @@ async function handleApi(request, env, url, ctx) {
     const ts = new Date().toISOString();
     // 128-bit upload token — caller must echo it back at submit to adopt the
     // row (closes the orphan-IDOR window; see migrations/0030_*.sql).
+    // We deliberately do NOT return the row id or the r2 key to the caller:
+    // the token is the only handle they need, and exposing the sequential
+    // id leaks DB activity / lets external observers fingerprint internal
+    // state.
     const upload_token = randomHex(16);
     const uploader_user_id = uploaderUser ? uploaderUser.id : null;
-    const ins = await env.DB.prepare(
+    await env.DB.prepare(
       'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key, upload_token, uploader_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key, upload_token, uploader_user_id).run();
-    return json({ ok: true, id: ins.meta?.last_row_id, r2_key: key, filename, mime, size: bytes.byteLength, upload_token });
+    return json({ ok: true, upload_token, filename, mime, size: bytes.byteLength });
   }
   // GET admin: list files attached to an application.
   const appFilesM = path.match(/^\/api\/admin\/applications\/([A-Z0-9_-]+)\/files$/);
@@ -2056,14 +2060,18 @@ async function handleApi(request, env, url, ctx) {
   // DELETE /api/me/application-files/:id
   // Re-upload uses the existing POST /api/applications/upload with the same
   // application_id; the ownership guard up there restricts it to the owner.
+  // For all three of these we collapse "row exists but you don't own it"
+  // (403) into "row doesn't exist" (404) so a logged-in attacker can't
+  // probe the integer file id space to learn which ids belong to other
+  // members. The 401 case (no session) stays distinct because that's
+  // about the caller, not about the resource.
   const meAppFilesM = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/files$/);
   if (meAppFilesM && method === 'GET') {
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
     const aid = meAppFilesM[1];
     const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(aid).first();
-    if (!owner) return json({ error: 'not_found' }, 404);
-    if (owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    if (!owner || owner.user_id !== user.id) return json({ error: 'not_found' }, 404);
     const { results } = await env.DB.prepare(
       'SELECT id, uploaded_at, kind, recommender_idx, filename, mime, size FROM application_files WHERE application_id = ? ORDER BY id ASC'
     ).bind(aid).all();
@@ -2073,15 +2081,16 @@ async function handleApi(request, env, url, ctx) {
   if (meAppFileDLM && method === 'GET') {
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
-    if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
+    if (!env.ATTACHMENTS) return json({ error: 'unavailable' }, 503);
     const fid = parseInt(meAppFileDLM[1], 10);
     const f = await env.DB.prepare('SELECT * FROM application_files WHERE id = ?').bind(fid).first();
     if (!f) return json({ error: 'not_found' }, 404);
-    // Ownership check via the parent application row.
+    // Ownership check via the parent application row — collapsed to 404
+    // on mismatch (see comment above).
     const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(f.application_id).first();
-    if (!owner || owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    if (!owner || owner.user_id !== user.id) return json({ error: 'not_found' }, 404);
     const obj = await env.ATTACHMENTS.get(f.r2_key);
-    if (!obj) return json({ error: 'gone' }, 410);
+    if (!obj) return json({ error: 'not_found' }, 404);
     return new Response(obj.body, {
       headers: {
         'content-type': f.mime || 'application/octet-stream',
@@ -2098,7 +2107,7 @@ async function handleApi(request, env, url, ctx) {
     const f = await env.DB.prepare('SELECT * FROM application_files WHERE id = ?').bind(fid).first();
     if (!f) return json({ error: 'not_found' }, 404);
     const owner = await env.DB.prepare('SELECT user_id FROM applications WHERE id = ?').bind(f.application_id).first();
-    if (!owner || owner.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+    if (!owner || owner.user_id !== user.id) return json({ error: 'not_found' }, 404);
     // Best-effort R2 delete — if R2 is unbound or the object is missing we
     // still drop the DB row so the user's UI updates.
     try { if (env.ATTACHMENTS && f.r2_key) await env.ATTACHMENTS.delete(f.r2_key); } catch {}
@@ -3812,7 +3821,13 @@ function stubRecommendations() {
 
 // ── News (server-side, member-editable) ────────────────────────────────────
 async function listNews(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM news_posts ORDER BY date DESC, created_at DESC LIMIT 200').all();
+  // Explicit column list — `SELECT *` was leaking `author_id` to anonymous
+  // readers, which lets an external observer correlate posts to internal
+  // user ids without any auth. The detail endpoint already uses the same
+  // narrow projection; this brings the list in line.
+  const { results } = await env.DB.prepare(
+    'SELECT id, tag, tag_color, date, title_ko, title_en, body_ko, body_en, created_at, updated_at FROM news_posts ORDER BY date DESC, created_at DESC LIMIT 200'
+  ).all();
   return json({ items: results || [] });
 }
 
@@ -4008,33 +4023,22 @@ async function submitApplication(request, env) {
 
   // Link any pre-uploaded files (uploaded via /api/applications/upload before
   // the application row existed). The submit body carries:
-  //   file_ids:    [int, ...]    — row id from the upload response
-  //   file_tokens: [string, ...] — upload_token from the upload response,
-  //                                positionally aligned with file_ids
-  // Adoption requires the row to be orphaned AND one of:
-  //   (a) upload_token matches the caller-provided token, OR
-  //   (b) uploader_user_id matches the submitter (logged-in fallback for
-  //       cases where the client lost the token, e.g. page reload).
-  // Both bindings were added in 2026-05-19 to close a HIGH-severity IDOR
-  // where any caller could adopt another user's orphan row by guessing the
-  // sequential auto-increment id (sec audit P2-6).
-  if (Array.isArray(body.file_ids)) {
-    const ids    = body.file_ids.slice(0, 50);
-    const tokens = Array.isArray(body.file_tokens) ? body.file_tokens.slice(0, 50) : [];
-    for (let i = 0; i < ids.length; i++) {
-      const n = parseInt(ids[i], 10);
-      if (!Number.isFinite(n)) continue;
-      const tokRaw = (tokens[i] != null) ? String(tokens[i]) : '';
-      const tok = /^[0-9a-f]{32}$/.test(tokRaw) ? tokRaw : null;
-      if (!tok && !user_id) continue; // no way to authenticate this adoption
+  //   file_tokens: [string, ...] — upload_token (128-bit hex) returned by
+  //                                the upload endpoint, one per file.
+  // Adoption looks the row up by token alone — the token is globally unique
+  // and unguessable, so we don't need (or want) the row id over the wire.
+  // The token is cleared on adoption to prevent reuse. Rows whose token
+  // doesn't match are silently ignored — the submit response shape doesn't
+  // leak which tokens hit, so an external observer can't probe.
+  if (Array.isArray(body.file_tokens)) {
+    for (const raw of body.file_tokens.slice(0, 50)) {
+      const tok = (typeof raw === 'string' && /^[0-9a-f]{32}$/.test(raw)) ? raw : null;
+      if (!tok) continue;
       try {
         await env.DB.prepare(
           "UPDATE application_files SET application_id = ?, upload_token = NULL " +
-          "WHERE id = ? " +
-          "AND (application_id IS NULL OR application_id = '') " +
-          "AND ( (? IS NOT NULL AND upload_token IS NOT NULL AND upload_token = ?) " +
-          "   OR (? IS NOT NULL AND uploader_user_id IS NOT NULL AND uploader_user_id = ?) )"
-        ).bind(id, n, tok, tok, user_id, user_id).run();
+          "WHERE upload_token = ? AND (application_id IS NULL OR application_id = '')"
+        ).bind(id, tok).run();
       } catch {}
     }
   }

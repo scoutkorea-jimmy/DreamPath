@@ -370,23 +370,53 @@ function Contact({ lang, c }) {
             </button>
           </div>
           {tab === 'form' && <InquiryForm lang={lang} c={c} />}
-          {tab === 'faq' && (
-          <div className="faq-list">
-            {list.map((f, i) => (
-              <div key={i} className={'faq-item' + (open === i ? ' open' : '')}
-                onClick={() => setOpen(open === i ? null : i)}
-                role="button" tabIndex="0"
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(open === i ? null : i); } }}
-                aria-expanded={open === i}>
-                <div className="faq-q">
-                  <h4 className={isKo ? '' : 'en'}>{isKo ? f.q_ko : f.q_en}</h4>
-                  <div className="faq-icon"><i data-lucide="plus" width="18" height="18" strokeWidth="2"></i></div>
-                </div>
-                <div className="faq-a">{isKo ? f.a_ko : f.a_en}</div>
+          {tab === 'faq' && (() => {
+            // Group items by category preserving the original order. The
+            // category header surfaces a Lucide icon (per item's
+            // category_icon field — the first item in each group wins) so
+            // category visuals stay consistent with the rest of the site's
+            // icon system. Items missing a category land in an "Other" bin.
+            const groups = [];
+            const indexByCat = new Map();
+            list.forEach((f, i) => {
+              const key = (isKo ? f.category_ko : f.category_en) || (isKo ? '기타' : 'Other');
+              if (!indexByCat.has(key)) {
+                indexByCat.set(key, groups.length);
+                groups.push({ title: key, icon: f.category_icon || '', items: [] });
+              }
+              groups[indexByCat.get(key)].items.push({ f, i });
+            });
+            return (
+              <div className="faq-list">
+                {groups.map((g, gi) => (
+                  <div className="faq-group" key={gi}>
+                    <div className="faq-group-head">
+                      {g.icon && (
+                        <span className="faq-group-icon" aria-hidden="true">
+                          <i data-lucide={g.icon} width="22" height="22" strokeWidth="1.75"></i>
+                        </span>
+                      )}
+                      <h3 className={isKo ? '' : 'en'}>{g.title}</h3>
+                      <span className="faq-group-count">{g.items.length} {isKo ? '문항' : 'questions'}</span>
+                    </div>
+                    {g.items.map(({ f, i }) => (
+                      <div key={i} className={'faq-item' + (open === i ? ' open' : '')}
+                        onClick={() => setOpen(open === i ? null : i)}
+                        role="button" tabIndex="0"
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(open === i ? null : i); } }}
+                        aria-expanded={open === i}>
+                        <div className="faq-q">
+                          <h4 className={isKo ? '' : 'en'}>{isKo ? f.q_ko : f.q_en}</h4>
+                          <div className="faq-icon"><i data-lucide="plus" width="18" height="18" strokeWidth="2"></i></div>
+                        </div>
+                        <div className="faq-a">{isKo ? f.a_ko : f.a_en}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          )}
+            );
+          })()}
 
           <div style={{marginTop:56,padding:40,background:'var(--bg-muted)',borderRadius:28,textAlign:'center'}}>
             <div className="sec-kicker">{cta.kicker}</div>

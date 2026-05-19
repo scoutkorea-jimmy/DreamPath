@@ -1670,26 +1670,65 @@
   }
 
   function FaqTab({ c, set, addItem, removeItem }) {
+    // Visually group items by category_ko in the admin so the editor sees
+    // the same structure that the public page renders. Each item still has
+    // its own category fields, so an item can be moved between categories
+    // by editing them directly.
+    const groups = [];
+    const idxByCat = new Map();
+    (c.faq || []).forEach((f, i) => {
+      const key = f.category_ko || '미분류';
+      if (!idxByCat.has(key)) {
+        idxByCat.set(key, groups.length);
+        groups.push({ title: key, items: [] });
+      }
+      groups[idxByCat.get(key)].items.push({ f, i });
+    });
     return (
       <div className="card">
-        <h3>FAQ</h3>
-        {c.faq.map((f, i) => (
-          <div className="rep-item" key={i}>
-            <div className="rep-head">
-              <strong>Q{i+1}</strong>
-              <div className="ctrls">
-                <button className="icon-btn danger" onClick={() => removeItem(['faq'], i)}>Delete</button>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:14,marginBottom:8}}>
+          <h3 style={{margin:0}}>FAQ</h3>
+          <p className="desc" style={{margin:0,fontSize:13}}>
+            총 {(c.faq || []).length}문항 · {groups.length}개 카테고리.
+            카테고리(KO/EN) 두 필드가 같으면 같은 그룹으로 묶입니다.
+            답변에는 줄바꿈(Enter)이 그대로 반영됩니다.
+          </p>
+        </div>
+        {groups.map((g, gi) => (
+          <div key={gi} style={{marginTop:18,paddingTop:14,borderTop:gi===0?'none':'2px solid var(--border-subtle)'}}>
+            <div style={{
+              display:'flex',alignItems:'baseline',gap:10,marginBottom:10,
+              fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',
+              color:'var(--fg-muted)',fontWeight:700
+            }}>
+              <span style={{color:'var(--brand-text)'}}>{g.title}</span>
+              <span style={{fontFamily:'var(--font-mono)',textTransform:'none',letterSpacing:0,fontWeight:400}}>
+                {g.items.length} items
+              </span>
+            </div>
+            {g.items.map(({ f, i }) => (
+              <div className="rep-item" key={i}>
+                <div className="rep-head">
+                  <strong>Q{i+1}</strong>
+                  <div className="ctrls">
+                    <button className="icon-btn danger" onClick={() => removeItem(['faq'], i)}>Delete</button>
+                  </div>
+                </div>
+                <div className="grid-2 tight">
+                  <Text label="Category (KO)" value={f.category_ko || ''} onChange={v => set(['faq',i,'category_ko'], v)} lang="ko" />
+                  <Text label="Category (EN)" value={f.category_en || ''} onChange={v => set(['faq',i,'category_en'], v)} lang="en" />
+                  <Text label="Category icon (Lucide name, e.g. book-open)" value={f.category_icon || ''} onChange={v => set(['faq',i,'category_icon'], v)} />
+                  <span />{/* spacer to keep the grid balanced */}
+                  <Text label="Question (KO)" value={f.q_ko} onChange={v => set(['faq',i,'q_ko'], v)} lang="ko" />
+                  <Text label="Question (EN)" value={f.q_en} onChange={v => set(['faq',i,'q_en'], v)} lang="en" />
+                  <Area label="Answer (KO)" value={f.a_ko} onChange={v => set(['faq',i,'a_ko'], v)} lang="ko" rows={5} />
+                  <Area label="Answer (EN)" value={f.a_en} onChange={v => set(['faq',i,'a_en'], v)} lang="en" rows={5} />
+                </div>
               </div>
-            </div>
-            <div className="grid-2 tight">
-              <Text label="Question (KO)" value={f.q_ko} onChange={v => set(['faq',i,'q_ko'], v)} lang="ko" />
-              <Text label="Question (EN)" value={f.q_en} onChange={v => set(['faq',i,'q_en'], v)} lang="en" />
-              <Area label="Answer (KO)" value={f.a_ko} onChange={v => set(['faq',i,'a_ko'], v)} lang="ko" rows={3} />
-              <Area label="Answer (EN)" value={f.a_en} onChange={v => set(['faq',i,'a_en'], v)} lang="en" rows={3} />
-            </div>
+            ))}
           </div>
         ))}
-        <button className="btn-add" onClick={() => addItem(['faq'], { q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
+        <button className="btn-add" onClick={() => addItem(['faq'], { category_ko: '', category_en: '', category_icon: '', q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
       </div>
     );
   }

@@ -142,22 +142,27 @@
       ko: { title: '당신의 다음 학기를 여기에서.', sub: '2025년 가을 학기 지원이 열려있습니다.', cta: '지금 지원하기' },
       en: { title: 'Your next semester starts here.', sub: 'Fall 2025 applications are now open.',  cta: 'Apply now' },
     },
+    // FAQ schema (2026-05-19 v01.055 — categorized + line-broken):
+    //   { category_ko, category_en, category_icon, q_ko, q_en, a_ko, a_en }
+    // - category_icon is a Lucide icon name (e.g. 'book-open') — keep it
+    //   in sync with the rest of the site's icon system so the FAQ tab
+    //   visuals match step icons, nav icons, etc. Do not use emojis.
+    // - Answers may contain literal "\n" for paragraph breaks; the public
+    //   page uses CSS `white-space: pre-line` on `.faq-a` to preserve them.
+    // The default below is a minimal 2-category sample so a brand-new
+    // deployment has something to render; the live site's full 30-item
+    // KV blob in dp_content_v1 is the source of truth.
     faq: [
-      { q_ko: '누가 지원할 수 있나요?',       q_en: 'Who can apply?',
-        a_ko: '각 국가 스카우트 조직(NSO)에서 활동 중이거나 추천받은 청년이면 지원할 수 있습니다. 나이 기준은 프로그램마다 다릅니다.',
-        a_en: 'Any youth active in, or nominated by, their National Scout Organization can apply. Age requirements vary by program.' },
-      { q_ko: '영어를 못해도 괜찮나요?',       q_en: 'Do I need English?',
-        a_ko: '일부 프로그램은 한국어 기본 과정을 포함합니다. 영어/한국어 기초 수준만 있어도 시작할 수 있습니다.',
-        a_en: 'Some programs include a Korean basics track. Basic English or Korean is enough to start.' },
-      { q_ko: '비용은 얼마인가요?',           q_en: 'How much does it cost?',
-        a_ko: '마이크로디그리는 파트너 기관의 장학 지원이 있으며, 학생 부담은 최소화됩니다.',
-        a_en: 'Micro-degrees include scholarship support from partner institutions; learner cost is minimized.' },
-      { q_ko: '한국에 가야 하나요?',          q_en: 'Do I have to come to Korea?',
-        a_ko: '모든 프로그램은 100% 온라인입니다. 선택적으로 단기 방문 프로그램이 있을 수 있습니다.',
-        a_en: 'All programs are 100% online. Optional short-term visit programs may be offered.' },
-      { q_ko: 'DreamPath와 CUFS의 관계는?',  q_en: 'What is the relationship between DreamPath and CUFS?',
-        a_ko: 'DreamPath TF는 CUFS와 독립된 조직입니다. CUFS는 첫 파트너 교육기관입니다.',
-        a_en: 'DreamPath TF is independent from CUFS. CUFS is our first partner institution.' },
+      { category_ko: '프로그램 소개', category_en: 'About the Program', category_icon: 'book-open',
+        q_ko: 'Dream Path는 어떤 프로그램인가요?',
+        q_en: 'What is Dream Path?',
+        a_ko: 'Dream Path는 100% 온라인으로 한국 대학 수준 강의를 들을 수 있는 글로벌 교육 프로그램입니다.\n\n(주)코리아드림패스와 사이버한국외국어대학교(CUFS)의 협력으로 운영됩니다.',
+        a_en: 'Dream Path is a 100% online program offering Korean university-level courses worldwide.\n\nA partnership between Korea Dream Path Co., Ltd. and CUFS.' },
+      { category_ko: '비용 · 결제',  category_en: 'Pricing & Payment', category_icon: 'wallet',
+        q_ko: '비용은 얼마인가요?',
+        q_en: 'How much does it cost?',
+        a_ko: '학점당 $60.\n12학점 마이크로디그리 = $720.\n입학비 $72 · 지원비 $22 별도.',
+        a_en: '$60 per credit.\n12-credit Micro-Degree = $720.\nOne-time admission $72 + application $22.' },
     ],
     icons: {
       // Named icon slots — any Lucide icon name.

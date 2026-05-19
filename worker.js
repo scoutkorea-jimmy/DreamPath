@@ -845,16 +845,18 @@ async function handleApi(request, env, url, ctx) {
     ];
     if (!allowedKinds.includes(kind)) return json({ error: 'invalid_kind' }, 400);
     // Ownership guard: when application_id targets an existing row, only the
-    // owner (or an admin) may attach more files. Anonymous form-time uploads
-    // (application_id === '') stay unrestricted because the row does not
-    // exist yet — those rows get adopted on submit via file_ids[].
+    // owner (or an admin) may attach more files. Form-time uploads
+    // (application_id === '') are still allowed unauthenticated, but the new
+    // row carries an upload_token + uploader_user_id so adoption at submit
+    // can prove the submitter is the original uploader — see comment in
+    // submitApplication and migrations/0030_*.sql.
+    const uploaderUser = await currentUser(request, env);
     if (application_id) {
       const owner = await env.DB.prepare(
         'SELECT user_id FROM applications WHERE id = ?'
       ).bind(application_id).first();
       if (owner) {
-        const u = await currentUser(request, env);
-        const isOwner = u && owner.user_id && owner.user_id === u.id;
+        const isOwner = uploaderUser && owner.user_id && owner.user_id === uploaderUser.id;
         const adminAuth = await isAdmin(request, env);
         if (!isOwner && !adminAuth) return json({ error: 'forbidden' }, 403);
       }
@@ -895,10 +897,14 @@ async function handleApi(request, env, url, ctx) {
       return json({ error: 'upload_failed' }, 500);
     }
     const ts = new Date().toISOString();
+    // 128-bit upload token — caller must echo it back at submit to adopt the
+    // row (closes the orphan-IDOR window; see migrations/0030_*.sql).
+    const upload_token = randomHex(16);
+    const uploader_user_id = uploaderUser ? uploaderUser.id : null;
     const ins = await env.DB.prepare(
-      'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key).run();
-    return json({ ok: true, id: ins.meta?.last_row_id, r2_key: key, filename, mime, size: bytes.byteLength });
+      'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key, upload_token, uploader_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key, upload_token, uploader_user_id).run();
+    return json({ ok: true, id: ins.meta?.last_row_id, r2_key: key, filename, mime, size: bytes.byteLength, upload_token });
   }
   // GET admin: list files attached to an application.
   const appFilesM = path.match(/^\/api\/admin\/applications\/([A-Z0-9_-]+)\/files$/);
@@ -3815,11 +3821,16 @@ async function createNews(request, env, user) {
   if (!body) return json({ error: 'invalid_json' }, 400);
   const id = 'N-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
   const now = new Date().toISOString();
+  // Bodies render via dangerouslySetInnerHTML on the public /news/:id detail
+  // page (Pages.jsx). canEdit covers members, so without sanitization any
+  // member could publish stored XSS to every visitor.
+  const safeBodyKo = await sanitizeHtml(str(body.body_ko));
+  const safeBodyEn = await sanitizeHtml(str(body.body_en));
   await env.DB.prepare(
     `INSERT INTO news_posts (id, tag, tag_color, date, title_ko, title_en, body_ko, body_en, author_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, str(body.tag), str(body.tag_color), str(body.date), str(body.title_ko), str(body.title_en),
-         str(body.body_ko), str(body.body_en), user.id, now, now).run();
+         safeBodyKo, safeBodyEn, user.id, now, now).run();
   const row = await env.DB.prepare('SELECT * FROM news_posts WHERE id = ?').bind(id).first();
   return json(row);
 }
@@ -3831,12 +3842,14 @@ async function updateNews(request, env, user, id) {
   const body = await request.json().catch(() => null);
   if (!body) return json({ error: 'invalid_json' }, 400);
   const now = new Date().toISOString();
+  const safeBodyKo = await sanitizeHtml(str(body.body_ko));
+  const safeBodyEn = await sanitizeHtml(str(body.body_en));
   await env.DB.prepare(
     `UPDATE news_posts
      SET tag=?, tag_color=?, date=?, title_ko=?, title_en=?, body_ko=?, body_en=?, updated_at=?
      WHERE id=?`
   ).bind(str(body.tag), str(body.tag_color), str(body.date), str(body.title_ko), str(body.title_en),
-         str(body.body_ko), str(body.body_en), now, id).run();
+         safeBodyKo, safeBodyEn, now, id).run();
   const row = await env.DB.prepare('SELECT * FROM news_posts WHERE id = ?').bind(id).first();
   return json(row);
 }
@@ -3994,18 +4007,34 @@ async function submitApplication(request, env) {
   await env.DB.prepare(sql).bind(...values).run();
 
   // Link any pre-uploaded files (uploaded via /api/applications/upload before
-  // the application row existed). The file ids are passed in the submit body
-  // as `file_ids: [int, ...]`. We only adopt rows whose application_id is
-  // still empty so a malicious actor can't claim someone else's already-
-  // linked files.
+  // the application row existed). The submit body carries:
+  //   file_ids:    [int, ...]    — row id from the upload response
+  //   file_tokens: [string, ...] — upload_token from the upload response,
+  //                                positionally aligned with file_ids
+  // Adoption requires the row to be orphaned AND one of:
+  //   (a) upload_token matches the caller-provided token, OR
+  //   (b) uploader_user_id matches the submitter (logged-in fallback for
+  //       cases where the client lost the token, e.g. page reload).
+  // Both bindings were added in 2026-05-19 to close a HIGH-severity IDOR
+  // where any caller could adopt another user's orphan row by guessing the
+  // sequential auto-increment id (sec audit P2-6).
   if (Array.isArray(body.file_ids)) {
-    for (const fid of body.file_ids.slice(0, 50)) {
-      const n = parseInt(fid, 10);
+    const ids    = body.file_ids.slice(0, 50);
+    const tokens = Array.isArray(body.file_tokens) ? body.file_tokens.slice(0, 50) : [];
+    for (let i = 0; i < ids.length; i++) {
+      const n = parseInt(ids[i], 10);
       if (!Number.isFinite(n)) continue;
+      const tokRaw = (tokens[i] != null) ? String(tokens[i]) : '';
+      const tok = /^[0-9a-f]{32}$/.test(tokRaw) ? tokRaw : null;
+      if (!tok && !user_id) continue; // no way to authenticate this adoption
       try {
         await env.DB.prepare(
-          "UPDATE application_files SET application_id = ? WHERE id = ? AND (application_id IS NULL OR application_id = '')"
-        ).bind(id, n).run();
+          "UPDATE application_files SET application_id = ?, upload_token = NULL " +
+          "WHERE id = ? " +
+          "AND (application_id IS NULL OR application_id = '') " +
+          "AND ( (? IS NOT NULL AND upload_token IS NOT NULL AND upload_token = ?) " +
+          "   OR (? IS NOT NULL AND uploader_user_id IS NOT NULL AND uploader_user_id = ?) )"
+        ).bind(id, n, tok, tok, user_id, user_id).run();
       } catch {}
     }
   }

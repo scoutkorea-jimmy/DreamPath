@@ -334,13 +334,20 @@ function Apply({ lang, c }) {
       const headers = { 'content-type': 'application/json' };
       const tk = window.DreamPathAuth && window.DreamPathAuth.token;
       if (tk) headers['authorization'] = 'Bearer ' + tk;
+      // Pair each pre-uploaded file id with its upload_token so the server
+      // can prove the submitter is the original uploader before adopting
+      // the orphan row (sec fix P2-6, 2026-05-19).
       const file_ids = [];
+      const file_tokens = [];
       ['transcript_graduation', 'transcript_recognition', 'transcript_translation'].forEach(k => {
         const f = form[k];
-        if (f && f.id) file_ids.push(f.id);
+        if (f && f.id) { file_ids.push(f.id); file_tokens.push(f.upload_token || ''); }
       });
       (form.recommenders || []).forEach(r => {
-        if (r && r.letter_file && r.letter_file.id) file_ids.push(r.letter_file.id);
+        if (r && r.letter_file && r.letter_file.id) {
+          file_ids.push(r.letter_file.id);
+          file_tokens.push(r.letter_file.upload_token || '');
+        }
       });
       // Map first 2 essays to legacy columns for backward compat. Full list
       // also goes in essays_json for any future questions beyond the first 2.
@@ -353,6 +360,7 @@ function Apply({ lang, c }) {
         essays_json: JSON.stringify(form.essays || []),
         recommenders_json: JSON.stringify(form.recommenders || []),
         file_ids,
+        file_tokens,
         lang,
       };
       delete payload.recommenders;

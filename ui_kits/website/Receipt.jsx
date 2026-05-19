@@ -66,7 +66,7 @@ function Receipt({ lang, c }) {
       <div className="receipt-paper">
         <header className="receipt-head">
           <div>
-            <div className="receipt-brand">KoreaDream<span style={{color:'#FFD400'}}>Path</span></div>
+            <div className="receipt-brand">KoreaDream<span style={{color:'#F4B72E'}}>Path</span></div>
             <div className="receipt-issuer">{data.issuer.name}<br/>{data.issuer.email}</div>
           </div>
           <div className="receipt-meta">

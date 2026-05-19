@@ -103,7 +103,7 @@ window.PROGRAMS = [
     meta: ['12 weeks', '100% remote', 'EN / KO'],
     level: 'Beginner',
     status: 'open',
-    color: '#4D006E',
+    color: '#1E1654',
     accent: '#FF8DFF',
   },
   {
@@ -116,7 +116,7 @@ window.PROGRAMS = [
     meta: ['10 weeks', '100% remote', 'EN'],
     level: 'Intermediate',
     status: 'open',
-    color: '#622599',
+    color: '#6B2DBE',
     accent: '#82E6DE',
   },
   {
@@ -148,8 +148,8 @@ window.PROGRAMS = [
 ];
 
 window.PARTNERS = [
-  { name: 'CUFS', full: '사이버한국외국어대학교', role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University', color: '#4D006E' },
-  { name: 'WOSM', full: 'World Organization of the Scout Movement', role_ko: '글로벌 네트워크', role_en: 'Global network', color: '#622599' },
+  { name: 'CUFS', full: '사이버한국외국어대학교', role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University', color: '#1E1654' },
+  { name: 'WOSM', full: 'World Organization of the Scout Movement', role_ko: '글로벌 네트워크', role_en: 'Global network', color: '#6B2DBE' },
   { name: 'APR', full: 'Asia-Pacific Region Scout', role_ko: '지역 네트워크', role_en: 'Regional network', color: '#0094B4' },
   { name: 'NSOs', full: 'National Scout Organizations', role_ko: '국가별 추천 기관', role_en: 'National endorsement', color: '#248737' },
 ];
@@ -167,7 +167,7 @@ window.STORIES = [
 ];
 
 window.NEWS = [
-  { tag: 'WOSM', tag_color: '#622599', date: '2025.03.18', title_ko: 'APR 스카우트 컨퍼런스에서 DreamPath 정식 소개', title_en: 'DreamPath presented at APR Scout Conference' },
+  { tag: 'WOSM', tag_color: '#6B2DBE', date: '2025.03.18', title_ko: 'APR 스카우트 컨퍼런스에서 DreamPath 정식 소개', title_en: 'DreamPath presented at APR Scout Conference' },
   { tag: 'Korea', tag_color: '#FF5655', date: '2025.02.24', title_ko: 'CUFS와 첫 파트너십 MOU 체결', title_en: 'First partnership MOU signed with CUFS' },
   { tag: '사람들', tag_color: '#248737', date: '2025.01.30', title_ko: '첫 코호트 지원자 인터뷰: 12개국 40명', title_en: 'First cohort interviews: 40 applicants, 12 countries' },
   { tag: 'APR', tag_color: '#0094B4', date: '2024.12.12', title_ko: '아시아-태평양 지역 NSO 대표단 미팅', title_en: 'Asia-Pacific NSO leadership meeting' },

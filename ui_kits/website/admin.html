@@ -22,7 +22,7 @@
     body { min-width: 1280px; overflow-x: auto; background: var(--bg-muted); color: var(--fg-primary); }
     .admin { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
     .side {
-      background: linear-gradient(180deg, #1E0B33 0%, #2D1147 50%, #4D006E 100%);
+      background: linear-gradient(180deg, #0F0A30 0%, #1A1244 50%, #1E1654 100%);
       color: #fff; padding: 24px 18px; position: sticky; top: 0; height: 100vh;
       overflow-y: auto; display: flex; flex-direction: column;
       box-shadow: 4px 0 20px rgba(30,11,51,0.14);
@@ -33,7 +33,7 @@
     }
     .side .brand img { width: 36px; height: 36px; background: rgba(255,255,255,0.06); padding: 5px; border-radius: 8px; }
     .side .brand .wm { font-family: var(--font-en); font-weight: 700; font-size: 17px; letter-spacing: -0.02em; line-height: 1.1; }
-    .side .brand .wm .pt { color: #FFE600; }
+    .side .brand .wm .pt { color: #FFC93E; }
     .side .brand .sub { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-top: 2px; }
     .side h2 {
       font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -52,7 +52,7 @@
     }
     .side .ver-pill .ver-num {
       font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
-      color: #FFE600; letter-spacing: 0.04em;
+      color: #FFC93E; letter-spacing: 0.04em;
     }
     /* Sidebar groups (accordion: active group always open; others toggle via
        the caret on the right of each row). */
@@ -98,12 +98,12 @@
       font-weight: 700;
     }
     .side button.group.active {
-      background: rgba(255,228,0,0.16); color: #FFE600; font-weight: 700;
-      box-shadow: inset 3px 0 0 #FFE600;
+      background: rgba(255,228,0,0.16); color: #FFC93E; font-weight: 700;
+      box-shadow: inset 3px 0 0 #FFC93E;
     }
     .side button.group.active .gicon { opacity: 1; }
     .side button.group.active .gcount {
-      background: rgba(255,228,0,0.20); color: #FFE600;
+      background: rgba(255,228,0,0.20); color: #FFC93E;
     }
     /* Sub-tab list nested under active group */
     .side .subnav {
@@ -133,8 +133,8 @@
       text-decoration: none; border: none; cursor: pointer; font-family: inherit;
     }
     .side .actions a:hover, .side .actions button:hover { background: rgba(255,255,255,0.16); }
-    .side .actions .primary { background: #FFE600; color: var(--midnight-purple); }
-    .side .actions .primary:hover { background: #FFE600; filter: brightness(0.94); }
+    .side .actions .primary { background: #FFC93E; color: var(--midnight-purple); }
+    .side .actions .primary:hover { background: #FFC93E; filter: brightness(0.94); }
     .side .actions .danger { background: rgba(255,86,85,0.18); color: #FFD2D1; }
     .side .actions .danger:hover { background: rgba(255,86,85,0.30); color: #fff; }
 
@@ -360,7 +360,7 @@
     .icon-cell-label { font-size: 9px; font-family: var(--font-mono); color: var(--fg-muted); text-align: center; margin-top: 2px; line-height: 1; }
 
     /* Preview panel */
-    .preview-ribbon { position: sticky; top: 0; background: #FFE600; color: var(--midnight-purple); padding: 10px 16px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
+    .preview-ribbon { position: sticky; top: 0; background: #FFC93E; color: var(--midnight-purple); padding: 10px 16px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
     .preview-ribbon a { color: var(--midnight-purple); text-decoration: underline; }
 
     /* Applications table + modal */
@@ -1263,7 +1263,7 @@
         title_ko: '새 프로그램', title_en: 'New program',
         sub_ko: '', sub_en: '',
         meta: ['12 weeks','100% remote','EN'], level: 'Beginner', status: 'open',
-        color: '#622599', accent: '#82E6DE', icon: 'book-open',
+        color: '#6B2DBE', accent: '#82E6DE', icon: 'book-open',
       });
       setTimeout(() => setEditingId(id), 50);
     }
@@ -1370,7 +1370,7 @@
                       <td>
                         <div style={{
                           width:36,height:36,borderRadius:8,
-                          background:`linear-gradient(135deg, ${p.color || '#622599'}, ${p.accent || p.color || '#622599'})`,
+                          background:`linear-gradient(135deg, ${p.color || '#6B2DBE'}, ${p.accent || p.color || '#6B2DBE'})`,
                           display:'flex',alignItems:'center',justifyContent:'center',color:'#fff'
                         }}>
                           <i data-lucide={p.icon} width="18" height="18" strokeWidth="1.75"></i>
@@ -1591,7 +1591,7 @@
               </div>
             </div>
           ))}
-          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#622599', logo: '' })}>+ Add partner</button>
+          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
         </div>
       </>
     );
@@ -1619,7 +1619,7 @@
             </div>
           </div>
         ))}
-        <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#622599', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
+        <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
       </div>
     );
   }
@@ -1646,7 +1646,7 @@
             </div>
           </div>
         ))}
-        <button className="btn-add" onClick={() => addItem(['news'], { tag: 'Tag', tag_color: '#622599', date: '2025.01.01', title_ko: '제목', title_en: 'Title' })}>+ Add news item</button>
+        <button className="btn-add" onClick={() => addItem(['news'], { tag: 'Tag', tag_color: '#6B2DBE', date: '2025.01.01', title_ko: '제목', title_en: 'Title' })}>+ Add news item</button>
       </div>
     );
   }
@@ -4101,7 +4101,7 @@
       { method: 'GET',  path: '/api/consents',              auth: 'admin', desc: 'List consent records.' },
     ];
 
-    const METHOD_COLOR = { GET:'#0094B4', POST:'#248737', PUT:'#622599', PATCH:'#92400E', DELETE:'#B91C1C' };
+    const METHOD_COLOR = { GET:'#0094B4', POST:'#248737', PUT:'#6B2DBE', PATCH:'#92400E', DELETE:'#B91C1C' };
     const badgeBg = (a) => a.includes('admin') ? '#FEE2E2' : a.includes('session') ? '#DBEAFE' : '#DCFCE7';
 
     return (
@@ -4974,7 +4974,7 @@
     );
 
     // Inline SVG sparkline from a series of {day, sessions}
-    function Spark({ series, color = '#622599', height = 36 }) {
+    function Spark({ series, color = '#6B2DBE', height = 36 }) {
       if (!series.length) return <div style={{height,display:'grid',placeItems:'center',color:'var(--fg-muted)',fontSize:11}}>no data</div>;
       const w = 200;
       const max = Math.max(1, ...series.map(d => d.sessions || 0));
@@ -5016,7 +5016,7 @@
     return (
       <>
         {/* Hero — version + sync time + open site */}
-        <div className="card" style={{background:'linear-gradient(135deg, #1E0B33 0%, #4D006E 100%)',color:'#fff',border:'none'}}>
+        <div className="card" style={{background:'linear-gradient(135deg, #0F0A30 0%, #1E1654 100%)',color:'#fff',border:'none'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:20,flexWrap:'wrap'}}>
             <div>
               <div style={{fontSize:12,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'rgba(255,255,255,0.6)',marginBottom:6}}>KoreaDreamPath · Admin Console</div>
@@ -5029,7 +5029,7 @@
             </div>
             <div style={{display:'flex',gap:10}}>
               {/* Yellow surface — keep midnight-purple text (always dark, regardless of theme). */}
-              <a href="/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'#FFE600',color:'#4D006E',borderRadius:8,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
+              <a href="/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'#FFC93E',color:'#1E1654',borderRadius:8,fontWeight:700,textDecoration:'none',fontSize:13}}>Open live site ↗</a>
               <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener" style={{padding:'10px 18px',background:'rgba(255,255,255,0.1)',color:'#fff',borderRadius:8,fontWeight:600,textDecoration:'none',fontSize:13,border:'1px solid rgba(255,255,255,0.2)'}}>Cloudflare ↗</a>
             </div>
           </div>
@@ -5038,7 +5038,7 @@
         {/* Top-line counts */}
         <div className="grid-4" style={{marginBottom:18}}>
           <Stat label="Members" value={data.members} sub="Registered users" onClick={() => setTab('members')} />
-          <Stat label="Applications" value={data.apps} accent="#622599" sub="All-time submissions" onClick={() => setTab('apps')} />
+          <Stat label="Applications" value={data.apps} accent="#6B2DBE" sub="All-time submissions" onClick={() => setTab('apps')} />
           <Stat label="Inquiries" value={data.inquiries} accent="#0094B4" sub="Contact-form messages" onClick={() => setTab('inquiries')} />
           <Stat label="Error logs" value={data.errors} accent={errorAccent} sub="Last 100 reports" onClick={() => setTab('error_logs')} />
         </div>
@@ -5070,7 +5070,7 @@
           <div className="grid-2" style={{gap:14}}>
             <div style={{padding:14,background:'var(--bg-muted)',borderRadius:10}}>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:8}}>Daily sessions · last 14 days</div>
-              <Spark series={data.dailySeries} color="#622599" height={48} />
+              <Spark series={data.dailySeries} color="#6B2DBE" height={48} />
               <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
                 <span>{data.dailySeries[0]?.day || ''}</span>
                 <span>{data.dailySeries[data.dailySeries.length-1]?.day || ''}</span>
@@ -5890,7 +5890,7 @@
   }
 
   function KmsTab() { return <WikiTab slug="kms" title="KMS · 코딩 위키" accent="#0094B4" />; }
-  function ColorGuideTab() { return <WikiTab slug="color" title="컬러 가이드" accent="#FFD400" />; }
+  function ColorGuideTab() { return <WikiTab slug="color" title="컬러 가이드" accent="#F4B72E" />; }
   function DesignGuideTab() { return <WikiTab slug="design" title="디자인 가이드" accent="#FF8DFF" />; }
   function VersionsTab() { return <WikiTab slug="versions" title="버전 기록 · Version history" accent="#34D399" />; }
 
@@ -6131,7 +6131,7 @@
   function DesignSystemTab() {
     return (
       <>
-        <div className="card" style={{background:'linear-gradient(135deg, #1E0B33 0%, #4D006E 100%)', color:'#fff', marginBottom:24}}>
+        <div className="card" style={{background:'linear-gradient(135deg, #0F0A30 0%, #1E1654 100%)', color:'#fff', marginBottom:24}}>
           <div className="sec-kicker" style={{color:'rgba(255,228,0,0.9)', margin:0}}>DESIGN SYSTEM</div>
           <h2 style={{margin:'4px 0 6px', fontSize:28, fontFamily:'var(--font-en)'}}>KoreaDreamPath Design System</h2>
           <p style={{margin:0, color:'rgba(255,255,255,0.85)', fontSize:14}}>
@@ -6965,7 +6965,7 @@
     useEffect(() => { load(); }, []);
 
     const trackLabel = t => t === 'full' ? 'Full scholarship' : t === 'partial' ? 'Partial scholarship' : t === 'general' ? 'Standard' : '—';
-    const trackColor = t => t === 'full' ? '#4D006E' : t === 'partial' ? '#622599' : t === 'general' ? '#6B7280' : '#999';
+    const trackColor = t => t === 'full' ? '#1E1654' : t === 'partial' ? '#6B2DBE' : t === 'general' ? '#6B7280' : '#999';
 
     const filtered = filter === 'all' ? apps : apps.filter(a => a.track === filter);
 
@@ -7557,8 +7557,8 @@
               fontWeight: 700,
               letterSpacing: '0.04em',
               cursor: canExtend ? 'pointer' : 'not-allowed',
-              background: canExtend ? '#FFE600' : 'rgba(255,255,255,0.06)',
-              color: canExtend ? '#4D006E' : 'rgba(255,255,255,0.32)',
+              background: canExtend ? '#FFC93E' : 'rgba(255,255,255,0.06)',
+              color: canExtend ? '#1E1654' : 'rgba(255,255,255,0.32)',
               transition: 'background 140ms',
             }}>
             ⏱ +30분 연장

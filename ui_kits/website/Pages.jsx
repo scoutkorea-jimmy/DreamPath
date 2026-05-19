@@ -204,7 +204,7 @@ function News({ go, lang, c }) {
         <div className="container-narrow">
           {canEdit && (
             <div style={{marginBottom:24,display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button className="btn btn-primary btn-sm" onClick={() => setEditing({ tag:'NEW', tag_color:'#622599', date: new Date().toISOString().slice(0,10).replace(/-/g,'.'), title_ko:'', title_en:'', body_ko:'', body_en:'' })}>
+              <button className="btn btn-primary btn-sm" onClick={() => setEditing({ tag:'NEW', tag_color:'#6B2DBE', date: new Date().toISOString().slice(0,10).replace(/-/g,'.'), title_ko:'', title_en:'', body_ko:'', body_en:'' })}>
                 + {isKo ? '새 소식 작성' : 'New post'}
               </button>
             </div>
@@ -326,7 +326,7 @@ function NewsEditor({ post, onSave, onCancel, isKo }) {
         <button type="button" className="auth-close" onClick={onCancel} aria-label="close">×</button>
         <h2>{post.id ? (isKo ? '소식 수정' : 'Edit post') : (isKo ? '새 소식' : 'New post')}</h2>
         <label className="auth-field"><span>{isKo ? '태그' : 'Tag'}</span><input value={draft.tag || ''} onChange={e => upd('tag', e.target.value)} /></label>
-        <label className="auth-field"><span>{isKo ? '태그 색' : 'Tag color'}</span><input type="color" value={draft.tag_color || '#622599'} onChange={e => upd('tag_color', e.target.value)} /></label>
+        <label className="auth-field"><span>{isKo ? '태그 색' : 'Tag color'}</span><input type="color" value={draft.tag_color || '#6B2DBE'} onChange={e => upd('tag_color', e.target.value)} /></label>
         <label className="auth-field"><span>{isKo ? '날짜' : 'Date'}</span><input value={draft.date || ''} onChange={e => upd('date', e.target.value)} placeholder="YYYY.MM.DD" /></label>
         <label className="auth-field"><span>{isKo ? '제목 (한국어)' : 'Title (KO)'}</span><input value={draft.title_ko || ''} onChange={e => upd('title_ko', e.target.value)} lang="ko" /></label>
         <label className="auth-field"><span>{isKo ? '제목 (영문)' : 'Title (EN)'}</span><input value={draft.title_en || ''} onChange={e => upd('title_en', e.target.value)} lang="en" /></label>

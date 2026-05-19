@@ -24,12 +24,21 @@
 
 :root {
   /* ============ BRAND PRIMARY ============
+     2026-05-19 refresh — moved from the original royal-purple/yellow trio
+     to a Deep-Indigo foundation + Vivid-Purple activation + Star-Gold
+     accent system, with two new supporting tokens (Royal Purple outline,
+     Soft Lavender surface tint). Naming kept on the legacy keys so the
+     existing components inherit the new hues without touching consumers.
+     60·25·8·5·2 proportion rule applies per layout (foundation /
+     activation / accent / outline / tint).
      Brand hues are constant across themes — only surface/text/border
      tokens flip in dark mode. */
-  --midnight-purple:  #4D006E;   /* primary — buttons, hero, dark surfaces */
-  --scouting-purple:  #622599;   /* accent — links, focus, secondary brand */
-  --sunshine-yellow:  #FFD400;   /* highlight / wordmark accent */
-  --ember-orange:     #FFAE80;   /* warm secondary */
+  --midnight-purple:  #1E1654;   /* Deep Indigo — foundation 60% (buttons, hero, dark surfaces) */
+  --scouting-purple:  #6B2DBE;   /* Vivid Purple — activation 25% (links, focus, secondary brand) */
+  --sunshine-yellow:  #F4B72E;   /* Star Gold — accent 8% (one-only, highlight / wordmark accent) */
+  --royal-purple:     #3D2580;   /* Royal Purple — outline 5% (outlined buttons, dividers) */
+  --soft-lavender:    #EDE7F6;   /* Soft Lavender — surface tint 2% (brand-tinted panels) */
+  --ember-orange:     #FFAE80;   /* legacy warm secondary — kept for back-compat */
 
   /* ============ BRAND SECONDARY (palette) ============ */
   --blossom-pink:     #FF8DFF;
@@ -42,6 +51,8 @@
   --brand:            var(--midnight-purple);
   --brand-2:          var(--scouting-purple);
   --brand-accent:     var(--sunshine-yellow);
+  --brand-outline:    var(--royal-purple);
+  --brand-tint:       var(--soft-lavender);
 
   /* Brand-text: use as a *text* color anywhere midnight-purple was being used
      as type. In dark mode this flips to a lighter purple so headings stay
@@ -156,7 +167,7 @@
   --shadow-sm:     0 4px 12px rgba(15, 15, 18, 0.06);
   --shadow-md:     0 14px 36px rgba(15, 15, 18, 0.10);
   --shadow-lg:     0 24px 64px rgba(15, 15, 18, 0.14);
-  --shadow-brand:  0 16px 48px rgba(77, 0, 110, 0.22);
+  --shadow-brand:  0 16px 48px rgba(30, 22, 84, 0.22);   /* Deep Indigo cast */
 
   /* ============ MOTION ============ */
   --duration-fast:    140ms;
@@ -177,7 +188,7 @@
   --focus-color:   var(--scouting-purple);
   --focus-width:   3px;
   --focus-offset:  3px;
-  --focus-ring:    0 0 0 var(--focus-width) rgba(98, 37, 153, 0.30);
+  --focus-ring:    0 0 0 var(--focus-width) rgba(107, 45, 190, 0.30);   /* Vivid Purple cast */
 
   /* ============ Z-INDEX ============ */
   --z-base:       0;
@@ -216,17 +227,22 @@
   --fg-inverse:       #0F0E14;
   --fg-link:          #C7A5FF;          /* lighter purple for AA on dark canvas */
 
-  /* Brand wordmark accent yellow boosts a touch for dark surfaces. */
-  --sunshine-yellow:  #FFE600;
+  /* Brand wordmark accent — Star Gold (#F4B72E) is too dim against
+     near-black; brighten while preserving the amber hue. Earlier dark
+     override was #FFE600 (pure yellow) which clashed with the warm
+     Star Gold once the light value moved off the original #FFD400. */
+  --sunshine-yellow:  #FFC93E;
 
-  /* Scouting-purple is also used as a *text* color on kicker labels, partner
-     roles, team roles, prog-kicker, sec-kicker, FAQ icons, etc. The light-mode
-     value (#622599) reads at ~2.4:1 on the dark canvas — fails even AA Large.
-     Lighten it to a lavender that hits ~7:1 on dark and still reads as the
-     same hue. Stays usable as a background / border tint too. */
-  /* v01.026.04: bumped from #B695E8 → #D4B8FF — operator reported the
-     previous lavender still read as "dark purple on dark gray" on the
-     dashboard big-number stats. Now ~9:1 against bg-elevated (#1F1D29). */
+  /* Scouting-purple (now Vivid Purple #6B2DBE in light) is also used as a
+     *text* color on kicker labels, partner roles, team roles, prog-kicker,
+     sec-kicker, FAQ icons, etc. The light-mode value reads at ~3.0:1 on
+     the dark canvas — fails AA. Lighten it to a lavender that hits ~7:1
+     on dark and still reads as the same hue. Stays usable as a background
+     / border tint too. */
+  /* v01.026.04 origin: #B695E8 → #D4B8FF for dashboard big-number stats
+     legibility (~9:1 against bg-elevated #1F1D29). 2026-05-19 brand
+     refresh kept this override unchanged — Vivid Purple in light + lavender
+     in dark still reads as the same hue family. */
   --scouting-purple:  #D4B8FF;
 
   /* Borders barely visible against canvas — but do exist. */
@@ -253,14 +269,14 @@
   --shadow-sm:     0 4px 12px rgba(0, 0, 0, 0.36);
   --shadow-md:     0 14px 36px rgba(0, 0, 0, 0.45);
   --shadow-lg:     0 24px 64px rgba(0, 0, 0, 0.55);
-  --shadow-brand:  0 16px 48px rgba(98, 37, 153, 0.42);
+  --shadow-brand:  0 16px 48px rgba(107, 45, 190, 0.42);   /* Vivid Purple cast on dark */
 
   /* Slightly brighter focus ring against dark backgrounds. */
   --focus-ring:    0 0 0 var(--focus-width) rgba(199, 165, 255, 0.42);
 
-  /* Headings / brand text on dark canvas — midnight-purple (#4D006E) reads
-     as "almost black" against bg-elevated #1F1D29 (~2:1, fails WCAG even at
-     AA Large). Lavender bumps it to ~9:1 against the dark canvas. */
+  /* Headings / brand text on dark canvas — Deep Indigo #1E1654 is now
+     even darker than the prior #4D006E (~1.4:1 against bg-elevated
+     #1F1D29). Lavender override bumps it to ~9:1 against the dark canvas. */
   --brand-text:    #DCC2FF;       /* bumped from #C7A5FF for dashboard headings legibility */
 }
 

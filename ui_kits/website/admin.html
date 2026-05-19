@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>KoreaDreamPath · Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/favicon-180.png">
@@ -6141,21 +6142,28 @@
 
         <Section kicker="01 · Brand" title="Primary brand colors">
           <Swatches big cols={2} items={[
-            { var:'--midnight-purple', label:'Midnight Purple',  note:'Buttons, hero, dark surfaces' },
-            { var:'--scouting-purple', label:'Scouting Purple',  note:'Links, focus, secondary brand' },
-            { var:'--sunshine-yellow', label:'Sunshine Yellow',  note:'Wordmark accent, highlight' },
-            { var:'--ember-orange',    label:'Ember Orange',     note:'Warm secondary' },
+            { var:'--midnight-purple', label:'Deep Indigo',    note:'Foundation 60% · buttons / hero / dark surfaces' },
+            { var:'--scouting-purple', label:'Vivid Purple',   note:'Activation 25% · links, focus, secondary brand' },
+            { var:'--sunshine-yellow', label:'Star Gold',      note:'Accent 8% (one-only) · wordmark, highlight' },
+            { var:'--royal-purple',    label:'Royal Purple',   note:'Outline 5% · outlined buttons, dividers' },
+            { var:'--soft-lavender',   label:'Soft Lavender',  note:'Surface tint 2% · brand-tinted panels' },
           ]} />
         </Section>
 
-        <Section kicker="02 · Brand" title="Secondary palette (categorical)">
-          <Swatches cols={3} items={[
-            { var:'--blossom-pink', label:'Blossom Pink' },
-            { var:'--river-blue',   label:'River Blue' },
-            { var:'--leaf-green',   label:'Leaf Green' },
-            { var:'--forest-green', label:'Forest Green' },
-            { var:'--coral-red',    label:'Coral Red' },
-            { var:'--indigo-deep',  label:'Indigo Deep' },
+        <Section kicker="02 · Brand" title="Secondary palette — 4 base+tint pairs">
+          <p className="desc" style={{margin:'-4px 0 12px',fontSize:13,color:'var(--fg-muted)'}}>
+            Each row is a pair: <strong>base (left, dominant)</strong> + <strong>tint (right, soft companion)</strong>.
+            Use a pair together; do not mix bases from different pairs in the same composition.
+          </p>
+          <Swatches cols={2} items={[
+            { var:'--fire-red',         label:'Fire Red',         note:'base · alerts, intense state' },
+            { var:'--ember-orange',     label:'Ember Orange',     note:'tint · warm highlight' },
+            { var:'--ocean-blue',       label:'Ocean Blue',       note:'base · info, focus accent' },
+            { var:'--river-blue',       label:'River Blue',       note:'tint · info background' },
+            { var:'--forest-green',     label:'Forest Green',     note:'base · success, confirmation' },
+            { var:'--leaf-green',       label:'Leaf Green',       note:'tint · success background' },
+            { var:'--midnight-violet',  label:'Midnight Violet',  note:'base · deep brand-adjacent' },
+            { var:'--blossom-pink',     label:'Blossom Pink',     note:'tint · playful highlight' },
           ]} />
         </Section>
 
@@ -7515,7 +7523,7 @@
         )}
         <aside className="side" aria-label="Admin navigation">
           <div className="brand">
-            <img src="/assets/logo-dreampath-mark.png" alt="" />
+            <img src="/assets/logo-dreampath-mark.svg" alt="" />
             <div>
               <div className="wm">KoreaDream<span className="pt">Path</span></div>
               <div className="sub">{t.console}</div>

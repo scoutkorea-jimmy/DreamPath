@@ -38,15 +38,35 @@
   --sunshine-yellow:  #F4B72E;   /* Star Gold — accent 8% (one-only, highlight / wordmark accent) */
   --royal-purple:     #3D2580;   /* Royal Purple — outline 5% (outlined buttons, dividers) */
   --soft-lavender:    #EDE7F6;   /* Soft Lavender — surface tint 2% (brand-tinted panels) */
-  --ember-orange:     #FFAE80;   /* legacy warm secondary — kept for back-compat */
 
-  /* ============ BRAND SECONDARY (palette) ============ */
-  --blossom-pink:     #FF8DFF;
-  --river-blue:       #0094B4;
-  --leaf-green:       #9FED8F;
-  --forest-green:     #248737;
-  --coral-red:        #FF5655;
-  --indigo-deep:      #3D2E8E;
+  /* ============ BRAND SECONDARY ============
+     2026-05-19 restructure — 4 base+tint pairs. In each pair the BASE is
+     the stronger expression (icons, dominant fills, stronger text); the
+     TINT is the softer companion (backgrounds, hover states, illustrative
+     highlights). Use as a pair; do not mix bases from different pairs in
+     the same composition unless representing categorical data.
+     Pair layout (base — tint):
+       Fire Red       — Ember Orange
+       Ocean Blue     — River Blue
+       Forest Green   — Leaf Green
+       Midnight Violet — Blossom Pink
+  */
+  --fire-red:         #FF5655;   /* base — alerts, intense state, danger illustration */
+  --ember-orange:     #FFAE80;   /* tint — warm highlight, soft alert background */
+
+  --ocean-blue:       #0094B4;   /* base — info, focus accents, link variants */
+  --river-blue:       #82E6DE;   /* tint — info background, secondary highlight */
+
+  --forest-green:     #248737;   /* base — success, confirmation */
+  --leaf-green:       #9FED8F;   /* tint — success background, fresh accent */
+
+  --midnight-violet:  #4D006E;   /* base — deep brand-adjacent (legacy "midnight-purple" hex) */
+  --blossom-pink:     #FF8DFF;   /* tint — playful highlight, soft brand accent */
+
+  /* Legacy aliases — kept so any content data or external collateral that
+     referenced the old token names keeps rendering. New code should prefer
+     the canonical pair names above. */
+  --coral-red:        var(--fire-red);
 
   --brand:            var(--midnight-purple);
   --brand-2:          var(--scouting-purple);

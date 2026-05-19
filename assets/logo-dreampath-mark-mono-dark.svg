@@ -7,16 +7,16 @@
       }
 
       .cls-2 {
-        fill: #f4b72e;
+        fill: #1E1654;
       }
 
       .cls-3 {
-        fill: #1e1654;
+        fill: #1E1654;
       }
     </style>
     <linearGradient id="linear-gradient" x1="492.6" y1="432.47" x2="492.6" y2="845.03" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1e1654"/>
-      <stop offset=".99" stop-color="#6b2dbe"/>
+      <stop offset="0" stop-color="#1E1654"/>
+      <stop offset=".99" stop-color="#1E1654"/>
     </linearGradient>
   </defs>
   <polygon class="cls-3" points="143 152.96 577.15 221.82 577.15 433.38 531.45 447.16 531.45 272.55 201.75 220.26 201.75 801.34 143 822.01 143 152.96"/>

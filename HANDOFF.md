@@ -1,6 +1,6 @@
 # HANDOFF · KoreaDreamPath
 
-> **현 시점 (2026-05-09) 사이트 상태 스냅샷.**
+> **현 시점 (2026-05-20) 사이트 상태 스냅샷.**
 > 다음 세션에서 작업을 이어받을 때 이 파일을 먼저 읽으세요.
 > 위키와 중복되는 내용은 의도적입니다 — 한 곳에 모아둔 "현재"입니다.
 
@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.049.00`
+- **버전**: `v01.057.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -57,7 +57,27 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 버전 알림    /api/version + VersionWatcher.jsx (60초 폴링 + focus 이벤트)
 ```
 
-## 3. 이번 라운드(v01.028 ~ v01.046)에 마친 큰 변경
+## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### Back-to-top + 자체 FAQ 챗봇 + AI 디스클레이머 — v01.056 / v01.057
+- **신규 파일**: `ui_kits/website/Floaters.jsx` — 우측 하단 두 가지 위젯.
+- **BackToTop**: `window.scrollY > 400`에서만 노출, 챗봇 패널이 열려 있으면 자동 숨김(레이어 충돌 방지). smooth scroll-to-top.
+- **ChatBot**: 외부 LLM/의존성 0. `c.faq[]` 30개 Q&A를 키워드 + 한국어 2-gram bigram으로 점수 매겨 매칭(질문 hit 3x, 답변 hit 1x). 상위 답변 + 관련 질문 2개 칩. 인사말은 첫 진입 시 1회. 추천 질문 5개(비용/자격/온라인/장학금/문의) 칩. sessionStorage `dp_chat_log` 최근 40개 보존. 한/영 동기화.
+- **v01.057 보강 (사용자 요청)**:
+  1. **출처 표시**: 모든 FAQ-backed 답변 하단에 `출처: FAQ · {카테고리}` 노출 (book 아이콘).
+  2. **AI 부정확성 안내**: 점선 구분선 + 작은 회색 글씨 "이 답변은 AI가 자동 생성한 것으로 정확하지 않을 수 있어요. 자세한 내용은 홈페이지를 다시 한 번 확인해 주시고, 그래도 부정확하다고 느껴지시면 hello@koreadreampath.com으로 보내주시면 최대 48시간 이내에 답변드릴게요." 인사말/폴백에는 미표시(중복 방지).
+  3. **폴백 → Send-a-message 폼 딥링크**: 답변 매칭 실패 시 `[문의 양식으로 메시지 보내기]` 버튼이 `go('contact', null, { tab: 'form' })` 호출 → `/contact?tab=form`. Contact.jsx가 URLSearchParams에서 `tab=form`을 읽고 초기 탭을 폼으로 세팅. mailto 보조 버튼 + 48h 안내 동반.
+- **z-index 9000** (VersionWatcher 100000 아래, content 위). 모바일은 패널이 거의 전체 화면(`window.innerWidth < 520`).
+- **App.jsx**: `{window.ChatBot && <window.ChatBot lang={lang} c={content} go={go} />}` 마운트.
+- **index.html**: Floaters.jsx 스크립트 로드 (VersionWatcher 다음).
+- **알려진 한계**: 매칭은 FAQ 항목에만. 운영자가 새 Q&A를 admin → FAQ 탭에 추가하면 자동 반영. LLM-답변 없음(의도적 — 비용/대기시간/정합성).
+
+### Stale version.js 한꺼번에 보정 (v01.046 → v01.057)
+- `window.DREAMPATH_VERSION`이 v01.047~055 commit들에서 누락된 채 v01.046에 멈춰 있었음. v01.056에서 한 번에 정합화 + 이후 v01.057.00 정상 bump.
+
+---
+
+## 3-과거. v01.028 ~ v01.046 변경 요약
 
 ### 암호화 phone 정확 매칭 검색 부활 (HMAC) — v01.046
 - **문제**: v01.042의 AES-GCM 암호화는 row별 랜덤 IV라 같은 phone도 다른 ciphertext로 저장 → 동치 검색 불가. v01.042에서 `/api/admin/search`의 phone 검색 분기를 제거했었음.

@@ -351,7 +351,15 @@ function Contact({ lang, c }) {
   const h = ((c && c.page_heros && c.page_heros.contact && c.page_heros.contact[lang]) || {});
   const cta = ((c && c.partner_cta && c.partner_cta[lang]) || {});
   const [open, setOpen] = React.useState(null);
-  const [tab, setTab] = React.useState('faq'); // 'faq' | 'form'
+  // Honor ?tab=form (used by the ChatBot fallback to deep-link straight
+  // to the Send-a-message form). Falls back to the FAQ tab.
+  const initialTab = (() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      return t === 'form' ? 'form' : 'faq';
+    } catch { return 'faq'; }
+  })();
+  const [tab, setTab] = React.useState(initialTab); // 'faq' | 'form'
   return (
     <div data-screen-label="Contact">
       <PageHero h={h} isKo={isKo} />

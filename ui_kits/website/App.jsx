@@ -257,6 +257,7 @@ function App() {
       <window.AuthModal open={authOpen} onClose={() => setAuthOpen(false)} lang={lang} defaultMode={authMode} />
       {window.CookieBanner && <window.CookieBanner lang={lang} c={content} />}
       {window.VersionWatcher && <window.VersionWatcher lang={lang} />}
+      {window.ChatBot && <window.ChatBot lang={lang} c={content} go={go} />}
     </div>
   );
 }

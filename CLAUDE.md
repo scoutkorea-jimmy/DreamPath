@@ -34,9 +34,51 @@
 
 ## 2. Hard rules
 
+0. **🔴 위키 갱신은 최우선 (NEVER SKIP).** 모든 코드/콘텐츠/스키마
+   변경은 같은 라운드 안에 다음 위키 KV를 함께 갱신해야 한다. 누락은
+   v01.046 → v01.057 누락 사건(2026-05-20)의 재발이다. 운영자가 요청
+   하지 않아도 자동 수행:
+   - **`wiki:versions`** — 모든 마이너/패치 버전마다 1페이지 추가
+     (intro 바로 다음, **newest-first**). 표준 4섹션 구조 ① 이 버전의
+     주요 목적 ② 주요 업데이트 내역 ③ 세부 업데이트 내역(비개발자
+     `<details open>` + 개발자 `<details>`) ④ KMS 위키 반영.
+     시맨틱 토큰만 사용 (`var(--bg-muted)` / `var(--fg-muted)` /
+     `var(--border-subtle)` / `var(--brand-text)`), 하드코딩 hex/회색
+     금지. `<pre>`에 인라인 background 줄 때 색 자동 플립 패턴
+     (v01.057.01) 그대로 사용.
+   - **`wiki:kms`** — 변경된 기능/스키마가 KMS 문서(코딩 룰, 기능
+     정의서, 테스트 계정, 데이터 모델 등)에 영향이 있으면 **해당 페이지
+     직접 갱신** + "99. Change log" 페이지에 한 줄 row 추가
+     (date · what · **why** · caveat).
+   - **`wiki:design` / `wiki:color` / `wiki:logo`** — 디자인 토큰, 색,
+     로고, 폼/버튼 패턴 변경 시 영향 페이지 직접 갱신. 새 예외는
+     무조건 그 위키의 "Tokens-first 예외" 페이지에 등록.
+
+   **이 단계가 빠지면 그 라운드는 미완료.** `wrangler deploy` +
+   `git push` 성공이 곧 완료가 아니다.
+
+   **갱신 방법** (KV 직접 쓰기):
+   ```
+   # 1) 현재 페이지 가져오기 (전체 보존)
+   npx wrangler kv key get --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \\
+     --remote "wiki:versions" > /tmp/cur.json
+   # 2) JSON 파싱 + 새 페이지 추가 (intro 다음에 삽입)
+   # 3) 덮어쓰기
+   npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \\
+     --remote --path=/tmp/new.json "wiki:versions"
+   ```
+   부분 쓰기 가정 금지 — 전체 blob을 다시 올리는 구조다.
+
 1. **Auto-deploy after every code change** that affects production behavior.
    Run `wrangler deploy` from the repo root. Don't wait to be asked.
-2. **Always update the change log.** When you modify a feature, content, or
+2. **Auto-commit + push after every deploy.** 2026-05-20 운영자 지시.
+   별도로 요청하지 않아도 배포 직후 자동 수행:
+   - `git add` 해당 파일들 (시크릿 혼입 방지 위해 `git add -A` /
+     `git add .` 회피, 변경 파일 명시).
+   - `git commit` with what + **why** body + `Co-Authored-By` trailer.
+   - `git push origin main`.
+   - `HANDOFF.md` §1 버전, §3 라운드 요약 갱신.
+3. **Always update the change log.** When you modify a feature, content, or
    schema:
    - Append a row to `KMS · Change log` (admin → Wiki → KMS) with: date,
      what changed, **why** (motivation, request, incident), and any caveats.

@@ -840,6 +840,19 @@
     } catch { return null; }
   }
 
+  // Throttled refetch — runs on tab visibility / focus / network-online,
+  // and when another tab broadcasts a save via the CHANGE_BROADCAST_KEY
+  // localStorage marker. Throttle prevents hammering /api/content if the
+  // user is alt-tabbing rapidly.
+  let lastFetchAt = 0;
+  function maybeRefetch() {
+    const now = Date.now();
+    if (now - lastFetchAt < 4000) return;
+    lastFetchAt = now;
+    fetchRemote();
+  }
+  const CHANGE_BROADCAST_KEY = 'dp_content_changed_at';
+
   // Admin save — requires token in localStorage (set via login on admin page).
   async function save(obj) {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -857,6 +870,10 @@
       throw new Error(msg);
     }
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    // Cross-tab signal — localStorage write fires `storage` event in
+    // OTHER tabs, prompting them to refetch from /api/content. Value is
+    // a timestamp so each save is a distinct event.
+    try { localStorage.setItem(CHANGE_BROADCAST_KEY, String(Date.now())); } catch {}
     window.dispatchEvent(new CustomEvent('dp-content-changed'));
     return true;
   }
@@ -870,6 +887,7 @@
     });
     if (!res.ok) throw new Error('http_' + res.status);
     sessionStorage.removeItem(STORAGE_KEY);
+    try { localStorage.setItem(CHANGE_BROADCAST_KEY, String(Date.now())); } catch {}
     window.dispatchEvent(new CustomEvent('dp-content-changed'));
     return true;
   }
@@ -883,8 +901,15 @@
     return over !== undefined ? over : base;
   }
 
-  // Cross-tab sync — only fires when something else updated session cache
+  // Cross-tab sync — when another tab calls save()/reset() it writes a
+  // timestamp to CHANGE_BROADCAST_KEY in localStorage; that fires a
+  // `storage` event in THIS tab (storage events do not fire in the tab
+  // that did the write). We refetch from /api/content so this tab's
+  // sessionStorage cache catches up. The legacy STORAGE_KEY branch is
+  // kept for backward compat in case any path still writes there.
   window.addEventListener('storage', e => {
+    if (!e) return;
+    if (e.key === CHANGE_BROADCAST_KEY) { maybeRefetch(); return; }
     if (e.key === STORAGE_KEY) window.dispatchEvent(new CustomEvent('dp-content-changed'));
   });
 
@@ -928,5 +953,16 @@
 
   // Kick off remote fetch on page load so site shows latest server content.
   // Skip in preview mode — we want the parent's draft, not the saved server copy.
-  if (!PREVIEW_MODE) fetchRemote();
+  if (!PREVIEW_MODE) {
+    fetchRemote();
+    // Re-fetch when the user returns to this tab (covers the case where
+    // they edited content in admin in another tab while this one was in
+    // the background). Also on focus + online — matches VersionWatcher's
+    // pattern so content + version refresh share the same triggers.
+    window.addEventListener('focus', maybeRefetch);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') maybeRefetch();
+    });
+    window.addEventListener('online', maybeRefetch);
+  }
 })();

@@ -910,6 +910,12 @@ body {
 .rt-content .ProseMirror code { background: var(--bg-muted); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono, monospace); font-size: 13px; }
 .rt-content .ProseMirror pre { background: #1F1B2E; color: #E0DDFF; padding: 14px; border-radius: 8px; overflow-x: auto; font-family: var(--font-mono, monospace); font-size: 13px; }
 .rt-content .ProseMirror pre code { background: transparent; padding: 0; color: inherit; }
+/* If the wiki author has overridden pre's background via inline style
+   (the version-history pages use a light translucent box), the default
+   lavender color goes invisible. Pair-flip the text color so the inline
+   background can stand alone without an unreadable result. */
+.rt-content .ProseMirror pre[style*="background"] { color: var(--fg-primary); }
+.rt-content .ProseMirror pre[style*="background"] code { color: inherit; }
 .rt-content .ProseMirror ul, .rt-content .ProseMirror ol { padding-left: 22px; margin: 8px 0; }
 .rt-content .ProseMirror ul[data-type="taskList"] { list-style: none; padding: 0; }
 .rt-content .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }

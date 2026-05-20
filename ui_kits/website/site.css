@@ -825,14 +825,17 @@ body {
 .auth-field { display: block; margin-bottom: 14px; }
 .auth-field > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--fg-primary); }
 .auth-field input,
+.auth-field select,
 .auth-field textarea {
   width: 100%; padding: 11px 14px; font-size: 15px; font-family: inherit;
   border: 1px solid var(--border-hair); border-radius: 10px;
-  background: var(--bg-elevated); transition: border-color 120ms;
+  background: var(--bg-elevated); color: var(--fg-primary);
+  transition: border-color 120ms;
 }
 .auth-field input:focus,
+.auth-field select:focus,
 .auth-field textarea:focus { outline: none; border-color: var(--scouting-purple); }
-.auth-err { color: var(--state-danger); font-size: 13px; margin: 0 0 12px; padding: 10px 12px; background: #FEF2F2; border-radius: 8px; }
+.auth-err { color: var(--state-danger); font-size: 13px; margin: 0 0 12px; padding: 10px 12px; background: var(--state-danger-bg); border-radius: 8px; }
 .auth-switch { margin-top: 18px; text-align: center; font-size: 14px; color: var(--fg-secondary); }
 .auth-switch button { background: none; border: none; color: var(--scouting-purple); font-weight: 600; cursor: pointer; padding: 0; font-size: 14px; }
 .auth-switch button:hover { text-decoration: underline; }

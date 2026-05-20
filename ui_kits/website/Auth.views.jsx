@@ -267,10 +267,15 @@ function ActivateAccountView({ go, lang }) {
         {isKo ? '메일로 받은 6자리 인증코드를 입력하세요. 코드는 발송 후 72시간 동안 유효합니다.' : 'Enter the 6-digit code sent to your email. Codes are valid for 72 hours.'}
       </p>
       <form onSubmit={(e) => { e.preventDefault(); submitActivation(email, code); }}>
-        <label className="auth-field">
-          <span>{isKo ? '이메일' : 'Email'}</span>
-          <input type="email" required value={email} onChange={e => setEmail(e.target.value.trim().toLowerCase())} autoComplete="email" />
-        </label>
+        {window.EmailField
+          ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={email}
+              onChange={(v) => setEmail((v || '').trim().toLowerCase())} required lang={lang} />
+          : (
+            <label className="auth-field">
+              <span>{isKo ? '이메일' : 'Email'}</span>
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value.trim().toLowerCase())} autoComplete="email" />
+            </label>
+          )}
         <label className="auth-field">
           <span>{isKo ? '인증코드 (6자리)' : 'Activation code (6 digits)'}</span>
           <input type="text" inputMode="numeric" pattern="\d{6}" required value={code}

@@ -235,26 +235,20 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
               <input type="text" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
             </label>
           )}
-          {/* Login uses a plain single-field email input with no autofill so
-              the operator types it fresh; signup keeps the split id+domain
-              EmailField to reduce typos when creating a new account. */}
-          {mode === 'login' ? (
-            <label className="auth-field">
-              <span>{isKo ? '이메일' : 'Email'}</span>
-              <input type="email" required value={email}
-                onChange={e => setEmail(e.target.value.trim().toLowerCase())}
-                name="dp-login-email"
-                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-              <span style={{fontSize:12,color:'var(--fg-muted)',marginTop:4,display:'block'}}>
-                {isKo ? '이메일 형식으로 입력해 주세요.' : 'Enter in email format.'}
-              </span>
-            </label>
-          ) : window.EmailField
-            ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={email} onChange={setEmail} required lang={lang} autoComplete="email" />
+          {/* Both modes use the split @ EmailField per the design guide
+              (wiki:design → 폼 컴포넌트). Login normalises trim+lowercase
+              on each half via setEmail. Falls back to a plain input only
+              if forms.jsx failed to load. */}
+          {window.EmailField
+            ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={email}
+                onChange={(v) => setEmail((mode === 'login') ? (v || '').trim().toLowerCase() : v)}
+                required lang={lang} autoComplete="email" />
             : (
               <label className="auth-field">
                 <span>{isKo ? '이메일' : 'Email'}</span>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                <input type="email" required value={email}
+                  onChange={e => setEmail(mode === 'login' ? e.target.value.trim().toLowerCase() : e.target.value)}
+                  autoComplete="email" />
               </label>
             )}
           {mode === 'signup' && window.PhoneField && (

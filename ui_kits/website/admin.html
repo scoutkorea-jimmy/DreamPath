@@ -1552,18 +1552,18 @@
   }
 
   function PartnersTab({ c, set, addItem, removeItem }) {
+    // NOTE: The "Partners section heading" form used to live here and edited
+    // c.partners_section. That field is not read by any public component
+    // (verified 2026-05-20). Hero text for /partners comes from
+    // c.page_heros.partners (edited under "페이지 헤더" tab). Form removed
+    // to avoid the "edits don't show up" confusion that prompted v01.059.
     return (
       <>
-        <div className="card">
-          <h3>Partners section heading</h3>
-          <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={c.partners_section.ko.kicker} onChange={v => set(['partners_section','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={c.partners_section.en.kicker} onChange={v => set(['partners_section','en','kicker'], v)} lang="en" />
-            <Text label="Title (KO)" value={c.partners_section.ko.title} onChange={v => set(['partners_section','ko','title'], v)} lang="ko" />
-            <Text label="Title (EN)" value={c.partners_section.en.title} onChange={v => set(['partners_section','en','title'], v)} lang="en" />
-            <Area label="Subtitle (KO)" value={c.partners_section.ko.sub} onChange={v => set(['partners_section','ko','sub'], v)} lang="ko" />
-            <Area label="Subtitle (EN)" value={c.partners_section.en.sub} onChange={v => set(['partners_section','en','sub'], v)} lang="en" />
-          </div>
+        <div className="card" style={{padding:'12px 14px',background:'var(--state-info-bg, var(--bg-muted))',border:'1px solid var(--border-subtle)'}}>
+          <p style={{margin:0,fontSize:13,color:'var(--fg-secondary)'}}>
+            <strong>안내:</strong> 파트너 페이지의 상단 헤더(kicker · 제목 · 부제목) 텍스트는{' '}
+            <strong>사이트 설정 → 페이지 헤더 → Partners</strong>에서 편집합니다. 이 화면은 파트너 항목만 관리합니다.
+          </p>
         </div>
         <div className="card">
           <h3>Partners</h3>
@@ -1626,29 +1626,22 @@
     );
   }
 
-  function NewsTab({ c, set, addItem, removeItem }) {
+  // NOTE: This tab previously edited c.news in KV. That data is orphaned —
+  // the public /news page fetches from /api/news (D1 table news_posts) and
+  // never reads c.news. Edits here had zero effect on the live page. Replaced
+  // with a deep-link to the actual news editor that lives on /news in admin
+  // edit mode. (verified 2026-05-20, v01.059)
+  function NewsTab() {
     return (
       <div className="card">
-        <h3>News items</h3>
-        {c.news.map((n, i) => (
-          <div className="rep-item" key={i}>
-            <div className="rep-head">
-              <strong>{n.date} · {n.tag}</strong>
-              <div className="ctrls">
-                <button className="icon-btn danger" onClick={() => removeItem(['news'], i)}>Delete</button>
-              </div>
-            </div>
-            <div className="grid-2 tight">
-              <Text label="Tag" value={n.tag} onChange={v => set(['news',i,'tag'], v)} />
-              <Color label="Tag color" value={n.tag_color} onChange={v => set(['news',i,'tag_color'], v)} />
-              <Text label="Date" value={n.date} onChange={v => set(['news',i,'date'], v)} hint="YYYY.MM.DD" />
-              <div/>
-              <Text label="Title (KO)" value={n.title_ko} onChange={v => set(['news',i,'title_ko'], v)} lang="ko" />
-              <Text label="Title (EN)" value={n.title_en} onChange={v => set(['news',i,'title_en'], v)} lang="en" />
-            </div>
-          </div>
-        ))}
-        <button className="btn-add" onClick={() => addItem(['news'], { tag: 'Tag', tag_color: '#6B2DBE', date: '2025.01.01', title_ko: '제목', title_en: 'Title' })}>+ Add news item</button>
+        <h3>News editing has moved</h3>
+        <p style={{margin:'8px 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
+          뉴스는 D1 데이터베이스에 저장됩니다. 글 작성·수정·삭제는 공개 /news 페이지에서{' '}
+          관리자로 로그인한 상태로 직접 진행합니다. 이 KV 탭은 더 이상 사용하지 않습니다.
+        </p>
+        <a className="btn btn-primary btn-sm" href="/news" target="_blank" rel="noopener">
+          /news 페이지 열기 ↗
+        </a>
       </div>
     );
   }
@@ -6847,20 +6840,21 @@
   }
 
   function TranslationsTab({ c, set }) {
-    // Sections we actually want translations for, in display order
+    // Sections we actually want translations for, in display order.
+    // Excluded (no public render — verified 2026-05-20 v01.059):
+    //   - stats             : StatsTab unregistered, KV key never present.
+    //   - partners_section  : Form removed from PartnersTab, no public reader.
+    //   - stories_section   : No public reader (page_heros.stories carries the hero).
+    //   - news              : Moved to D1; c.news orphaned.
     const sections = [
       { key: 'brand',          title: 'Brand' },
       { key: 'nav',            title: 'Navigation' },
       { key: 'hero',           title: 'Hero (homepage)' },
-      { key: 'stats',          title: 'Stats (homepage)' },
       { key: 'how',            title: 'How it works' },
       { key: 'programs_section', title: 'Programs section heading' },
       { key: 'programs',       title: 'Programs' },
-      { key: 'partners_section', title: 'Partners section heading' },
       { key: 'partners',       title: 'Partners' },
-      { key: 'stories_section', title: 'Stories section heading' },
       { key: 'stories',        title: 'Stories' },
-      { key: 'news',           title: 'News' },
       { key: 'cta_banner',     title: 'CTA banner' },
       { key: 'faq',            title: 'FAQ' },
       { key: 'about',          title: 'About page' },

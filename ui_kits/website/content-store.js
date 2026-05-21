@@ -150,8 +150,11 @@
     // - Answers may contain literal "\n" for paragraph breaks; the public
     //   page uses CSS `white-space: pre-line` on `.faq-a` to preserve them.
     // The default below is a minimal 2-category sample so a brand-new
-    // deployment has something to render; the live site's full 30-item
-    // KV blob in dp_content_v1 is the source of truth.
+    // deployment has something to render; the live site's full 28-item
+    // KV blob in dp_content_v1 (refreshed 2026-05-21 v01.060) is the
+    // source of truth. Live categories: About the Program (7), Tuition
+    // Payment & Refunds (5), Scholarships (3), Learning Experience (5),
+    // Certification & Career (4), Partners & Operations (4).
     faq: [
       { category_ko: '프로그램 소개', category_en: 'About the Program', category_icon: 'book-open',
         q_ko: 'Dream Path는 어떤 프로그램인가요?',

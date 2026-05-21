@@ -1,6 +1,6 @@
 # HANDOFF · KoreaDreamPath
 
-> **현 시점 (2026-05-20) 사이트 상태 스냅샷.**
+> **현 시점 (2026-05-21) 사이트 상태 스냅샷.**
 > 다음 세션에서 작업을 이어받을 때 이 파일을 먼저 읽으세요.
 > 위키와 중복되는 내용은 의도적입니다 — 한 곳에 모아둔 "현재"입니다.
 
@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.057.00`
+- **버전**: `v01.060.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -40,6 +40,7 @@
   - +01.044 — **P2-1 클라이언트 phase 2 (cookie-first)**: `auth-store.js` 전면 재작성. 신규 로그인/가입/활성화는 더 이상 `dp_user_token` localStorage 키를 작성하지 않음 → 서버가 설정한 HttpOnly `dp_session` 쿠키만 사용. legacy localStorage 토큰이 있으면 한 번 Bearer-bootstrap으로 `/api/auth/me` 호출해 세션을 인계받은 뒤 사용자가 재로그인 시 자동 폐기. `authFetch`/`signup`/`login`/`logout`이 `credentials: 'same-origin'` 명시. **XSS-via-localStorage 차단 완료** — 신규 세션은 JS로 토큰을 읽을 수 없음.
   - +01.045 — **PII 암호화 확장 (applications.birthdate)**: 마이그레이션 0028로 `applications.birthdate_enc` 추가. 신청서 제출 시 키 있으면 birthdate를 암호화해서 `_enc`에 저장 + 평문 NULL. admin 신청서 GET(목록/단일)에서 자동 decrypt. piiBackfillCron에 birthdate 백필 분기 추가.
   - +01.046 — **암호화 phone의 정확 매칭 검색 부활 (HMAC)**: 마이그레이션 0029로 `users.phone_national_h`, `inquiries.phone_h` + 인덱스 추가. `computePiiHmac()` 헬퍼는 `PII_ENCRYPTION_KEY`에서 도메인-분리된 sub-key 도출 → HMAC-SHA256(digits-only normalized). signup/inquiry 쓰기 시 encrypt + HMAC 동시 저장. `/api/admin/search`가 q가 phone-like(4자리+) 시 HMAC 매칭 분기 추가. backfill cron이 (이미 암호화된) row를 decrypt → HMAC → 저장으로 점진 복구.
+  - +01.060 — **FAQ 28문항 전면 교체 (한/영)**: 운영자가 보낸 신규 영문 원본을 기준으로 `dp_content_v1.faq` 전체 재작성. 30 → 28항목, 카테고리 6개로 재정렬 (About the Program 7 / Tuition Payment & Refunds 5 / Scholarships 3 / Learning Experience 5 / Certification & Career 4 / Partners & Operations 4). "정규 학위 아님 / 취업·비자·이민 미보장 / 환불은 CUFS 규정에 따름" 등 위험 회피 문구를 항목 본문에 명시. 2026 가을학기 일정(지원 6월 / 개강 8월 31일)을 Q28에 반영. `wrangler kv key put` 전체 blob 재업로드 방식 — 부분 patch 아님.
 
 ## 2. 스택 한눈에
 

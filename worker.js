@@ -552,6 +552,26 @@ async function sanitizeHtml(html) {
   }
 }
 
+// Content KV payloads are mostly plain strings, but legal document bodies
+// render via dangerouslySetInnerHTML on the public site. Sanitize only those
+// rich HTML fields so we preserve ordinary copy text while blocking stored XSS.
+async function sanitizeContentPayload(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  const out = structuredClone(raw);
+  const legal = out.legal;
+  if (!legal || typeof legal !== 'object') return out;
+  for (const doc of Object.values(legal)) {
+    if (!doc || typeof doc !== 'object') continue;
+    for (const langKey of ['ko', 'en']) {
+      if (!doc[langKey] || typeof doc[langKey] !== 'object') continue;
+      if (typeof doc[langKey].body === 'string') {
+        doc[langKey].body = await sanitizeHtml(doc[langKey].body);
+      }
+    }
+  }
+  return out;
+}
+
 // Origin / Referer same-origin guard. Returns true when:
 //   - Neither header is present (curl / server-to-server / mobile native) OR
 //   - Origin (or its Referer fallback) parses to the same origin as the URL
@@ -782,8 +802,10 @@ async function handleApi(request, env, url, ctx) {
     if (method === 'PUT' || method === 'POST') {
       if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
       const body = await request.text();
-      try { JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
-      await env.CONTENT_KV.put(CONTENT_KEY, body);
+      let parsed;
+      try { parsed = JSON.parse(body); } catch { return json({ error: 'invalid_json' }, 400); }
+      const sanitized = await sanitizeContentPayload(parsed);
+      await env.CONTENT_KV.put(CONTENT_KEY, JSON.stringify(sanitized));
       return json({ ok: true });
     }
     if (method === 'DELETE') {

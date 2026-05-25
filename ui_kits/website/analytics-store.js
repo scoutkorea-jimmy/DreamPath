@@ -34,7 +34,7 @@
   // Honor analytics consent. If user explicitly declined, drop everything.
   function consented() {
     const v = localStorage.getItem('dp_consent_analytics');
-    return v !== '0';  // null (undecided) defaults to allow first-party-only tracking
+    return v === '1';  // explicit opt-in only
   }
   // Admin preview iframes load with ?preview=1 — never count those as real traffic.
   function isPreview() {

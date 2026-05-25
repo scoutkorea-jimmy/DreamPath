@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.060.02`
+- **버전**: `v01.060.03`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -71,6 +71,12 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 - **원인**: `App.jsx`는 같은 뷰 안에서 `pushState`로 `?cat=`만 바꾸고, `Programs.jsx`는 초기 마운트와 `popstate`에서만 URL 쿼리를 다시 읽고 있었음. SPA 내부 라우트 변경 이벤트는 놓치고 있었음.
 - **수정**: `ui_kits/website/Programs.jsx`가 `dp-route-change` 이벤트도 구독해서 `/programs?cat=...` 이동 시마다 `catFilter`를 동기화하도록 변경.
 - **결과**: 공개 드롭다운 카테고리 버튼이 같은 페이지 내 이동에서도 즉시 작동. 뒤로가기/앞으로가기와 deep-link 쿼리 동작은 그대로 유지.
+
+### 공개 프론트 보안/정합성 1차 보강 — v01.060.03
+- **콘텐츠 저장 보호**: `worker.js`의 `/api/content` 저장 경로가 이제 `legal.ko.body` / `legal.en.body` HTML을 저장 전에 sanitize. 공개 `LegalModal`이 `dangerouslySetInnerHTML`로 렌더하는 필드라, 관리자 토큰 오남용이나 악성 HTML 입력이 곧바로 stored XSS로 이어지지 않도록 차단.
+- **분석 동의 정책 강화**: `ui_kits/website/analytics-store.js`가 기본 허용(opt-out)에서 명시 동의(opt-in)로 변경. `dp_consent_analytics === '1'`일 때만 pageview/click/event를 수집.
+- **공개 문서 언어 정리**: `ui_kits/website/index.html`의 정적 `<html lang>`를 `en`으로 수정. JS 부팅 전 초기 문서, 무JS 환경, SEO/스크린리더 메타데이터가 공개 영어 정책과 일치.
+- **남은 장기 리스크**: 공개 프론트는 여전히 React UMD + Babel-in-browser 구조라 CSP가 `unsafe-inline` / `unsafe-eval`를 필요로 함. 이번 라운드는 직접 취약 경로를 줄이는 1차 보강이고, 장기적으로는 빌드 단계 도입 후 CSP를 조이는 구조 개선이 필요.
 
 ### Back-to-top + 자체 FAQ 챗봇 + AI 디스클레이머 — v01.056 / v01.057
 - **신규 파일**: `ui_kits/website/Floaters.jsx` — 우측 하단 두 가지 위젯.

@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.062.02`
+- **버전**: `v01.062.03`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0031** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -48,6 +48,7 @@
   - +01.062.00 — **과목별 교수 프로필 모달 + 관리자 편집 구조화**: `program_details`에 `courses_json` 컬럼(마이그레이션 0031) 추가. 각 프로그램 상세는 이제 과목별 `semester / title / description / professor name / title / bio / photo / preview URL` 배열을 가질 수 있음. 공개 `ProgramDetail.jsx`는 구조화된 course cards를 렌더하고, 교수 이름 클릭 시 프로필 모달을 표시. 관리자 `ProgramEditor`에는 `Course cards & professor profiles` 섹션이 추가되어 과목별 교수 사진과 소개를 직접 업로드/수정 가능.
   - +01.062.01 — **과목 카드에 교수 블록/강의 미리보기 링크를 상시 노출**: 참고 CUFS 문서에서 중요했던 `교수 정보 블록 + Watch Lecture Preview`가 카드 안에서 바로 보이도록 `ProgramDetail.jsx` 커리큘럼 마크업을 재배치. 과목 설명 아래 divider를 두고, 교수명/직함은 카드 일부처럼 노출한 뒤 클릭 시 모달이 열리게 유지. `site.css`는 2열 카드 그리드, 블루 semester 배지, 하단 preview link 스타일로 재조정해 레퍼런스의 정보 밀도와 친근한 인상을 더 가깝게 복원.
   - +01.062.02 — **프로그램 상세 공통 신뢰 섹션 `Why CUFS?` 복원**: reference HTML의 핵심 설득 블록이던 `Why CUFS?`를 `ProgramDetail.jsx`에 공통 섹션으로 추가. `Government Accredited / AI-Powered Learning / Proven Track Record / Expert Faculty / 12 Departments / K-Career Magnet` 6개 카드를 각 프로그램 상세 하단에 노출하고, `site.css`에 네이비 배경 + 3열 그리드 + 모바일 반응형 스타일을 추가해 참고 디자인의 분위기와 신뢰 메시지를 복원.
+  - +01.062.03 — **Dream Path 차별점/가격 섹션 복원**: reference HTML의 `What Makes Dream Path Different`와 `How Much Does It Actually Cost?` 블록을 프로그램 상세페이지에 추가. `ProgramDetail.jsx`에 `Start FREE / DOME / Scholarship / Scout Network` 4개 차별화 카드와 한국 유학 대비 `~$720` 가격 비교 섹션을 넣고, `site.css`에서 골드 보더 카드/그린 가격 박스 스타일과 모바일 반응형을 구현.
 
 ## 2. 스택 한눈에
 

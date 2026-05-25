@@ -140,6 +140,92 @@ function ProgramDetail({ go, lang, programId, c }) {
       },
     ],
   };
+  const dreamPathDifferent = isKo ? {
+    title: 'What Makes Dream Path Different',
+    cards: [
+      {
+        icon: '🆓',
+        title: 'Start FREE — Korean Alphabet in 2 Weeks',
+        body: 'Try the free Hangul starter course first. No payment, no commitment, just a simple way to see if Korean learning fits you.',
+        tag: 'Free Entry Point',
+      },
+      {
+        icon: '🏠',
+        title: 'DOME — Your Local Learning Hub',
+        body: '5% of tuition goes back to your country to help build a local learning center. More students means faster DOME growth.',
+        tag: 'Community Investment',
+      },
+      {
+        icon: '🏆',
+        title: 'Up to 100% Scholarship',
+        body: 'Grade A is 30% off, Grade B is 50% off, and Grade C can become fully funded when 30+ students join from one region.',
+        tag: 'Merit-Based',
+      },
+      {
+        icon: '🌍',
+        title: 'Scout Network — 170 Countries Strong',
+        body: 'Dream Path is built on the World Scouting network, with local scout leaders acting as trusted guides and mentors.',
+        tag: 'Trusted Network',
+      },
+    ],
+  } : {
+    title: 'What Makes Dream Path Different',
+    cards: [
+      {
+        icon: '🆓',
+        title: 'Start FREE — Korean Alphabet in 2 Weeks',
+        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment, just a low-risk entry point.',
+        tag: 'Free Entry Point',
+      },
+      {
+        icon: '🏠',
+        title: 'DOME — Your Local Learning Hub',
+        body: '5% of tuition goes back to your country to help build a physical learning center. More students means faster DOME growth.',
+        tag: 'Community Investment',
+      },
+      {
+        icon: '🏆',
+        title: 'Up to 100% Scholarship',
+        body: 'Grade A gives 30% off, Grade B gives 50% off, and Grade C can become fully funded when 30+ students join from one region.',
+        tag: 'Merit-Based',
+      },
+      {
+        icon: '🌍',
+        title: 'Scout Network — 170 Countries Strong',
+        body: 'Dream Path is built on the World Scouting network. Your local scout leader becomes your guide, mentor, and trusted support.',
+        tag: 'Trusted Network',
+      },
+    ],
+  };
+  const costSection = isKo ? {
+    title: 'How Much Does It Actually Cost?',
+    compareLeftLabel: 'Study in Korea (1 year)',
+    compareLeftValue: '$5,000-$15,000',
+    compareLeftSub: '+ flight + housing + visa + food',
+    compareRightLabel: 'Dream Path Micro-Degree',
+    compareRightValue: '~$720',
+    compareRightSub: 'Full micro-degree (12 credits) · $60/credit',
+    lines: [
+      '$60 per credit (about KRW 83,000) · Full micro-degree = about 12 credits = about $720 total',
+      'Application fee: $22 (KRW 30,000, one-time) · Admission fee: waived for part-time students',
+      'Pay in your local currency through your Dream Path partner',
+      'With scholarship: Grade A about $504 · Grade B about $360 · Grade C $0',
+    ],
+  } : {
+    title: 'How Much Does It Actually Cost?',
+    compareLeftLabel: 'Study in Korea (1 year)',
+    compareLeftValue: '$5,000-$15,000',
+    compareLeftSub: '+ flight + housing + visa + food',
+    compareRightLabel: 'Dream Path Micro-Degree',
+    compareRightValue: '~$720',
+    compareRightSub: 'Full micro-degree (12 credits) · $60/credit',
+    lines: [
+      '$60 per credit (about KRW 83,000) · Full micro-degree = about 12 credits = about $720 total',
+      'Application fee: $22 (KRW 30,000, one-time) · Admission fee: waived for part-time students',
+      'Pay in your local currency through your Dream Path partner',
+      'With scholarship: Grade A about $504 · Grade B about $360 · Grade C $0',
+    ],
+  };
 
   return (
     <div data-screen-label="Program Detail">
@@ -267,6 +353,46 @@ function ProgramDetail({ go, lang, programId, c }) {
                   <p>{card.body}</p>
                 </article>
               ))}
+            </div>
+          </section>
+
+          <section className="pd-different">
+            <div className="pd-different-head">
+              <div className="pd-section-eyebrow">Dream Path</div>
+              <h3 className={isKo ? '' : 'en'}>{dreamPathDifferent.title}</h3>
+            </div>
+            <div className="pd-different-grid">
+              {dreamPathDifferent.cards.map((card) => (
+                <article key={card.title} className="pd-different-card">
+                  <div className="pd-different-icon" aria-hidden="true">{card.icon}</div>
+                  <h4>{card.title}</h4>
+                  <p>{card.body}</p>
+                  <div className="pd-different-tag">{card.tag}</div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="pd-cost">
+            <div className="pd-cost-head">
+              <div className="pd-section-eyebrow">Pricing</div>
+              <h3 className={isKo ? '' : 'en'}>{costSection.title}</h3>
+            </div>
+            <div className="pd-cost-compare">
+              <div className="pd-cost-card is-old">
+                <div className="pd-cost-label">{costSection.compareLeftLabel}</div>
+                <div className="pd-cost-value old">{costSection.compareLeftValue}</div>
+                <div className="pd-cost-sub">{costSection.compareLeftSub}</div>
+              </div>
+              <div className="pd-cost-arrow" aria-hidden="true">→</div>
+              <div className="pd-cost-card is-new">
+                <div className="pd-cost-label">{costSection.compareRightLabel}</div>
+                <div className="pd-cost-value new">{costSection.compareRightValue}</div>
+                <div className="pd-cost-sub">{costSection.compareRightSub}</div>
+              </div>
+            </div>
+            <div className="pd-cost-lines">
+              {costSection.lines.map((line) => <p key={line}>{line}</p>)}
             </div>
           </section>
         </div>

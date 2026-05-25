@@ -69,6 +69,77 @@ function ProgramDetail({ go, lang, programId, c }) {
       tone: 'eligibility',
     },
   ];
+  const whyCUFS = isKo ? {
+    title: 'Why CUFS?',
+    sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
+    cards: [
+      {
+        icon: '🏛️',
+        title: 'Government Accredited',
+        body: 'Fully accredited by the Korean Ministry of Education. Part of the HUFS system, established in 1954.',
+      },
+      {
+        icon: '🤖',
+        title: 'AI-Powered Learning',
+        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI support shaped into real coursework.',
+      },
+      {
+        icon: '📊',
+        title: 'Proven Track Record',
+        body: '52/52 evaluation indicators passed in the 2025 national remote university assessment, with strong scholarship support.',
+      },
+      {
+        icon: '🧑‍🏫',
+        title: 'Expert Faculty',
+        body: 'Native-language professors, PhD-level tutors, and direct learner support designed for international students.',
+      },
+      {
+        icon: '🌐',
+        title: '12 Departments',
+        body: 'Languages, business, K-beauty, safety, counseling, liberal arts, and convergence fields in one system.',
+      },
+      {
+        icon: '🇰🇷',
+        title: 'K-Career Magnet',
+        body: 'A practical bridge from study to Korean career pathways, including K-Point aligned employment-visa advantages.',
+      },
+    ],
+  } : {
+    title: 'Why CUFS?',
+    sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
+    cards: [
+      {
+        icon: '🏛️',
+        title: 'Government Accredited',
+        body: 'Fully accredited by the Korean Ministry of Education. Part of the prestigious HUFS system, established in 1954.',
+      },
+      {
+        icon: '🤖',
+        title: 'AI-Powered Learning',
+        body: 'AI Tutor, AI Chatbot, AI multilingual subtitles, and generative AI content support built into the learning experience.',
+      },
+      {
+        icon: '📊',
+        title: 'Proven Track Record',
+        body: '52/52 evaluation indicators passed in the 2025 national remote university assessment, with strong scholarship support.',
+      },
+      {
+        icon: '🧑‍🏫',
+        title: 'Expert Faculty',
+        body: 'Native-language professors, PhD-level tutors, and direct learner support designed for global students.',
+      },
+      {
+        icon: '🌐',
+        title: '12 Departments',
+        body: 'English, Chinese, Japanese, Korean, business, K-beauty, safety, counseling, liberal arts, and convergence tracks in one ecosystem.',
+      },
+      {
+        icon: '🇰🇷',
+        title: 'K-Career Magnet',
+        body: 'A practical bridge from education to Korean career pathways, including K-Point aligned employment-visa advantages.',
+      },
+    ],
+  };
 
   return (
     <div data-screen-label="Program Detail">
@@ -181,6 +252,23 @@ function ProgramDetail({ go, lang, programId, c }) {
               {hasHtml(instructorBio) && <div className="pd-rich" dangerouslySetInnerHTML={{ __html: instructorBio }} />}
             </section>
           )}
+
+          <section className="pd-why-cufs">
+            <div className="pd-why-cufs-head">
+              <div className="pd-section-eyebrow">Why CUFS</div>
+              <h3 className={isKo ? '' : 'en'}>{whyCUFS.title}</h3>
+              <p>{whyCUFS.sub}</p>
+            </div>
+            <div className="pd-why-cufs-grid">
+              {whyCUFS.cards.map((card) => (
+                <article key={card.title} className="pd-why-cufs-card">
+                  <div className="pd-why-cufs-icon" aria-hidden="true">{card.icon}</div>
+                  <h4>{card.title}</h4>
+                  <p>{card.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
 
         <aside className="pd-side">

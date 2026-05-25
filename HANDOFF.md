@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.062.00`
+- **버전**: `v01.062.01`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0031** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -46,6 +46,7 @@
   - +01.061.03 — **레거시 4개 프로그램 완전 제거**: live `dp_content_v1` KV를 현재 5개 프로그램 배열로 직접 갱신하고, `worker.js` / `content-store.js`에 남아 있던 legacy 4개 프로그램 자동 보정 분기(`LEGACY_PROGRAM_IDS`, normalize shim)를 삭제. 이제 공개 프로그램 데이터는 호환 레이어 없이 현재 catalog만을 source of truth로 사용.
   - +01.061.04 — **상세페이지 커리큘럼 정보 보강 + 친근한 아이콘형 카드화**: `worker.js`의 기본 program detail HTML을 참고 문서 기준으로 확장해 각 과정별 `department`, `semester`, `faculty`, `lecture preview link`, 세부 설명을 커리큘럼 항목마다 포함. `site.css`에서는 `pd-rich` 리스트를 단순 bullet에서 번호 배지 + semester chip + 미리보기 링크가 있는 카드형 리스트로 바꿔 각 과목이 더 친근하게 보이도록 조정. 원격 D1 `program_details`는 현재 비어 있어 이 기본 본문이 곧바로 공개 상세페이지에 사용됨을 확인.
   - +01.062.00 — **과목별 교수 프로필 모달 + 관리자 편집 구조화**: `program_details`에 `courses_json` 컬럼(마이그레이션 0031) 추가. 각 프로그램 상세는 이제 과목별 `semester / title / description / professor name / title / bio / photo / preview URL` 배열을 가질 수 있음. 공개 `ProgramDetail.jsx`는 구조화된 course cards를 렌더하고, 교수 이름 클릭 시 프로필 모달을 표시. 관리자 `ProgramEditor`에는 `Course cards & professor profiles` 섹션이 추가되어 과목별 교수 사진과 소개를 직접 업로드/수정 가능.
+  - +01.062.01 — **과목 카드에 교수 블록/강의 미리보기 링크를 상시 노출**: 참고 CUFS 문서에서 중요했던 `교수 정보 블록 + Watch Lecture Preview`가 카드 안에서 바로 보이도록 `ProgramDetail.jsx` 커리큘럼 마크업을 재배치. 과목 설명 아래 divider를 두고, 교수명/직함은 카드 일부처럼 노출한 뒤 클릭 시 모달이 열리게 유지. `site.css`는 2열 카드 그리드, 블루 semester 배지, 하단 preview link 스타일로 재조정해 레퍼런스의 정보 밀도와 친근한 인상을 더 가깝게 복원.
 
 ## 2. 스택 한눈에
 

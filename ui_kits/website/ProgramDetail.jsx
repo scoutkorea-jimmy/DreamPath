@@ -127,22 +127,30 @@ function ProgramDetail({ go, lang, programId, c }) {
                       <article key={i} className="pd-course-card">
                         <div className="pd-course-top">
                           <span className="pd-course-sem">{course.semester || 'Course'}</span>
-                          {course.preview_url && (
-                            <a href={course.preview_url} target="_blank" rel="noopener" className="pd-course-preview">
-                              Preview ↗
-                            </a>
-                          )}
                         </div>
                         <h4 className={'pd-course-title' + (isKo ? '' : ' en')}>{isKo ? (course.title_ko || course.title_en) : (course.title_en || course.title_ko)}</h4>
                         <p className="pd-course-desc">{isKo ? (course.desc_ko || course.desc_en) : (course.desc_en || course.desc_ko)}</p>
+                        <div className="pd-course-divider" aria-hidden="true"></div>
                         {course.faculty_name && (
-                          <button type="button" className="pd-faculty-btn" onClick={() => setFacultyOpen(course)}>
-                            <span className="pd-faculty-avatar">{(course.faculty_name || '?').trim().charAt(0)}</span>
-                            <span className="pd-faculty-copy">
-                              <strong>{course.faculty_name}</strong>
-                              {course.faculty_title && <em>{course.faculty_title}</em>}
-                            </span>
-                          </button>
+                          <div className="pd-course-footer">
+                            <button type="button" className="pd-faculty-btn" onClick={() => setFacultyOpen(course)}>
+                              <span className="pd-faculty-avatar">{(course.faculty_name || '?').trim().charAt(0)}</span>
+                              <span className="pd-faculty-copy">
+                                <strong>{course.faculty_name}</strong>
+                                {course.faculty_title && <em>{course.faculty_title}</em>}
+                              </span>
+                            </button>
+                            {course.preview_url && (
+                              <a href={course.preview_url} target="_blank" rel="noopener" className="pd-course-preview">
+                                {isKo ? '강의 미리보기 보기' : 'Watch Lecture Preview'}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {!course.faculty_name && course.preview_url && (
+                          <a href={course.preview_url} target="_blank" rel="noopener" className="pd-course-preview">
+                            {isKo ? '강의 미리보기 보기' : 'Watch Lecture Preview'}
+                          </a>
                         )}
                       </article>
                     ))}

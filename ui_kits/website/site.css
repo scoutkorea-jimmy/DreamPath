@@ -752,48 +752,76 @@ body {
   font-size: 12px;
 }
 .pd-rich strong { color: var(--fg-primary); }
-.pd-course-grid { display:grid; gap: 14px; }
+.pd-course-grid {
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
 .pd-course-card {
   border: 1px solid rgba(40,36,90,0.08);
-  background: rgba(255,255,255,0.82);
-  border-radius: 24px;
-  padding: 20px;
-  box-shadow: 0 10px 24px rgba(30,22,84,0.05);
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,255,0.96));
+  border-radius: 30px;
+  padding: 26px 24px 22px;
+  box-shadow: 0 14px 32px rgba(30,22,84,0.06);
 }
-.pd-course-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom: 14px; }
+.pd-course-top { display:flex; gap:12px; align-items:center; margin-bottom: 18px; }
 .pd-course-sem {
   display:inline-flex; align-items:center; padding: 6px 10px; border-radius:999px;
-  background: rgba(98,37,153,0.10); color: var(--scouting-purple);
-  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  background: linear-gradient(180deg, #2a72db, #1f5fbd);
+  color: #fff;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
 }
-.pd-course-preview { color: var(--scouting-purple); font-size: 13px; font-weight: 700; text-decoration: none; }
-.pd-course-preview:hover { text-decoration: underline; }
-.pd-course-title { font-family: var(--font-kr); font-size: 24px; line-height: 1.2; margin: 0 0 10px; }
+.pd-course-title { font-family: var(--font-kr); font-size: 24px; line-height: 1.2; margin: 0 0 14px; }
 .pd-course-title.en { font-family: var(--font-en); }
-.pd-course-desc { margin: 0 0 16px; color: var(--fg-secondary); font-size: 15px; line-height: 1.7; }
+.pd-course-desc { margin: 0; color: #597286; font-size: 15px; line-height: 1.75; }
+.pd-course-divider {
+  height: 1px;
+  margin: 22px 0 18px;
+  background: rgba(40,36,90,0.10);
+}
+.pd-course-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
 .pd-faculty-btn {
   width: 100%;
   display:flex;
   align-items:center;
   gap: 14px;
   text-align:left;
-  border: 1px solid rgba(40,36,90,0.08);
+  border: none;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(246,242,255,0.96), rgba(255,255,255,0.96));
-  padding: 14px;
+  background: transparent;
+  padding: 0;
   cursor: pointer;
 }
-.pd-faculty-btn:hover { border-color: rgba(98,37,153,0.24); box-shadow: 0 8px 20px rgba(98,37,153,0.08); }
+.pd-faculty-btn:hover .pd-faculty-copy strong { color: var(--scouting-purple); }
 .pd-faculty-avatar,
 .pd-modal-photo-fallback {
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
   display:flex; align-items:center; justify-content:center;
-  background: linear-gradient(180deg, var(--scouting-purple), var(--midnight-purple));
+  background: linear-gradient(180deg, #2a72db, #1f5fbd);
   color:#fff; font-weight:700; font-size:18px; flex: 0 0 auto;
 }
 .pd-faculty-copy { display:flex; flex-direction:column; gap:4px; min-width:0; }
-.pd-faculty-copy strong { font-size: 15px; color: var(--fg-primary); }
-.pd-faculty-copy em { font-style: normal; font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
+.pd-faculty-copy strong { font-size: 17px; color: #3b4a57; }
+.pd-faculty-copy em { font-style: normal; font-size: 14px; color: #8ea2b2; line-height: 1.5; }
+.pd-course-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f63c3;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.pd-course-preview::before {
+  content: '▶';
+  font-size: 12px;
+}
+.pd-course-preview:hover { text-decoration: underline; }
 .pd-modal-backdrop {
   position: fixed; inset: 0; z-index: 1200;
   background: rgba(12,10,24,0.48);
@@ -1266,6 +1294,7 @@ body {
   .pd-hero-grid { grid-template-columns: 1fr; }
   .pd-stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: -96px; }
   .pd-body { grid-template-columns: 1fr; }
+  .pd-course-grid { grid-template-columns: 1fr; }
   .news-item { grid-template-columns: auto 1fr; }
   .news-date { display: none; }
   .pd-side { position: static; }
@@ -1279,6 +1308,7 @@ body {
   .pd-body h3 { font-size: 26px; }
   .pd-rich li { padding: 16px 16px 16px 46px; border-radius: 18px; }
   .pd-course-top, .pd-modal-head { flex-direction: column; align-items: flex-start; }
+  .pd-course-card { padding: 22px 20px 20px; border-radius: 24px; }
   .pd-modal { padding: 24px 20px; border-radius: 22px; }
 }
 

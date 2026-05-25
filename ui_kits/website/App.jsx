@@ -48,14 +48,14 @@ function App() {
   // direct page load + on browser back/forward.
   const [newsId, setNewsId]   = useStateR(() => detailIdFromPath('/news/'));
   const [storyId, setStoryId] = useStateR(() => detailIdFromPath('/stories/'));
-  const [lang, setLang] = useStateR(() => localStorage.getItem('dp_lang') || 'ko');
+  const [lang, setLang] = useStateR('en');
   const [authOpen, setAuthOpen] = useStateR(false);
   const [authMode, setAuthMode] = useStateR('login');
   const content = useContent();
 
   useEffectR(() => {
     localStorage.setItem('dp_view', view);
-    localStorage.setItem('dp_lang', lang);
+    localStorage.setItem('dp_lang', 'en');
     localStorage.setItem('dp_prog', programId);
     window.scrollTo({ top: 0, behavior: 'instant' });
     setTimeout(() => window.lucide && window.lucide.createIcons(), 50);

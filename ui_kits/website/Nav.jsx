@@ -190,12 +190,6 @@ function Nav({ view, go, lang, setLang, c }) {
               <i data-lucide="moon" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
             </button>
           </div>
-          <div className="lang-toggle" role="group" aria-label={isKo ? '언어 선택' : 'Language'}>
-            <button type="button" className={lang === 'ko' ? 'on' : ''} onClick={() => setLang('ko')} aria-pressed={lang === 'ko'} lang="ko">KO</button>
-            <span aria-hidden="true">·</span>
-            <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')} aria-pressed={lang === 'en'} lang="en">EN</button>
-          </div>
-
           {auth.ready && !auth.user && (
             <>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAuth('login')}>{isKo ? '로그인' : 'Log in'}</button>

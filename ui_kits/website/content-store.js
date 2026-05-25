@@ -75,34 +75,40 @@
       ],
     },
     programs_section: {
-      ko: { kicker: 'PROGRAMS', title: '4개의 학습 경로. 모두 온라인.', sub: '마이크로디그리부터 정규 학위까지, 여러분의 다음 스텝에 맞는 프로그램을 선택하세요.' },
-      en: { kicker: 'PROGRAMS', title: 'Four learning paths. All online.',  sub: 'From micro-degrees to full online degrees, pick the next step that fits you.' },
+      ko: { kicker: 'PROGRAMS', title: '5개의 CUFS 마이크로디그리. 모두 온라인.', sub: 'AI, 스토리텔링, 유튜브, K-뷰티, 비즈니스 한국어까지 글로벌 학습자를 위한 5개 과정을 확인하세요.' },
+      en: { kicker: 'PROGRAMS', title: 'Five CUFS micro-degrees. All online.',  sub: 'Explore five tracks for global learners in AI, storytelling, YouTube, K-beauty, and business Korean.' },
     },
     programs: [
-      { id: 'korean-studies',  kicker: 'MICRO-DEGREE · CUFS',
-        title_ko: '한국학 입문', title_en: 'Korean Studies, online',
-        sub_ko: '12주 동안 한국어, 문화, 학술 글쓰기를 온라인으로 배웁니다.',
-        sub_en: 'A 12-week introduction to Korean language, culture, and academic writing — fully remote.',
-        meta: ['12 weeks', '100% remote', 'EN / KO'], level: 'Beginner', status: 'open',
-        color: '#1E1654', accent: '#FF8DFF', icon: 'book-open' },
-      { id: 'business-korea',  kicker: 'MICRO-DEGREE · CUFS',
-        title_ko: '한국 비즈니스 실무', title_en: 'Doing Business in Korea',
-        sub_ko: '한국 기업 환경과 실무 커뮤니케이션을 이해합니다.',
-        sub_en: 'Understand the Korean corporate environment and practical communication.',
-        meta: ['10 weeks', '100% remote', 'EN'], level: 'Intermediate', status: 'open',
-        color: '#6B2DBE', accent: '#82E6DE', icon: 'briefcase' },
-      { id: 'digital-media',   kicker: 'MICRO-DEGREE · CUFS',
-        title_ko: '디지털 미디어 제작', title_en: 'Digital Media Production',
-        sub_ko: '스토리텔링부터 편집까지, 디지털 미디어 기초를 배웁니다.',
-        sub_en: 'From storytelling to editing — digital media fundamentals.',
-        meta: ['12 weeks', '100% remote', 'EN'], level: 'Beginner', status: 'open',
-        color: '#0094B4', accent: '#9FED8F', icon: 'video' },
-      { id: 'online-degree',   kicker: 'BACHELOR · CUFS',
-        title_ko: '온라인 학사 과정', title_en: 'Full Online Bachelor Degree',
-        sub_ko: '4년제 정규 학위를 100% 온라인으로 이수합니다.',
-        sub_en: 'Complete a 4-year accredited bachelor degree fully online.',
-        meta: ['4 years', '100% remote', 'EN / KO'], level: 'All', status: 'opens Fall',
-        color: '#248737', accent: '#FFAE80', icon: 'graduation-cap' },
+      { id: 'ai-language', kicker: 'MICRO-DEGREE · CUFS',
+        title_ko: 'AI와 언어교육', title_en: 'AI & Language',
+        sub_ko: 'AI 기반 영어교육, 언어학, 커뮤니케이션, 빅데이터를 연결하는 1년형 마이크로디그리입니다.',
+        sub_en: 'A one-year micro-degree connecting AI-powered language education, linguistics, communication, and big data.',
+        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Intermediate', status: 'open',
+        color: '#1565C0', accent: '#42A5F5', icon: 'languages' },
+      { id: 'media-content-storytelling', kicker: 'MICRO-DEGREE · CUFS',
+        title_ko: '미디어 콘텐츠 스토리텔링', title_en: 'Media Content Storytelling',
+        sub_ko: '역사, 리더십, 커뮤니케이션, 스피치를 통해 글로벌 무대용 스토리텔링 역량을 키웁니다.',
+        sub_en: 'Build storytelling power for global stages through history, leadership, communication, and speech.',
+        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'All Levels', status: 'open',
+        color: '#7B1FA2', accent: '#CE93D8', icon: 'mic' },
+      { id: 'youtube-master', kicker: 'MICRO-DEGREE · CUFS',
+        title_ko: '유튜브 마스터', title_en: 'YouTube Master',
+        sub_ko: '채널 기획부터 촬영, 편집, 수익화까지 실제 유튜브 채널을 만드는 과정입니다.',
+        sub_en: 'Go from channel strategy to shooting, editing, and monetization while building a live YouTube channel.',
+        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open',
+        color: '#C62828', accent: '#EF5350', icon: 'video' },
+      { id: 'k-beauty-styling', kicker: 'MICRO-DEGREE · CUFS',
+        title_ko: '기초 K-뷰티 스타일링', title_en: 'Basic K-Beauty Styling',
+        sub_ko: '색채, 네일, 피부관리, 메이크업을 한 번에 배우는 K-뷰티 입문 트랙입니다.',
+        sub_en: 'An entry-level K-beauty track covering color, nails, skincare, and makeup in one program.',
+        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open',
+        color: '#AD1457', accent: '#F06292', icon: 'sparkles' },
+      { id: 'business-korean', kicker: 'MICRO-DEGREE · CUFS',
+        title_ko: '비즈니스 한국어', title_en: 'Business Korean',
+        sub_ko: '입문부터 발표·협상까지, 한국 기업 환경에 맞춘 실전 한국어를 집중적으로 익힙니다.',
+        sub_en: 'Move from beginner foundations to presentations and negotiations in Korean business contexts.',
+        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open',
+        color: '#00695C', accent: '#4DB6AC', icon: 'briefcase' },
     ],
     partners_section: {
       ko: { kicker: 'PARTNERS', title: '신뢰받는 네트워크 위에서.', sub: 'DreamPath는 파트너 교육기관, 글로벌 스카우트 조직, 후원 기관과 함께 운영됩니다.' },
@@ -724,10 +730,10 @@
               sub: "If you don't see the answer, reach us at info@koreadreampath.com." },
       },
       programs: {
-        ko: { kicker: 'PROGRAMS', title_l1: '4개의 학습 경로.', title_l2: '모두 온라인.',
-              sub: '마이크로디그리부터 정규 학위까지. 여러분의 다음 스텝에 맞는 프로그램을 선택하세요.' },
-        en: { kicker: 'PROGRAMS', title_l1: 'Four learning paths.', title_l2: 'All online.',
-              sub: 'From micro-degrees to full online degrees. Choose the next step that fits you.' },
+        ko: { kicker: 'PROGRAMS', title_l1: '5개의 CUFS 마이크로디그리.', title_l2: '모두 온라인.',
+              sub: '글로벌 학습자를 위한 5개 마이크로디그리 중에서 다음 스텝을 선택하세요.' },
+        en: { kicker: 'PROGRAMS', title_l1: 'Five CUFS micro-degrees.', title_l2: 'All online.',
+              sub: 'Choose your next step from five micro-degree tracks designed for global learners.' },
       },
     },
     // ─── Contact page extras ───────────────────────────────────────────
@@ -819,6 +825,34 @@
     },
   };
 
+  const LEGACY_PROGRAM_IDS = ['korean-studies', 'business-korea', 'digital-media', 'online-degree'];
+
+  function hasLegacyProgramCatalog(programs) {
+    if (!Array.isArray(programs) || programs.length !== LEGACY_PROGRAM_IDS.length) return false;
+    return LEGACY_PROGRAM_IDS.every((id, index) => programs[index] && programs[index].id === id);
+  }
+
+  function normalizeContent(content) {
+    if (!content || typeof content !== 'object') return structuredClone(DEFAULT_CONTENT);
+    const next = structuredClone(content);
+    if (hasLegacyProgramCatalog(next.programs)) next.programs = structuredClone(DEFAULT_CONTENT.programs);
+    if (next.programs_section && next.programs_section.ko && next.programs_section.ko.title === '4개의 학습 경로. 모두 온라인.') {
+      next.programs_section.ko.title = DEFAULT_CONTENT.programs_section.ko.title;
+      next.programs_section.ko.sub = DEFAULT_CONTENT.programs_section.ko.sub;
+    }
+    if (next.programs_section && next.programs_section.en && next.programs_section.en.title === 'Four learning paths. All online.') {
+      next.programs_section.en.title = DEFAULT_CONTENT.programs_section.en.title;
+      next.programs_section.en.sub = DEFAULT_CONTENT.programs_section.en.sub;
+    }
+    if (next.page_heros && next.page_heros.programs && next.page_heros.programs.ko && next.page_heros.programs.ko.title_l1 === '4개의 학습 경로.') {
+      next.page_heros.programs.ko = structuredClone(DEFAULT_CONTENT.page_heros.programs.ko);
+    }
+    if (next.page_heros && next.page_heros.programs && next.page_heros.programs.en && next.page_heros.programs.en.title_l1 === 'Four learning paths.') {
+      next.page_heros.programs.en = structuredClone(DEFAULT_CONTENT.page_heros.programs.en);
+    }
+    return next;
+  }
+
   // Synchronous load — returns immediately with cached or default content.
   // The async fetch from /api/content runs in background and dispatches
   // 'dp-content-changed' when fresh data arrives.
@@ -826,7 +860,7 @@
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredClone(DEFAULT_CONTENT);
-      const saved = JSON.parse(raw);
+      const saved = normalizeContent(JSON.parse(raw));
       return deepMerge(structuredClone(DEFAULT_CONTENT), saved);
     } catch { return structuredClone(DEFAULT_CONTENT); }
   }
@@ -835,7 +869,7 @@
     try {
       const res = await fetch(API_URL, { cache: 'no-store' });
       if (!res.ok) return null;
-      const remote = await res.json();
+      const remote = normalizeContent(await res.json());
       if (!remote || typeof remote !== 'object') return null;
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
       window.dispatchEvent(new CustomEvent('dp-content-changed'));

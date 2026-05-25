@@ -42,7 +42,7 @@ function App() {
   const [programId, setProgramId] = useStateR(() => {
     const p = window.location.pathname;
     if (p.startsWith('/program/')) return decodeURIComponent(p.slice('/program/'.length).replace(/\/$/, ''));
-    return localStorage.getItem('dp_prog') || 'korean-studies';
+    return localStorage.getItem('dp_prog') || 'ai-language';
   });
   // Detail-page ids for /news/:id and /stories/:id. Restored from URL on
   // direct page load + on browser back/forward.

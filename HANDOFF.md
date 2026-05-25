@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.061.03`
+- **버전**: `v01.061.04`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -44,6 +44,7 @@
   - +01.061 — **CUFS 5개 마이크로디그리 카탈로그/상세페이지 전면 교체**: 운영자가 준 `Refbysonny_20260523_Dream Path — 5 Micro-Degree Programs _ CUFS.htm`를 기준으로 공개 프로그램 목록을 `AI & Language / Media Content Storytelling / YouTube Master / Basic K-Beauty Styling / Business Korean` 5개로 교체. `worker.js`에 프로그램 상세 기본 본문 fallback을 추가해 D1 row가 비어도 `/program/:id`에서 즉시 개요·커리큘럼·성과·지원자격이 렌더되도록 함. admin 프로그램 상세 preview 기본 경로와 공개 앱 기본 detail id도 `ai-language`로 교체.
   - +01.061.02 — **프로그램 상세페이지 디자인 리프레시**: `ProgramDetail.jsx`와 `site.css`를 업데이트해 참고 HTML의 정보 밀도와 카드형 레이아웃을 DreamPath 톤으로 재해석. 상단 hero를 2열 구조(카피 + glass 카드)로 바꾸고, 상세 본문 시작에 stat strip 추가. Overview / Curriculum / Outcomes / Eligibility / Instructor를 개별 섹션 카드로 분리하고, `pd-rich ul/li`를 plain bullet 대신 강조 카드형 리스트로 렌더. 사이드바도 단순 표에서 정보 카드 스타일로 업그레이드.
   - +01.061.03 — **레거시 4개 프로그램 완전 제거**: live `dp_content_v1` KV를 현재 5개 프로그램 배열로 직접 갱신하고, `worker.js` / `content-store.js`에 남아 있던 legacy 4개 프로그램 자동 보정 분기(`LEGACY_PROGRAM_IDS`, normalize shim)를 삭제. 이제 공개 프로그램 데이터는 호환 레이어 없이 현재 catalog만을 source of truth로 사용.
+  - +01.061.04 — **상세페이지 커리큘럼 정보 보강 + 친근한 아이콘형 카드화**: `worker.js`의 기본 program detail HTML을 참고 문서 기준으로 확장해 각 과정별 `department`, `semester`, `faculty`, `lecture preview link`, 세부 설명을 커리큘럼 항목마다 포함. `site.css`에서는 `pd-rich` 리스트를 단순 bullet에서 번호 배지 + semester chip + 미리보기 링크가 있는 카드형 리스트로 바꿔 각 과목이 더 친근하게 보이도록 조정. 원격 D1 `program_details`는 현재 비어 있어 이 기본 본문이 곧바로 공개 상세페이지에 사용됨을 확인.
 
 ## 2. 스택 한눈에
 

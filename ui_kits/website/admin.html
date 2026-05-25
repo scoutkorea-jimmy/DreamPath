@@ -1061,24 +1061,11 @@
   }
 
   function HeroTab({ c, set }) {
-    const ko = c.hero.ko, en = c.hero.en;
+    const en = c.hero.en;
     return (
       <>
         <div className="card">
-          <h3>Hero copy — Korean</h3>
-          <Text label="Kicker" value={ko.kicker} onChange={v => set(['hero','ko','kicker'], v)} lang="ko" />
-          <div className="grid-2 tight">
-            <Text label="Title line 1" value={ko.title_l1} onChange={v => set(['hero','ko','title_l1'], v)} lang="ko" />
-            <Text label="Title line 2" value={ko.title_l2} onChange={v => set(['hero','ko','title_l2'], v)} lang="ko" />
-          </div>
-          <Area label="Subtitle" value={ko.sub} onChange={v => set(['hero','ko','sub'], v)} rows={3} lang="ko" />
-          <div className="grid-2 tight">
-            <Text label="Primary CTA" value={ko.cta1} onChange={v => set(['hero','ko','cta1'], v)} lang="ko" />
-            <Text label="Secondary CTA" value={ko.cta2} onChange={v => set(['hero','ko','cta2'], v)} lang="ko" />
-          </div>
-        </div>
-        <div className="card">
-          <h3>Hero copy — English</h3>
+          <h3>Hero copy</h3>
           <Text label="Kicker" value={en.kicker} onChange={v => set(['hero','en','kicker'], v)} lang="en" />
           <div className="grid-2 tight">
             <Text label="Title line 1" value={en.title_l1} onChange={v => set(['hero','en','title_l1'], v)} lang="en" />
@@ -1139,10 +1126,8 @@
         <div className="card">
           <h3>Section heading</h3>
           <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={c.how.ko.kicker} onChange={v => set(['how','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={c.how.en.kicker} onChange={v => set(['how','en','kicker'], v)} lang="en" />
-            <Text label="Title (KO)" value={c.how.ko.title} onChange={v => set(['how','ko','title'], v)} lang="ko" />
-            <Text label="Title (EN)" value={c.how.en.title} onChange={v => set(['how','en','title'], v)} lang="en" />
+            <Text label="Kicker" value={c.how.en.kicker} onChange={v => set(['how','en','kicker'], v)} lang="en" />
+            <Text label="Title" value={c.how.en.title} onChange={v => set(['how','en','title'], v)} lang="en" />
           </div>
         </div>
         <div className="card">
@@ -1158,14 +1143,12 @@
               <div className="grid-2 tight">
                 <Text label="Number" value={s.n} onChange={v => set(['how','steps',i,'n'], v)} />
                 <IconField label="Icon" value={s.icon} onChange={v => set(['how','steps',i,'icon'], v)} />
-                <Text label="Title (KO)" value={s.t_ko} onChange={v => set(['how','steps',i,'t_ko'], v)} lang="ko" />
-                <Text label="Title (EN)" value={s.t_en} onChange={v => set(['how','steps',i,'t_en'], v)} lang="en" />
-                <Area label="Description (KO)" value={s.d_ko} onChange={v => set(['how','steps',i,'d_ko'], v)} lang="ko" />
-                <Area label="Description (EN)" value={s.d_en} onChange={v => set(['how','steps',i,'d_en'], v)} lang="en" />
+                <Text label="Title" value={s.t_en} onChange={v => set(['how','steps',i,'t_en'], v)} lang="en" />
+                <Area label="Description" value={s.d_en} onChange={v => set(['how','steps',i,'d_en'], v)} lang="en" />
               </div>
             </div>
           ))}
-          <button className="btn-add" onClick={() => addItem(['how','steps'], { n: String(c.how.steps.length+1).padStart(2,'0'), icon: 'check', t_ko: '제목', t_en: 'Title', d_ko: '', d_en: '' })}>+ Add step</button>
+          <button className="btn-add" onClick={() => addItem(['how','steps'], { n: String(c.how.steps.length+1).padStart(2,'0'), icon: 'check', t_ko: '', t_en: 'Title', d_ko: '', d_en: '' })}>+ Add step</button>
         </div>
       </>
     );
@@ -1292,12 +1275,9 @@
         <div className="card">
           <h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3>
           <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={c.programs_section.ko.kicker} onChange={v => set(['programs_section','ko','kicker'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
-            <Text label="Title (KO)" value={c.programs_section.ko.title} onChange={v => set(['programs_section','ko','title'], v)} lang="ko" />
-            <Text label="Title (EN)" value={c.programs_section.en.title} onChange={v => set(['programs_section','en','title'], v)} lang="en" />
-            <Area label="Subtitle (KO)" value={c.programs_section.ko.sub} onChange={v => set(['programs_section','ko','sub'], v)} lang="ko" />
-            <Area label="Subtitle (EN)" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
+            <Text label="Kicker" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
+            <Text label="Title" value={c.programs_section.en.title} onChange={v => set(['programs_section','en','title'], v)} lang="en" />
+            <Area label="Subtitle" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
           </div>
         </div>
 
@@ -1651,12 +1631,9 @@
       <div className="card">
         <h3>CTA banner (homepage)</h3>
         <div className="grid-2 tight">
-          <Text label="Title (KO)" value={c.cta_banner.ko.title} onChange={v => set(['cta_banner','ko','title'], v)} lang="ko" />
-          <Text label="Title (EN)" value={c.cta_banner.en.title} onChange={v => set(['cta_banner','en','title'], v)} lang="en" />
-          <Text label="Subtitle (KO)" value={c.cta_banner.ko.sub} onChange={v => set(['cta_banner','ko','sub'], v)} lang="ko" />
-          <Text label="Subtitle (EN)" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
-          <Text label="CTA label (KO)" value={c.cta_banner.ko.cta} onChange={v => set(['cta_banner','ko','cta'], v)} lang="ko" />
-          <Text label="CTA label (EN)" value={c.cta_banner.en.cta} onChange={v => set(['cta_banner','en','cta'], v)} lang="en" />
+          <Text label="Title" value={c.cta_banner.en.title} onChange={v => set(['cta_banner','en','title'], v)} lang="en" />
+          <Text label="Subtitle" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
+          <Text label="CTA label" value={c.cta_banner.en.cta} onChange={v => set(['cta_banner','en','cta'], v)} lang="en" />
         </div>
       </div>
     );
@@ -6846,16 +6823,13 @@
     //   - partners_section  : Form removed from PartnersTab, no public reader.
     //   - stories_section   : No public reader (page_heros.stories carries the hero).
     //   - news              : Moved to D1; c.news orphaned.
+    //   - hero / how / programs_section / cta_banner : public homepage is EN-only.
     const sections = [
       { key: 'brand',          title: 'Brand' },
       { key: 'nav',            title: 'Navigation' },
-      { key: 'hero',           title: 'Hero (homepage)' },
-      { key: 'how',            title: 'How it works' },
-      { key: 'programs_section', title: 'Programs section heading' },
       { key: 'programs',       title: 'Programs' },
       { key: 'partners',       title: 'Partners' },
       { key: 'stories',        title: 'Stories' },
-      { key: 'cta_banner',     title: 'CTA banner' },
       { key: 'faq',            title: 'FAQ' },
       { key: 'about',          title: 'About page' },
       { key: 'page_heros',     title: 'Page headers' },

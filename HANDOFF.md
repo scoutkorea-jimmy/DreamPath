@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.060.03`
+- **버전**: `v01.060.04`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -77,6 +77,12 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 - **분석 동의 정책 강화**: `ui_kits/website/analytics-store.js`가 기본 허용(opt-out)에서 명시 동의(opt-in)로 변경. `dp_consent_analytics === '1'`일 때만 pageview/click/event를 수집.
 - **공개 문서 언어 정리**: `ui_kits/website/index.html`의 정적 `<html lang>`를 `en`으로 수정. JS 부팅 전 초기 문서, 무JS 환경, SEO/스크린리더 메타데이터가 공개 영어 정책과 일치.
 - **남은 장기 리스크**: 공개 프론트는 여전히 React UMD + Babel-in-browser 구조라 CSP가 `unsafe-inline` / `unsafe-eval`를 필요로 함. 이번 라운드는 직접 취약 경로를 줄이는 1차 보강이고, 장기적으로는 빌드 단계 도입 후 CSP를 조이는 구조 개선이 필요.
+
+### 관리자 메인 페이지 편집 UI 영어 전용 정리 — v01.060.04
+- **요청 배경**: 공개 메인 페이지는 이미 영어 전용으로 운영 중인데, 관리자 페이지의 메인 페이지 편집 영역에는 한국어 입력 필드가 계속 남아 있어 운영자가 혼동할 수 있었음.
+- **Homepage 탭 정리**: `Hero`, `How it works`, `CTA banner`에서 KO 입력 필드를 제거하고 EN 편집 필드만 남김.
+- **메인 teaser 정리**: `Programs` 탭의 `Programs section heading (home page teaser)`에서도 KO 필드를 제거하고 EN만 편집하도록 변경.
+- **보조 도구 정리**: `Translations` 탭에서 메인 페이지 관련 `hero`, `how`, `programs_section`, `cta_banner` 섹션을 제외. 관리자 안에서 메인 페이지 KO 번역쌍이 다시 보이지 않게 함.
 
 ### Back-to-top + 자체 FAQ 챗봇 + AI 디스클레이머 — v01.056 / v01.057
 - **신규 파일**: `ui_kits/website/Floaters.jsx` — 우측 하단 두 가지 위젯.

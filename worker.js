@@ -3,7 +3,6 @@
 
 const CONTENT_KEY = 'dp_content_v1';
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
-const LEGACY_PROGRAM_IDS = ['korean-studies', 'business-korea', 'digital-media', 'online-degree'];
 const CURRENT_PROGRAMS = [
   {
     id: 'ai-language',
@@ -226,47 +225,11 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function isLegacyProgramCatalog(programs) {
-  if (!Array.isArray(programs) || programs.length !== LEGACY_PROGRAM_IDS.length) return false;
-  return LEGACY_PROGRAM_IDS.every((id, index) => programs[index] && programs[index].id === id);
-}
-
-function normalizeContentPayload(content) {
-  if (!content || typeof content !== 'object') return {};
-  const next = deepClone(content);
-  if (isLegacyProgramCatalog(next.programs)) {
-    next.programs = deepClone(CURRENT_PROGRAMS);
-  }
-  if (next.programs_section && next.programs_section.ko && next.programs_section.ko.title === '4개의 학습 경로. 모두 온라인.') {
-    next.programs_section.ko.title = CURRENT_PROGRAM_COPY.programs_section.ko.title;
-  }
-  if (next.programs_section && next.programs_section.ko && next.programs_section.ko.sub === '마이크로디그리부터 정규 학위까지, 여러분의 다음 스텝에 맞는 프로그램을 선택하세요.') {
-    next.programs_section.ko.sub = CURRENT_PROGRAM_COPY.programs_section.ko.sub;
-  }
-  if (next.programs_section && next.programs_section.en && next.programs_section.en.title === 'Four learning paths. All online.') {
-    next.programs_section.en.title = CURRENT_PROGRAM_COPY.programs_section.en.title;
-  }
-  if (next.programs_section && next.programs_section.en && next.programs_section.en.sub === 'From micro-degrees to full online degrees, pick the next step that fits you.') {
-    next.programs_section.en.sub = CURRENT_PROGRAM_COPY.programs_section.en.sub;
-  }
-  if (next.page_heros && next.page_heros.programs && next.page_heros.programs.ko) {
-    if (next.page_heros.programs.ko.title_l1 === '4개의 학습 경로.') next.page_heros.programs.ko.title_l1 = CURRENT_PROGRAM_COPY.page_heros.programs.ko.title_l1;
-    if (next.page_heros.programs.ko.title_l2 === '모두 온라인.') next.page_heros.programs.ko.title_l2 = CURRENT_PROGRAM_COPY.page_heros.programs.ko.title_l2;
-    if (next.page_heros.programs.ko.sub === '마이크로디그리부터 정규 학위까지. 여러분의 다음 스텝에 맞는 프로그램을 선택하세요.') next.page_heros.programs.ko.sub = CURRENT_PROGRAM_COPY.page_heros.programs.ko.sub;
-  }
-  if (next.page_heros && next.page_heros.programs && next.page_heros.programs.en) {
-    if (next.page_heros.programs.en.title_l1 === 'Four learning paths.') next.page_heros.programs.en.title_l1 = CURRENT_PROGRAM_COPY.page_heros.programs.en.title_l1;
-    if (next.page_heros.programs.en.title_l2 === 'All online.') next.page_heros.programs.en.title_l2 = CURRENT_PROGRAM_COPY.page_heros.programs.en.title_l2;
-    if (next.page_heros.programs.en.sub === 'From micro-degrees to full online degrees. Choose the next step that fits you.') next.page_heros.programs.en.sub = CURRENT_PROGRAM_COPY.page_heros.programs.en.sub;
-  }
-  return next;
-}
-
 async function readContentFromKv(env) {
   const raw = await env.CONTENT_KV.get(CONTENT_KEY);
   if (!raw) return {};
   try {
-    return normalizeContentPayload(JSON.parse(raw));
+    return JSON.parse(raw);
   } catch {
     return {};
   }

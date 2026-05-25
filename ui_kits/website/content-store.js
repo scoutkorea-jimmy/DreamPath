@@ -825,34 +825,6 @@
     },
   };
 
-  const LEGACY_PROGRAM_IDS = ['korean-studies', 'business-korea', 'digital-media', 'online-degree'];
-
-  function hasLegacyProgramCatalog(programs) {
-    if (!Array.isArray(programs) || programs.length !== LEGACY_PROGRAM_IDS.length) return false;
-    return LEGACY_PROGRAM_IDS.every((id, index) => programs[index] && programs[index].id === id);
-  }
-
-  function normalizeContent(content) {
-    if (!content || typeof content !== 'object') return structuredClone(DEFAULT_CONTENT);
-    const next = structuredClone(content);
-    if (hasLegacyProgramCatalog(next.programs)) next.programs = structuredClone(DEFAULT_CONTENT.programs);
-    if (next.programs_section && next.programs_section.ko && next.programs_section.ko.title === '4개의 학습 경로. 모두 온라인.') {
-      next.programs_section.ko.title = DEFAULT_CONTENT.programs_section.ko.title;
-      next.programs_section.ko.sub = DEFAULT_CONTENT.programs_section.ko.sub;
-    }
-    if (next.programs_section && next.programs_section.en && next.programs_section.en.title === 'Four learning paths. All online.') {
-      next.programs_section.en.title = DEFAULT_CONTENT.programs_section.en.title;
-      next.programs_section.en.sub = DEFAULT_CONTENT.programs_section.en.sub;
-    }
-    if (next.page_heros && next.page_heros.programs && next.page_heros.programs.ko && next.page_heros.programs.ko.title_l1 === '4개의 학습 경로.') {
-      next.page_heros.programs.ko = structuredClone(DEFAULT_CONTENT.page_heros.programs.ko);
-    }
-    if (next.page_heros && next.page_heros.programs && next.page_heros.programs.en && next.page_heros.programs.en.title_l1 === 'Four learning paths.') {
-      next.page_heros.programs.en = structuredClone(DEFAULT_CONTENT.page_heros.programs.en);
-    }
-    return next;
-  }
-
   // Synchronous load — returns immediately with cached or default content.
   // The async fetch from /api/content runs in background and dispatches
   // 'dp-content-changed' when fresh data arrives.
@@ -860,7 +832,7 @@
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredClone(DEFAULT_CONTENT);
-      const saved = normalizeContent(JSON.parse(raw));
+      const saved = JSON.parse(raw);
       return deepMerge(structuredClone(DEFAULT_CONTENT), saved);
     } catch { return structuredClone(DEFAULT_CONTENT); }
   }
@@ -869,7 +841,7 @@
     try {
       const res = await fetch(API_URL, { cache: 'no-store' });
       if (!res.ok) return null;
-      const remote = normalizeContent(await res.json());
+      const remote = await res.json();
       if (!remote || typeof remote !== 'object') return null;
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
       window.dispatchEvent(new CustomEvent('dp-content-changed'));

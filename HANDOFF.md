@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.061.01`
+- **버전**: `v01.061.02`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -42,6 +42,7 @@
   - +01.046 — **암호화 phone의 정확 매칭 검색 부활 (HMAC)**: 마이그레이션 0029로 `users.phone_national_h`, `inquiries.phone_h` + 인덱스 추가. `computePiiHmac()` 헬퍼는 `PII_ENCRYPTION_KEY`에서 도메인-분리된 sub-key 도출 → HMAC-SHA256(digits-only normalized). signup/inquiry 쓰기 시 encrypt + HMAC 동시 저장. `/api/admin/search`가 q가 phone-like(4자리+) 시 HMAC 매칭 분기 추가. backfill cron이 (이미 암호화된) row를 decrypt → HMAC → 저장으로 점진 복구.
   - +01.060 — **FAQ 28문항 전면 교체 (한/영)**: 운영자가 보낸 신규 영문 원본을 기준으로 `dp_content_v1.faq` 전체 재작성. 30 → 28항목, 카테고리 6개로 재정렬 (About the Program 7 / Tuition Payment & Refunds 5 / Scholarships 3 / Learning Experience 5 / Certification & Career 4 / Partners & Operations 4). "정규 학위 아님 / 취업·비자·이민 미보장 / 환불은 CUFS 규정에 따름" 등 위험 회피 문구를 항목 본문에 명시. 2026 가을학기 일정(지원 6월 / 개강 8월 31일)을 Q28에 반영. `wrangler kv key put` 전체 blob 재업로드 방식 — 부분 patch 아님.
   - +01.061 — **CUFS 5개 마이크로디그리 카탈로그/상세페이지 전면 교체**: 운영자가 준 `Refbysonny_20260523_Dream Path — 5 Micro-Degree Programs _ CUFS.htm`를 기준으로 공개 프로그램 목록을 `AI & Language / Media Content Storytelling / YouTube Master / Basic K-Beauty Styling / Business Korean` 5개로 교체. `worker.js`에 프로그램 상세 기본 본문 fallback을 추가해 D1 row가 비어도 `/program/:id`에서 즉시 개요·커리큘럼·성과·지원자격이 렌더되도록 함. `/api/content`, `sitemap.xml`, `/api/public/programs`, `/api/public/categories`는 legacy 4개 catalog가 KV에 남아 있어도 읽기 시 자동 보정. admin 프로그램 상세 preview 기본 경로와 공개 앱 기본 detail id도 `ai-language`로 교체.
+  - +01.061.02 — **프로그램 상세페이지 디자인 리프레시**: `ProgramDetail.jsx`와 `site.css`를 업데이트해 참고 HTML의 정보 밀도와 카드형 레이아웃을 DreamPath 톤으로 재해석. 상단 hero를 2열 구조(카피 + glass 카드)로 바꾸고, 상세 본문 시작에 stat strip 추가. Overview / Curriculum / Outcomes / Eligibility / Instructor를 개별 섹션 카드로 분리하고, `pd-rich ul/li`를 plain bullet 대신 강조 카드형 리스트로 렌더. 사이드바도 단순 표에서 정보 카드 스타일로 업그레이드.
 
 ## 2. 스택 한눈에
 

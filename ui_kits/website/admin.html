@@ -640,8 +640,25 @@
     const [deviceScale, setDeviceScale] = useState(1);
     const iframeRef = useRef(null);
     const stageRef = useRef(null);
+    const previewRetryRef = useRef(null);
 
     useEffect(() => { localStorage.setItem('dp_admin_preview_device', device); }, [device]);
+
+    function clearPreviewRetry() {
+      if (previewRetryRef.current) {
+        clearTimeout(previewRetryRef.current);
+        previewRetryRef.current = null;
+      }
+    }
+
+    function pushPreviewDraft(nextDraft, attempts = 4) {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      clearPreviewRetry();
+      try { win.postMessage({ type: 'dp-preview-content', content: nextDraft }, '*'); } catch {}
+      if (attempts <= 1) return;
+      previewRetryRef.current = setTimeout(() => pushPreviewDraft(nextDraft, attempts - 1), 180);
+    }
 
     // Recompute scale whenever the stage resizes or the device changes.
     // Always scale-to-fit width; don't upscale beyond 1× even if the pane is
@@ -674,6 +691,7 @@
       setDraft(structuredClone(content));
       setDirty(false);
       setIframeReady(false);
+      clearPreviewRetry();
       setPreviewKey(k => k + 1);  // force iframe reload at the new previewPath
     }, [tabId, previewPath]);
 
@@ -683,18 +701,22 @@
     useEffect(() => {
       function onMsg(e) {
         if (e.source !== iframeRef.current?.contentWindow) return;
-        if (e.data && e.data.type === 'dp-preview-ready') setIframeReady(true);
+        if (e.data && e.data.type === 'dp-preview-ready') {
+          setIframeReady(true);
+          pushPreviewDraft(draft);
+        }
       }
       window.addEventListener('message', onMsg);
-      return () => window.removeEventListener('message', onMsg);
+      return () => {
+        window.removeEventListener('message', onMsg);
+        clearPreviewRetry();
+      };
     }, []);
 
     // Push the latest draft to the iframe whenever it changes (and after ready).
     useEffect(() => {
       if (!iframeReady) return;
-      const win = iframeRef.current?.contentWindow;
-      if (!win) return;
-      try { win.postMessage({ type: 'dp-preview-content', content: draft }, '*'); } catch {}
+      pushPreviewDraft(draft);
     }, [draft, iframeReady]);
 
     function draftSet(pathArr, val) {
@@ -788,6 +810,10 @@
                     src={iframeUrl}
                     className="split-iframe"
                     title={'Preview · ' + previewPath}
+                    onLoad={() => {
+                      setIframeReady(true);
+                      pushPreviewDraft(draft);
+                    }}
                   />
                 </div>
               </div>

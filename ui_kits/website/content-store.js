@@ -942,8 +942,13 @@
     function ping() {
       try { window.parent && window.parent.postMessage({ type: 'dp-preview-ready' }, '*'); } catch {}
     }
-    if (document.readyState === 'complete') ping();
-    else window.addEventListener('load', ping);
+    ping();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', ping, { once: true });
+      window.addEventListener('load', ping, { once: true });
+    } else if (document.readyState !== 'complete') {
+      window.addEventListener('load', ping, { once: true });
+    }
   }
 
   window.DreamPathContent = {

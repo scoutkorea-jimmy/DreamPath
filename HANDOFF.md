@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.060.04`
+- **버전**: `v01.060.05`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -83,6 +83,12 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 - **Homepage 탭 정리**: `Hero`, `How it works`, `CTA banner`에서 KO 입력 필드를 제거하고 EN 편집 필드만 남김.
 - **메인 teaser 정리**: `Programs` 탭의 `Programs section heading (home page teaser)`에서도 KO 필드를 제거하고 EN만 편집하도록 변경.
 - **보조 도구 정리**: `Translations` 탭에서 메인 페이지 관련 `hero`, `how`, `programs_section`, `cta_banner` 섹션을 제외. 관리자 안에서 메인 페이지 KO 번역쌍이 다시 보이지 않게 함.
+
+### Live Preview handshake 보강 — v01.060.05
+- **문제 추정**: 관리자 `Live Preview`가 iframe의 단발 `dp-preview-ready` 신호에 너무 의존하고 있어, 초기 메시지가 한 번만 유실돼도 미리보기가 기본값/구버전 상태에 머물 수 있었음.
+- **관리자 측 보강**: `EditorWithPreview`가 이제 iframe `load` 시점과 `dp-preview-ready` 수신 시점 모두에서 draft를 다시 전송하고, 짧은 간격으로 몇 차례 재시도하도록 변경.
+- **프리뷰 페이지 보강**: `content-store.js`의 preview mode가 `ready` 신호를 즉시 1회, `DOMContentLoaded`, `load` 시점에도 추가로 보내도록 변경.
+- **기대 효과**: 특정 탭만이 아니라 전체 preview 공통 경로에서 handshake 유실에 훨씬 강해짐. iframe이 살짝 늦게 뜨거나 초기 이벤트 타이밍이 어긋나도 preview가 다시 붙음.
 
 ### Back-to-top + 자체 FAQ 챗봇 + AI 디스클레이머 — v01.056 / v01.057
 - **신규 파일**: `ui_kits/website/Floaters.jsx` — 우측 하단 두 가지 위젯.

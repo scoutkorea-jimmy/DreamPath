@@ -752,6 +752,82 @@ body {
   font-size: 12px;
 }
 .pd-rich strong { color: var(--fg-primary); }
+.pd-course-grid { display:grid; gap: 14px; }
+.pd-course-card {
+  border: 1px solid rgba(40,36,90,0.08);
+  background: rgba(255,255,255,0.82);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 10px 24px rgba(30,22,84,0.05);
+}
+.pd-course-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom: 14px; }
+.pd-course-sem {
+  display:inline-flex; align-items:center; padding: 6px 10px; border-radius:999px;
+  background: rgba(98,37,153,0.10); color: var(--scouting-purple);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.pd-course-preview { color: var(--scouting-purple); font-size: 13px; font-weight: 700; text-decoration: none; }
+.pd-course-preview:hover { text-decoration: underline; }
+.pd-course-title { font-family: var(--font-kr); font-size: 24px; line-height: 1.2; margin: 0 0 10px; }
+.pd-course-title.en { font-family: var(--font-en); }
+.pd-course-desc { margin: 0 0 16px; color: var(--fg-secondary); font-size: 15px; line-height: 1.7; }
+.pd-faculty-btn {
+  width: 100%;
+  display:flex;
+  align-items:center;
+  gap: 14px;
+  text-align:left;
+  border: 1px solid rgba(40,36,90,0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(246,242,255,0.96), rgba(255,255,255,0.96));
+  padding: 14px;
+  cursor: pointer;
+}
+.pd-faculty-btn:hover { border-color: rgba(98,37,153,0.24); box-shadow: 0 8px 20px rgba(98,37,153,0.08); }
+.pd-faculty-avatar,
+.pd-modal-photo-fallback {
+  width: 44px; height: 44px; border-radius: 50%;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(180deg, var(--scouting-purple), var(--midnight-purple));
+  color:#fff; font-weight:700; font-size:18px; flex: 0 0 auto;
+}
+.pd-faculty-copy { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.pd-faculty-copy strong { font-size: 15px; color: var(--fg-primary); }
+.pd-faculty-copy em { font-style: normal; font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
+.pd-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(12,10,24,0.48);
+  display:flex; align-items:center; justify-content:center;
+  padding: 24px;
+}
+.pd-modal {
+  position: relative;
+  width: min(720px, 100%);
+  background: #fff;
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 28px 60px rgba(12,10,24,0.25);
+}
+.pd-modal-close {
+  position:absolute; top:16px; right:16px;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: var(--bg-muted); color: var(--fg-primary);
+  font-size: 22px; cursor:pointer;
+}
+.pd-modal-head { display:flex; gap: 18px; align-items:center; margin-bottom: 18px; }
+.pd-modal-photo {
+  width: 84px; height: 84px; border-radius: 22px; object-fit: cover;
+  border: 1px solid var(--border-subtle);
+  flex: 0 0 auto;
+}
+.pd-modal-title { margin: 0; color: var(--fg-secondary); font-size: 15px; line-height: 1.6; }
+.pd-modal-body p { margin: 0 0 18px; }
+.pd-modal-course {
+  display:flex; flex-direction:column; gap:4px;
+  margin-bottom: 18px; padding: 14px 16px;
+  border-radius: 16px; background: var(--bg-muted);
+}
+.pd-modal-course strong { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--scouting-purple); }
 
 /* ============ ABOUT (Executive Summary) ============ */
 .about-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 24px; }
@@ -1202,6 +1278,8 @@ body {
   .pd-section-card { padding: 24px 22px; border-radius: 24px; }
   .pd-body h3 { font-size: 26px; }
   .pd-rich li { padding: 16px 16px 16px 46px; border-radius: 18px; }
+  .pd-course-top, .pd-modal-head { flex-direction: column; align-items: flex-start; }
+  .pd-modal { padding: 24px 20px; border-radius: 22px; }
 }
 
 /* ============ MOBILE NAV (hamburger + slide-in panel) ============

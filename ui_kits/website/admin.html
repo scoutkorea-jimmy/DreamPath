@@ -1430,6 +1430,41 @@
     }, [program.id]);
 
     const updDetail = (k, v) => { dirty.current = true; setDetails(d => ({ ...(d || {}), [k]: v })); };
+    const courses = Array.isArray(details?.courses_json) ? details.courses_json : [];
+    const updCourse = (ci, key, value) => {
+      dirty.current = true;
+      setDetails(d => {
+        const arr = Array.isArray(d?.courses_json) ? d.courses_json.slice() : [];
+        arr[ci] = { ...(arr[ci] || {}), [key]: value };
+        return { ...(d || {}), courses_json: arr };
+      });
+    };
+    const addCourse = () => {
+      dirty.current = true;
+      setDetails(d => ({
+        ...(d || {}),
+        courses_json: (Array.isArray(d?.courses_json) ? d.courses_json : []).concat([{
+          semester: 'Semester 1',
+          title_ko: '',
+          title_en: '',
+          desc_ko: '',
+          desc_en: '',
+          faculty_name: '',
+          faculty_title: '',
+          faculty_bio_ko: '',
+          faculty_bio_en: '',
+          faculty_image: '',
+          preview_url: '',
+        }]),
+      }));
+    };
+    const removeCourse = (ci) => {
+      dirty.current = true;
+      setDetails(d => ({
+        ...(d || {}),
+        courses_json: (Array.isArray(d?.courses_json) ? d.courses_json : []).filter((_, idx) => idx !== ci),
+      }));
+    };
 
     async function saveDetails() {
       if (!details) return;
@@ -1515,6 +1550,53 @@
                   <window.RichEditor value={details?.instructor_bio_en || ''} onChange={v => updDetail('instructor_bio_en', v)} lang="en" minHeight={140} />
                 </div>
               </div>
+            </div>
+
+            <div className="card">
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+                <h3 style={{margin:0}}>Course cards & professor profiles</h3>
+                <div style={{flex:1}} />
+                <button type="button" className="btn-add" onClick={addCourse}>+ Add course</button>
+              </div>
+              <p className="desc" style={{marginBottom:14}}>
+                These cards power the public curriculum section. The professor name becomes clickable on the public site and opens a profile modal using the information below.
+              </p>
+              {courses.length === 0 && (
+                <div style={{padding:18,borderRadius:12,background:'var(--bg-muted)',color:'var(--fg-muted)',fontSize:13}}>
+                  No structured courses yet. Add a course to manage semester labels, lecture preview links, professor photos, and bios from the admin.
+                </div>
+              )}
+              {courses.map((course, ci) => (
+                <div className="rep-item" key={ci}>
+                  <div className="rep-head">
+                    <strong>{course.title_en || course.title_ko || `Course ${ci + 1}`}</strong>
+                    <div className="ctrls">
+                      <button type="button" className="icon-btn danger" onClick={() => removeCourse(ci)}>Delete</button>
+                    </div>
+                  </div>
+                  <div className="grid-2 tight">
+                    <Text label="Semester label" value={course.semester || ''} onChange={v => updCourse(ci, 'semester', v)} hint="Semester 1 · Semester 2 · Semester 1 + 2" />
+                    <Text label="Lecture preview URL" value={course.preview_url || ''} onChange={v => updCourse(ci, 'preview_url', v)} hint="https://youtu.be/..." />
+                    <Text label="Course title (KO)" value={course.title_ko || ''} onChange={v => updCourse(ci, 'title_ko', v)} lang="ko" />
+                    <Text label="Course title (EN)" value={course.title_en || ''} onChange={v => updCourse(ci, 'title_en', v)} lang="en" />
+                    <Area label="Course description (KO)" value={course.desc_ko || ''} onChange={v => updCourse(ci, 'desc_ko', v)} lang="ko" rows={3} />
+                    <Area label="Course description (EN)" value={course.desc_en || ''} onChange={v => updCourse(ci, 'desc_en', v)} lang="en" rows={3} />
+                    <Text label="Professor name" value={course.faculty_name || ''} onChange={v => updCourse(ci, 'faculty_name', v)} hint="Shown as the clickable professor button" />
+                    <Text label="Professor title" value={course.faculty_title || ''} onChange={v => updCourse(ci, 'faculty_title', v)} hint="Department · specialty · short one-line intro" />
+                    <Area label="Professor bio (KO)" value={course.faculty_bio_ko || ''} onChange={v => updCourse(ci, 'faculty_bio_ko', v)} lang="ko" rows={4} />
+                    <Area label="Professor bio (EN)" value={course.faculty_bio_en || ''} onChange={v => updCourse(ci, 'faculty_bio_en', v)} lang="en" rows={4} />
+                    <ImageUploadField
+                      label="Professor photo"
+                      value={course.faculty_image || ''}
+                      onChange={v => updCourse(ci, 'faculty_image', v)}
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      maxBytes={1024 * 1024}
+                      preview="square"
+                      hint="Used inside the professor modal. You can upload a file or paste an image URL."
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="card">

@@ -9,6 +9,7 @@ function ProgramDetail({ go, lang, programId, c }) {
   const iconName = p.icon || 'sparkles';
 
   const [details, setDetails] = useStatePD(null);
+  const [facultyOpen, setFacultyOpen] = useStatePD(null);
   useEffectPD(() => {
     let cancelled = false;
     (async () => {
@@ -26,12 +27,13 @@ function ProgramDetail({ go, lang, programId, c }) {
   const outcomes = details && (isKo ? details.outcomes_ko : details.outcomes_en);
   const prerequisites = details && (isKo ? details.prerequisites_ko : details.prerequisites_en);
   const instructorBio = details && (isKo ? details.instructor_bio_ko : details.instructor_bio_en);
+  const courses = details && Array.isArray(details.courses_json) ? details.courses_json : [];
   const hasHtml = (s) => s && s.replace(/<[^>]+>/g, '').trim().length > 0;
   const countListItems = (s) => ((s || '').match(/<li\b/gi) || []).length;
   const stats = [
     { label: isKo ? 'Duration' : 'Duration', value: (details && details.duration) || p.meta[0] },
     { label: isKo ? 'Format' : 'Format', value: (details && details.format) || p.meta[1] },
-    { label: isKo ? 'Courses' : 'Courses', value: countListItems(curriculum) || '3+' },
+    { label: isKo ? 'Courses' : 'Courses', value: courses.length || countListItems(curriculum) || '3+' },
     { label: isKo ? 'Outcomes' : 'Outcomes', value: countListItems(outcomes) || '5+' },
   ];
   const sections = [
@@ -119,7 +121,35 @@ function ProgramDetail({ go, lang, programId, c }) {
               <section key={section.key} className={'pd-section-card pd-tone-' + section.tone}>
                 <div className="pd-section-eyebrow">{section.eyebrow}</div>
                 <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
-                {showHtml && <div className="pd-rich" dangerouslySetInnerHTML={{ __html: section.html }} />}
+                {section.key === 'curriculum' && courses.length > 0 ? (
+                  <div className="pd-course-grid">
+                    {courses.map((course, i) => (
+                      <article key={i} className="pd-course-card">
+                        <div className="pd-course-top">
+                          <span className="pd-course-sem">{course.semester || 'Course'}</span>
+                          {course.preview_url && (
+                            <a href={course.preview_url} target="_blank" rel="noopener" className="pd-course-preview">
+                              Preview ↗
+                            </a>
+                          )}
+                        </div>
+                        <h4 className={'pd-course-title' + (isKo ? '' : ' en')}>{isKo ? (course.title_ko || course.title_en) : (course.title_en || course.title_ko)}</h4>
+                        <p className="pd-course-desc">{isKo ? (course.desc_ko || course.desc_en) : (course.desc_en || course.desc_ko)}</p>
+                        {course.faculty_name && (
+                          <button type="button" className="pd-faculty-btn" onClick={() => setFacultyOpen(course)}>
+                            <span className="pd-faculty-avatar">{(course.faculty_name || '?').trim().charAt(0)}</span>
+                            <span className="pd-faculty-copy">
+                              <strong>{course.faculty_name}</strong>
+                              {course.faculty_title && <em>{course.faculty_title}</em>}
+                            </span>
+                          </button>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  showHtml && <div className="pd-rich" dangerouslySetInnerHTML={{ __html: section.html }} />
+                )}
                 {showText && <p>{section.fallback}</p>}
                 {showList && (
                   <ul className="pd-fallback-list">
@@ -174,6 +204,35 @@ function ProgramDetail({ go, lang, programId, c }) {
           </button>
         </aside>
       </div>
+      {facultyOpen && (
+        <div className="pd-modal-backdrop" onClick={() => setFacultyOpen(null)} role="presentation">
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Faculty profile">
+            <button type="button" className="pd-modal-close" onClick={() => setFacultyOpen(null)} aria-label="Close">×</button>
+            <div className="pd-modal-head">
+              {facultyOpen.faculty_image
+                ? <img src={facultyOpen.faculty_image} alt={facultyOpen.faculty_name || 'Faculty'} className="pd-modal-photo" />
+                : <div className="pd-modal-photo pd-modal-photo-fallback">{(facultyOpen.faculty_name || '?').trim().charAt(0)}</div>}
+              <div>
+                <div className="pd-section-eyebrow">{isKo ? 'Faculty profile' : 'Faculty profile'}</div>
+                <h3 className={isKo ? '' : 'en'} style={{marginBottom:8}}>{facultyOpen.faculty_name}</h3>
+                {facultyOpen.faculty_title && <p className="pd-modal-title">{facultyOpen.faculty_title}</p>}
+              </div>
+            </div>
+            <div className="pd-modal-body">
+              <p>{isKo ? (facultyOpen.faculty_bio_ko || facultyOpen.faculty_bio_en || '') : (facultyOpen.faculty_bio_en || facultyOpen.faculty_bio_ko || '')}</p>
+              <div className="pd-modal-course">
+                <strong>{isKo ? 'Linked course' : 'Linked course'}</strong>
+                <span>{isKo ? (facultyOpen.title_ko || facultyOpen.title_en) : (facultyOpen.title_en || facultyOpen.title_ko)}</span>
+              </div>
+              {facultyOpen.preview_url && (
+                <a href={facultyOpen.preview_url} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
+                  {isKo ? '강의 미리보기 보기' : 'Watch lecture preview'}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

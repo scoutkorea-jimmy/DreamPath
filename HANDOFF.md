@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.060.01`
+- **버전**: `v01.060.02`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0030** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -65,6 +65,12 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 - **공개 프론트 변경**: `ui_kits/website/App.jsx`의 초기 언어와 저장 언어를 `en`으로 고정. 기존 브라우저 `localStorage.dp_lang=ko`가 남아 있어도 공개 프론트는 영어만 렌더링.
 - **네비게이션 변경**: `ui_kits/website/Nav.jsx`에서 공개 사이트 `KO/EN` 토글 제거. 관리자 `admin.html` 언어 토글은 미변경.
 - **영향 범위**: 홈만이 아니라 공개 SPA 전체(`/about`, `/programs`, `/apply`, `/contact` 등)가 영어 분기만 사용. 한/영 데이터 스키마는 유지되어 추후 필요 시 복구 가능.
+
+### Programs 카테고리 드롭다운 필터 동기화 — v01.060.02
+- **문제**: 공개 네비게이션의 Programs 드롭다운에서 `MICRO-DEGREE`, `BACHELOR` 같은 카테고리를 눌러도 이미 `/programs` 화면에 있는 경우 필터가 즉시 반영되지 않았음.
+- **원인**: `App.jsx`는 같은 뷰 안에서 `pushState`로 `?cat=`만 바꾸고, `Programs.jsx`는 초기 마운트와 `popstate`에서만 URL 쿼리를 다시 읽고 있었음. SPA 내부 라우트 변경 이벤트는 놓치고 있었음.
+- **수정**: `ui_kits/website/Programs.jsx`가 `dp-route-change` 이벤트도 구독해서 `/programs?cat=...` 이동 시마다 `catFilter`를 동기화하도록 변경.
+- **결과**: 공개 드롭다운 카테고리 버튼이 같은 페이지 내 이동에서도 즉시 작동. 뒤로가기/앞으로가기와 deep-link 쿼리 동작은 그대로 유지.
 
 ### Back-to-top + 자체 FAQ 챗봇 + AI 디스클레이머 — v01.056 / v01.057
 - **신규 파일**: `ui_kits/website/Floaters.jsx` — 우측 하단 두 가지 위젯.

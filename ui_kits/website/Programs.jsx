@@ -10,22 +10,29 @@ function Programs({ go, lang, c }) {
   const isKo = lang === 'ko';
   const all = (c && c.programs) || window.PROGRAMS;
   const h = ((c && c.page_heros && c.page_heros.programs && c.page_heros.programs[lang]) || {});
-
-  // Read ?cat= from URL so footer category links land on a pre-filtered view
-  const initialCat = (() => {
+  function readCatFromUrl() {
     const usp = new URLSearchParams(window.location.search);
     return (usp.get('cat') || '').toLowerCase();
-  })();
+  }
+
+  // Read ?cat= from URL so footer category links land on a pre-filtered view
+  const initialCat = readCatFromUrl();
   const [filter, setFilter] = useStateP('all');
   const [catFilter, setCatFilter] = useStateP(initialCat);
 
   useEffectP(() => {
-    const onPop = () => {
-      const usp = new URLSearchParams(window.location.search);
-      setCatFilter((usp.get('cat') || '').toLowerCase());
+    const syncCatFilter = () => setCatFilter(readCatFromUrl());
+    const onRouteChange = (e) => {
+      if (!e.detail || e.detail.view === 'programs') syncCatFilter();
     };
+    const onPop = () => syncCatFilter();
+    syncCatFilter();
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    window.addEventListener('dp-route-change', onRouteChange);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('dp-route-change', onRouteChange);
+    };
   }, []);
 
   // Apply both filters (level chip + category from URL)

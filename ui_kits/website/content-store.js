@@ -16,8 +16,8 @@
       wordmark_mark: 'KoreaDream',
       wordmark_accent: 'Path',
       logo_mark: '/assets/logo-dreampath-mark.svg',
-      footer_tagline_ko: '월드스카우트 네트워크를 활용해 글로벌 청년을 한국의 고등교육으로 연결하는 독립 이니셔티브.',
-      footer_tagline_en: 'An independent initiative connecting global scouting youth to Korean higher education through the World Scout Network.',
+      footer_tagline_ko: '글로벌 청년 교육 파트너 네트워크를 활용해 청년 리더를 한국의 고등교육으로 연결하는 독립 평생교육 이니셔티브.',
+      footer_tagline_en: 'An independent lifelong-education initiative connecting young leaders worldwide to Korean higher education through a global youth-education partner network.',
       email: 'info@koreadreampath.com',
       partners_email: 'info@koreadreampath.com',
     },
@@ -29,18 +29,18 @@
     },
     hero: {
       ko: {
-        kicker: '글로벌 청년 교육 이니셔티브',
-        title_l1: '170개국의 스카우트,',
+        kicker: '글로벌 청소년 평생 교육 이니셔티브',
+        title_l1: '170개국의 청년 리더,',
         title_l2: '하나의 학습 경로로.',
-        sub: 'DreamPath는 전 세계 스카우트 청년을 한국의 고등교육으로 연결합니다. 온라인으로, 합리적인 비용으로, 이미 신뢰받는 네트워크 위에서.',
+        sub: 'Dream Path는 전 세계 청소년 리더를 한국의 고등교육으로 연결합니다. 온라인으로, 합리적인 비용으로, 신뢰받는 청년 교육 네트워크 위에서.',
         cta1: '프로그램 둘러보기',
         cta2: '어떻게 작동하나요',
       },
       en: {
-        kicker: 'A GLOBAL YOUTH EDUCATION INITIATIVE',
+        kicker: 'A GLOBAL YOUTH LIFELONG-EDUCATION INITIATIVE',
         title_l1: 'One learning path,',
-        title_l2: '170 countries of scouts.',
-        sub: 'DreamPath connects global scouting youth to Korean higher education — online, affordable, and built on the trust of a network that already exists.',
+        title_l2: '170 countries of young leaders.',
+        sub: 'Dream Path connects young leaders worldwide to Korean higher education — online, affordable, and built on a trusted global youth-education network.',
         cta1: 'Explore programs',
         cta2: 'How it works',
       },
@@ -61,9 +61,9 @@
       en: { kicker: 'HOW IT WORKS', title: 'Turning an existing network into a learner pipeline.' },
       steps: [
         { n: '01', icon: 'user-check',
-          t_ko: '스카우트 지도자가 학습자를 추천합니다',   t_en: 'A scout leader nominates the learner',
-          d_ko: '국가별 스카우트 조직이 검증한 학습자만 지원할 수 있습니다.',
-          d_en: 'Only learners vetted by their national scout organization can apply.' },
+          t_ko: '청년 교육 파트너가 학습자를 추천합니다',   t_en: 'A youth-education partner nominates the learner',
+          d_ko: '국가별 청년 교육 파트너 기관이 검증한 학습자만 지원할 수 있습니다.',
+          d_en: 'Only learners vetted by their national youth-education partner can apply.' },
         { n: '02', icon: 'file-check',
           t_ko: '프로그램을 선택하고 지원서를 제출합니다', t_en: 'Choose a program and submit',
           d_ko: '마이크로디그리, 온라인 학위, 어학 트랙 중에서 선택할 수 있습니다.',
@@ -111,17 +111,15 @@
         color: '#00695C', accent: '#4DB6AC', icon: 'briefcase' },
     ],
     partners_section: {
-      ko: { kicker: 'PARTNERS', title: '신뢰받는 네트워크 위에서.', sub: 'DreamPath는 파트너 교육기관, 글로벌 스카우트 조직, 후원 기관과 함께 운영됩니다.' },
-      en: { kicker: 'PARTNERS', title: 'Built on a trusted network.',   sub: 'DreamPath operates with partner universities, global scout organizations, and supporting institutions.' },
+      ko: { kicker: 'PARTNERS', title: '신뢰받는 네트워크 위에서.', sub: 'Dream Path는 파트너 교육기관, 글로벌 청년 교육 파트너 네트워크, 후원 기관과 함께 운영됩니다.' },
+      en: { kicker: 'PARTNERS', title: 'Built on a trusted network.',   sub: 'Dream Path operates with partner universities, a global youth-education partner network, and supporting institutions.' },
     },
     partners: [
       // logo: optional URL or data URL — rendered in the home "partner
       // strip" and on /partners cards. When empty, falls back to the
       // stylized "name" text on a colored chip background.
-      { name: 'CUFS',  full: '사이버한국외국어대학교',                  role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University', color: '#1E1654', logo: '' },
-      { name: 'WOSM',  full: 'World Organization of the Scout Movement', role_ko: '글로벌 네트워크',       role_en: 'Global network',             color: '#6B2DBE', logo: '' },
-      { name: 'APR',   full: 'Asia-Pacific Region Scout',                role_ko: '지역 네트워크',         role_en: 'Regional network',           color: '#0094B4', logo: '' },
-      { name: 'NSOs',  full: 'National Scout Organizations',             role_ko: '국가별 추천 기관',      role_en: 'National endorsement',       color: '#248737', logo: '' },
+      { name: 'CUFS', full: '사이버한국외국어대학교',                role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University',     color: '#1E1654', logo: '' },
+      { name: 'KDP',  full: '주식회사 코리아드림패스',                role_ko: '운영 파트너',          role_en: 'Operating partner',              color: '#6B2DBE', logo: '' },
     ],
     stories_section: {
       ko: { kicker: 'STORIES', title: '먼저 걸어간 사람들.' },
@@ -129,8 +127,8 @@
     },
     stories: [
       { tag: 'Kenya',       tag_color: '#FF5655', name: 'Amina K.', program: 'Korean Studies',
-        quote_ko: '스카우트에서 만난 멘토 덕분에 DreamPath를 알게 됐어요. 지금은 한국어로 일기를 씁니다.',
-        quote_en: 'A mentor I met in scouts told me about DreamPath. Now I write my journal in Korean.' },
+        quote_ko: '청년 멘토 덕분에 Dream Path를 알게 됐어요. 지금은 한국어로 일기를 씁니다.',
+        quote_en: 'A youth mentor told me about Dream Path. Now I write my journal in Korean.' },
       { tag: 'Philippines', tag_color: '#0094B4', name: 'Jomar D.', program: 'Business in Korea',
         quote_ko: '온라인이지만 한국 학생들과 실제로 프로젝트를 했어요. 그게 제일 컸습니다.',
         quote_en: "It's online, but I worked on real projects with Korean students. That made the difference." },
@@ -139,14 +137,14 @@
         quote_en: 'I was worried about my English, but captions and a mentor got me through.' },
     ],
     news: [
-      { tag: 'WOSM',  tag_color: '#6B2DBE', date: '2025.03.18', title_ko: 'APR 스카우트 컨퍼런스에서 DreamPath 정식 소개', title_en: 'DreamPath presented at APR Scout Conference' },
-      { tag: 'Korea', tag_color: '#FF5655', date: '2025.02.24', title_ko: 'CUFS와 첫 파트너십 MOU 체결',                   title_en: 'First partnership MOU signed with CUFS' },
-      { tag: '사람들', tag_color: '#248737', date: '2025.01.30', title_ko: '첫 코호트 지원자 인터뷰: 12개국 40명',           title_en: 'First cohort interviews: 40 applicants, 12 countries' },
-      { tag: 'APR',   tag_color: '#0094B4', date: '2024.12.12', title_ko: '아시아-태평양 지역 NSO 대표단 미팅',             title_en: 'Asia-Pacific NSO leadership meeting' },
+      { tag: 'INITIATIVE', tag_color: '#1F5FBD', date: '2026.05.27', title_ko: '국제 청년 교육 컨퍼런스에서 Dream Path 공식 발표', title_en: 'Dream Path presented at the International Youth Education Conference' },
+      { tag: 'Korea',      tag_color: '#FF5655', date: '2026.04.10', title_ko: 'CUFS와 첫 파트너십 MOU 체결',                       title_en: 'First partnership MOU signed with CUFS' },
+      { tag: 'Cohort',     tag_color: '#248737', date: '2026.03.15', title_ko: '첫 코호트 지원자 인터뷰: 12개국 40명',                title_en: 'First cohort interviews: 40 applicants, 12 countries' },
+      { tag: 'Partners',   tag_color: '#0094B4', date: '2026.02.20', title_ko: '아시아-태평양 지역 청년 교육 파트너 라운드테이블',     title_en: 'Asia-Pacific youth-education partner roundtable' },
     ],
     cta_banner: {
-      ko: { title: '당신의 다음 학기를 여기에서.', sub: '2025년 가을 학기 지원이 열려있습니다.', cta: '지금 지원하기' },
-      en: { title: 'Your next semester starts here.', sub: 'Fall 2025 applications are now open.',  cta: 'Apply now' },
+      ko: { title: '2026년 2학기,', sub: '당신의 꿈을 향해 도전하세요. 2026년 8월 31일 개강.', cta: '지금 지원하기' },
+      en: { title: 'Your next semester starts here.', sub: 'Fall 2026 applications open. Programs start August 31, 2026.',  cta: 'Apply now' },
     },
     // FAQ schema (2026-05-19 v01.055 — categorized + line-broken):
     //   { category_ko, category_en, category_icon, q_ko, q_en, a_ko, a_en }
@@ -284,16 +282,16 @@
         version: '1.0',
         effective: '2026-05-04',
         ko: { title: '개인정보 수집 · 이용 동의 (지원용)', summary: '지원서 처리를 위해 다음 정보를 수집합니다. 동의해 주셔야 지원이 가능합니다.', body:
-`<h2>1. 수집 항목 (필수)</h2><p>이름, 이메일, 생년월일, 입학 추천인 코드(선택), 국가, 최종 학교, 전공, GPA, 학력 메모, 에세이 2건, 스카우트 추천인 정보(이름, 이메일, 국제 전화번호, 회원국명, 훈련 수준, 추천서 PDF 파일명).</p>
+`<h2>1. 수집 항목 (필수)</h2><p>이름, 이메일, 생년월일, 입학 추천인 코드(선택), 국가, 최종 학교, 전공, GPA, 학력 메모, 에세이 2건, 추천인 정보(이름, 이메일, 국제 전화번호, 소속 청년 교육 파트너 기관명, 활동 경력, 추천서 PDF 파일명).</p>
 <h2>2. 수집 항목 (선택)</h2><p>결제용 카드 마지막 4자리. (전체 카드번호는 저장하지 않습니다.)</p>
-<h2>3. 수집 목적</h2><ul><li>지원서 검토 및 평가</li><li>합격 여부 통지</li><li>스카우트 조직과의 추천인 검증 커뮤니케이션</li><li>결제 처리 및 영수증 발급</li></ul>
+<h2>3. 수집 목적</h2><ul><li>지원서 검토 및 평가</li><li>합격 여부 통지</li><li>청년 교육 파트너 기관과의 추천인 검증 커뮤니케이션</li><li>결제 처리 및 영수증 발급</li></ul>
 <h2>4. 보유 기간</h2><p>최종 합격/불합격 통지 후 1년 (재지원·이의제기 기간). 이후 익명 통계로 전환되며 식별 정보는 파기됩니다.</p>
 <h2>5. 거부 권리</h2><p>본 동의를 거부하실 경우 지원이 불가능합니다.</p>
 <h2>6. 처리 위탁 / 보안</h2><p>데이터는 Cloudflare 플랫폼에서 처리되며, EU GDPR Art. 28 기준의 데이터 처리 계약(DPA)을 따릅니다.</p>` },
         en: { title: 'Personal Data Consent — Application', summary: 'To process your application we collect the data below. Consent is required to apply.', body:
-`<h2>1. What we collect (required)</h2><p>Name, email, date of birth, admission referrer code (optional), country, most-recent school, major, GPA, transcript note, two essays, scout-recommender details (name, email, international phone, member country, training level, PDF filename).</p>
+`<h2>1. What we collect (required)</h2><p>Name, email, date of birth, admission referrer code (optional), country, most-recent school, major, GPA, transcript note, two essays, recommender details (name, email, international phone, affiliated youth-education partner organization, activity background, PDF filename).</p>
 <h2>2. What we collect (optional)</h2><p>Last 4 digits of the payment card. We never store the full card number.</p>
-<h2>3. Purpose</h2><ul><li>Review and evaluate the application</li><li>Notify the outcome</li><li>Verify the recommender via the National Scout Organization where applicable</li><li>Process payment and issue receipts</li></ul>
+<h2>3. Purpose</h2><ul><li>Review and evaluate the application</li><li>Notify the outcome</li><li>Verify the recommender via the affiliated youth-education partner organization where applicable</li><li>Process payment and issue receipts</li></ul>
 <h2>4. Retention</h2><p>One year after final notification (covers reapplication and appeal). After that, identifying details are deleted and only anonymous statistics are retained.</p>
 <h2>5. Right to refuse</h2><p>If you refuse, we cannot accept the application.</p>
 <h2>6. Processing &amp; security</h2><p>Data is processed on Cloudflare under a Data Processing Agreement aligned with EU GDPR Art. 28.</p>` },
@@ -608,15 +606,15 @@
       // === Legacy fields (no longer rendered, kept for KV migration safety) ===
       hero: {
         ko: { kicker: '프로젝트 소개', title_l1: '교육 접근성은, 이미', title_l2: '존재하는 네트워크 위에서.',
-              sub: 'DreamPath TF는 월드스카우트 네트워크를 학습자 파이프라인으로 전환하는 독립 이니셔티브입니다. CUFS와 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },
+              sub: 'Dream Path는 전 세계 청소년 리더 네트워크를 학습자 파이프라인으로 전환하는 독립적인 평생 교육 이니셔티브입니다. CUFS와 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },
         en: { kicker: 'ABOUT THE PROJECT', title_l1: 'Access to education, built on', title_l2: 'a network that already exists.',
-              sub: 'DreamPath TF is an independent initiative that turns the World Scout Network into a learner pipeline. We operate independently from CUFS and aim to expand across multiple institutions.' },
+              sub: 'Dream Path is an independent lifelong-education initiative that turns the global youth-leader network into a learner pipeline. We operate independently from CUFS and aim to expand across multiple institutions.' },
       },
       mission: {
-        ko: { kicker: '미션', title_l1: '170개국에 이미 연결된 청년과 지도자들.', title_l2: '같은 길에 학습을 올려놓습니다.',
-              body: '전 세계 170여 개국의 스카우트 조직은 교육 접근성에 관심 있는 청년과 지도자들이 이미 연결된 거대한 네트워크입니다. DreamPath는 이 기존 네트워크를 학습자 파이프라인으로 전환해, 온라인·마이크로디그리 형태로 한국 고등교육에 접근할 수 있도록 설계된 구조입니다.' },
-        en: { kicker: 'MISSION', title_l1: 'Youth and leaders already connected across 170 countries.', title_l2: 'We lay learning on the same path.',
-              body: 'Scout organizations across 170+ countries form a global network of youth and leaders already invested in education access. DreamPath turns this existing network into a learner pipeline for Korean higher education — delivered online, through micro-degrees and full online degrees.' },
+        ko: { kicker: '미션', title_l1: '170개국에 이미 연결된 청년 리더들.', title_l2: '같은 길에 학습을 올려놓습니다.',
+              body: '전 세계 170여 개국의 청년 교육 파트너 네트워크는 교육 접근성에 관심 있는 청년과 지도자들이 이미 연결된 거대한 커뮤니티입니다. Dream Path는 이 기존 네트워크를 학습자 파이프라인으로 전환해, 온라인·마이크로디그리 형태로 한국 고등교육에 접근할 수 있도록 설계된 청소년 평생 교육 이니셔티브입니다.' },
+        en: { kicker: 'MISSION', title_l1: 'Young leaders already connected across 170 countries.', title_l2: 'We lay learning on the same path.',
+              body: 'Youth-education partner organizations across 170+ countries form a global network of young people and mentors already invested in education access. Dream Path turns this existing network into a learner pipeline for Korean higher education — delivered online, through micro-degrees and full online degrees.' },
       },
       team: {
         ko: { kicker: '팀', title_l1: '교육·재무·실무.', title_l2: '', sub: 'DreamPath TF는 세 영역으로 나뉘어 운영됩니다.' },
@@ -648,8 +646,8 @@
           kicker_ko: '리드', kicker_en: 'LEAD',
           members: [
             { name: '운영 디렉터', name_en: 'Operations Director', role_ko: '총괄 · 파트너십', role_en: 'Operations · Partnerships',
-              bio_ko: '국제 청년 교육 및 스카우트 운영 경험을 바탕으로 프로젝트 전반을 조율합니다.',
-              bio_en: 'Coordinates the project across partners, drawing on international youth education and scouting experience.',
+              bio_ko: '국제 청년 교육 및 청소년 리더십 운영 경험을 바탕으로 프로젝트 전반을 조율합니다.',
+              bio_en: 'Coordinates the project across partners, drawing on international youth-education and young-leader operations experience.',
               image: '/assets/placeholder-student.svg' },
           ],
         },
@@ -675,8 +673,8 @@
         {
           kicker_ko: '운영 / 디자인', kicker_en: 'OPERATIONS / DESIGN',
           members: [
-            { name: '커뮤니티 매니저', name_en: 'Community Manager', role_ko: 'NSO 커뮤니케이션', role_en: 'NSO communications',
-              bio_ko: '국가별 스카우트 조직과의 정기 커뮤니케이션을 담당합니다.', bio_en: 'Maintains regular communication with national scout organizations.',
+            { name: '커뮤니티 매니저', name_en: 'Community Manager', role_ko: '청년 교육 파트너 커뮤니케이션', role_en: 'Youth-partner communications',
+              bio_ko: '국가별 청년 교육 파트너 기관과의 정기 커뮤니케이션을 담당합니다.', bio_en: 'Maintains regular communication with national youth-education partner organizations.',
               image: '/assets/placeholder-student.svg' },
             { name: '제품 디자이너', name_en: 'Product Designer', role_ko: '브랜드 · 사이트 디자인', role_en: 'Brand · Site design',
               bio_ko: '디자인 시스템과 사이트 UI를 운영합니다.', bio_en: 'Owns the design system and the site UI.',
@@ -707,9 +705,9 @@
     page_heros: {
       partners: {
         ko: { kicker: 'PARTNERS', title_l1: '신뢰받는', title_l2: '네트워크 위에서.',
-              sub: 'DreamPath는 파트너 교육기관, 글로벌 스카우트 조직, 후원 기관과 함께 운영됩니다.' },
+              sub: 'Dream Path는 파트너 교육기관, 글로벌 청년 교육 파트너 네트워크, 후원 기관과 함께 운영됩니다.' },
         en: { kicker: 'PARTNERS', title_l1: 'Built on a', title_l2: 'trusted network.',
-              sub: 'DreamPath operates with partner universities, global scout organizations, and supporting institutions.' },
+              sub: 'Dream Path operates with partner universities, a global youth-education partner network, and supporting institutions.' },
       },
       stories: {
         ko: { kicker: 'STORIES', title_l1: '먼저 걸어간 사람들.', title_l2: '',
@@ -748,11 +746,11 @@
       ko: {
         back_link: '모든 프로그램',
         overview_h: '프로그램 개요',
-        overview_body: '이 프로그램은 파트너 교육기관이 설계한 온라인 커리큘럼을 기반으로, 스카우트 네트워크 내 추천 학습자에게 제공됩니다. 주간 라이브 세션, 과제 기반 학습, 그리고 멘토 매칭을 포함합니다.',
+        overview_body: '이 프로그램은 파트너 교육기관이 설계한 온라인 커리큘럼을 기반으로, 청년 교육 파트너 네트워크에서 추천받은 학습자에게 제공됩니다. 주간 라이브 세션, 과제 기반 학습, 그리고 멘토 매칭을 포함합니다.',
         learn_h: '배우는 내용',
         learn_items: ['주제별 핵심 프레임워크와 사례', '실무 중심의 주간 과제', '한국 학생·전문가와의 네트워킹', '수료 후 포트폴리오 산출물'],
         eligibility_h: '지원 자격',
-        eligibility_body: '소속 국가 스카우트 조직(NSO) 에서 활동 중이거나 추천받은 청년. 18세 이상 권장. 기본 영어 또는 한국어.',
+        eligibility_body: '소속 국가의 청년 교육 파트너 기관에서 활동 중이거나 추천받은 청소년·청년. 18세 이상 권장. 기본 영어 또는 한국어 가능.',
         info_kicker: '프로그램 정보',
         label_length: '기간', label_format: '방식', label_language: '언어', label_level: '레벨', label_status: '상태',
         apply_cta: '지금 지원하기',
@@ -760,11 +758,11 @@
       en: {
         back_link: 'All programs',
         overview_h: 'Overview',
-        overview_body: 'This program is built on an online curriculum designed by our partner institution and delivered to learners nominated by their national scout organization. It includes weekly live sessions, project-based learning, and mentor matching.',
+        overview_body: 'This program is built on an online curriculum designed by our partner institution and delivered to learners nominated by their national youth-education partner. It includes weekly live sessions, project-based learning, and mentor matching.',
         learn_h: 'What you will learn',
         learn_items: ['Core frameworks and case studies', 'Weekly practical assignments', 'Networking with Korean students & practitioners', 'A portfolio outcome after completion'],
         eligibility_h: 'Who should apply',
-        eligibility_body: 'Youth active in, or nominated by, a National Scout Organization. 18+ recommended. Basic English or Korean.',
+        eligibility_body: 'Youth active in, or nominated by, a national youth-education partner organization. 18+ recommended. Basic English or Korean.',
         info_kicker: 'Program info',
         label_length: 'Length', label_format: 'Format', label_language: 'Language', label_level: 'Level', label_status: 'Status',
         apply_cta: 'Apply now',

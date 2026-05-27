@@ -242,7 +242,7 @@ function Apply({ lang, c }) {
   const [submitError, setSubmitError] = useStateA('');
 
   const steps = isKo
-    ? ['개인정보 동의', '개인정보 · 추천코드', '기본 정보 · 학력 · 서류', '에세이 · 스카우트 추천인', '트랙 · 결제']
+    ? ['개인정보 동의', '개인정보 · 추천코드', '기본 정보 · 학력 · 서류', '에세이 · 추천인', '트랙 · 결제']
     : ['Consent', 'Personal · Referrer', 'Basic · Academic · Documents', 'Essays · Recommenders', 'Track · Payment'];
 
   // Default the program to the first currently-open one as soon as content
@@ -806,10 +806,10 @@ function Step2({ form, setForm, upd, isKo, lang, essayQuestions }) {
         );
       })}
 
-      <h4 className="apply-sub">{isKo ? '스카우트 추천인 (최소 3명)' : 'Scout recommenders (minimum 3)'}</h4>
+      <h4 className="apply-sub">{isKo ? '추천인 (최소 3명)' : 'Recommenders (minimum 3)'}</h4>
       <p className="hint" style={{marginBottom:12}}>{isKo
-        ? '추천인 정보(이름, 이메일, 전화번호 — 국제번호 형식 +국가코드, 회원국명, 훈련 수준)를 최소 3명 입력해주세요. 추천서는 각 추천인별로 PDF 업로드 가능합니다.'
-        : 'Provide at least 3 recommenders with name, email, international phone (+country code), member country, and training level. PDF letter is optional per recommender.'}</p>
+        ? '추천인 정보(이름, 이메일, 전화번호 — 국제번호 형식 +국가코드, 소속 청년 교육 파트너 기관, 활동 경력)를 최소 3명 입력해주세요. 추천서는 각 추천인별로 PDF 업로드 가능합니다.'
+        : 'Provide at least 3 recommenders with name, email, international phone (+country code), affiliated youth-education partner organization, and activity background. PDF letter is optional per recommender.'}</p>
 
       {(form.recommenders || []).map((r, i) => (
         <RecommenderCard key={i} index={i} rec={r} isKo={isKo} lang={lang}
@@ -867,9 +867,9 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
           <input value={rec.name} onChange={e => set('name', e.target.value)} />
         </div>
         <div className="field">
-          <label>{isKo ? '회원국명 *' : 'Member country *'}</label>
+          <label>{isKo ? '소속 청년 교육 파트너 기관 *' : 'Affiliated youth-education partner *'}</label>
           <input value={rec.member_country} onChange={e => set('member_country', e.target.value)}
-            placeholder={isKo ? '예: Scouts of Kenya' : 'e.g. Scouts of Kenya'} />
+            placeholder={isKo ? '예: Youth Leaders of Kenya' : 'e.g. Youth Leaders of Kenya'} />
         </div>
       </div>
       {window.EmailField
@@ -878,7 +878,7 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
           <div className="form-row">
             <div className="field">
               <label>{isKo ? '이메일 *' : 'Email *'}</label>
-              <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="leader@scout.org" />
+              <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="mentor@youth.org" />
             </div>
           </div>
         )}

@@ -7261,8 +7261,8 @@
                 <Row k="Title">{selected.essay_title || '—'}</Row>
                 <div className="essay-box">{selected.essay_body || '—'}</div>
 
-                <h4 className="app-sec">Scout recommender</h4>
-                <Row k="NSO">{selected.nso || '—'}</Row>
+                <h4 className="app-sec">Recommender</h4>
+                <Row k="Partner org">{selected.nso || '—'}</Row>
                 <Row k="Recommender">{selected.recommender_name}{selected.recommender_role ? ` · ${selected.recommender_role}` : ''}</Row>
                 <Row k="Email">{selected.recommender_email || '—'}</Row>
                 {selected.recommender_letter && (

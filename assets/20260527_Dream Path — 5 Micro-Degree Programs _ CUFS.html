@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<!-- saved from url=(0152)file:///Users/kimsonny/Library/Application%20Support/Genspark%20Claw/users/c34aeaac-ebd8-41ff-9380-b56cd836b6d1/workspace/DreamPath_5MD_LandingPage.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dream Path — 5 Micro-Degree Programs | CUFS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:#fafbfc;color:#1a1a2e;line-height:1.6}
+
+  /* ── HERO ── */
+  .hero{background:linear-gradient(135deg,#0d1b4b 0%,#1a237e 60%,#283593 100%);color:#fff;padding:60px 24px 50px;text-align:center}
+  .hero .eyebrow{font-size:.72em;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#81C784;margin-bottom:12px}
+  .hero h1{font-size:2.4em;font-weight:900;line-height:1.15;max-width:700px;margin:0 auto}
+  .hero h1 .gold{color:#FFD54F}
+  .hero .sub{color:#b0bec5;font-size:.95em;margin-top:14px;max-width:560px;margin-left:auto;margin-right:auto}
+  .hero .trust-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+  .trust-item{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);padding:8px 16px;border-radius:10px;font-size:.78em;color:#cfd8dc}
+
+  .container{max-width:900px;margin:0 auto;padding:0 20px}
+
+  /* ── MD SECTION ── */
+  .md-section{margin:40px 0 48px;border-bottom:1px solid #e8ecf0;padding-bottom:48px}
+  .md-section:last-of-type{border-bottom:none}
+
+  /* Title Bar */
+  .md-title-bar{display:flex;align-items:center;gap:16px;margin-bottom:24px}
+  .md-badge{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.6em;flex-shrink:0;color:#fff}
+  .md-title-bar h2{font-size:1.5em;font-weight:800;color:#0d1b4b}
+  .md-title-bar .kr{font-size:.82em;font-weight:500;color:#78909c;margin-top:2px}
+  .md-title-bar .dept{font-size:.7em;color:#90a4ae;text-transform:uppercase;letter-spacing:.8px;margin-top:4px}
+
+  /* Purpose Box */
+  .purpose-box{background:linear-gradient(135deg,#f0f4ff,#e8eaf6);border-left:4px solid;border-radius:0 12px 12px 0;padding:20px 24px;margin-bottom:24px}
+  .purpose-box h3{font-size:.8em;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .purpose-box p{font-size:.92em;color:#37474f;line-height:1.7}
+
+  /* Quick Stats */
+  .quick-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+  .qs{background:#fff;border:1px solid #e8ecf0;border-radius:12px;padding:14px 12px;text-align:center}
+  .qs .num{font-size:1.5em;font-weight:900;color:#0d1b4b}
+  .qs .lbl{font-size:.68em;color:#90a4ae;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+  /* Course + Faculty Cards */
+  .courses-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+  .course-card{background:#fff;border:1px solid #e8ecf0;border-radius:14px;padding:18px 20px;transition:box-shadow .2s}
+  .course-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.06)}
+  .cc-semester{font-size:.65em;font-weight:700;color:#fff;background:#78909c;display:inline-block;padding:2px 8px;border-radius:4px;margin-bottom:8px}
+  .cc-name{font-size:.95em;font-weight:700;color:#1a1a2e;margin-bottom:2px}
+  .cc-name-kr{font-size:.8em;color:#78909c}
+  .cc-desc{font-size:.82em;color:#546e7a;margin-top:8px;line-height:1.6}
+  .cc-faculty{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #f0f2f5}
+  .cc-faculty img{width:32px;height:32px;border-radius:50%;background:#e8eaf6}
+  .cc-faculty .f-name{font-size:.78em;font-weight:600;color:#37474f}
+  .cc-faculty .f-title{font-size:.68em;color:#90a4ae}
+  .cc-preview{display:inline-flex;align-items:center;gap:4px;font-size:.72em;color:#1565C0;text-decoration:none;margin-top:8px;font-weight:600}
+  .cc-preview:hover{text-decoration:underline}
+
+  /* Outcomes */
+  .outcomes{background:#fff;border:1px solid #e8ecf0;border-radius:14px;padding:24px;margin-bottom:20px}
+  .outcomes h3{font-size:.85em;font-weight:700;color:#0d1b4b;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .outcomes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .outcome-item{display:flex;align-items:flex-start;gap:8px;font-size:.85em;color:#37474f}
+  .outcome-item .oi-icon{flex-shrink:0;font-size:1em}
+
+  /* ── WHY CUFS (Common) ── */
+  .why-cufs{background:linear-gradient(135deg,#0d1b4b,#1a237e);color:#fff;padding:56px 24px;margin-top:20px;border-radius:20px}
+  .why-cufs h2{font-size:1.8em;font-weight:900;text-align:center;margin-bottom:8px}
+  .why-cufs h2 .gold{color:#FFD54F}
+  .why-cufs .sub{text-align:center;color:#9fa8da;font-size:.88em;margin-bottom:32px}
+  .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;margin:0 auto}
+  .why-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:24px 20px;text-align:center}
+  .why-card .wc-icon{font-size:2em;margin-bottom:10px}
+  .why-card h4{font-size:.92em;font-weight:700;margin-bottom:6px}
+  .why-card p{font-size:.78em;color:#b0bec5;line-height:1.5}
+
+  /* Special Extras */
+  .specials{max-width:900px;margin:40px auto;padding:0 20px}
+  .specials h2{font-size:1.4em;font-weight:800;color:#0d1b4b;text-align:center;margin-bottom:24px}
+  .specials-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .special-card{background:#fff;border:2px solid #FFD54F;border-radius:14px;padding:22px;text-align:center}
+  .special-card .sc-icon{font-size:2em;margin-bottom:8px}
+  .special-card h4{font-size:.95em;font-weight:700;color:#0d1b4b;margin-bottom:6px}
+  .special-card p{font-size:.82em;color:#546e7a;line-height:1.5}
+  .special-card .sc-tag{display:inline-block;background:#FFD54F;color:#0d1b4b;font-size:.7em;font-weight:800;padding:3px 10px;border-radius:4px;margin-top:8px}
+
+  /* Price Box */
+  .price-section{max-width:900px;margin:40px auto;padding:0 20px}
+  .price-box{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:2px solid #4CAF50;border-radius:16px;padding:32px;text-align:center}
+  .price-box h3{font-size:1.1em;font-weight:800;color:#1b5e20;margin-bottom:16px}
+  .price-compare{display:flex;justify-content:center;gap:32px;flex-wrap:wrap;margin-bottom:20px}
+  .pc-item{text-align:center}
+  .pc-item .pc-label{font-size:.72em;color:#78909c;text-transform:uppercase;letter-spacing:.5px}
+  .pc-item .pc-price{font-size:1.8em;font-weight:900}
+  .pc-item .pc-price.old{color:#C62828;text-decoration:line-through}
+  .pc-item .pc-price.new{color:#2E7D32}
+  .pc-item .pc-note{font-size:.7em;color:#78909c}
+  .price-details{font-size:.82em;color:#546e7a;line-height:1.7}
+  .price-details strong{color:#1b5e20}
+  /* Cost breakdown visual */
+  .cost-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:20px 0;text-align:left}
+  .cost-col{padding:16px;border-radius:12px}
+  .cost-col.offline{background:#fff5f5;border:1px solid #ef9a9a}
+  .cost-col.online{background:#e8f5e9;border:1px solid #a5d6a7}
+  .cost-col h4{font-size:.85em;font-weight:800;margin-bottom:10px;letter-spacing:.5px}
+  .cost-col.offline h4{color:#C62828}
+  .cost-col.online h4{color:#2E7D32}
+  .cost-row{display:flex;justify-content:space-between;padding:5px 0;font-size:.78em;border-bottom:1px dashed #ddd}
+  .cost-row:last-child{border-bottom:none}
+  .cost-row .cr-label{color:#546e7a}
+  .cost-row .cr-amt{font-weight:700}
+  .cost-col.offline .cr-amt{color:#C62828}
+  .cost-col.online .cr-amt{color:#2E7D32}
+  .cost-total{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;font-weight:900;border-top:2px solid;margin-top:4px}
+  .cost-col.offline .cost-total{border-color:#C62828;color:#C62828}
+  .cost-col.online .cost-total{border-color:#2E7D32;color:#2E7D32}
+  .savings-banner{background:linear-gradient(135deg,#1b5e20,#2E7D32);color:#fff;border-radius:12px;padding:20px;margin:16px 0;text-align:center}
+  .savings-banner .sb-label{font-size:.75em;text-transform:uppercase;letter-spacing:1px;opacity:.85}
+  .savings-banner .sb-amount{font-size:2.2em;font-weight:900;margin:4px 0}
+  .savings-banner .sb-pct{font-size:1em;font-weight:700;background:rgba(255,255,255,.2);display:inline-block;padding:4px 12px;border-radius:20px;margin-top:4px}
+  .savings-bar{height:24px;border-radius:12px;overflow:hidden;display:flex;margin:12px 0}
+  .savings-bar .bar-dp{background:#2E7D32;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.6em;font-weight:700}
+  .savings-bar .bar-save{background:#a5d6a7;display:flex;align-items:center;justify-content:center;color:#1b5e20;font-size:.6em;font-weight:700}
+  .zero-list{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:12px 0}
+  .zero-item{background:#fff;border:1px solid #a5d6a7;border-radius:8px;padding:6px 14px;font-size:.75em;color:#2E7D32;font-weight:600}
+
+  /* CTA */
+  .cta-section{text-align:center;padding:48px 24px 64px}
+  .cta-section h2{font-size:1.6em;font-weight:900;color:#0d1b4b;margin-bottom:8px}
+  .cta-section p{color:#78909c;margin-bottom:24px}
+  .cta-btn{display:inline-block;background:linear-gradient(135deg,#FFD54F,#FFA000);color:#0d1b4b;padding:16px 40px;border-radius:14px;font-weight:800;font-size:1.05em;text-decoration:none;transition:transform .2s}
+  .cta-btn:hover{transform:scale(1.05)}
+  .cta-contact{margin-top:16px;font-size:.82em;color:#90a4ae}
+  .cta-contact a{color:#1565C0;text-decoration:none}
+
+  .footer{text-align:center;padding:24px;font-size:.72em;color:#b0bec5;border-top:1px solid #e8ecf0}
+
+  @media(max-width:768px){
+    .hero h1{font-size:1.6em}
+    .quick-stats{grid-template-columns:1fr 1fr}
+    .courses-grid,.outcomes-grid,.why-grid,.specials-grid{grid-template-columns:1fr}
+    .price-compare{flex-direction:column;gap:16px}
+    .cost-breakdown{grid-template-columns:1fr}
+    .savings-banner .sb-amount{font-size:1.6em}
+    .zero-list{gap:8px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <div class="eyebrow">Cyber Hankuk University of Foreign Studies (CUFS)</div>
+  <h1>5 <span class="gold">Micro-Degree</span> Programs<br>for Global South Youth</h1>
+  <p class="sub">Korea's #1 Foreign Language University with full AI support — earn a government-recognized credential 100% online, from anywhere in the world.</p>
+  <div class="trust-row">
+    <div class="trust-item">🎓 Government Accredited</div>
+    <div class="trust-item">🤖 AI-Powered LMS</div>
+    <div class="trust-item">🗣️ Korean + English Subtitles</div>
+    <div class="trust-item">🌐 170+ Countries Network</div>
+    <div class="trust-item">💰 ~$720 Total (1/10th of studying in Korea)</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MD 1: AI & Language -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="md-section">
+  <div class="md-title-bar">
+    <div class="md-badge" style="background:linear-gradient(135deg,#1565C0,#42A5F5)">🤖</div>
+    <div>
+      <h2>AI &amp; Language</h2>
+      <div class="kr">AI와 언어교육</div>
+      <div class="dept">English Department · CUFS</div>
+    </div>
+  </div>
+
+  <!-- Purpose -->
+  <div class="purpose-box" style="border-color:#1565C0">
+    <h3 style="color:#1565C0">🎯 Why This Program Exists</h3>
+    <p>AI is rewriting every industry — and language education is ground zero. This program trains you to <strong>use AI as a professional tool</strong>, not just a curiosity. You'll learn how AI transforms English education, communication, and data analysis — skills that make you irreplaceable in the global job market where <strong>"AI + Human" beats either alone.</strong></p>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="quick-stats">
+    <div class="qs"><div class="num">4</div><div class="lbl">Courses</div></div>
+    <div class="qs"><div class="num">10</div><div class="lbl">Credits</div></div>
+    <div class="qs"><div class="num">2</div><div class="lbl">Semesters</div></div>
+    <div class="qs"><div class="num">~1yr</div><div class="lbl">To Complete</div></div>
+  </div>
+
+  <!-- Course Cards -->
+  <div class="courses-grid">
+    <div class="course-card">
+      <span class="cc-semester" style="background:#1565C0">Semester 2</span>
+      <div class="cc-name">AI and English Education</div>
+      <div class="cc-name-kr">AI와 영어교육</div>
+      <div class="cc-desc">How AI revolutionizes English language teaching — from automated feedback to personalized learning paths. Hands-on practice with AI tutoring systems.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1565C0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">H</div>
+        <div><div class="f-name">Prof. Hong Ji-ye (홍지예)</div><div class="f-title">English Dept. · AI &amp; Linguistics Specialist · 3+ AI courses at CUFS</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=soW_ah-zWcg&feature=youtu.be" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#1565C0">Semester 2</span>
+      <div class="cc-name">Introduction to English Linguistics</div>
+      <div class="cc-name-kr">영어학개론</div>
+      <div class="cc-desc">Foundation course — phonetics, syntax, semantics, pragmatics. Understand the structure of English for effective AI-assisted communication.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#546e7a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">E</div>
+        <div><div class="f-name">English Department Faculty</div><div class="f-title">Established 2021 · Core foundation course</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=NPqAYVu8H5A" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#1565C0">Semester 2</span>
+      <div class="cc-name">AI and English Communication</div>
+      <div class="cc-name-kr">AI와 영어 커뮤니케이션</div>
+      <div class="cc-desc">Practical English enhanced by AI — automated translation, AI writing assistants, voice recognition, and real-time conversation practice with AI chatbots.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1565C0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">A</div>
+        <div><div class="f-name">Prof. Ahn Ji-eun (안지은)</div><div class="f-title">TESOL Graduate School · AI/Big Data · 6+ courses</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=RzC4dxVX-P0&feature=youtu.be" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#1565C0">Semester 1</span>
+      <div class="cc-name">AI and Big Data</div>
+      <div class="cc-name-kr">AI와 빅데이터</div>
+      <div class="cc-desc">Big data concepts &amp; AI analytics — data collection, processing, visualization, and decision-making. Applied to language learning and global business.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1565C0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">A</div>
+        <div><div class="f-name">Prof. Ahn Ji-eun (안지은)</div><div class="f-title">Big Data Analysis · Research Methodology expert</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=Wpe8g8Itug8&feature=youtu.be" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+  </div>
+
+  <!-- What You'll Gain -->
+  <div class="outcomes">
+    <h3>🏆 What You'll Gain After Completion</h3>
+    <div class="outcomes-grid">
+      <div class="outcome-item"><span class="oi-icon">📜</span> CUFS Micro-Degree Certificate (government-recognized)</div>
+      <div class="outcome-item"><span class="oi-icon">🤖</span> Practical AI tool proficiency (ChatGPT, NLP, data analysis)</div>
+      <div class="outcome-item"><span class="oi-icon">🌐</span> Professional English communication enhanced by AI</div>
+      <div class="outcome-item"><span class="oi-icon">📊</span> Big data literacy for business decision-making</div>
+      <div class="outcome-item"><span class="oi-icon">🇰🇷</span> K-Point +10 for Korean employment visa (E-7-4)</div>
+      <div class="outcome-item"><span class="oi-icon">💼</span> Career-ready for EdTech, AI translation, data strategy</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MD 2: Media Content Storytelling -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="md-section">
+  <div class="md-title-bar">
+    <div class="md-badge" style="background:linear-gradient(135deg,#7B1FA2,#CE93D8)">📱</div>
+    <div>
+      <h2>Media Content Storytelling</h2>
+      <div class="kr">미디어 콘텐츠 스토리텔링</div>
+      <div class="dept">Athena School of Liberal Arts · CUFS</div>
+    </div>
+  </div>
+
+  <div class="purpose-box" style="border-color:#7B1FA2">
+    <h3 style="color:#7B1FA2">🎯 Why This Program Exists</h3>
+    <p>In a world drowning in content, <strong>the people who tell the best stories win.</strong> This program teaches the art and science of compelling communication — from historical storytelling to camera-ready presentation. Whether you want to be a YouTuber, a corporate leader, or a public speaker, <strong>your ability to move people with words is your ultimate superpower.</strong></p>
+  </div>
+
+  <div class="quick-stats">
+    <div class="qs"><div class="num">4</div><div class="lbl">Courses</div></div>
+    <div class="qs"><div class="num">10</div><div class="lbl">Credits</div></div>
+    <div class="qs"><div class="num">2</div><div class="lbl">Semesters</div></div>
+    <div class="qs"><div class="num">~1yr</div><div class="lbl">To Complete</div></div>
+  </div>
+
+  <div class="courses-grid">
+    <div class="course-card">
+      <span class="cc-semester" style="background:#7B1FA2">Semester 2</span>
+      <div class="cc-name">Game Changers: Historical Figures Who Changed the World</div>
+      <div class="cc-name-kr">게임 체인저: 역사를 바꾼 인물 이야기</div>
+      <div class="cc-desc">Study visionary leaders — Steve Jobs, Marie Curie, King Sejong. Extract storytelling patterns and leadership frameworks from people who reshaped civilization.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#7B1FA2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">L</div>
+        <div><div class="f-name">Liberal Arts Faculty</div><div class="f-title">Athena School · Open to all years</div></div>
+      </div>
+      <a href="https://youtu.be/hVUIiTY2uS0" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#7B1FA2">Semester 2</span>
+      <div class="cc-name">Communication Skills</div>
+      <div class="cc-name-kr">커뮤니케이션 스킬</div>
+      <div class="cc-desc">Persuasion, active listening, conflict resolution, cross-cultural communication — the practical toolkit for leading in any professional setting worldwide.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#7B1FA2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">L</div>
+        <div><div class="f-name">Liberal Arts Faculty</div><div class="f-title">Established 2022 · Core soft skills course</div></div>
+      </div>
+      <a href="https://youtu.be/MYRDWe8yTus" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#7B1FA2">Semester 1</span>
+      <div class="cc-name">Leadership through Film</div>
+      <div class="cc-name-kr">영화로 공부하는 리더십</div>
+      <div class="cc-desc">Analyze leadership styles through iconic films — from Invictus to The Intern. Apply cinematic storytelling to personal branding and organizational leadership.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#7B1FA2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">L</div>
+        <div><div class="f-name">Liberal Arts Faculty</div><div class="f-title">2026 new production · Latest content</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=3NMcHPPKzT8&amp;t=30s" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#7B1FA2">Semester 1 + 2</span>
+      <div class="cc-name">Successful Speech by Professional Announcers</div>
+      <div class="cc-name-kr">아나운서에게 배우는 성공 스피치</div>
+      <div class="cc-desc">Learn from real Korean broadcast professionals — voice projection, stage presence, script writing, impromptu speaking, and camera confidence.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#7B1FA2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">L</div>
+        <div><div class="f-name">Professional Announcer Faculty</div><div class="f-title">Industry expert · Real broadcast experience</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=hO2LV9mtxeQ" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+  </div>
+
+  <div class="outcomes">
+    <h3>🏆 What You'll Gain After Completion</h3>
+    <div class="outcomes-grid">
+      <div class="outcome-item"><span class="oi-icon">📜</span> CUFS Micro-Degree Certificate</div>
+      <div class="outcome-item"><span class="oi-icon">🎤</span> Professional public speaking &amp; presentation ability</div>
+      <div class="outcome-item"><span class="oi-icon">📖</span> Storytelling framework for any platform (stage, video, text)</div>
+      <div class="outcome-item"><span class="oi-icon">🎬</span> Camera confidence &amp; broadcast-quality delivery</div>
+      <div class="outcome-item"><span class="oi-icon">👔</span> Cross-cultural communication for global workplaces</div>
+      <div class="outcome-item"><span class="oi-icon">🌟</span> Leadership mindset from history's greatest change-makers</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MD 3: YouTube Master -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="md-section">
+  <div class="md-title-bar">
+    <div class="md-badge" style="background:linear-gradient(135deg,#C62828,#EF5350)">▶️</div>
+    <div>
+      <h2>YouTube Master</h2>
+      <div class="kr">유튜브 마스터</div>
+      <div class="dept">School of Business Administration · CUFS</div>
+    </div>
+  </div>
+
+  <div class="purpose-box" style="border-color:#C62828">
+    <h3 style="color:#C62828">🎯 Why This Program Exists</h3>
+    <p>YouTube isn't a hobby — it's a <strong>career platform with $31+ billion in annual creator payouts.</strong> This program takes you from zero to professional creator: channel strategy, video production, and marketing. Your portfolio isn't a resume — <strong>it's a live, monetized YouTube channel you build during the course.</strong></p>
+  </div>
+
+  <div class="quick-stats">
+    <div class="qs"><div class="num">3</div><div class="lbl">Courses</div></div>
+    <div class="qs"><div class="num">9</div><div class="lbl">Credits</div></div>
+    <div class="qs"><div class="num">2</div><div class="lbl">Semesters</div></div>
+    <div class="qs"><div class="num">~1yr</div><div class="lbl">To Complete</div></div>
+  </div>
+
+  <div class="courses-grid">
+    <div class="course-card">
+      <span class="cc-semester" style="background:#C62828">Semester 2</span>
+      <div class="cc-name">YouTube Basics</div>
+      <div class="cc-name-kr">YouTube 첫걸음</div>
+      <div class="cc-desc">Channel setup, content planning, thumbnail design, SEO optimization, and the YouTube algorithm. Launch your first video by course end.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#C62828;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">P</div>
+        <div><div class="f-name">Prof. Park In-young (박인영)</div><div class="f-title">Business Dept. · Digital Marketing &amp; YouTube specialist</div></div>
+      </div>
+      <a href="https://youtu.be/ou7BK6qnOpA" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#C62828">Semester 1</span>
+      <div class="cc-name">YouTube Planning &amp; Marketing</div>
+      <div class="cc-name-kr">YouTube 기획과 마케팅</div>
+      <div class="cc-desc">Strategic content planning — niche selection, content calendar, brand collaborations, monetization strategies, and analytics-driven channel growth.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#C62828;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">P</div>
+        <div><div class="f-name">Prof. Park In-young (박인영)</div><div class="f-title">Marketing Management · AI Digital Content expert</div></div>
+      </div>
+      <a href="https://youtu.be/8eUZlFjhV0Q" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card" style="grid-column:1/3">
+      <span class="cc-semester" style="background:#C62828">Semester 2</span>
+      <div class="cc-name">YouTube Video Shooting &amp; Editing</div>
+      <div class="cc-name-kr">YouTube 영상촬영과 편집</div>
+      <div class="cc-desc">Professional-level video production — camera techniques, lighting, audio, editing software (Premiere Pro / DaVinci), color grading, transitions. Multi-platform export for YouTube, TikTok, Instagram Reels.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#C62828;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">L</div>
+        <div><div class="f-name">Prof. Lee Su-ji (이수지)</div><div class="f-title">Business Dept. · Professional video production instructor</div></div>
+      </div>
+      <a href="https://youtu.be/KdEzvfysGFo" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+  </div>
+
+  <div class="outcomes">
+    <h3>🏆 What You'll Gain After Completion</h3>
+    <div class="outcomes-grid">
+      <div class="outcome-item"><span class="oi-icon">📜</span> CUFS Micro-Degree Certificate</div>
+      <div class="outcome-item"><span class="oi-icon">📺</span> A live YouTube channel (your portfolio)</div>
+      <div class="outcome-item"><span class="oi-icon">🎬</span> Professional video shooting &amp; editing skills</div>
+      <div class="outcome-item"><span class="oi-icon">📈</span> Content marketing &amp; monetization knowledge</div>
+      <div class="outcome-item"><span class="oi-icon">💰</span> Ability to earn in USD from anywhere</div>
+      <div class="outcome-item"><span class="oi-icon">🌍</span> Platform-agnostic skills (YouTube, TikTok, Reels)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MD 4: K-Beauty Styling -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="md-section">
+  <div class="md-title-bar">
+    <div class="md-badge" style="background:linear-gradient(135deg,#AD1457,#F06292)">💄</div>
+    <div>
+      <h2>Basic K-Beauty Styling</h2>
+      <div class="kr">기초 K-뷰티 스타일링</div>
+      <div class="dept">K-Beauty Department · CUFS</div>
+    </div>
+  </div>
+
+  <div class="purpose-box" style="border-color:#AD1457">
+    <h3 style="color:#AD1457">🎯 Why This Program Exists</h3>
+    <p>The K-beauty market is <strong>$13.54B today → $22.37B by 2031</strong> (CAGR 8.73%). Korean cosmetics just surpassed France as the world's #1 beauty exporter. This program teaches you the <strong>four pillars of K-Beauty</strong> — color, nails, skin, makeup — so you can ride this wave as an entrepreneur, artist, or creator. <strong>From skill to salon owner, in one year, online.</strong></p>
+  </div>
+
+  <div class="quick-stats">
+    <div class="qs"><div class="num">4</div><div class="lbl">Courses</div></div>
+    <div class="qs"><div class="num">10</div><div class="lbl">Credits</div></div>
+    <div class="qs"><div class="num">2</div><div class="lbl">Semesters</div></div>
+    <div class="qs"><div class="num">~1yr</div><div class="lbl">To Complete</div></div>
+  </div>
+
+  <div class="courses-grid">
+    <div class="course-card">
+      <span class="cc-semester" style="background:#AD1457">Semester 1</span>
+      <div class="cc-name">Beauty Color Theory</div>
+      <div class="cc-name-kr">미용색채학</div>
+      <div class="cc-desc">The science of color in beauty — personal color analysis (Spring/Summer/Fall/Winter), color harmony, palette creation for diverse skin tones, and trend forecasting.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#AD1457;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">K</div>
+        <div><div class="f-name">K-Beauty Department Faculty</div><div class="f-title">1st year foundation · 2024 production</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=0s5sPZYuX9k&amp;t=115s" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#AD1457">Semester 1</span>
+      <div class="cc-name">Basic Nail Care</div>
+      <div class="cc-name-kr">기초네일케어</div>
+      <div class="cc-desc">Professional nail care — manicure/pedicure techniques, gel nail basics, nail art design, hygiene standards, and salon-grade tool management.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#AD1457;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">H</div>
+        <div><div class="f-name">Prof. Han Song-i (한송이)</div><div class="f-title">K-Beauty Dept. · Nail art specialist</div></div>
+      </div>
+      <a href="https://youtu.be/pTvt4ruBGrw" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#AD1457">Semester 1</span>
+      <div class="cc-name">Basic Skin Care Practice</div>
+      <div class="cc-name-kr">기초피부관리 실습</div>
+      <div class="cc-desc">Korean skincare secrets — skin type analysis, cleansing routines, facial massage, mask therapy, and the famous 10-step routine. Ingredient science included.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#AD1457;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">K</div>
+        <div><div class="f-name">Prof. Kim Ji-young (김지영)</div><div class="f-title">K-Beauty Dept. · Skin care &amp; body therapy specialist</div></div>
+      </div>
+      <a href="https://youtu.be/_JKTA5dyHis" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#AD1457">Semester 2</span>
+      <div class="cc-name">Basic Makeup Practice</div>
+      <div class="cc-name-kr">기초메이크업실습</div>
+      <div class="cc-desc">K-beauty makeup techniques — base, contouring, eye makeup, lip design, and the signature "glass skin" and "gradient lip" looks that define K-beauty worldwide.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#AD1457;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">J</div>
+        <div><div class="f-name">Prof. Jeong Hyun-hyung (정현형)</div><div class="f-title">K-Beauty Dept. · Makeup practice specialist</div></div>
+      </div>
+      <a href="https://youtu.be/HiJdCKb9tw4" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+  </div>
+
+  <div class="outcomes">
+    <h3>🏆 What You'll Gain After Completion</h3>
+    <div class="outcomes-grid">
+      <div class="outcome-item"><span class="oi-icon">📜</span> CUFS Micro-Degree Certificate</div>
+      <div class="outcome-item"><span class="oi-icon">💅</span> 4 professional beauty skill sets (color, nail, skin, makeup)</div>
+      <div class="outcome-item"><span class="oi-icon">🏪</span> Foundation to open your own K-Beauty salon</div>
+      <div class="outcome-item"><span class="oi-icon">📱</span> K-Beauty content creation knowledge</div>
+      <div class="outcome-item"><span class="oi-icon">🌏</span> Access to the $22B+ global K-beauty market</div>
+      <div class="outcome-item"><span class="oi-icon">🇰🇷</span> Direct connection to Korean beauty industry trends</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MD 5: Business Korean -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="md-section">
+  <div class="md-title-bar">
+    <div class="md-badge" style="background:linear-gradient(135deg,#00695C,#4DB6AC)">🗣️</div>
+    <div>
+      <h2>Business Korean</h2>
+      <div class="kr">비즈니스 한국어</div>
+      <div class="dept">Korean Language Department · CUFS</div>
+    </div>
+  </div>
+
+  <div class="purpose-box" style="border-color:#00695C">
+    <h3 style="color:#00695C">🎯 Why This Program Exists</h3>
+    <p>Samsung, LG, Hyundai, and 300+ Korean companies are expanding across the Global South. They need local talent who <strong>speaks business Korean.</strong> This program takes you from zero to <strong>TOPIK 3~4 level professional fluency</strong> — emails, meetings, presentations, negotiations. Plus: your Micro-Degree earns <strong>K-Point +10 for the Korean employment visa (E-7-4)</strong>, the most direct path to a career in Korea.</p>
+  </div>
+
+  <div class="quick-stats">
+    <div class="qs"><div class="num">4</div><div class="lbl">Courses</div></div>
+    <div class="qs"><div class="num">10</div><div class="lbl">Credits</div></div>
+    <div class="qs"><div class="num">2</div><div class="lbl">Semesters</div></div>
+    <div class="qs"><div class="num">~1yr</div><div class="lbl">To Complete</div></div>
+  </div>
+
+  <div class="courses-grid">
+    <div class="course-card">
+      <span class="cc-semester" style="background:#00695C">Semester 2</span>
+      <div class="cc-name">Introduction to Business Korean</div>
+      <div class="cc-name-kr">비즈니스 한국어 입문</div>
+      <div class="cc-desc">Your first step — greetings, self-introduction, office vocabulary, email writing, and phone etiquette in Korean corporate culture.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#00695C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">S</div>
+        <div><div class="f-name">Prof. Song Eun-jung (송은정)</div><div class="f-title">Korean Dept. &amp; Graduate School · Korean teaching methods expert</div></div>
+      </div>
+      <a href="https://youtu.be/rzVLDPoO6vs" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#00695C">Semester 2</span>
+      <div class="cc-name">Practical Business Reading &amp; Writing</div>
+      <div class="cc-name-kr">실전비즈니스 읽기쓰기</div>
+      <div class="cc-desc">Read contracts, reports, memos. Write professional emails and business correspondence with proper honorifics (존댓말).</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#00695C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">A</div>
+        <div><div class="f-name">Prof. Ahn Jung-min (안정민)</div><div class="f-title">Korean Dept. · Business Korean specialist</div></div>
+      </div>
+      <a href="https://youtu.be/98BW_tuOt5Y" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#00695C">Semester 1</span>
+      <div class="cc-name">Practical Business Speaking &amp; Listening</div>
+      <div class="cc-name-kr">실전비즈니스 말하기듣기</div>
+      <div class="cc-desc">Real-world conversations — meetings, negotiations, client calls, workplace small talk. Role-play exercises with authentic Korean business scenarios.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#00695C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">K</div>
+        <div><div class="f-name">Korean Department Faculty</div><div class="f-title">2026 new production · Latest curriculum</div></div>
+      </div>
+      <a href="https://youtu.be/LzZiR0DE80Y" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+    <div class="course-card">
+      <span class="cc-semester" style="background:#00695C">Semester 1</span>
+      <div class="cc-name">Business Korean Presentation</div>
+      <div class="cc-name-kr">비즈니스 한국어 프레젠테이션</div>
+      <div class="cc-desc">Deliver professional presentations in Korean — slide design, data storytelling, persuasive speaking, Q&amp;A handling, and formal business etiquette.</div>
+      <div class="cc-faculty">
+        <div style="width:32px;height:32px;border-radius:50%;background:#00695C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700">K</div>
+        <div><div class="f-name">Korean Department Faculty</div><div class="f-title">4th year advanced · Presentation mastery</div></div>
+      </div>
+      <a href="https://www.youtube.com/watch?v=p1LvtaFLwCk" target="_blank" class="cc-preview">▶️ Watch Lecture Preview</a>
+    </div>
+  </div>
+
+  <div class="outcomes">
+    <h3>🏆 What You'll Gain After Completion</h3>
+    <div class="outcomes-grid">
+      <div class="outcome-item"><span class="oi-icon">📜</span> CUFS Micro-Degree Certificate</div>
+      <div class="outcome-item"><span class="oi-icon">🗣️</span> TOPIK 3~4 level business Korean proficiency</div>
+      <div class="outcome-item"><span class="oi-icon">🇰🇷</span> K-Point +10 for Korean employment visa (E-7-4)</div>
+      <div class="outcome-item"><span class="oi-icon">📧</span> Professional Korean email &amp; document writing</div>
+      <div class="outcome-item"><span class="oi-icon">🤝</span> Meeting, negotiation &amp; presentation skills in Korean</div>
+      <div class="outcome-item"><span class="oi-icon">💼</span> Career bridge to Samsung, LG, Hyundai, Lotte, etc.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- WHY CUFS (Common Section) -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div style="max-width:940px;margin:0 auto;padding:0 20px">
+  <div class="why-cufs">
+    <h2>Why <span class="gold">CUFS</span>?</h2>
+    <p class="sub">Korea's #1 Foreign Language University with full AI support — this is not a random online course.</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="wc-icon">🏛️</div>
+        <h4>Government Accredited</h4>
+        <p>Fully accredited by the Korean Ministry of Education. Part of the prestigious Hankuk University of Foreign Studies (HUFS) system — established 1954.</p>
+      </div>
+      <div class="why-card">
+        <div class="wc-icon">🤖</div>
+        <h4>AI-Powered Learning</h4>
+        <p>AI Tutor, AI Chatbot, AI multilingual subtitles, and generative AI content — CUFS won the <strong>Korea AI Innovation Award</strong>. Learn with technology, not despite it.</p>
+      </div>
+      <div class="why-card">
+        <div class="wc-icon">📊</div>
+        <h4>Proven Track Record</h4>
+        <p><strong>52/52 evaluation indicators</strong> passed in 2025 national remote university assessment. 2 out of 3 students receive scholarship support.</p>
+      </div>
+      <div class="why-card">
+        <div class="wc-icon">👨‍🏫</div>
+        <h4>World-Class Professors</h4>
+        <p>The most native-language professors of any Korean cyber university. PhD-level tutors for 1:1 learning support. 24/7 help desk (even from overseas: +82-6907-6703).</p>
+      </div>
+      <div class="why-card">
+        <div class="wc-icon">🌐</div>
+        <h4>10 Faculties</h4>
+        <p>English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology.</p>
+      </div>
+      <div class="why-card">
+        <div class="wc-icon">🇰🇷</div>
+        <h4>K-Career Magnet</h4>
+        <p>Micro-Degree completion → <strong>K-Point +10</strong> for Korean employment visa (E-7-4). Your fastest path from education to working in Korea.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SPECIAL EXTRAS ═══ -->
+<div class="specials">
+  <h2>✨ What Makes Dream Path <em>Different</em></h2>
+  <div class="specials-grid">
+    <div class="special-card">
+      <div class="sc-icon">🆓</div>
+      <h4>Start FREE — Korean Alphabet in 2 Weeks</h4>
+      <p>Not sure if this is for you? Try the free Hangul course first. No payment, no commitment. Just see if you like learning Korean.</p>
+      <div class="sc-tag">FREE ENTRY POINT</div>
+    </div>
+    <div class="special-card">
+      <div class="sc-icon">🏠</div>
+      <h4>DOME — Your Local Learning Hub</h4>
+      <p>5% of tuition goes back to your country to build a physical learning center (DOME = Dream · Opportunity · Meeting · Education). More students = faster DOME.</p>
+      <div class="sc-tag">COMMUNITY INVESTMENT</div>
+    </div>
+    <div class="special-card">
+      <div class="sc-icon">🏆</div>
+      <h4>Scholarship Available</h4>
+      <p>Scholarship criteria vary by country — based on academic performance, coursework &amp; assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.</p>
+      <div class="sc-tag">MERIT-BASED</div>
+    </div>
+    <div class="special-card">
+      <div class="sc-icon">🌍</div>
+      <h4>Global Partner Network</h4>
+      <p>Dream Path works with trusted local education partners in each country. Your local coordinator is your guide, mentor, and support — helping you every step of the way.</p>
+      <div class="sc-tag">LOCAL SUPPORT IN YOUR COUNTRY</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PRICE SECTION ═══ -->
+<div class="price-section">
+  <div class="price-box">
+    <h3>💰 How Much Does It Actually Cost?</h3>
+
+    <!-- Side-by-side cost breakdown -->
+    <div class="cost-breakdown">
+      <div class="cost-col offline">
+        <h4>❌ STUDY IN KOREA IN PERSON (1 YEAR)</h4>
+        <div class="cost-row"><span class="cr-label">🎓 Tuition</span><span class="cr-amt">$5,000 ~ $10,000</span></div>
+        <div class="cost-row"><span class="cr-label">✈️ Round-trip Flight</span><span class="cr-amt">$800 ~ $1,500</span></div>
+        <div class="cost-row"><span class="cr-label">🏠 Housing (12 months)</span><span class="cr-amt">$4,000 ~ $8,000</span></div>
+        <div class="cost-row"><span class="cr-label">📋 Visa &amp; Insurance</span><span class="cr-amt">$200 ~ $500</span></div>
+        <div class="cost-row"><span class="cr-label">🍚 Food &amp; Living</span><span class="cr-amt">$3,000 ~ $6,000</span></div>
+        <div class="cost-total"><span>TOTAL</span><span>$15,000 ~ $30,000</span></div>
+      </div>
+      <div class="cost-col online">
+        <h4>✅ DREAM PATH MICRO-DEGREE (ONLINE)</h4>
+        <div class="cost-row"><span class="cr-label">🎓 Tuition (12 credits × $60)</span><span class="cr-amt">$720</span></div>
+        <div class="cost-row"><span class="cr-label">📋 Application Fee</span><span class="cr-amt">$22</span></div>
+        <div class="cost-row"><span class="cr-label">✈️ Flight</span><span class="cr-amt" style="color:#2E7D32">$0</span></div>
+        <div class="cost-row"><span class="cr-label">🏠 Housing</span><span class="cr-amt" style="color:#2E7D32">$0</span></div>
+        <div class="cost-row"><span class="cr-label">🍚 Food &amp; Living</span><span class="cr-amt" style="color:#2E7D32">$0</span></div>
+        <div class="cost-total"><span>TOTAL</span><span>$742</span></div>
+      </div>
+    </div>
+
+    <!-- Savings banner -->
+    <div class="savings-banner">
+      <div class="sb-label">YOU SAVE</div>
+      <div class="sb-amount">$14,258 ~ $29,258</div>
+      <div class="sb-pct">Up to 97% less than studying in Korea</div>
+    </div>
+
+    <!-- Visual bar -->
+    <div style="font-size:.7em;color:#78909c;text-align:left;margin-bottom:4px;">Cost comparison (based on average $22,500 vs $742)</div>
+    <div class="savings-bar">
+      <div class="bar-dp" style="width:3.3%;">$742</div>
+      <div class="bar-save" style="width:96.7%;">💰 You save $21,758</div>
+    </div>
+
+    <!-- Zero cost items -->
+    <div class="zero-list">
+      <div class="zero-item">✈️ No Flight</div>
+      <div class="zero-item">🏠 No Housing</div>
+      <div class="zero-item">📋 No Visa</div>
+      <div class="zero-item">🍚 No Living Expenses</div>
+      <div class="zero-item">🏡 Study from Home</div>
+    </div>
+
+    <div class="price-details">
+      <strong>$60 per credit</strong> (₩83,000) · Full MD = ~12 credits = <strong>~$720 total</strong><br>
+      Application fee: <strong>$22</strong> (₩30,000, one-time) · Admission fee: <strong>Waived</strong> for part-time students<br>
+      Pay in your local currency through your Dream Path partner.<br>
+      <strong>Scholarship:</strong> Criteria vary by country — based on academic performance, coursework &amp; assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CTA ═══ -->
+<div class="cta-section">
+  <h2>Ready to Walk Your Dream Path?</h2>
+  <p>Start with the FREE 2-week Hangul course — no payment needed.</p>
+  <a href="https://koreadreampath.com/" class="cta-btn">🚀 Get Started at koreadreampath.com</a>
+  <div class="cta-contact">
+    📧 <a href="mailto:info@koreadreampath.com">info@koreadreampath.com</a> · 📧 <a href="mailto:kimsonny@cufs.ac.kr">kimsonny@cufs.ac.kr</a> · 🌐 <a href="https://www.cufs.ac.kr/">CUFS Official</a>
+  </div>
+</div>
+
+<div class="footer">
+  © 2026 Korea Dream Path Co., Ltd. × Cyber Hankuk University of Foreign Studies (CUFS)<br>
+  All courses taught in Korean with English subtitles · 100% online via Canvas LMS · AI-powered learning support
+</div>
+
+
+
+</body></html>

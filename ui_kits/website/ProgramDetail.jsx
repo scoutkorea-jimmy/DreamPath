@@ -81,27 +81,27 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '🤖',
         title: 'AI-Powered Learning',
-        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI support shaped into real coursework.',
+        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into real coursework. Winner of the Korea AI Innovation Award.',
       },
       {
         icon: '📊',
         title: 'Proven Track Record',
-        body: '52/52 evaluation indicators passed in the 2025 national remote university assessment, with strong scholarship support.',
+        body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
       },
       {
-        icon: '🧑‍🏫',
-        title: 'Expert Faculty',
-        body: 'Native-language professors, PhD-level tutors, and direct learner support designed for international students.',
+        icon: '👨‍🏫',
+        title: 'World-Class Faculty',
+        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-6907-6703.',
       },
       {
         icon: '🌐',
-        title: '12 Departments',
-        body: 'Languages, business, K-beauty, safety, counseling, liberal arts, and convergence fields in one system.',
+        title: '10 Faculties',
+        body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
       },
       {
         icon: '🇰🇷',
         title: 'K-Career Magnet',
-        body: 'A practical bridge from study to Korean career pathways, including K-Point aligned employment-visa advantages.',
+        body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
       },
     ],
   } : {
@@ -116,27 +116,27 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '🤖',
         title: 'AI-Powered Learning',
-        body: 'AI Tutor, AI Chatbot, AI multilingual subtitles, and generative AI content support built into the learning experience.',
+        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into the learning experience. Winner of the Korea AI Innovation Award.',
       },
       {
         icon: '📊',
         title: 'Proven Track Record',
-        body: '52/52 evaluation indicators passed in the 2025 national remote university assessment, with strong scholarship support.',
+        body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
       },
       {
-        icon: '🧑‍🏫',
-        title: 'Expert Faculty',
-        body: 'Native-language professors, PhD-level tutors, and direct learner support designed for global students.',
+        icon: '👨‍🏫',
+        title: 'World-Class Faculty',
+        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-6907-6703.',
       },
       {
         icon: '🌐',
-        title: '12 Departments',
-        body: 'English, Chinese, Japanese, Korean, business, K-beauty, safety, counseling, liberal arts, and convergence tracks in one ecosystem.',
+        title: '10 Faculties',
+        body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
       },
       {
         icon: '🇰🇷',
         title: 'K-Career Magnet',
-        body: 'A practical bridge from education to Korean career pathways, including K-Point aligned employment-visa advantages.',
+        body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
       },
     ],
   };
@@ -146,26 +146,26 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '🆓',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
-        body: 'Try the free Hangul starter course first. No payment, no commitment, just a simple way to see if Korean learning fits you.',
+        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
         icon: '🏠',
         title: 'DOME — Your Local Learning Hub',
-        body: '5% of tuition goes back to your country to help build a local learning center. More students means faster DOME growth.',
+        body: '5% of tuition goes back to your country to help build a physical learning center. DOME stands for Dream · Opportunity · Meeting · Education. More students means faster DOME growth.',
         tag: 'Community Investment',
       },
       {
         icon: '🏆',
-        title: 'Up to 100% Scholarship',
-        body: 'Grade A is 30% off, Grade B is 50% off, and Grade C can become fully funded when 30+ students join from one region.',
+        title: 'Scholarship Available',
+        body: 'Scholarship criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.',
         tag: 'Merit-Based',
       },
       {
         icon: '🌍',
-        title: 'Scout Network — 170 Countries Strong',
-        body: 'Dream Path is built on the World Scouting network, with local scout leaders acting as trusted guides and mentors.',
-        tag: 'Trusted Network',
+        title: 'Global Partner Network',
+        body: 'Dream Path works with trusted local education partners in each country. Your local coordinator is your guide, mentor, and support — helping you every step of the way.',
+        tag: 'Local Support in Your Country',
       },
     ],
   } : {
@@ -174,56 +174,65 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '🆓',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
-        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment, just a low-risk entry point.',
+        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
         icon: '🏠',
         title: 'DOME — Your Local Learning Hub',
-        body: '5% of tuition goes back to your country to help build a physical learning center. More students means faster DOME growth.',
+        body: '5% of tuition goes back to your country to help build a physical learning center. DOME stands for Dream · Opportunity · Meeting · Education. More students means faster DOME growth.',
         tag: 'Community Investment',
       },
       {
         icon: '🏆',
-        title: 'Up to 100% Scholarship',
-        body: 'Grade A gives 30% off, Grade B gives 50% off, and Grade C can become fully funded when 30+ students join from one region.',
+        title: 'Scholarship Available',
+        body: 'Scholarship criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.',
         tag: 'Merit-Based',
       },
       {
         icon: '🌍',
-        title: 'Scout Network — 170 Countries Strong',
-        body: 'Dream Path is built on the World Scouting network. Your local scout leader becomes your guide, mentor, and trusted support.',
-        tag: 'Trusted Network',
+        title: 'Global Partner Network',
+        body: 'Dream Path works with trusted local education partners in each country. Your local coordinator is your guide, mentor, and support — helping you every step of the way.',
+        tag: 'Local Support in Your Country',
       },
     ],
   };
-  const costSection = isKo ? {
+  const costSection = {
     title: 'How Much Does It Actually Cost?',
-    compareLeftLabel: 'Study in Korea (1 year)',
-    compareLeftValue: '$5,000-$15,000',
-    compareLeftSub: '+ flight + housing + visa + food',
-    compareRightLabel: 'Dream Path Micro-Degree',
-    compareRightValue: '~$720',
-    compareRightSub: 'Full micro-degree (12 credits) · $60/credit',
-    lines: [
-      '$60 per credit (about KRW 83,000) · Full micro-degree = about 12 credits = about $720 total',
-      'Application fee: $22 (KRW 30,000, one-time) · Admission fee: waived for part-time students',
-      'Pay in your local currency through your Dream Path partner',
-      'With scholarship: Grade A about $504 · Grade B about $360 · Grade C $0',
+    offlineLabel: 'Study in Korea in person (1 year)',
+    offlineRows: [
+      { icon: '🎓', label: 'Tuition', amount: '$5,000 – $10,000' },
+      { icon: '✈️', label: 'Round-trip flight', amount: '$800 – $1,500' },
+      { icon: '🏠', label: 'Housing (12 months)', amount: '$4,000 – $8,000' },
+      { icon: '📋', label: 'Visa & insurance', amount: '$200 – $500' },
+      { icon: '🍚', label: 'Food & living', amount: '$3,000 – $6,000' },
     ],
-  } : {
-    title: 'How Much Does It Actually Cost?',
-    compareLeftLabel: 'Study in Korea (1 year)',
-    compareLeftValue: '$5,000-$15,000',
-    compareLeftSub: '+ flight + housing + visa + food',
-    compareRightLabel: 'Dream Path Micro-Degree',
-    compareRightValue: '~$720',
-    compareRightSub: 'Full micro-degree (12 credits) · $60/credit',
-    lines: [
-      '$60 per credit (about KRW 83,000) · Full micro-degree = about 12 credits = about $720 total',
-      'Application fee: $22 (KRW 30,000, one-time) · Admission fee: waived for part-time students',
-      'Pay in your local currency through your Dream Path partner',
-      'With scholarship: Grade A about $504 · Grade B about $360 · Grade C $0',
+    offlineTotal: '$15,000 – $30,000',
+    onlineLabel: 'Dream Path Micro-Degree (online)',
+    onlineRows: [
+      { icon: '🎓', label: 'Tuition (12 credits × $60)', amount: '$720' },
+      { icon: '📋', label: 'Application fee', amount: '$22' },
+      { icon: '✈️', label: 'Flight', amount: '$0', zero: true },
+      { icon: '🏠', label: 'Housing', amount: '$0', zero: true },
+      { icon: '🍚', label: 'Food & living', amount: '$0', zero: true },
+    ],
+    onlineTotal: '$742',
+    savingsLabel: 'You save',
+    savingsAmount: '$14,258 – $29,258',
+    savingsPct: 'Up to 97% less than studying in Korea',
+    barNote: 'Cost comparison (average $22,500 vs $742)',
+    zeroItems: [
+      '✈️ No Flight',
+      '🏠 No Housing',
+      '📋 No Visa',
+      '🍚 No Living Expenses',
+      '🏡 Study from Home',
+    ],
+    details: [
+      { html: '<strong>$60 per credit</strong> (about ₩83,000) · Full micro-degree ≈ 12 credits ≈ <strong>$720 total</strong>' },
+      { html: 'Application fee: <strong>$22</strong> (₩30,000, one-time) · Admission fee: <strong>waived</strong> for part-time students' },
+      { html: 'Pay in your local currency through your Dream Path partner.' },
+      { html: '<strong>Scholarship:</strong> criteria vary by country — based on academic performance, coursework &amp; assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.' },
     ],
   };
 
@@ -378,21 +387,55 @@ function ProgramDetail({ go, lang, programId, c }) {
               <div className="pd-section-eyebrow">Pricing</div>
               <h3 className={isKo ? '' : 'en'}>{costSection.title}</h3>
             </div>
-            <div className="pd-cost-compare">
-              <div className="pd-cost-card is-old">
-                <div className="pd-cost-label">{costSection.compareLeftLabel}</div>
-                <div className="pd-cost-value old">{costSection.compareLeftValue}</div>
-                <div className="pd-cost-sub">{costSection.compareLeftSub}</div>
+            <div className="pd-cost-breakdown">
+              <div className="pd-cost-col is-offline">
+                <h4>✗ {costSection.offlineLabel}</h4>
+                {costSection.offlineRows.map((row) => (
+                  <div key={row.label} className="pd-cost-row">
+                    <span className="pd-cost-row-label"><span aria-hidden="true">{row.icon}</span> {row.label}</span>
+                    <span className="pd-cost-row-amt">{row.amount}</span>
+                  </div>
+                ))}
+                <div className="pd-cost-col-total">
+                  <span>Total</span>
+                  <span>{costSection.offlineTotal}</span>
+                </div>
               </div>
-              <div className="pd-cost-arrow" aria-hidden="true">→</div>
-              <div className="pd-cost-card is-new">
-                <div className="pd-cost-label">{costSection.compareRightLabel}</div>
-                <div className="pd-cost-value new">{costSection.compareRightValue}</div>
-                <div className="pd-cost-sub">{costSection.compareRightSub}</div>
+              <div className="pd-cost-col is-online">
+                <h4>✓ {costSection.onlineLabel}</h4>
+                {costSection.onlineRows.map((row) => (
+                  <div key={row.label} className="pd-cost-row">
+                    <span className="pd-cost-row-label"><span aria-hidden="true">{row.icon}</span> {row.label}</span>
+                    <span className={'pd-cost-row-amt' + (row.zero ? ' is-zero' : '')}>{row.amount}</span>
+                  </div>
+                ))}
+                <div className="pd-cost-col-total">
+                  <span>Total</span>
+                  <span>{costSection.onlineTotal}</span>
+                </div>
               </div>
             </div>
-            <div className="pd-cost-lines">
-              {costSection.lines.map((line) => <p key={line}>{line}</p>)}
+            <div className="pd-savings-banner">
+              <div className="pd-savings-label">{costSection.savingsLabel}</div>
+              <div className="pd-savings-amount">{costSection.savingsAmount}</div>
+              <div className="pd-savings-pct">{costSection.savingsPct}</div>
+            </div>
+            <div className="pd-savings-bar-wrap">
+              <div className="pd-savings-bar-note">{costSection.barNote}</div>
+              <div className="pd-savings-bar" role="img" aria-label={costSection.savingsPct}>
+                <div className="pd-savings-bar-dp" style={{width: '3.3%'}}>$742</div>
+                <div className="pd-savings-bar-save" style={{width: '96.7%'}}>You save $21,758</div>
+              </div>
+            </div>
+            <div className="pd-zero-list">
+              {costSection.zeroItems.map((item) => (
+                <span key={item} className="pd-zero-chip">{item}</span>
+              ))}
+            </div>
+            <div className="pd-cost-details">
+              {costSection.details.map((line, i) => (
+                <p key={i} dangerouslySetInnerHTML={{__html: line.html}} />
+              ))}
             </div>
           </section>
         </div>

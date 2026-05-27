@@ -1091,7 +1091,10 @@ const CSP = [
   // API + asset calls are all same-origin. wss/ws too in case future
   // realtime endpoints attach.
   "connect-src 'self'",
-  "frame-ancestors 'none'",
+  // 'self' (not 'none') so the admin's Live Preview iframe — which is
+  // same-origin — can embed the public SPA. Cross-origin clickjacking is
+  // still blocked because only same-origin frames are allowed.
+  "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
@@ -1105,7 +1108,9 @@ function withSecurityHeaders(resp) {
   h.set('Content-Security-Policy', CSP);
   h.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   h.set('X-Content-Type-Options', 'nosniff');
-  h.set('X-Frame-Options', 'DENY');
+  // SAMEORIGIN (not DENY) so the admin can iframe the public SPA for the
+  // Live Preview. Cross-origin embedding remains blocked.
+  h.set('X-Frame-Options', 'SAMEORIGIN');
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=()');
   h.set('Cross-Origin-Opener-Policy', 'same-origin');

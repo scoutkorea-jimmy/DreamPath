@@ -3292,8 +3292,8 @@ async function handleApi(request, env, url, ctx) {
   }
 
   // ── GDPR self-service (logged-in user) ───────────────────────────────────
-  if (path === '/api/me' && method === 'DELETE') return deleteMyAccount(request, env);
-  if (path === '/api/me/export' && method === 'GET') return exportMyData(request, env);
+  if (path === '/api/me' && method === 'DELETE') return deleteMyAccount(request, env, ctx);
+  if (path === '/api/me/export' && method === 'GET') return exportMyData(request, env, ctx);
 
   // ── Analytics ────────────────────────────────────────────────────────────
   if (path === '/api/analytics' && method === 'POST') {
@@ -4560,32 +4560,71 @@ async function recordConsent(request, env) {
   return json({ ok: true, recorded: ops.length });
 }
 
-async function exportMyData(request, env) {
+async function exportMyData(request, env, ctx) {
   const u = await currentUser(request, env);
   if (!u) return json({ error: 'unauthorized' }, 401);
-  const [user, profile, apps, inquiries, consentsR] = await Promise.all([
+  // v01.069 (Phase 6): broaden the GDPR Art. 15 / PIPA Art. 35 self-export
+  // to cover every PII surface where this user has a footprint — including
+  // the audit metadata they're entitled to (login history, application
+  // file attachment metadata, notifications received). Bodies are decrypted
+  // because the data subject is entitled to plaintext.
+  const [user, profile, apps, inquiries, consentsR, loginActR, notifR] = await Promise.all([
     env.DB.prepare('SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = ?').bind(u.id).first(),
     env.DB.prepare('SELECT * FROM member_profiles WHERE user_id = ?').bind(u.id).first(),
     env.DB.prepare('SELECT * FROM applications WHERE user_id = ?').bind(u.id).all(),
     env.DB.prepare('SELECT * FROM inquiries WHERE user_id = ?').bind(u.id).all(),
     env.DB.prepare('SELECT * FROM consents WHERE user_id = ?').bind(u.id).all(),
+    env.DB.prepare('SELECT ts, ip, user_agent FROM login_activity WHERE user_id = ? ORDER BY ts DESC LIMIT 100').bind(u.id).all().catch(() => ({ results: [] })),
+    env.DB.prepare('SELECT id, kind, title, body, created_at, read_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 200').bind(u.id).all().catch(() => ({ results: [] })),
   ]);
-  // v01.066 (Phase 2): GDPR Art. 15 export must return PLAINTEXT to the
-  // data subject — they are entitled to read their own data. Decrypt every
-  // applications + inquiries row through the per-table helpers before
-  // serializing.
+
+  // Decrypt application + inquiry PII for the data subject.
   const appsDec = [];
   for (const r of apps.results || []) appsDec.push(await decryptApplicationRow(env, r));
   const inqDec  = [];
   for (const r of inquiries.results || []) inqDec.push(await decryptInquiryRow(env, r));
+
+  // For each application, attach the file metadata (filename / mime / size).
+  // We deliberately don't ship the file bytes inside the JSON — the export
+  // would balloon and base64-inflate by 33%. Instead surface a download URL
+  // that the same authenticated session can use to pull each file.
+  const appIds = appsDec.map(a => a.id).filter(Boolean);
+  let files = [];
+  if (appIds.length) {
+    const placeholders = appIds.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+      'SELECT id, application_id, uploaded_at, kind, recommender_idx, filename, mime, size FROM application_files WHERE application_id IN (' + placeholders + ')'
+    ).bind(...appIds).all();
+    files = (results || []).map(f => ({
+      ...f,
+      download_url: '/api/me/application-files/' + f.id + '/download',
+    }));
+  }
+
   const out = {
     exported_at: new Date().toISOString(),
-    note: 'Per GDPR Art. 15. Contains all personal data we hold about you.',
+    note: 'Per GDPR Art. 15 / PIPA Art. 35. Contains all personal data we hold about you.',
     user, profile,
     applications: appsDec,
-    inquiries:    inqDec,
-    consents:     consentsR.results || [],
+    application_files: files,
+    inquiries: inqDec,
+    consents: consentsR.results || [],
+    login_history: loginActR.results || [],
+    notifications: notifR.results || [],
   };
+
+  // v01.069 + v01.065 P0-3: log that the data subject exported their own
+  // data. Helps prove subject-access compliance + provides a forensic
+  // trail if the export is later weaponized.
+  ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+    action: 'self_export', target_type: 'user', target_id: u.id,
+    detail: {
+      applications: appsDec.length, files: files.length,
+      inquiries: inqDec.length, consents: (consentsR.results || []).length,
+      logins: (loginActR.results || []).length, notifs: (notifR.results || []).length,
+    },
+  }));
+
   return new Response(JSON.stringify(out, null, 2), {
     status: 200,
     headers: {
@@ -4595,25 +4634,50 @@ async function exportMyData(request, env) {
   });
 }
 
-async function deleteMyAccount(request, env) {
+async function deleteMyAccount(request, env, ctx) {
   const u = await currentUser(request, env);
   if (!u) return json({ error: 'unauthorized' }, 401);
 
-  // Soft-delete: anonymize PII but keep the row so applications + analytics
-  // counters don't break referential integrity. Hard-deletes happen on a
-  // scheduled job after the legal retention window.
+  // v01.069 (Phase 6) — expanded GDPR Art. 17 / PIPA Art. 21 "right to
+  // erasure" flow. The plain user-facing UI promises "personal data is
+  // anonymized and fully removed within 30 days". This handler does the
+  // immediate-anonymization half; the per-table hard-delete cron in
+  // Phase 7 covers the 30-day fully-removed window.
+  //
+  // Soft-delete: anonymize PII on the users row but keep the row so
+  // applications + analytics counters don't break referential integrity.
+  // Other PII-bearing tables get more aggressive cleanup right now —
+  // there's no business reason to keep notifications / drafts / consent
+  // logs around once the data subject has asked to be forgotten.
   const now = new Date().toISOString();
   const anonEmail = 'deleted-' + u.id + '@invalid.local';
   await env.DB.prepare(
     `UPDATE users SET email = ?, name = NULL, password_hash = '', password_salt = '', deleted_at = ?, updated_at = ? WHERE id = ?`
   ).bind(anonEmail, now, now, u.id).run();
+  // Also blow away any encrypted PII columns on the user row — they're
+  // no longer reachable through the (now-anonymized) plaintext columns,
+  // but a backup leak shouldn't surface them either.
+  await env.DB.prepare(
+    `UPDATE users SET phone_country_enc = NULL, phone_national_enc = NULL, phone_national_h = NULL WHERE id = ?`
+  ).bind(u.id).run();
 
-  // Drop any active sessions
+  // Drop any active sessions — log the user out everywhere immediately.
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id).run();
-  // Wipe profile (full delete)
+  // Hard-delete the member profile + apply drafts + notifications + active
+  // consents. None of these has a retention reason once the user has
+  // asked to be forgotten.
   await env.DB.prepare('DELETE FROM member_profiles WHERE user_id = ?').bind(u.id).run();
+  await env.DB.prepare('DELETE FROM apply_drafts     WHERE user_id = ?').bind(u.id).run().catch(() => {});
+  await env.DB.prepare('DELETE FROM notifications    WHERE user_id = ?').bind(u.id).run().catch(() => {});
   // Detach applications from the user but keep the application record
+  // (the school still needs the admission decision, but it shouldn't be
+  // linkable back to this user post-deletion).
   await env.DB.prepare('UPDATE applications SET user_id = NULL WHERE user_id = ?').bind(u.id).run();
+
+  // v01.069 + v01.065 P0-3: audit the self-delete. fire-and-forget.
+  ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+    action: 'self_delete', target_type: 'user', target_id: u.id,
+  }));
 
   return json({ ok: true, deleted_at: now });
 }

@@ -4013,12 +4013,12 @@ async function piiBackfillCron(env) {
       // the key is set). Otherwise leave the row in plaintext for next pass.
       if (!Object.values(enc).some(Boolean)) continue;
       await env.DB.prepare(
-        // Mirror submitApplication's NOT NULL tombstone behavior for name/
-        // email; nullable fields get NULL once ciphertext lands.
+        // v01.071 (Phase 7b): NOT NULL on name/email dropped via 0036 →
+        // uniform NULL tombstone across all encrypted fields.
         'UPDATE applications SET ' +
-        '  name = CASE WHEN ? IS NOT NULL THEN \'\' ELSE name END, ' +
+        '  name = CASE WHEN ? IS NOT NULL THEN NULL ELSE name END, ' +
         '  name_enc = COALESCE(?, name_enc), ' +
-        '  email = CASE WHEN ? IS NOT NULL THEN \'\' ELSE email END, ' +
+        '  email = CASE WHEN ? IS NOT NULL THEN NULL ELSE email END, ' +
         '  email_enc = COALESCE(?, email_enc), ' +
         '  email_h = COALESCE(?, email_h), ' +
         '  essay_body = CASE WHEN ? IS NOT NULL THEN NULL ELSE essay_body END, ' +
@@ -4159,13 +4159,14 @@ async function piiBackfillCron(env) {
       // is set). Otherwise leave the row in plaintext for the next pass.
       if (!(nameEnc || emailEnc || subjectEnc || bodyEnc)) continue;
       await env.DB.prepare(
-        // '' (empty string) tombstone — see submitInquiry comment for the
-        // NOT NULL constraint context.
+        // v01.071 (Phase 7b): NOT NULL constraint dropped → store proper
+        // NULL instead of '' tombstone. Existing legacy rows with ''
+        // remain valid (read path treats both the same).
         'UPDATE inquiries SET ' +
-        '  name = \'\', name_enc = COALESCE(?, name_enc), ' +
-        '  email = \'\', email_enc = COALESCE(?, email_enc), email_h = COALESCE(?, email_h), ' +
-        '  subject = \'\', subject_enc = COALESCE(?, subject_enc), ' +
-        '  body = \'\', body_enc = COALESCE(?, body_enc) ' +
+        '  name = NULL, name_enc = COALESCE(?, name_enc), ' +
+        '  email = NULL, email_enc = COALESCE(?, email_enc), email_h = COALESCE(?, email_h), ' +
+        '  subject = NULL, subject_enc = COALESCE(?, subject_enc), ' +
+        '  body = NULL, body_enc = COALESCE(?, body_enc) ' +
         'WHERE id = ?'
       ).bind(nameEnc, emailEnc, emailH, subjectEnc, bodyEnc, iq.id).run();
     }
@@ -5006,17 +5007,13 @@ async function submitInquiry(request, env) {
   const bodyEnc    = await encryptPii(env, bodyRaw);
   const emailH     = await computePiiHmac(env, emailNorm, 'email-hmac');
   // When the operator has set PII_ENCRYPTION_KEY, encryptPii() returns a
-  // ciphertext and we tombstone the plaintext column with '' (empty
-  // string). We can't use NULL here because the legacy schema has
-  // NOT NULL on name / email / subject / body — Phase 7 will rebuild the
-  // table to drop the constraint, but until then '' is the safe sentinel:
-  // - decryptInquiryRow() overwrites it with the decrypted value on read,
-  // - search LIKE '%q%' never matches '',
-  // - storage cost is one byte.
-  const namePlain    = nameEnc    ? '' : nameRaw;
-  const emailPlain   = emailEnc   ? '' : emailNorm;
-  const subjectPlain = subjectEnc ? '' : subjectRaw;
-  const bodyPlain    = bodyEnc    ? '' : bodyRaw;
+  // ciphertext and we NULL the plaintext column. v01.071 (Phase 7b)
+  // dropped the legacy NOT NULL constraint via migration 0036, so we can
+  // store proper NULL now instead of the '' tombstone we used in Phase 1.
+  const namePlain    = nameEnc    ? null : nameRaw;
+  const emailPlain   = emailEnc   ? null : emailNorm;
+  const subjectPlain = subjectEnc ? null : subjectRaw;
+  const bodyPlain    = bodyEnc    ? null : bodyRaw;
 
   await env.DB.prepare(
     `INSERT INTO inquiries (
@@ -5308,13 +5305,13 @@ async function submitApplication(request, env) {
   const recLetterEnc  = recLetter  ? await encryptPii(env, recLetter)  : null;
   const recJsonEnc    = recJson    ? await encryptPii(env, recJson)    : null;
 
-  // Field-by-field plaintext sentinel logic:
-  //   * name / email: legacy NOT NULL, so '' tombstone when encrypted.
-  //   * essays / recommender fields: nullable, so NULL when encrypted.
-  //   * legacy plaintext column kept on every row written before the
-  //     operator set PII_ENCRYPTION_KEY; backfill cron rotates them later.
-  const namePlain      = nameEnc      ? '' : nameRaw;
-  const emailPlain     = emailEnc     ? '' : emailNorm;
+  // Field-by-field plaintext sentinel logic. v01.071 (Phase 7b) dropped
+  // the legacy NOT NULL constraint on name/email via migration 0036, so
+  // every column can NULL-tombstone uniformly when ciphertext is present.
+  // Legacy plaintext is preserved whenever PII_ENCRYPTION_KEY is unset;
+  // backfill cron rotates them once the operator sets the key.
+  const namePlain      = nameEnc      ? null : nameRaw;
+  const emailPlain     = emailEnc     ? null : emailNorm;
   const essayBodyPlain = essayBodyEnc ? null : essayBody;
   const essayBody2Plain= essayBody2Enc? null : essayBody2;
   const essaysJsonPlain= essaysJsonEnc? null : essaysJson;

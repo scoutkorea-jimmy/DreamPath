@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.070.00`
+- **버전**: `v01.071.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0035** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0036** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -51,6 +51,7 @@
   - +01.062.03 — **Dream Path 차별점/가격 섹션 복원**: reference HTML의 `What Makes Dream Path Different`와 `How Much Does It Actually Cost?` 블록을 프로그램 상세페이지에 추가. `ProgramDetail.jsx`에 `Start FREE / DOME / Scholarship / Scout Network` 4개 차별화 카드와 한국 유학 대비 `~$720` 가격 비교 섹션을 넣고, `site.css`에서 골드 보더 카드/그린 가격 박스 스타일과 모바일 반응형을 구현.
   - +01.064.00 — **프로그램 상세 가격 섹션 전면 재구성 + Different/Why CUFS 카드 reference 정렬**: 새 reference HTML(2026-05-27)을 기준으로 `ProgramDetail.jsx`의 가격 섹션을 단순 before/after → 5-row × 2-column breakdown + `$14,258–$29,258` savings banner + 3.3%:96.7% 시각화 bar + zero-cost 칩 5개로 교체. Different 카드의 Scholarship 약속을 "criteria vary by country"로 변경(약속 위험 회피) + Scout Network → Global Partner Network. Why CUFS 카드는 "12 Departments" → "10 Faculties" + AI Innovation Award / 52/52 / 2 in 3 장학생 / 24/7 helpdesk(+82-6907-6703) 사실 인용. `site.css`에 `.pd-cost-breakdown / -col(.is-offline|.is-online) / .pd-savings-* / .pd-zero-list/-chip` 신규 (모든 색 토큰만 사용). 새 reference HTML은 `.assetsignore`로 자산 번들 제외.
   - +01.064.01 — **Live Preview 복구 (보안 헤더 SAMEORIGIN 완화)**: 운영자 보고 — admin의 모든 Live Preview iframe이 빈 화면. 원인은 v01.035 P0-4의 `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`이 same-origin admin iframe까지 차단. 두 헤더 모두 `SAMEORIGIN` / `'self'`로 완화. 외부 cross-origin 클릭재킹 방어는 유지. 11개 라운드 뒤에야 발견된 회귀이므로 두 헤더 위에 의도 주석(WHY) 인라인 추가해 같은 회귀 방지.
+  - +01.071.00 — **PII Phase 7b — legacy NOT NULL drop (테이블 재빌드 + NULL tombstone)**: 마이그레이션 0036으로 inquiries / applications 두 테이블 canonical SQLite rebuild 패턴(CREATE new + INSERT FROM old + DROP + RENAME + 인덱스 13개 재생성)으로 재빌드. inquiries.name/email/subject/body + applications.name/email 6개 컬럼 NOT NULL 제약 해제. submitInquiry / submitApplication / piiBackfillCron 3지점의 '' tombstone → NULL 교체. 두 테이블 production row 0 + 외래키 의존성 0 사전 검증으로 무위험 적용(10.7ms). 라이브 검증 — 신규 inquiry POST → name/email/body 모두 NULL + _enc set 확인. **PII 보호 로드맵 6/7 phases 완료**, Phase 5(admin 2FA)는 운영자 지시로 보류.
   - +01.070.00 — **PII Phase 7a — piiRetentionCron 자동 hard-delete 5분기**: 매시 정각 cron에 piiRetentionCron 등록. 5개 retention 분기 — users.deleted_at > 30일 / applications detach > 365일 / inquiries > 180일 / emails(trashed_at > 30일 OR ts > 365일) / orphan application_files > 30일. 각 분기 50/batch + catch-fallback. R2 첨부 함께 정리. 사이트 런칭 이후 PII 무기한 누적 문제 자동 정리. PII 보호 로드맵의 실질적 완성 라운드. **보너스**: 정각 cron이 직후 실행되어 Phase 3 legacy inbound emails 3행이 자동 ciphertext 회전됨 — Phase 3 backfill 자동 검증 완료. Phase 7b(legacy NOT NULL drop)는 SQLite 테이블 재빌드 위험으로 별도 라운드 분리. 운영자 지시로 Phase 5(admin 2FA)는 영구 또는 추후 보류.
   - +01.069.00 — **PII Phase 6 — self-service export 확장 + delete 정리 범위 확대**: exportMyData()에 application_files 메타(다운로드 URL 포함) / login_history 최근 100 / notifications 최근 200 추가. deleteMyAccount()에 apply_drafts + notifications hard-delete + users.phone *_enc/*_h NULL 처리 추가. 두 self-service 액션이 admin_audit에 self_export / self_delete 분류로 기록. UI는 v01.029의 기존 Member.jsx 개인정보 섹션 그대로 유지. 다음은 Phase 7 (retention auto-purge cron + legacy NOT NULL drop). Phase 5(admin 2FA)는 운영자 지시로 보류.
   - +01.068.00 — **PII Phase 4 — R2 첨부 envelope encryption**: 마이그레이션 0035로 email_attachments / application_files에 r2_encrypted 마커 컬럼 추가. encryptR2Bytes / decryptR2Bytes 신규 헬퍼(AES-GCM + ':r2-file' 도메인 분리 sub-key, 12B IV + 16B tag). 3개 R2 put 사이트(inbound email / application upload / outbound email) + 3개 download 사이트(admin app-file / admin attachment / me app-file) 모두 envelope 적용. R2 access token 유출만으로는 첨부물(주민증/여권/성적증명서) 평문 접근 불가 — 운영자 PII_ENCRYPTION_KEY까지 모두 깨져야 평문 노출. 신규 read-audit 1지점 추가(application-file download). 실 PNG 업로드로 r2_encrypted=1 라이브 검증. 운영자 지시로 Phase 5(admin 2FA)는 보류, 다음은 Phase 6 (user self-service).

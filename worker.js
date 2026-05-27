@@ -904,34 +904,48 @@ async function decryptPii(env, ciphertextB64) {
   }
 }
 
-// v01.046 — deterministic HMAC for searchable PII (phone). The HMAC
+// v01.046 / v01.065 — deterministic HMAC for searchable PII. The HMAC
 // key is bound to PII_ENCRYPTION_KEY via a domain-separated SHA-256
 // derivation so rotating the encryption secret invalidates the
 // lookup table at the same time (which is the desired behaviour:
 // the HMAC column is just a derived index over the encrypted data,
 // not a separate trust boundary).
-let _piiHmacKeyPromise = null;
-function loadPiiHmacKey(env) {
+//
+// v01.065: generalized over a `domain` string so each searchable PII
+// field gets its own sub-key (phone-hmac, email-hmac, ...). Same secret,
+// different sub-keys — knowing one digest reveals nothing about the
+// others. Default domain stays 'phone-hmac' for backward-compat.
+const _piiHmacKeys = new Map();
+function loadPiiHmacKey(env, domain = 'phone-hmac') {
   if (!env.PII_ENCRYPTION_KEY) return null;
-  if (_piiHmacKeyPromise) return _piiHmacKeyPromise;
-  _piiHmacKeyPromise = (async () => {
-    const raw = new TextEncoder().encode(String(env.PII_ENCRYPTION_KEY) + ':phone-hmac');
+  if (_piiHmacKeys.has(domain)) return _piiHmacKeys.get(domain);
+  const p = (async () => {
+    const raw = new TextEncoder().encode(String(env.PII_ENCRYPTION_KEY) + ':' + domain);
     const hashed = await crypto.subtle.digest('SHA-256', raw);
     return crypto.subtle.importKey('raw', hashed, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   })();
-  return _piiHmacKeyPromise;
+  _piiHmacKeys.set(domain, p);
+  return p;
 }
-async function computePiiHmac(env, value) {
+// Normalize a value into the canonical form we HMAC against. Domain-aware
+// so callers don't have to remember the rules: phone is digits-only, email
+// is trim+lowercase. Keeping the rules here means search-side and write-side
+// can never drift.
+function normalizePiiForHmac(value, domain) {
+  if (value == null) return '';
+  const s = String(value);
+  if (domain === 'email-hmac') return s.trim().toLowerCase();
+  // 'phone-hmac' (default): strip everything that isn't a digit so
+  // "+82-10-1234-5678" and "010 1234 5678" hash to the same value.
+  return s.replace(/\D/g, '');
+}
+async function computePiiHmac(env, value, domain = 'phone-hmac') {
   if (value == null || value === '') return null;
-  const keyPromise = loadPiiHmacKey(env);
+  const keyPromise = loadPiiHmacKey(env, domain);
   if (!keyPromise) return null;
   try {
     const key = await keyPromise;
-    // Normalise the input — digits only, so "+82-10-1234-5678" and
-    // "010 1234 5678" produce the same digest for typical Korean
-    // phones. Operator searching by the national part will match
-    // either entry style.
-    const norm = String(value).replace(/\D/g, '');
+    const norm = normalizePiiForHmac(value, domain);
     if (!norm) return null;
     const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(norm));
     return Array.from(new Uint8Array(sig), b => b.toString(16).padStart(2, '0')).join('');
@@ -939,6 +953,7 @@ async function computePiiHmac(env, value) {
     return null;
   }
 }
+function normalizeEmail(e) { return String(e || '').trim().toLowerCase(); }
 
 // ── HTML sanitizer (P1-1) ────────────────────────────────────────────────
 // HTMLRewriter-backed allowlist sanitizer for rich-text fields that get
@@ -1052,14 +1067,17 @@ async function sanitizeContentPayload(raw) {
 // Origin / Referer same-origin guard. Returns true when:
 //   - Neither header is present (curl / server-to-server / mobile native) OR
 //   - Origin (or its Referer fallback) parses to the same origin as the URL
-// Returns false when the browser sent an Origin/Referer that points
-// somewhere else. The check is intentionally fail-open on missing headers
-// because Bearer auth (current model) already isn't auto-attached by the
-// browser cross-origin — this is purely a belt-and-braces guard.
+// Returns false when the request has no provenance OR has a provenance
+// that doesn't match our origin. v01.065 P0-2: changed to fail-CLOSED
+// on missing Origin AND missing Referer. Browser-initiated POST/PUT/DELETE
+// always carries at least one of these (Fetch spec); a request with
+// neither header is a non-browser caller (curl / automation / bot), which
+// should opt in explicitly by adding -H "Origin: https://koreadreampath.com".
+// Closes the CSRF bypass vector flagged in the v01.064 self-audit.
 function sameOriginOrEmpty(request, url) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  if (!origin && !referer) return true;
+  if (!origin && !referer) return false;
   try {
     const expected = url.origin;
     if (origin) return origin === expected;
@@ -1492,6 +1510,12 @@ async function handleApi(request, env, url, ctx) {
         if (dec) row.birthdate = dec;
       }
       delete row.birthdate_enc;
+      // v01.065 P0-3: read-audit one row per admin viewing of a single
+      // application. Single-record reads are the high-signal events for
+      // forensics — they're either targeted lookups or scripted enumeration.
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'read_pii', target_type: 'application', target_id: id,
+      }));
       return json(row);
     }
     return json({ error: 'method_not_allowed' }, 405);
@@ -1726,10 +1750,18 @@ async function handleApi(request, env, url, ctx) {
   if (attDownloadM && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
     if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
-    const att = await env.DB.prepare('SELECT * FROM email_attachments WHERE id = ?').bind(parseInt(attDownloadM[1], 10)).first();
+    const attId = parseInt(attDownloadM[1], 10);
+    const att = await env.DB.prepare('SELECT * FROM email_attachments WHERE id = ?').bind(attId).first();
     if (!att) return json({ error: 'not_found' }, 404);
     const obj = await env.ATTACHMENTS.get(att.r2_key);
     if (!obj) return json({ error: 'gone' }, 410);
+    // v01.065 P0-3: read-audit every attachment download. Attachments
+    // typically contain ID scans / transcripts / personal docs — the
+    // highest-PII surface in the system, deserves its own trail.
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'read_pii', target_type: 'attachment', target_id: String(attId),
+      detail: { filename: att.filename, size: att.size, mime: att.mime, side: att.side, email_id: att.email_id },
+    }));
     return new Response(obj.body, {
       headers: {
         'content-type': att.mime || 'application/octet-stream',
@@ -2164,12 +2196,34 @@ async function handleApi(request, env, url, ctx) {
         'ORDER BY created_at DESC LIMIT ?',
         like, like, like, PER
       ),
-      safeAll(
-        'SELECT id, email, name, subject, SUBSTR(body, 1, 200) AS preview, created_at, status FROM inquiries ' +
-        'WHERE email LIKE ? OR name LIKE ? OR subject LIKE ? OR body LIKE ? ' +
-        'ORDER BY created_at DESC LIMIT ?',
-        like, like, like, like, PER
-      ),
+      // v01.065 P0-4: inquiries name/email/subject/body are now encrypted.
+      // SQL LIKE matches only the legacy plaintext columns (NULL on new
+      // rows). For new rows, exact-email search is supported via email_h
+      // HMAC; id LIKE always works. Body/name/subject fragment search on
+      // encrypted rows is impossible by design and is dropped from this
+      // surface — operators looking for a specific inquiry now go through
+      // id or exact email.
+      (async () => {
+        const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
+        const rows = await safeAll(
+          'SELECT id, name, name_enc, email, email_enc, subject, subject_enc, body, body_enc, ' +
+          '       created_at, status FROM inquiries ' +
+          'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? OR subject LIKE ? OR body LIKE ?' +
+          (emailH ? ' OR email_h = ?' : '') +
+          ' ORDER BY created_at DESC LIMIT ?',
+          ...(emailH
+            ? [like, like, like, like, like, emailH, PER]
+            : [like, like, like, like, like, PER])
+        );
+        const dec = await Promise.all(rows.map((r) => decryptInquiryRow(env, r)));
+        // Reshape into the existing { id, email, name, subject, preview, ... }
+        // contract that the admin search UI expects.
+        return dec.map((r) => ({
+          id: r.id, email: r.email, name: r.name, subject: r.subject,
+          preview: r.body ? String(r.body).slice(0, 200) : '',
+          created_at: r.created_at, status: r.status,
+        }));
+      })(),
       safeAll(
         'SELECT id, ts, from_addr, to_addr, subject, SUBSTR(COALESCE(body_text, body_html), 1, 200) AS preview FROM inbound_emails ' +
         'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
@@ -2244,6 +2298,26 @@ async function handleApi(request, env, url, ctx) {
       }
     } catch {}
 
+    // v01.065 P0-3: read-audit admin global search. Log a digest of the
+    // query rather than the query itself — the query may be an email or
+    // phone fragment which is already PII; we don't want to mirror it
+    // into the audit trail in plaintext.
+    const qHash = await (async () => {
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(q));
+        return Array.from(new Uint8Array(buf).slice(0, 8), b => b.toString(16).padStart(2, '0')).join('');
+      } catch { return ''; }
+    })();
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'admin_search',
+      detail: {
+        q_len: q.length, q_sha8: qHash,
+        hits: {
+          users: users.length, applications: applications.length, inquiries: inquiries.length,
+          inbound: inEmails.length, outbound: outEmails.length, wiki: wikiHits.length, content: contentHits.length,
+        },
+      },
+    }));
     return json({
       q,
       users, applications, inquiries,
@@ -2817,6 +2891,10 @@ async function handleApi(request, env, url, ctx) {
     const { results: audits } = await env.DB.prepare(
       'SELECT * FROM member_audits WHERE user_id = ? ORDER BY ts DESC LIMIT 200'
     ).bind(id).all().catch(() => ({ results: [] }));
+    // v01.065 P0-3: read-audit one row per single-member detail view.
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'read_pii', target_type: 'user', target_id: id,
+    }));
     return json({
       user: { ...user, last_login: lastLogin?.last_login || null },
       profile: profile || null,
@@ -3049,7 +3127,16 @@ async function handleApi(request, env, url, ctx) {
       const { results } = await env.DB.prepare(
         'SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500'
       ).all();
-      return json({ items: results || [] });
+      // v01.065 P0-4: decrypt PII columns where present, strip ciphertext
+      // + HMAC digests from the payload.
+      const items = await Promise.all((results || []).map((r) => decryptInquiryRow(env, r)));
+      // v01.065 P0-3: read-audit (fire-and-forget). One row per admin
+      // viewing of the inquiry list — gives forensics a trail of who
+      // bulk-loaded the inquiry mailbox without slowing the request.
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'read_pii', target_type: 'inquiry', detail: { route: 'list', count: items.length },
+      }));
+      return json({ items });
     }
     return json({ error: 'method_not_allowed' }, 405);
   }
@@ -3665,6 +3752,40 @@ async function piiBackfillCron(env) {
         'UPDATE inquiries SET phone_h = ? WHERE id = ?'
       ).bind(h, iq.id).run();
     }
+
+    // v01.065 P0-4 — inquiries name/email/subject/body backfill. Legacy
+    // rows have plaintext columns populated and *_enc NULL; rotate them
+    // into ciphertext + (for email) HMAC. Cron self-terminates once every
+    // legacy row is processed (SELECT returns zero).
+    const { results: inqLegacy } = await env.DB.prepare(
+      'SELECT id, name, email, subject, body FROM inquiries ' +
+      'WHERE (name IS NOT NULL AND name_enc IS NULL) ' +
+      '   OR (email IS NOT NULL AND email_enc IS NULL) ' +
+      '   OR (subject IS NOT NULL AND subject_enc IS NULL) ' +
+      '   OR (body IS NOT NULL AND body_enc IS NULL) ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const iq of inqLegacy || []) {
+      const emailNorm  = iq.email ? normalizeEmail(iq.email) : null;
+      const nameEnc    = iq.name    ? await encryptPii(env, iq.name)    : null;
+      const emailEnc   = emailNorm  ? await encryptPii(env, emailNorm)  : null;
+      const subjectEnc = iq.subject ? await encryptPii(env, iq.subject) : null;
+      const bodyEnc    = iq.body    ? await encryptPii(env, iq.body)    : null;
+      const emailH     = emailNorm  ? await computePiiHmac(env, emailNorm, 'email-hmac') : null;
+      // Only proceed when encryption actually produced output (i.e. key
+      // is set). Otherwise leave the row in plaintext for the next pass.
+      if (!(nameEnc || emailEnc || subjectEnc || bodyEnc)) continue;
+      await env.DB.prepare(
+        // '' (empty string) tombstone — see submitInquiry comment for the
+        // NOT NULL constraint context.
+        'UPDATE inquiries SET ' +
+        '  name = \'\', name_enc = COALESCE(?, name_enc), ' +
+        '  email = \'\', email_enc = COALESCE(?, email_enc), email_h = COALESCE(?, email_h), ' +
+        '  subject = \'\', subject_enc = COALESCE(?, subject_enc), ' +
+        '  body = \'\', body_enc = COALESCE(?, body_enc) ' +
+        'WHERE id = ?'
+      ).bind(nameEnc, emailEnc, emailH, subjectEnc, bodyEnc, iq.id).run();
+    }
   } catch {}
 }
 
@@ -4270,6 +4391,17 @@ async function analyticsJourneys(env, url) {
 }
 
 // ── Inquiries (public submission) ──────────────────────────────────────────
+// v01.065 P0-1: rate-limited (5/h/IP + 3/h/email) with PRETEND_OK so the
+// limiter doesn't reveal itself to a bot. Inquiry submissions carry PII
+// (name/email/phone/free-text body), making the inbox an attractive
+// flooding target. Pattern mirrors signup() / requestPasswordReset().
+//
+// v01.065 P0-4: name/email/subject/body now also encrypted at rest when
+// PII_ENCRYPTION_KEY is set, with email_h as the deterministic HMAC so
+// admin search can still exact-match by address.
+const INQUIRY_IP_MAX_PER_HOUR    = 5;
+const INQUIRY_EMAIL_MAX_PER_HOUR = 3;
+
 async function submitInquiry(request, env) {
   const body = await request.json().catch(() => null);
   if (!body) return json({ error: 'invalid_json' }, 400);
@@ -4280,38 +4412,110 @@ async function submitInquiry(request, env) {
   if (!nonEmpty(body.body) || String(body.body).length < 10) errs.push('body');
   if (errs.length) return json({ error: 'validation', fields: errs }, 400);
 
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+  const emailNorm = normalizeEmail(body.email);
+
+  // Silent rate-limit response. Same shape as a real submit so a flooder
+  // can't distinguish accept from drop — they keep getting fresh-looking
+  // ids back while the inbox stays clean.
+  const PRETEND_OK = () => json({
+    id: 'INQ-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4),
+    created_at: new Date().toISOString(),
+  });
+  const rlIp = await rateLimit(env, 'rl:inq_ip:' + ip, INQUIRY_IP_MAX_PER_HOUR, 3600);
+  if (!rlIp.allowed) return PRETEND_OK();
+  const rlEmail = await rateLimit(env, 'rl:inq_email:' + emailNorm, INQUIRY_EMAIL_MAX_PER_HOUR, 3600);
+  if (!rlEmail.allowed) return PRETEND_OK();
+
   const user = await currentUser(request, env);
   const id = 'INQ-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
   const created_at = new Date().toISOString();
-  const ip = request.headers.get('cf-connecting-ip') || '';
-  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
 
-  // P2-5: encrypt the submitter's phone when PII_ENCRYPTION_KEY is set;
-  // otherwise it lands in the legacy plaintext `phone` column.
-  // v01.046: also compute the deterministic HMAC for search recovery.
+  // Phone (v01.042 + v01.046).
   const phonePlainRaw = str(body.phone);
   const phoneEnc = phonePlainRaw ? await encryptPii(env, phonePlainRaw) : null;
-  const phoneH   = phonePlainRaw ? await computePiiHmac(env, phonePlainRaw) : null;
+  const phoneH   = phonePlainRaw ? await computePiiHmac(env, phonePlainRaw, 'phone-hmac') : null;
   const phonePlain = phoneEnc ? null : phonePlainRaw;
+
+  // Name / email / subject / body (v01.065 P0-4).
+  const nameRaw    = str(body.name);
+  const subjectRaw = str(body.subject);
+  const bodyRaw    = str(body.body);
+  const nameEnc    = await encryptPii(env, nameRaw);
+  const emailEnc   = await encryptPii(env, emailNorm);
+  const subjectEnc = await encryptPii(env, subjectRaw);
+  const bodyEnc    = await encryptPii(env, bodyRaw);
+  const emailH     = await computePiiHmac(env, emailNorm, 'email-hmac');
+  // When the operator has set PII_ENCRYPTION_KEY, encryptPii() returns a
+  // ciphertext and we tombstone the plaintext column with '' (empty
+  // string). We can't use NULL here because the legacy schema has
+  // NOT NULL on name / email / subject / body — Phase 7 will rebuild the
+  // table to drop the constraint, but until then '' is the safe sentinel:
+  // - decryptInquiryRow() overwrites it with the decrypted value on read,
+  // - search LIKE '%q%' never matches '',
+  // - storage cost is one byte.
+  const namePlain    = nameEnc    ? '' : nameRaw;
+  const emailPlain   = emailEnc   ? '' : emailNorm;
+  const subjectPlain = subjectEnc ? '' : subjectRaw;
+  const bodyPlain    = bodyEnc    ? '' : bodyRaw;
+
   await env.DB.prepare(
-    `INSERT INTO inquiries (id, created_at, status, name, email, phone, phone_enc, phone_h, category, subject, body, lang, user_id, ip, user_agent)
-     VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(id, created_at,
-         str(body.name), str(body.email), phonePlain, phoneEnc, phoneH, str(body.category),
-         str(body.subject), str(body.body), str(body.lang),
-         user ? user.id : null, ip, ua).run();
+    `INSERT INTO inquiries (
+       id, created_at, status,
+       name, name_enc,
+       email, email_enc, email_h,
+       phone, phone_enc, phone_h,
+       category,
+       subject, subject_enc,
+       body, body_enc,
+       lang, user_id, ip, user_agent
+     ) VALUES (?, ?, 'new',  ?, ?,  ?, ?, ?,  ?, ?, ?,  ?,  ?, ?,  ?, ?,  ?, ?, ?, ?)`
+  ).bind(
+    id, created_at,
+    namePlain, nameEnc,
+    emailPlain, emailEnc, emailH,
+    phonePlain, phoneEnc, phoneH,
+    str(body.category),
+    subjectPlain, subjectEnc,
+    bodyPlain, bodyEnc,
+    str(body.lang), user ? user.id : null, ip, ua
+  ).run();
 
   // Best-effort confirmation email. Non-blocking — swallow failures so the
   // submitter still sees the success state.
   try {
     await sendEmail(env, {
-      to: String(body.email), slug: 'inquiry_received',
+      to: emailNorm, slug: 'inquiry_received',
       lang: body.lang === 'en' ? 'en' : 'ko',
-      vars: { name: body.name || '', inquiry_id: id },
+      vars: { name: nameRaw, inquiry_id: id },
     });
   } catch {}
 
   return json({ id, created_at });
+}
+
+// v01.065 P0-4 — convert an inquiry row from the DB shape (with *_enc
+// + *_h columns) into the shape the admin UI expects (plaintext fields).
+// Tolerant of legacy rows that still carry plaintext; ciphertext takes
+// precedence when both are present.
+async function decryptInquiryRow(env, row) {
+  if (!row) return row;
+  if (row.name_enc)    { const d = await decryptPii(env, row.name_enc);    if (d != null) row.name = d; }
+  if (row.email_enc)   { const d = await decryptPii(env, row.email_enc);   if (d != null) row.email = d; }
+  if (row.subject_enc) { const d = await decryptPii(env, row.subject_enc); if (d != null) row.subject = d; }
+  if (row.body_enc)    { const d = await decryptPii(env, row.body_enc);    if (d != null) row.body = d; }
+  if (row.phone_enc)   { const d = await decryptPii(env, row.phone_enc);   if (d != null) row.phone = d; }
+  // Never expose ciphertext or HMAC digests to clients — they're storage
+  // implementation details. Strip them from the response payload.
+  delete row.name_enc;
+  delete row.email_enc;
+  delete row.email_h;
+  delete row.subject_enc;
+  delete row.body_enc;
+  delete row.phone_enc;
+  delete row.phone_h;
+  return row;
 }
 
 // ── Recommendations stub ───────────────────────────────────────────────────

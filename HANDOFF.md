@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.064.01`
+- **버전**: `v01.065.02`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0031** 모두 적용됨 (remote D1 검증 완료)
+- **마이그레이션 상태**: 0001 ~ **0032** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -51,6 +51,7 @@
   - +01.062.03 — **Dream Path 차별점/가격 섹션 복원**: reference HTML의 `What Makes Dream Path Different`와 `How Much Does It Actually Cost?` 블록을 프로그램 상세페이지에 추가. `ProgramDetail.jsx`에 `Start FREE / DOME / Scholarship / Scout Network` 4개 차별화 카드와 한국 유학 대비 `~$720` 가격 비교 섹션을 넣고, `site.css`에서 골드 보더 카드/그린 가격 박스 스타일과 모바일 반응형을 구현.
   - +01.064.00 — **프로그램 상세 가격 섹션 전면 재구성 + Different/Why CUFS 카드 reference 정렬**: 새 reference HTML(2026-05-27)을 기준으로 `ProgramDetail.jsx`의 가격 섹션을 단순 before/after → 5-row × 2-column breakdown + `$14,258–$29,258` savings banner + 3.3%:96.7% 시각화 bar + zero-cost 칩 5개로 교체. Different 카드의 Scholarship 약속을 "criteria vary by country"로 변경(약속 위험 회피) + Scout Network → Global Partner Network. Why CUFS 카드는 "12 Departments" → "10 Faculties" + AI Innovation Award / 52/52 / 2 in 3 장학생 / 24/7 helpdesk(+82-6907-6703) 사실 인용. `site.css`에 `.pd-cost-breakdown / -col(.is-offline|.is-online) / .pd-savings-* / .pd-zero-list/-chip` 신규 (모든 색 토큰만 사용). 새 reference HTML은 `.assetsignore`로 자산 번들 제외.
   - +01.064.01 — **Live Preview 복구 (보안 헤더 SAMEORIGIN 완화)**: 운영자 보고 — admin의 모든 Live Preview iframe이 빈 화면. 원인은 v01.035 P0-4의 `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`이 same-origin admin iframe까지 차단. 두 헤더 모두 `SAMEORIGIN` / `'self'`로 완화. 외부 cross-origin 클릭재킹 방어는 유지. 11개 라운드 뒤에야 발견된 회귀이므로 두 헤더 위에 의도 주석(WHY) 인라인 추가해 같은 회귀 방지.
+  - +01.065.00→.01→.02 — **PII Phase 1 (P0 baseline)**: 운영자 지시 "개인정보가 제일 중요"에 따라 7단계 PII 로드맵 시작. 공개 문의 폼 `/contact`의 4 PII 필드(name/email/subject/body) AES-GCM 암호화 + `email_h` 결정론적 HMAC 검색 인덱스 + IP 5/h + email 3/h rate-limit (PRETEND_OK 패턴) + `sameOriginOrEmpty()` CSRF fail-closed 전환 + `admin_audit`에 `action='read_pii'` 4지점 + `admin_search` 쿼리 digest(SHA-256 8B) 기록. `computePiiHmac()`을 domain 파라미터로 일반화. 마이그레이션 0032. **두 hotfix**: .01 = `rateLimit()` 반환 키 mismatch (`rl.ok` vs `rl.allowed`) 1줄 hotfix, .02 = legacy NOT NULL 제약으로 plaintext NULL 시 D1 silent fail → `''` tombstone 사용. Phase 7에서 NOT NULL drop 예정.
   - +01.063.00 — **프로그램 상세페이지 톤앤매너 정렬 + 오버플로우 일괄 수정**: `site.css`의 `pd-*` 블록을 디자인 토큰 단일 출처로 재정렬. v01.062 라운드에서 빠르게 도입한 하드코딩 hex(네이비 `#0f1f66/#1a237e/#26338f`, 골드 `#f5c645/#ffcc4d`, 그린 `#226137/#2f8a40`, 슬레이트 `#597286/#3b4a57/#8ea2b2/#1f63c3` 등)를 전부 `var(--midnight-purple)` / `var(--royal-purple)` / `var(--sunshine-yellow)` / `var(--forest-green)` / `var(--state-success)` / `var(--state-danger)` / `var(--fg-secondary/muted/primary)` / `var(--bg-elevated)` / `var(--border-subtle)`로 교체. `Why CUFS?` 다크 박스는 브랜드 그라디언트(midnight → royal)로 통합. 오버플로우는 `.pd-rich`(이미지/iframe/표 max-width + pre/table overflow-x), `.pd-modal`(max-height + scroll), `.pd-modal-head`(flex-wrap + min-width:0), `.pd-side .row .v`(overflow-wrap anywhere), `.pd-cost-value`(`clamp(34px, 6vw, 56px)`), `.pd-stat-card / .pd-course-card / .pd-why-cufs-card / .pd-different-card`(min-width: 0)로 일괄 보호. 헤딩/본문 텍스트에는 `overflow-wrap: anywhere` 적용해 긴 URL/외국어 단어가 카드 밖으로 튀지 않도록 함.
 
 ## 2. 스택 한눈에

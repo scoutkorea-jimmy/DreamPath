@@ -613,10 +613,17 @@ export default {
             const safe = String(a.filename || ('attachment-' + (i + 1))).replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
             const key = `attachments/inbound/${emailId}/${i}-${safe}`;
             try {
-              await env.ATTACHMENTS.put(key, a.bytes, { httpMetadata: { contentType: a.mime || 'application/octet-stream' } });
+              // v01.068 (Phase 4): envelope-encrypt the file bytes before
+              // R2 put when the operator key is set. The DB column
+              // r2_encrypted marks the encoding so the read side knows
+              // whether to unwrap. Content-Type stays as the original mime
+              // (R2 returns the wrapped bytes — type is for the eventual
+              // download response, not for R2 to interpret the body).
+              const wrapped = await encryptR2Bytes(env, a.bytes);
+              await env.ATTACHMENTS.put(key, wrapped.bytes, { httpMetadata: { contentType: a.mime || 'application/octet-stream' } });
               await env.DB.prepare(
-                'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)'
-              ).bind(emailId, 'inbound', ts, a.filename, a.mime || 'application/octet-stream', a.bytes.byteLength, key).run();
+                'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key, r2_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+              ).bind(emailId, 'inbound', ts, a.filename, a.mime || 'application/octet-stream', a.bytes.byteLength, key, wrapped.encrypted ? 1 : 0).run();
               stored++;
             } catch (e) {
               attErrors.push(`${a.filename}: ${e && e.message || e}`);
@@ -970,6 +977,79 @@ async function computePiiHmac(env, value, domain = 'phone-hmac') {
   }
 }
 function normalizeEmail(e) { return String(e || '').trim().toLowerCase(); }
+
+// v01.068 (Phase 4) — envelope encryption for R2 attachments.
+//
+// R2 already encrypts at rest with a Cloudflare-held key. This adds a
+// second wrapper using PII_ENCRYPTION_KEY (operator-held), so an R2
+// access-token leak alone isn't enough to read attachments. The two
+// keys must both be compromised — that's the "envelope" benefit.
+//
+// Storage format inside R2: 12-byte random IV || ciphertext || 16-byte tag.
+// Same AES-GCM primitive as encryptPii(), but a different sub-key
+// (domain-separated by ':r2-file') so a hypothetical leak of one key
+// doesn't help the attacker on the other domain.
+//
+// When PII_ENCRYPTION_KEY is unset the helpers no-op — they return the
+// original bytes and a marker that says encryption didn't happen, so the
+// caller can store r2_encrypted = 0 and the read-side serves raw bytes.
+let _r2KeyPromise = null;
+function loadR2Key(env) {
+  if (!env.PII_ENCRYPTION_KEY) return null;
+  if (_r2KeyPromise) return _r2KeyPromise;
+  _r2KeyPromise = (async () => {
+    const raw = new TextEncoder().encode(String(env.PII_ENCRYPTION_KEY) + ':r2-file');
+    const hashed = await crypto.subtle.digest('SHA-256', raw);
+    return crypto.subtle.importKey('raw', hashed, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  })();
+  return _r2KeyPromise;
+}
+
+// Wraps a Uint8Array / ArrayBuffer of file bytes for R2 storage.
+// Returns { bytes, encrypted }. When encrypted=true the bytes carry the
+// envelope (IV prefix + GCM tag suffix); when false they're unchanged.
+async function encryptR2Bytes(env, plain) {
+  const keyPromise = loadR2Key(env);
+  if (!keyPromise) return { bytes: plain, encrypted: false };
+  try {
+    const key = await keyPromise;
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
+    const buf = new Uint8Array(iv.length + ct.byteLength);
+    buf.set(iv, 0);
+    buf.set(new Uint8Array(ct), iv.length);
+    return { bytes: buf, encrypted: true };
+  } catch {
+    // Fail-open: if encryption misfires for any reason we still store the
+    // file (R2 server-side encryption keeps it covered) and mark the row
+    // as unencrypted so the read side doesn't try to unwrap it.
+    return { bytes: plain, encrypted: false };
+  }
+}
+
+// Inverse of encryptR2Bytes. Takes the R2 object body (ArrayBuffer) +
+// the row's r2_encrypted flag and returns plaintext bytes ready to ship.
+// On the legacy path (r2_encrypted = 0) returns the buffer unchanged.
+async function decryptR2Bytes(env, wrapped, isEncrypted) {
+  if (!isEncrypted) return wrapped;
+  const keyPromise = loadR2Key(env);
+  if (!keyPromise) {
+    // Encrypted blob with no key = unrecoverable. Surface as null so the
+    // caller can return 503 rather than serving ciphertext.
+    return null;
+  }
+  try {
+    const key = await keyPromise;
+    const buf = new Uint8Array(wrapped);
+    if (buf.length < 13) return null;
+    const iv = buf.slice(0, 12);
+    const ct = buf.slice(12);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    return new Uint8Array(pt);
+  } catch {
+    return null;
+  }
+}
 
 // ── HTML sanitizer (P1-1) ────────────────────────────────────────────────
 // HTMLRewriter-backed allowlist sanitizer for rich-text fields that get
@@ -1418,8 +1498,10 @@ async function handleApi(request, env, url, ctx) {
     // can't be guessed by incrementing the prefix. Existing files are
     // unaffected because reads always use the r2_key stored in the DB.
     const key = `apps/${folder}/${kind}${recommender_idx != null ? '-' + recommender_idx : ''}/${randomHex(8)}-${safe}`;
+    // v01.068 (Phase 4): envelope-encrypt before R2 put.
+    const wrapped = await encryptR2Bytes(env, bytes);
     try {
-      await env.ATTACHMENTS.put(key, bytes, { httpMetadata: { contentType: mime } });
+      await env.ATTACHMENTS.put(key, wrapped.bytes, { httpMetadata: { contentType: mime } });
     } catch (e) {
       // Log full detail to the error console; never echo to the caller.
       ctx && ctx.waitUntil && ctx.waitUntil(logError(env, {
@@ -1440,8 +1522,8 @@ async function handleApi(request, env, url, ctx) {
     const upload_token = randomHex(16);
     const uploader_user_id = uploaderUser ? uploaderUser.id : null;
     await env.DB.prepare(
-      'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key, upload_token, uploader_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key, upload_token, uploader_user_id).run();
+      'INSERT INTO application_files (application_id, uploaded_at, kind, recommender_idx, filename, mime, size, r2_key, upload_token, uploader_user_id, r2_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(application_id || '', ts, kind, recommender_idx, filename, mime, bytes.byteLength, key, upload_token, uploader_user_id, wrapped.encrypted ? 1 : 0).run();
     return json({ ok: true, upload_token, filename, mime, size: bytes.byteLength });
   }
   // GET admin: list files attached to an application.
@@ -1463,7 +1545,22 @@ async function handleApi(request, env, url, ctx) {
     if (!f) return json({ error: 'not_found' }, 404);
     const obj = await env.ATTACHMENTS.get(f.r2_key);
     if (!obj) return json({ error: 'gone' }, 410);
-    return new Response(obj.body, {
+    // v01.068 (Phase 4): unwrap if r2_encrypted, else stream as-is.
+    let bodyOut;
+    if (f.r2_encrypted) {
+      const wrapped = await obj.arrayBuffer();
+      const plain = await decryptR2Bytes(env, wrapped, true);
+      if (plain == null) return json({ error: 'decrypt_failed' }, 503);
+      bodyOut = plain;
+    } else {
+      bodyOut = obj.body;
+    }
+    // v01.068 + v01.065 P0-3: read-audit every application file download.
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'read_pii', target_type: 'application_file', target_id: String(f.id),
+      detail: { filename: f.filename, size: f.size, mime: f.mime, kind: f.kind },
+    }));
+    return new Response(bodyOut, {
       headers: {
         'content-type': f.mime || 'application/octet-stream',
         'content-disposition': `attachment; filename="${encodeURIComponent(f.filename || 'file')}"`,
@@ -1818,6 +1915,16 @@ async function handleApi(request, env, url, ctx) {
     if (!att) return json({ error: 'not_found' }, 404);
     const obj = await env.ATTACHMENTS.get(att.r2_key);
     if (!obj) return json({ error: 'gone' }, 410);
+    // v01.068 (Phase 4): unwrap envelope if r2_encrypted = 1.
+    let bodyOut;
+    if (att.r2_encrypted) {
+      const wrapped = await obj.arrayBuffer();
+      const plain = await decryptR2Bytes(env, wrapped, true);
+      if (plain == null) return json({ error: 'decrypt_failed' }, 503);
+      bodyOut = plain;
+    } else {
+      bodyOut = obj.body;
+    }
     // v01.065 P0-3: read-audit every attachment download. Attachments
     // typically contain ID scans / transcripts / personal docs — the
     // highest-PII surface in the system, deserves its own trail.
@@ -1825,7 +1932,7 @@ async function handleApi(request, env, url, ctx) {
       action: 'read_pii', target_type: 'attachment', target_id: String(attId),
       detail: { filename: att.filename, size: att.size, mime: att.mime, side: att.side, email_id: att.email_id },
     }));
-    return new Response(obj.body, {
+    return new Response(bodyOut, {
       headers: {
         'content-type': att.mime || 'application/octet-stream',
         'content-disposition': `attachment; filename="${encodeURIComponent(att.filename || 'attachment')}"`,
@@ -1961,10 +2068,12 @@ async function handleApi(request, env, url, ctx) {
         const safe = a.filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
         const key = `attachments/outbound/${emailId}/${i}-${safe}`;
         try {
-          await env.ATTACHMENTS.put(key, a.bytes, { httpMetadata: { contentType: a.mime } });
+          // v01.068 (Phase 4): envelope-encrypt before R2 put.
+          const wrapped = await encryptR2Bytes(env, a.bytes);
+          await env.ATTACHMENTS.put(key, wrapped.bytes, { httpMetadata: { contentType: a.mime } });
           await env.DB.prepare(
-            'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          ).bind(emailId, 'outbound', ts, a.filename, a.mime, a.bytes.byteLength, key).run();
+            'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key, r2_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(emailId, 'outbound', ts, a.filename, a.mime, a.bytes.byteLength, key, wrapped.encrypted ? 1 : 0).run();
         } catch {}
       }
     }
@@ -2791,7 +2900,18 @@ async function handleApi(request, env, url, ctx) {
     if (!owner || owner.user_id !== user.id) return json({ error: 'not_found' }, 404);
     const obj = await env.ATTACHMENTS.get(f.r2_key);
     if (!obj) return json({ error: 'not_found' }, 404);
-    return new Response(obj.body, {
+    // v01.068 (Phase 4): unwrap envelope for the data subject's own
+    // download — they're entitled to plaintext.
+    let bodyOut;
+    if (f.r2_encrypted) {
+      const wrapped = await obj.arrayBuffer();
+      const plain = await decryptR2Bytes(env, wrapped, true);
+      if (plain == null) return json({ error: 'decrypt_failed' }, 503);
+      bodyOut = plain;
+    } else {
+      bodyOut = obj.body;
+    }
+    return new Response(bodyOut, {
       headers: {
         'content-type': f.mime || 'application/octet-stream',
         'content-disposition': `attachment; filename="${encodeURIComponent(f.filename || 'file')}"`,

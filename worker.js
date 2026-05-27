@@ -1504,12 +1504,10 @@ async function handleApi(request, env, url, ctx) {
     if (method === 'GET') {
       const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
       if (!row) return json({ error: 'not_found' }, 404);
-      // P2-5: decrypt birthdate_enc when present.
-      if (row.birthdate_enc) {
-        const dec = await decryptPii(env, row.birthdate_enc);
-        if (dec) row.birthdate = dec;
-      }
-      delete row.birthdate_enc;
+      // v01.066 (Phase 2): full PII decrypt — birthdate + name + email +
+      // essays + recommender fields. Strips ciphertext + HMAC columns from
+      // the response so they never reach the admin UI.
+      await decryptApplicationRow(env, row);
       // v01.065 P0-3: read-audit one row per admin viewing of a single
       // application. Single-record reads are the high-signal events for
       // forensics — they're either targeted lookups or scripted enumeration.
@@ -2190,12 +2188,32 @@ async function handleApi(request, env, url, ctx) {
           like, like, like, PER
         );
       })(),
-      safeAll(
-        'SELECT id, email, name, status, created_at FROM applications ' +
-        'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? ' +
-        'ORDER BY created_at DESC LIMIT ?',
-        like, like, like, PER
-      ),
+      // v01.066 Phase 2: applications name/email are now encrypted. SQL
+      // LIKE matches the legacy plaintext columns (NULL/empty on new rows).
+      // For new rows we recover exact-email lookup via email_h HMAC; id
+      // LIKE always works. Fragment search on encrypted name/essay/etc.
+      // is impossible by design — operators use id or exact email.
+      (async () => {
+        const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
+        const rows = await safeAll(
+          'SELECT id, email, email_enc, name, name_enc, status, created_at FROM applications ' +
+          'WHERE id LIKE ? OR email LIKE ? OR name LIKE ?' +
+          (emailH ? ' OR email_h = ?' : '') +
+          ' ORDER BY created_at DESC LIMIT ?',
+          ...(emailH ? [like, like, like, emailH, PER] : [like, like, like, PER])
+        );
+        const out = [];
+        for (const r of rows) {
+          // Inline decrypt only the two fields the admin UI shows in the
+          // search result list — name + email. Avoids hauling the entire
+          // encrypted row through for no display benefit.
+          if (r.name_enc)  { const d = await decryptPii(env, r.name_enc);  if (d != null) r.name  = d; }
+          if (r.email_enc) { const d = await decryptPii(env, r.email_enc); if (d != null) r.email = d; }
+          delete r.name_enc; delete r.email_enc;
+          out.push(r);
+        }
+        return out;
+      })(),
       // v01.065 P0-4: inquiries name/email/subject/body are now encrypted.
       // SQL LIKE matches only the legacy plaintext columns (NULL on new
       // rows). For new rows, exact-email search is supported via email_h
@@ -2704,6 +2722,13 @@ async function handleApi(request, env, url, ctx) {
     const isOwner = u && row.user_id && row.user_id === u.id;
     const tokenMatch = row.receipt_token && safeEqual(tokenParam, row.receipt_token);
     if (!isAdminAuth && !isOwner && !tokenMatch) return json({ error: 'unauthorized' }, 401);
+
+    // v01.066 (Phase 2): the response below reads row.name / row.email
+    // for the payer block. Both columns hold a ciphertext-only row on
+    // new submissions (plaintext is '' tombstone), so we must decrypt
+    // here before serializing. Authorization above already gated who
+    // can see the receipt.
+    await decryptApplicationRow(env, row);
 
     return json({
       id: row.id,
@@ -3719,6 +3744,84 @@ async function piiBackfillCron(env) {
       ).bind(enc, a.id).run();
     }
 
+    // v01.066 Phase 2 — applications PII backfill (9 fields + email_h +
+    // recommender_email_h). Encrypt legacy plaintext rows in 50-batch
+    // ticks. The table is currently empty on production, so this is
+    // primarily defensive — if a row is ever created in plaintext (e.g.
+    // operator submits with key unset), the next cron tick rotates it.
+    const { results: appLegacy } = await env.DB.prepare(
+      'SELECT id, name, email, essay_body, essay_body_2, essays_json, ' +
+      '       recommender_name, recommender_email, recommender_letter, recommenders_json ' +
+      'FROM applications ' +
+      'WHERE (name IS NOT NULL AND name != \'\' AND name_enc IS NULL) ' +
+      '   OR (email IS NOT NULL AND email != \'\' AND email_enc IS NULL) ' +
+      '   OR (essay_body IS NOT NULL AND essay_body_enc IS NULL) ' +
+      '   OR (essay_body_2 IS NOT NULL AND essay_body_2_enc IS NULL) ' +
+      '   OR (essays_json IS NOT NULL AND essays_json_enc IS NULL) ' +
+      '   OR (recommender_name IS NOT NULL AND recommender_name_enc IS NULL) ' +
+      '   OR (recommender_email IS NOT NULL AND recommender_email_enc IS NULL) ' +
+      '   OR (recommender_letter IS NOT NULL AND recommender_letter_enc IS NULL) ' +
+      '   OR (recommenders_json IS NOT NULL AND recommenders_json_enc IS NULL) ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const a of appLegacy || []) {
+      const emailNorm = a.email ? normalizeEmail(a.email) : '';
+      const recEmail  = a.recommender_email ? normalizeEmail(a.recommender_email) : '';
+      const enc = {
+        name:    a.name              ? await encryptPii(env, a.name) : null,
+        email:   emailNorm           ? await encryptPii(env, emailNorm) : null,
+        emailH:  emailNorm           ? await computePiiHmac(env, emailNorm, 'email-hmac') : null,
+        body:    a.essay_body        ? await encryptPii(env, a.essay_body) : null,
+        body2:   a.essay_body_2      ? await encryptPii(env, a.essay_body_2) : null,
+        json:    a.essays_json       ? await encryptPii(env, a.essays_json) : null,
+        recName: a.recommender_name  ? await encryptPii(env, a.recommender_name) : null,
+        recEm:   recEmail            ? await encryptPii(env, recEmail) : null,
+        recEmH:  recEmail            ? await computePiiHmac(env, recEmail, 'email-hmac') : null,
+        recLet:  a.recommender_letter? await encryptPii(env, a.recommender_letter) : null,
+        recJson: a.recommenders_json ? await encryptPii(env, a.recommenders_json) : null,
+      };
+      // Only proceed when at least one ciphertext actually came back (i.e.
+      // the key is set). Otherwise leave the row in plaintext for next pass.
+      if (!Object.values(enc).some(Boolean)) continue;
+      await env.DB.prepare(
+        // Mirror submitApplication's NOT NULL tombstone behavior for name/
+        // email; nullable fields get NULL once ciphertext lands.
+        'UPDATE applications SET ' +
+        '  name = CASE WHEN ? IS NOT NULL THEN \'\' ELSE name END, ' +
+        '  name_enc = COALESCE(?, name_enc), ' +
+        '  email = CASE WHEN ? IS NOT NULL THEN \'\' ELSE email END, ' +
+        '  email_enc = COALESCE(?, email_enc), ' +
+        '  email_h = COALESCE(?, email_h), ' +
+        '  essay_body = CASE WHEN ? IS NOT NULL THEN NULL ELSE essay_body END, ' +
+        '  essay_body_enc = COALESCE(?, essay_body_enc), ' +
+        '  essay_body_2 = CASE WHEN ? IS NOT NULL THEN NULL ELSE essay_body_2 END, ' +
+        '  essay_body_2_enc = COALESCE(?, essay_body_2_enc), ' +
+        '  essays_json = CASE WHEN ? IS NOT NULL THEN NULL ELSE essays_json END, ' +
+        '  essays_json_enc = COALESCE(?, essays_json_enc), ' +
+        '  recommender_name = CASE WHEN ? IS NOT NULL THEN NULL ELSE recommender_name END, ' +
+        '  recommender_name_enc = COALESCE(?, recommender_name_enc), ' +
+        '  recommender_email = CASE WHEN ? IS NOT NULL THEN NULL ELSE recommender_email END, ' +
+        '  recommender_email_enc = COALESCE(?, recommender_email_enc), ' +
+        '  recommender_email_h = COALESCE(?, recommender_email_h), ' +
+        '  recommender_letter = CASE WHEN ? IS NOT NULL THEN NULL ELSE recommender_letter END, ' +
+        '  recommender_letter_enc = COALESCE(?, recommender_letter_enc), ' +
+        '  recommenders_json = CASE WHEN ? IS NOT NULL THEN NULL ELSE recommenders_json END, ' +
+        '  recommenders_json_enc = COALESCE(?, recommenders_json_enc) ' +
+        'WHERE id = ?'
+      ).bind(
+        enc.name, enc.name,
+        enc.email, enc.email, enc.emailH,
+        enc.body, enc.body,
+        enc.body2, enc.body2,
+        enc.json, enc.json,
+        enc.recName, enc.recName,
+        enc.recEm, enc.recEm, enc.recEmH,
+        enc.recLet, enc.recLet,
+        enc.recJson, enc.recJson,
+        a.id
+      ).run();
+    }
+
     // v01.046 — HMAC recovery for rows that already went through
     // encryption but predate the HMAC column. We can rebuild the digest
     // from the decrypted plaintext, but only the operator (env with
@@ -4185,12 +4288,20 @@ async function exportMyData(request, env) {
     env.DB.prepare('SELECT * FROM inquiries WHERE user_id = ?').bind(u.id).all(),
     env.DB.prepare('SELECT * FROM consents WHERE user_id = ?').bind(u.id).all(),
   ]);
+  // v01.066 (Phase 2): GDPR Art. 15 export must return PLAINTEXT to the
+  // data subject — they are entitled to read their own data. Decrypt every
+  // applications + inquiries row through the per-table helpers before
+  // serializing.
+  const appsDec = [];
+  for (const r of apps.results || []) appsDec.push(await decryptApplicationRow(env, r));
+  const inqDec  = [];
+  for (const r of inquiries.results || []) inqDec.push(await decryptInquiryRow(env, r));
   const out = {
     exported_at: new Date().toISOString(),
     note: 'Per GDPR Art. 15. Contains all personal data we hold about you.',
     user, profile,
-    applications: apps.results || [],
-    inquiries:    inquiries.results || [],
+    applications: appsDec,
+    inquiries:    inqDec,
     consents:     consentsR.results || [],
   };
   return new Response(JSON.stringify(out, null, 2), {
@@ -4720,10 +4831,83 @@ async function submitApplication(request, env) {
   const birthdateRaw = str(body.birthdate) || null;
   const birthdateEnc = birthdateRaw ? await encryptPii(env, birthdateRaw) : null;
   const birthdatePlain = birthdateEnc ? null : birthdateRaw;
-  const cols = ['id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency', ...APP_FIELDS, 'birthdate_enc'];
-  const values = [id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD',
-    ...APP_FIELDS.map(k => k === 'birthdate' ? birthdatePlain : str(body[k])),
+
+  // v01.066 (P0-Phase-2): encrypt the rest of the high-PII application
+  // surface — applicant name + email (NOT NULL legacy columns get an
+  // empty-string tombstone like inquiries), essay bodies, the essays JSON
+  // blob, and the recommender PII (single legacy fields + multi-recommender
+  // JSON). email_h + recommender_email_h give admin search exact-match
+  // recovery against the encrypted columns (LIKE / fragment search on
+  // encrypted bodies is intentionally not possible).
+  const nameRaw    = str(body.name);
+  const emailNorm  = normalizeEmail(body.email);
+  const essayBody  = str(body.essay_body);
+  const essayBody2 = str(body.essay_body_2);
+  const essaysJson = str(body.essays_json);
+  const recName    = str(body.recommender_name);
+  const recEmailN  = body.recommender_email ? normalizeEmail(body.recommender_email) : '';
+  const recLetter  = str(body.recommender_letter);
+  const recJson    = str(body.recommenders_json);
+
+  const nameEnc       = await encryptPii(env, nameRaw);
+  const emailEnc      = await encryptPii(env, emailNorm);
+  const emailH        = await computePiiHmac(env, emailNorm, 'email-hmac');
+  const essayBodyEnc  = essayBody  ? await encryptPii(env, essayBody)  : null;
+  const essayBody2Enc = essayBody2 ? await encryptPii(env, essayBody2) : null;
+  const essaysJsonEnc = essaysJson ? await encryptPii(env, essaysJson) : null;
+  const recNameEnc    = recName    ? await encryptPii(env, recName)    : null;
+  const recEmailEnc   = recEmailN  ? await encryptPii(env, recEmailN)  : null;
+  const recEmailH     = recEmailN  ? await computePiiHmac(env, recEmailN, 'email-hmac') : null;
+  const recLetterEnc  = recLetter  ? await encryptPii(env, recLetter)  : null;
+  const recJsonEnc    = recJson    ? await encryptPii(env, recJson)    : null;
+
+  // Field-by-field plaintext sentinel logic:
+  //   * name / email: legacy NOT NULL, so '' tombstone when encrypted.
+  //   * essays / recommender fields: nullable, so NULL when encrypted.
+  //   * legacy plaintext column kept on every row written before the
+  //     operator set PII_ENCRYPTION_KEY; backfill cron rotates them later.
+  const namePlain      = nameEnc      ? '' : nameRaw;
+  const emailPlain     = emailEnc     ? '' : emailNorm;
+  const essayBodyPlain = essayBodyEnc ? null : essayBody;
+  const essayBody2Plain= essayBody2Enc? null : essayBody2;
+  const essaysJsonPlain= essaysJsonEnc? null : essaysJson;
+  const recNamePlain   = recNameEnc   ? null : recName;
+  const recEmailPlain  = recEmailEnc  ? null : recEmailN;
+  const recLetterPlain = recLetterEnc ? null : recLetter;
+  const recJsonPlain   = recJsonEnc   ? null : recJson;
+
+  // Build the per-field override map; APP_FIELDS.map() below consults it
+  // first, then falls back to str(body[k]) for every other field.
+  const PII_OVERRIDES = {
+    name: namePlain,
+    email: emailPlain,
+    birthdate: birthdatePlain,
+    essay_body: essayBodyPlain,
+    essay_body_2: essayBody2Plain,
+    essays_json: essaysJsonPlain,
+    recommender_name: recNamePlain,
+    recommender_email: recEmailPlain,
+    recommender_letter: recLetterPlain,
+    recommenders_json: recJsonPlain,
+  };
+
+  const cols = [
+    'id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency',
+    ...APP_FIELDS,
+    'birthdate_enc',
+    'name_enc','email_enc','email_h',
+    'essay_body_enc','essay_body_2_enc','essays_json_enc',
+    'recommender_name_enc','recommender_email_enc','recommender_email_h',
+    'recommender_letter_enc','recommenders_json_enc',
+  ];
+  const values = [
+    id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD',
+    ...APP_FIELDS.map(k => (k in PII_OVERRIDES) ? PII_OVERRIDES[k] : str(body[k])),
     birthdateEnc,
+    nameEnc, emailEnc, emailH,
+    essayBodyEnc, essayBody2Enc, essaysJsonEnc,
+    recNameEnc, recEmailEnc, recEmailH,
+    recLetterEnc, recJsonEnc,
   ];
 
   const placeholders = cols.map(() => '?').join(',');
@@ -4773,6 +4957,33 @@ async function submitApplication(request, env) {
                 receipt_url: status === 'paid' ? `/receipt?id=${encodeURIComponent(id)}&token=${receipt_token}` : null });
 }
 
+// v01.066 (Phase 2): inverse of submitApplication()'s encryption block.
+// Decrypts every *_enc column on a row, strips ciphertext + HMAC digests
+// from the payload so they never reach the client. Tolerant of legacy
+// rows where plaintext columns are still populated (ciphertext takes
+// precedence when both exist).
+async function decryptApplicationRow(env, row) {
+  if (!row) return row;
+  if (row.birthdate_enc)             { const d = await decryptPii(env, row.birthdate_enc);             if (d != null) row.birthdate = d; }
+  if (row.name_enc)                  { const d = await decryptPii(env, row.name_enc);                  if (d != null) row.name = d; }
+  if (row.email_enc)                 { const d = await decryptPii(env, row.email_enc);                 if (d != null) row.email = d; }
+  if (row.essay_body_enc)            { const d = await decryptPii(env, row.essay_body_enc);            if (d != null) row.essay_body = d; }
+  if (row.essay_body_2_enc)          { const d = await decryptPii(env, row.essay_body_2_enc);          if (d != null) row.essay_body_2 = d; }
+  if (row.essays_json_enc)           { const d = await decryptPii(env, row.essays_json_enc);           if (d != null) row.essays_json = d; }
+  if (row.recommender_name_enc)      { const d = await decryptPii(env, row.recommender_name_enc);      if (d != null) row.recommender_name = d; }
+  if (row.recommender_email_enc)    { const d = await decryptPii(env, row.recommender_email_enc);     if (d != null) row.recommender_email = d; }
+  if (row.recommender_letter_enc)    { const d = await decryptPii(env, row.recommender_letter_enc);    if (d != null) row.recommender_letter = d; }
+  if (row.recommenders_json_enc)     { const d = await decryptPii(env, row.recommenders_json_enc);     if (d != null) row.recommenders_json = d; }
+  delete row.birthdate_enc;
+  delete row.name_enc;            delete row.email_enc;            delete row.email_h;
+  delete row.essay_body_enc;      delete row.essay_body_2_enc;     delete row.essays_json_enc;
+  delete row.recommender_name_enc;
+  delete row.recommender_email_enc; delete row.recommender_email_h;
+  delete row.recommender_letter_enc;
+  delete row.recommenders_json_enc;
+  return row;
+}
+
 async function listApplications(env, url) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '200', 10) || 200, 500);
   const track = url.searchParams.get('track');
@@ -4782,20 +4993,12 @@ async function listApplications(env, url) {
   sql += ' ORDER BY submitted_at DESC LIMIT ?';
   binds.push(limit);
   const { results } = await env.DB.prepare(sql).bind(...binds).all();
-  // P2-5 (v01.045): decrypt birthdate_enc when present, fall back to
-  // legacy plaintext for rows that pre-date the encryption rollout.
-  // We sequentially await each decrypt — the list cap (≤500 items) +
-  // small ciphertext size keep this fast enough; if the cap grows later
-  // we can fan out via Promise.all.
+  // v01.066: decrypt every *_enc column per row. The list cap (≤500) +
+  // small per-field ciphertext keep this fast even sequentially; if the
+  // cap grows later we can fan out via Promise.all.
   const items = [];
   for (const r of results || []) {
-    const out = { ...r };
-    if (r.birthdate_enc) {
-      const dec = await decryptPii(env, r.birthdate_enc);
-      if (dec) out.birthdate = dec;
-    }
-    delete out.birthdate_enc;
-    items.push(out);
+    items.push(await decryptApplicationRow(env, r));
   }
   return json({ items, count: items.length });
 }

@@ -567,11 +567,27 @@ export default {
       // have. Plain-text body stays untouched.
       const safeHtml = html ? await sanitizeHtml(html) : '';
       const ts = new Date().toISOString();
+      // v01.067 (Phase 3): encrypt subject / body_text / body_html when key
+      // is set. Plaintext columns are NULLed so a DB dump carries only one
+      // copy. Inbound is the most adversarial PII channel — external senders
+      // routinely include national IDs, family situation, finances, health.
+      const subjectRaw  = subject || '(no subject)';
+      const bodyTextRaw = text || '';
+      const subjectEnc  = await encryptPii(env, subjectRaw);
+      const bodyTextEnc = bodyTextRaw ? await encryptPii(env, bodyTextRaw) : null;
+      const bodyHtmlEnc = safeHtml    ? await encryptPii(env, safeHtml)    : null;
+      const subjectPlain  = subjectEnc  ? null : subjectRaw;
+      const bodyTextPlain = bodyTextEnc ? null : bodyTextRaw;
+      const bodyHtmlPlain = bodyHtmlEnc ? null : safeHtml;
       const ins = await env.DB.prepare(
-        'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, body_text, body_html, raw_size, message_id, in_reply_to, sanitized_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, raw_size, message_id, in_reply_to, sanitized_at) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
-        ts, message.to, fromAddr, fromName, subject || '(no subject)',
-        text || '', safeHtml, message.rawSize || raw.length,
+        ts, message.to, fromAddr, fromName,
+        subjectPlain, subjectEnc,
+        bodyTextPlain, bodyTextEnc,
+        bodyHtmlPlain, bodyHtmlEnc,
+        message.rawSize || raw.length,
         messageId, inReplyTo, ts
       ).run();
       const emailId = ins.meta?.last_row_id;
@@ -1568,12 +1584,29 @@ async function handleApi(request, env, url, ctx) {
     if (mode === 'inbox')   where.push('spam = 0');
     const whereSql = 'WHERE ' + where.join(' AND ');
     const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM inbound_emails ' + whereSql).bind(...binds).first();
+    // v01.067 (Phase 3): subject/body are encrypted on new rows. The SQL
+    // LIKE filter above only matches legacy plaintext rows + the
+    // SUBSTR-derived preview is empty on new rows. To preserve the inbox
+    // list view we now select the ciphertext columns alongside, decrypt
+    // them in app code, then build the preview from the decrypted text.
     const { results } = await env.DB.prepare(
-      'SELECT id, ts, to_addr, from_addr, from_name, subject, ' +
-      'SUBSTR(COALESCE(body_text, body_html, \'\'), 1, 240) AS preview, ' +
-      'read_at, starred, spam, trashed_at, message_id, in_reply_to ' +
+      'SELECT id, ts, to_addr, from_addr, from_name, ' +
+      '       subject, subject_enc, ' +
+      '       body_text, body_text_enc, body_html, body_html_enc, ' +
+      '       read_at, starred, spam, trashed_at, message_id, in_reply_to ' +
       'FROM inbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
     ).bind(...binds, limit, offset).all();
+    // Decrypt + build preview, then strip the raw body fields from the
+    // payload (the list view only needs the 240-char preview).
+    const decResults = [];
+    for (const r of results || []) {
+      await decryptEmailRow(env, r);
+      const src = r.body_text || r.body_html || '';
+      r.preview = String(src).slice(0, 240);
+      delete r.body_text;
+      delete r.body_html;
+      decResults.push(r);
+    }
     // Sidebar counters — single shot so the UI doesn't fan out.
     const countsRow = await env.DB.prepare(
       "SELECT " +
@@ -1584,7 +1617,7 @@ async function handleApi(request, env, url, ctx) {
       "  COALESCE(SUM(CASE WHEN trashed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS trash " +
       "FROM inbound_emails"
     ).first();
-    return json({ items: results || [], total: total?.n || 0, limit, offset, counts: countsRow || {} });
+    return json({ items: decResults, total: total?.n || 0, limit, offset, counts: countsRow || {} });
   }
   const inboxItemM = path.match(/^\/api\/admin\/inbox\/(\d+)$/);
   if (inboxItemM) {
@@ -1598,6 +1631,14 @@ async function handleApi(request, env, url, ctx) {
         await env.DB.prepare('UPDATE inbound_emails SET read_at = ? WHERE id = ?').bind(now, id).run();
         row.read_at = now;
       }
+      // v01.067 (Phase 3): decrypt subject + body_text + body_html.
+      await decryptEmailRow(env, row);
+      // v01.067 + v01.065 P0-3: read-audit one row per single inbound view.
+      // The mailbox is one of the highest-PII surfaces — single-record
+      // reads are high-signal forensic events.
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+        action: 'read_pii', target_type: 'inbound_email', target_id: String(id),
+      }));
       // Attach metadata for the email's R2 attachments. The download URL is
       // /api/admin/attachment/:id/download — the R2 fetch happens server-side.
       const { results: atts } = await env.DB.prepare(
@@ -1674,11 +1715,16 @@ async function handleApi(request, env, url, ctx) {
     else if (mode === 'spam')    { where = 'WHERE trashed_at IS NULL AND spam = 1'; }
     else if (mode === 'trash')   { where = 'WHERE trashed_at IS NOT NULL'; }
     const { results } = await env.DB.prepare(
-      'SELECT id, ts, to_addr, from_addr, from_name, subject, body_text, body_html, message_id, in_reply_to, read_at, starred, spam, trashed_at FROM inbound_emails ' + where + ' ORDER BY ts DESC LIMIT 5000'
+      'SELECT id, ts, to_addr, from_addr, from_name, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, message_id, in_reply_to, read_at, starred, spam, trashed_at FROM inbound_emails ' + where + ' ORDER BY ts DESC LIMIT 5000'
     ).bind(...binds).all();
+    // v01.067 (Phase 3): decrypt subject + body for the export. The
+    // operator explicitly asked for these — surface plaintext just as they
+    // would see in the admin UI.
+    const decResults = [];
+    for (const r of results || []) decResults.push(await decryptEmailRow(env, r));
     const stamp = new Date().toISOString().slice(0, 10);
     if (fmt === 'json') {
-      return new Response(JSON.stringify({ exported_at: new Date().toISOString(), count: (results || []).length, items: results || [] }, null, 2), {
+      return new Response(JSON.stringify({ exported_at: new Date().toISOString(), count: decResults.length, items: decResults }, null, 2), {
         headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="dreampath-inbox-${stamp}.json"` },
       });
     }
@@ -1686,7 +1732,7 @@ async function handleApi(request, env, url, ctx) {
     // headers but we escape defensively.
     const cols = ['id','ts','to_addr','from_addr','from_name','subject','body_text','message_id','in_reply_to','read_at','starred','spam','trashed_at'];
     const esc = v => { const s = (v == null) ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
-    const rows = [cols.join(',')].concat((results || []).map(r => cols.map(k => esc(r[k])).join(',')));
+    const rows = [cols.join(',')].concat(decResults.map(r => cols.map(k => esc(r[k])).join(',')));
     return new Response(rows.join('\n'), {
       headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="dreampath-inbox-${stamp}.csv"` },
     });
@@ -1705,22 +1751,41 @@ async function handleApi(request, env, url, ctx) {
     else                  where.push('trashed_at IS NULL');
     const whereSql = 'WHERE ' + where.join(' AND ');
     const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM outbound_emails ' + whereSql).bind(...binds).first();
+    // v01.067 (Phase 3): outbound body is now encrypted. Pull ciphertext
+    // columns too, decrypt in app code, build a 240-char preview from
+    // the plaintext result.
     const { results } = await env.DB.prepare(
-      'SELECT id, ts, from_addr, to_addr, subject, ' +
-      'SUBSTR(COALESCE(body_text, \'\'), 1, 240) AS preview, status, in_reply_to, resend_id, trashed_at ' +
+      'SELECT id, ts, from_addr, to_addr, ' +
+      '       subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, ' +
+      '       status, in_reply_to, resend_id, trashed_at ' +
       'FROM outbound_emails ' + whereSql + ' ORDER BY ts DESC LIMIT ? OFFSET ?'
     ).bind(...binds, limit, offset).all();
-    return json({ items: results || [], total: total?.n || 0, limit, offset });
+    const decResults = [];
+    for (const r of results || []) {
+      await decryptEmailRow(env, r);
+      r.preview = String(r.body_text || r.body_html || '').slice(0, 240);
+      delete r.body_text;
+      delete r.body_html;
+      decResults.push(r);
+    }
+    return json({ items: decResults, total: total?.n || 0, limit, offset });
   }
   const sentItemM = path.match(/^\/api\/admin\/sent\/(\d+)$/);
   if (sentItemM && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    const row = await env.DB.prepare('SELECT * FROM outbound_emails WHERE id = ?').bind(parseInt(sentItemM[1], 10)).first();
+    const sentId = parseInt(sentItemM[1], 10);
+    const row = await env.DB.prepare('SELECT * FROM outbound_emails WHERE id = ?').bind(sentId).first();
     if (!row) return json({ error: 'not_found' }, 404);
+    // v01.067 (Phase 3): decrypt subject + body.
+    await decryptEmailRow(env, row);
     const { results: atts } = await env.DB.prepare(
       'SELECT id, filename, mime, size FROM email_attachments WHERE side = ? AND email_id = ? ORDER BY id ASC'
-    ).bind('outbound', parseInt(sentItemM[1], 10)).all();
+    ).bind('outbound', sentId).all();
     row.attachments = atts || [];
+    // v01.067 + v01.065 P0-3: read-audit single sent-mail view.
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'read_pii', target_type: 'outbound_email', target_id: String(sentId),
+    }));
     return json(row);
   }
   if (sentItemM && method === 'DELETE') {
@@ -1865,13 +1930,26 @@ async function handleApi(request, env, url, ctx) {
       status = 'queued';
       error = 'RESEND_API_KEY not configured — message stored as queued.';
     }
+    // v01.067 (Phase 3): encrypt subject / body_text / body_html when the
+    // PII_ENCRYPTION_KEY is set. Plaintext columns are NULLed so a DB dump
+    // carries only one copy. Outbound mail contains user names + admission
+    // decisions + replies that quote inbound personal content.
+    const obSubjEnc  = await encryptPii(env, subject || '');
+    const obTextEnc  = textForSend ? await encryptPii(env, textForSend) : null;
+    const obHtmlEnc  = htmlForSend ? await encryptPii(env, htmlForSend) : null;
+    const obSubjPlain = obSubjEnc ? null : (subject || null);
+    const obTextPlain = obTextEnc ? null : (textForSend || null);
+    const obHtmlPlain = obHtmlEnc ? null : (htmlForSend || null);
     const ins = await env.DB.prepare(
-      'INSERT INTO outbound_emails (ts, from_addr, to_addr, cc, bcc, subject, body_text, body_html, in_reply_to, resend_id, status, error, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO outbound_emails (ts, from_addr, to_addr, cc, bcc, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, in_reply_to, resend_id, status, error, actor_user) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(
       ts, fromAddr, toAddr,
       ccList.length ? ccList.join(', ') : null,
       bccList.length ? bccList.join(', ') : null,
-      subject, textForSend, htmlForSend || null,
+      obSubjPlain, obSubjEnc,
+      obTextPlain, obTextEnc,
+      obHtmlPlain, obHtmlEnc,
       inReplyTo, resendId, status, error, 'admin'
     ).run();
     const emailId = ins.meta?.last_row_id;
@@ -2242,18 +2320,48 @@ async function handleApi(request, env, url, ctx) {
           created_at: r.created_at, status: r.status,
         }));
       })(),
-      safeAll(
-        'SELECT id, ts, from_addr, to_addr, subject, SUBSTR(COALESCE(body_text, body_html), 1, 200) AS preview FROM inbound_emails ' +
-        'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
-        'ORDER BY ts DESC LIMIT ?',
-        like, like, like, like, like, PER
-      ),
-      safeAll(
-        'SELECT id, ts, to_addr, subject, SUBSTR(COALESCE(body_text, body_html), 1, 200) AS preview FROM outbound_emails ' +
-        'WHERE to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
-        'ORDER BY ts DESC LIMIT ?',
-        like, like, like, like, PER
-      ),
+      // v01.067 (Phase 3): inbound + outbound subject/body are encrypted on
+      // new rows. SQL LIKE only hits the address columns (still plaintext)
+      // and any legacy plaintext bodies. Decrypt the selected rows and
+      // rebuild preview from the decrypted body.
+      (async () => {
+        const rows = await safeAll(
+          'SELECT id, ts, from_addr, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
+          'FROM inbound_emails ' +
+          'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+          'ORDER BY ts DESC LIMIT ?',
+          like, like, like, like, like, PER
+        );
+        const out = [];
+        for (const r of rows) {
+          await decryptEmailRow(env, r);
+          out.push({
+            id: r.id, ts: r.ts, from_addr: r.from_addr, to_addr: r.to_addr,
+            subject: r.subject,
+            preview: String(r.body_text || r.body_html || '').slice(0, 200),
+          });
+        }
+        return out;
+      })(),
+      (async () => {
+        const rows = await safeAll(
+          'SELECT id, ts, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
+          'FROM outbound_emails ' +
+          'WHERE to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+          'ORDER BY ts DESC LIMIT ?',
+          like, like, like, like, PER
+        );
+        const out = [];
+        for (const r of rows) {
+          await decryptEmailRow(env, r);
+          out.push({
+            id: r.id, ts: r.ts, to_addr: r.to_addr,
+            subject: r.subject,
+            preview: String(r.body_text || r.body_html || '').slice(0, 200),
+          });
+        }
+        return out;
+      })(),
     ]);
 
     // Wiki search — walks all known wiki slugs and looks for the query
@@ -3856,6 +3964,57 @@ async function piiBackfillCron(env) {
       ).bind(h, iq.id).run();
     }
 
+    // v01.067 (Phase 3) — inbound + outbound emails backfill. Rotate the
+    // three plaintext content fields (subject / body_text / body_html)
+    // into ciphertext columns. Addresses stay plaintext for operational
+    // grouping (see migration 0034 comment for the trade-off).
+    const { results: inLegacy } = await env.DB.prepare(
+      'SELECT id, subject, body_text, body_html FROM inbound_emails ' +
+      'WHERE (subject    IS NOT NULL AND subject_enc    IS NULL) ' +
+      '   OR (body_text  IS NOT NULL AND body_text_enc  IS NULL) ' +
+      '   OR (body_html  IS NOT NULL AND body_html_enc  IS NULL) ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const e of inLegacy || []) {
+      const sEnc = e.subject   ? await encryptPii(env, e.subject)   : null;
+      const tEnc = e.body_text ? await encryptPii(env, e.body_text) : null;
+      const hEnc = e.body_html ? await encryptPii(env, e.body_html) : null;
+      if (!(sEnc || tEnc || hEnc)) continue;
+      await env.DB.prepare(
+        'UPDATE inbound_emails SET ' +
+        '  subject   = CASE WHEN ? IS NOT NULL THEN NULL ELSE subject END, ' +
+        '  subject_enc   = COALESCE(?, subject_enc), ' +
+        '  body_text = CASE WHEN ? IS NOT NULL THEN NULL ELSE body_text END, ' +
+        '  body_text_enc = COALESCE(?, body_text_enc), ' +
+        '  body_html = CASE WHEN ? IS NOT NULL THEN NULL ELSE body_html END, ' +
+        '  body_html_enc = COALESCE(?, body_html_enc) ' +
+        'WHERE id = ?'
+      ).bind(sEnc, sEnc, tEnc, tEnc, hEnc, hEnc, e.id).run();
+    }
+    const { results: outLegacy } = await env.DB.prepare(
+      'SELECT id, subject, body_text, body_html FROM outbound_emails ' +
+      'WHERE (subject    IS NOT NULL AND subject_enc    IS NULL) ' +
+      '   OR (body_text  IS NOT NULL AND body_text_enc  IS NULL) ' +
+      '   OR (body_html  IS NOT NULL AND body_html_enc  IS NULL) ' +
+      'LIMIT ?'
+    ).bind(BATCH).all();
+    for (const e of outLegacy || []) {
+      const sEnc = e.subject   ? await encryptPii(env, e.subject)   : null;
+      const tEnc = e.body_text ? await encryptPii(env, e.body_text) : null;
+      const hEnc = e.body_html ? await encryptPii(env, e.body_html) : null;
+      if (!(sEnc || tEnc || hEnc)) continue;
+      await env.DB.prepare(
+        'UPDATE outbound_emails SET ' +
+        '  subject   = CASE WHEN ? IS NOT NULL THEN NULL ELSE subject END, ' +
+        '  subject_enc   = COALESCE(?, subject_enc), ' +
+        '  body_text = CASE WHEN ? IS NOT NULL THEN NULL ELSE body_text END, ' +
+        '  body_text_enc = COALESCE(?, body_text_enc), ' +
+        '  body_html = CASE WHEN ? IS NOT NULL THEN NULL ELSE body_html END, ' +
+        '  body_html_enc = COALESCE(?, body_html_enc) ' +
+        'WHERE id = ?'
+      ).bind(sEnc, sEnc, tEnc, tEnc, hEnc, hEnc, e.id).run();
+    }
+
     // v01.065 P0-4 — inquiries name/email/subject/body backfill. Legacy
     // rows have plaintext columns populated and *_enc NULL; rotate them
     // into ciphertext + (for email) HMAC. Cron self-terminates once every
@@ -3900,9 +4059,12 @@ async function piiBackfillCron(env) {
 async function inboundSanitizeCron(env) {
   const BATCH = 50;
   try {
+    // v01.067 (Phase 3): only operate on legacy rows where body_html is
+    // still plaintext. Encrypted rows (body_html_enc IS NOT NULL, body_html
+    // IS NULL) have been sanitized at write time and don't need re-running.
     const { results } = await env.DB.prepare(
       'SELECT id, body_html FROM inbound_emails ' +
-      'WHERE sanitized_at IS NULL ' +
+      'WHERE sanitized_at IS NULL AND body_html IS NOT NULL AND body_html_enc IS NULL ' +
       'ORDER BY id ASC LIMIT ?'
     ).bind(BATCH).all();
     const now = new Date().toISOString();
@@ -4981,6 +5143,20 @@ async function decryptApplicationRow(env, row) {
   delete row.recommender_email_enc; delete row.recommender_email_h;
   delete row.recommender_letter_enc;
   delete row.recommenders_json_enc;
+  return row;
+}
+
+// v01.067 (Phase 3): inverse of the inbound + outbound INSERT encryption.
+// Same shape on both tables (subject / body_text / body_html), so one helper
+// works for either. Strips the *_enc columns from the response.
+async function decryptEmailRow(env, row) {
+  if (!row) return row;
+  if (row.subject_enc)   { const d = await decryptPii(env, row.subject_enc);   if (d != null) row.subject = d; }
+  if (row.body_text_enc) { const d = await decryptPii(env, row.body_text_enc); if (d != null) row.body_text = d; }
+  if (row.body_html_enc) { const d = await decryptPii(env, row.body_html_enc); if (d != null) row.body_html = d; }
+  delete row.subject_enc;
+  delete row.body_text_enc;
+  delete row.body_html_enc;
   return row;
 }
 

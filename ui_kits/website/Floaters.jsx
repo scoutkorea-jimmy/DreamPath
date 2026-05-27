@@ -231,7 +231,7 @@ function ChatBot({ lang, c, go }) {
           style={{
             position: 'fixed', right: 20, bottom: 24, zIndex: 9000,
             width: 56, height: 56, borderRadius: '50%',
-            background: 'var(--scouting-purple)', color: '#fff',
+            background: 'var(--accent-purple-fill)', color: '#fff',
             border: 'none', boxShadow: '0 10px 28px rgba(107,45,190,0.42)',
             cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -274,7 +274,7 @@ function ChatBot({ lang, c, go }) {
         {/* Header */}
         <div style={{
           padding: '14px 16px',
-          background: 'linear-gradient(135deg, var(--midnight-purple), var(--scouting-purple))',
+          background: 'linear-gradient(135deg, var(--midnight-purple), var(--accent-purple-fill))',
           color: '#fff', display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <div style={{
@@ -397,7 +397,7 @@ function ChatBubble({ m, lang, onSuggest, go }) {
       <div style={{display:'flex',justifyContent:'flex-end'}}>
         <div style={{
           maxWidth:'82%',
-          background:'var(--scouting-purple)', color:'#fff',
+          background:'var(--accent-purple-fill)', color:'#fff',
           padding:'10px 13px', borderRadius:'14px 14px 4px 14px',
           fontSize:14, lineHeight:1.5, whiteSpace:'pre-line',
           boxShadow:'0 2px 6px rgba(0,0,0,0.08)',

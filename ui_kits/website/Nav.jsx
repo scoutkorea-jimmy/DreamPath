@@ -215,7 +215,7 @@ function Nav({ view, go, lang, setLang, c }) {
                   </svg>
                   {unread > 0 && (
                     <span aria-hidden="true"
-                      style={{position:'absolute',top:-4,right:-4,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--state-danger)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>
+                      style={{position:'absolute',top:-4,right:-4,minWidth:16,height:16,padding:'0 4px',borderRadius:999,background:'var(--badge-danger-fill)',color:'#fff',fontSize:10,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-mono)'}}>
                       {unread > 9 ? '9+' : unread}
                     </span>
                   )}

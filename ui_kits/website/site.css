@@ -449,7 +449,7 @@ body {
 .faq-q h4 { font-family: var(--font-kr); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 .faq-q h4.en { font-family: var(--font-en); }
 .faq-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-muted); display: flex; align-items: center; justify-content: center; transition: all var(--duration-normal) var(--ease-standard); color: var(--scouting-purple); flex-shrink: 0; }
-.faq-item.open .faq-icon { background: var(--scouting-purple); color: #fff; transform: rotate(45deg); }
+.faq-item.open .faq-icon { background: var(--accent-purple-fill); color: #fff; transform: rotate(45deg); }
 /* white-space: pre-line preserves \n in stored answers (admin authors
    them with literal newlines). max-height bumped from 400px to 1200px to
    accommodate longer multi-paragraph answers without overflow clipping. */
@@ -524,7 +524,7 @@ body {
 .filters { display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap; }
 .filter-chip { padding: 8px 16px; border-radius: 999px; background: var(--bg-elevated); border: 1px solid var(--border-default); font-size: 13px; font-weight: 500; color: var(--fg-primary); cursor: pointer; transition: all var(--duration-fast); }
 .filter-chip:hover { border-color: var(--fg-primary); }
-.filter-chip.on { background: var(--scouting-purple); color: #fff; border-color: var(--scouting-purple); }
+.filter-chip.on { background: var(--accent-purple-fill); color: #fff; border-color: var(--accent-purple-fill); }
 
 /* ============ PROGRAM DETAIL ============ */
 .pd-header {

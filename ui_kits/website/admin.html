@@ -196,7 +196,7 @@
     .topbar .topact.primary {
       background: var(--midnight-purple); color: #fff; border-color: var(--midnight-purple);
     }
-    .topbar .topact.primary:hover { background: var(--scouting-purple); border-color: var(--scouting-purple); color: #fff; }
+    .topbar .topact.primary:hover { background: var(--accent-purple-fill); border-color: var(--accent-purple-fill); color: #fff; }
 
     /* Sub-tab strip (horizontal pills under topbar, inside the active group) */
     .subtabs {
@@ -339,7 +339,7 @@
     .icon-btn:hover { color: var(--fg-primary); border-color: var(--fg-muted); }
     .icon-btn.danger:hover { background: #FFF0F0; color: var(--state-danger); border-color: var(--state-danger); }
     .btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--midnight-purple); color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; }
-    .btn-add:hover { background: var(--scouting-purple); }
+    .btn-add:hover { background: var(--accent-purple-fill); }
 
     /* Color picker */
     .color-row { display: flex; gap: 8px; align-items: center; }
@@ -3218,10 +3218,10 @@
               )}
               {(view === 'trash' || view === 'sent_trash') ? (
                 <button type="button" className="icon-btn" onClick={bulkPurge}
-                  style={{background:'var(--state-danger)',color:'#fff',borderColor:'var(--state-danger)'}}>영구 삭제</button>
+                  style={{background:'var(--badge-danger-fill)',color:'#fff',borderColor:'var(--badge-danger-fill)'}}>영구 삭제</button>
               ) : (
                 <button type="button" className="icon-btn" onClick={bulkTrash}
-                  style={{background:'var(--state-danger)',color:'#fff',borderColor:'var(--state-danger)'}}>휴지통으로</button>
+                  style={{background:'var(--badge-danger-fill)',color:'#fff',borderColor:'var(--badge-danger-fill)'}}>휴지통으로</button>
               )}
               <span style={{flex:1}} />
               <button type="button" className="icon-btn" onClick={() => setSelectedIds(new Set())}

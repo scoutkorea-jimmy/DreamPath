@@ -139,6 +139,19 @@
   --state-info:       #1D4ED8;          /* 7.4:1 on white — AAA */
   --state-info-bg:    #DBEAFE;
 
+  /* === Saturated-fill accents ===
+     Specialized tokens that intentionally do NOT lighten in dark mode the
+     way --scouting-purple / --state-danger do. They exist for the
+     "colored badge / chip / pill / fill with white text on top" pattern
+     where the lightened dark-mode values of the semantic tokens drop
+     contrast against white below WCAG AA. Use these wherever a UI element
+     is `background: <token>; color: #fff (or --fg-inverse)` and you want
+     the *visual* pattern to stay consistent across light and dark.
+     - light: same hue as the semantic token, so designs stay coherent.
+     - dark : a slightly brighter saturation tuned to keep white at ≥4.5:1. */
+  --accent-purple-fill:  #6B2DBE;       /* white ≥ 5.5:1 — AA       */
+  --badge-danger-fill:   #B91C1C;       /* white ≥ 6.4:1 — AAA      */
+
   /* ============ TYPOGRAPHY ============ */
   --font-kr:    "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif;
   --font-en:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -282,6 +295,13 @@
   --state-danger-bg:  rgba(185, 28, 28, 0.22);
   --state-info:       #60A5FA;          /* 7.0:1 on canvas — AAA */
   --state-info-bg:    rgba(29, 78, 216, 0.22);
+
+  /* Saturated-fill accents — stay saturated enough that white (#fff) text
+     hits ≥ 4.5:1 in dark mode. The semantic --state-danger / --scouting-purple
+     above lighten to be readable AS text on dark canvas; these are the
+     inverse, kept saturated so they work AS a fill behind white text. */
+  --accent-purple-fill:  #7C3AED;       /* white ≥ 5.4:1 on this — AA  */
+  --badge-danger-fill:   #DC2626;       /* white ≥ 4.8:1 on this — AA  */
 
   /* Shadows pick up depth from very dark to absolute black so layering
      still reads on near-black surfaces. */

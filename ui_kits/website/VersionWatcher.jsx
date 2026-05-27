@@ -102,7 +102,7 @@ function VersionWatcher({ lang }) {
         <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
           <div style={{
             flexShrink:0, width:36, height:36, borderRadius:'50%',
-            background:'var(--scouting-purple, #7c3aed)', color:'#fff',
+            background:'var(--accent-purple-fill, #7c3aed)', color:'#fff',
             display:'flex', alignItems:'center', justifyContent:'center',
             fontSize:18, fontWeight:700,
           }}>↑</div>

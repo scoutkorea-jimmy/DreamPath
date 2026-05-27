@@ -662,6 +662,7 @@ export default {
     ctx.waitUntil(applyDraftCron(env));   // v01.031 — purge drafts older than 72h
     ctx.waitUntil(piiBackfillCron(env));  // v01.043 — encrypt legacy plaintext phone rows
     ctx.waitUntil(inboundSanitizeCron(env)); // v01.043 — re-sanitize legacy inbound HTML
+    ctx.waitUntil(piiRetentionCron(env));    // v01.070 — hard-delete past retention window
   },
 };
 
@@ -4193,6 +4194,106 @@ async function inboundSanitizeCron(env) {
       await env.DB.prepare(
         'UPDATE inbound_emails SET body_html = ?, sanitized_at = ? WHERE id = ?'
       ).bind(safe, now, r.id).run();
+    }
+  } catch {}
+}
+
+// v01.070 (Phase 7) — retention auto-purge. The site has been collecting
+// PII since launch with no automatic deletion window; this cron enforces
+// the boundaries the privacy policy promises:
+//
+//   * users.deleted_at older than 30 days  → hard-delete row + drop
+//                                            ciphertext columns
+//   * applications.user_id IS NULL older   → hard-delete row + R2 files
+//     than 365 days (detached on
+//     self-delete; aligns with consent
+//     retention window)
+//   * inquiries older than 180 days        → hard-delete row
+//   * inbound/outbound_emails older than   → hard-delete row + R2
+//     365 days (or trashed > 30 days)        attachments
+//   * orphaned application_files (no       → hard-delete row + R2
+//     application_id) older than 30 days
+//
+// Each pass is bounded to a small batch (50) so a cron tick stays well
+// under the Workers CPU budget even on a giant backlog. The cron is
+// idempotent — running it twice in a row on a clean DB is a no-op.
+async function piiRetentionCron(env) {
+  const BATCH = 50;
+  const now = Date.now();
+  const isoBefore = (ms) => new Date(now - ms).toISOString();
+  const D30  = isoBefore(30  * 86400 * 1000);
+  const D180 = isoBefore(180 * 86400 * 1000);
+  const D365 = isoBefore(365 * 86400 * 1000);
+
+  try {
+    // 1) Hard-delete soft-deleted users past the 30-day grace window.
+    const { results: deadUsers } = await env.DB.prepare(
+      'SELECT id FROM users WHERE deleted_at IS NOT NULL AND deleted_at < ? LIMIT ?'
+    ).bind(D30, BATCH).all().catch(() => ({ results: [] }));
+    for (const u of deadUsers || []) {
+      try {
+        await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(u.id).run();
+        await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(u.id).run();
+      } catch {}
+    }
+
+    // 2) Hard-delete detached applications past 365 days + R2 files.
+    const { results: deadApps } = await env.DB.prepare(
+      "SELECT id FROM applications WHERE user_id IS NULL AND submitted_at < ? LIMIT ?"
+    ).bind(D365, BATCH).all().catch(() => ({ results: [] }));
+    for (const a of deadApps || []) {
+      try {
+        const { results: files } = await env.DB.prepare(
+          'SELECT r2_key FROM application_files WHERE application_id = ?'
+        ).bind(a.id).all();
+        if (env.ATTACHMENTS) {
+          for (const f of files || []) { try { await env.ATTACHMENTS.delete(f.r2_key); } catch {} }
+        }
+        await env.DB.prepare('DELETE FROM application_files WHERE application_id = ?').bind(a.id).run();
+        await env.DB.prepare('DELETE FROM applications WHERE id = ?').bind(a.id).run();
+      } catch {}
+    }
+
+    // 3) Hard-delete inquiries past 180 days.
+    await env.DB.prepare(
+      'DELETE FROM inquiries WHERE created_at < ?'
+    ).bind(D180).run().catch(() => {});
+
+    // 4) Hard-delete inbound/outbound emails. Two windows:
+    //    a) trashed_at > 30 days ago — operator already chose to discard.
+    //    b) ts > 365 days ago — long-tail retention boundary.
+    // Per pass we cap the read so R2 cleanup work is bounded.
+    const purgeEmails = async (table, side) => {
+      const { results: drops } = await env.DB.prepare(
+        `SELECT id FROM ${table} WHERE (trashed_at IS NOT NULL AND trashed_at < ?) OR ts < ? LIMIT ?`
+      ).bind(D30, D365, BATCH).all().catch(() => ({ results: [] }));
+      for (const e of drops || []) {
+        try {
+          const { results: atts } = await env.DB.prepare(
+            'SELECT r2_key FROM email_attachments WHERE side = ? AND email_id = ?'
+          ).bind(side, e.id).all();
+          if (env.ATTACHMENTS) {
+            for (const a of atts || []) { try { await env.ATTACHMENTS.delete(a.r2_key); } catch {} }
+          }
+          await env.DB.prepare('DELETE FROM email_attachments WHERE side = ? AND email_id = ?').bind(side, e.id).run();
+          await env.DB.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(e.id).run();
+        } catch {}
+      }
+    };
+    await purgeEmails('inbound_emails',  'inbound');
+    await purgeEmails('outbound_emails', 'outbound');
+
+    // 5) Orphaned application_files — uploaded via the public upload
+    // endpoint, then never adopted into an application (token never
+    // echoed back at submit). 30-day grace window.
+    const { results: orphans } = await env.DB.prepare(
+      "SELECT id, r2_key FROM application_files WHERE (application_id IS NULL OR application_id = '') AND uploaded_at < ? LIMIT ?"
+    ).bind(D30, BATCH).all().catch(() => ({ results: [] }));
+    for (const f of orphans || []) {
+      try {
+        if (env.ATTACHMENTS && f.r2_key) { try { await env.ATTACHMENTS.delete(f.r2_key); } catch {} }
+        await env.DB.prepare('DELETE FROM application_files WHERE id = ?').bind(f.id).run();
+      } catch {}
     }
   } catch {}
 }

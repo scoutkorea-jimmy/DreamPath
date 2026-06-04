@@ -13,3 +13,5 @@ ui_kits_README.md
 *.log
 .wrangler/
 .vscode/
+# Reference-only (repo-tracked, not served publicly):
+assets/DreamPath_Brandbook.pdf

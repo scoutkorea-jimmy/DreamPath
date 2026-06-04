@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
-  <rect width="600" height="400" fill="#F7F7F5"></rect>
-  <rect x="0" y="0" width="600" height="400" fill="#248737" opacity="0.12"></rect>
-  <circle cx="460" cy="140" r="80" fill="#FF8DFF" opacity="0.55"></circle>
-  <path d="M0 320 Q 150 260, 300 300 T 600 280 L 600 400 L 0 400 Z" fill="#6B2DBE" opacity="0.35"></path>
-  <text x="300" y="370" text-anchor="middle" fill="#8F8F8F" font-family="&#39;Google Sans Flex&#39;, system-ui, sans-serif" font-size="13" letter-spacing="0.22em" font-weight="500">CAMPUS · PHOTO</text>
-</svg>

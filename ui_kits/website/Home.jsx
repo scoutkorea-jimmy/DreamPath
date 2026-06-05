@@ -61,17 +61,23 @@ function Home({ go, lang, c }) {
           <div className="container">
             <div className="partner-strip-kicker">{isKo ? '신뢰받는 파트너 네트워크' : 'TRUSTED PARTNER NETWORK'}</div>
             <div className="partner-strip-row">
-              {c.partners.map((p, i) => (
-                <button key={i} type="button" className="partner-chip"
-                  onClick={() => go('partners')}
-                  title={p.full || p.name}
-                  aria-label={(isKo ? p.role_ko : p.role_en) || p.name}>
-                  {p.logo
-                    ? <img src={p.logo} alt={p.name} loading="lazy" />
-                    : <span className="partner-chip-text" style={{'--c': p.color || 'var(--scouting-purple)'}}>{p.name}</span>}
-                  <span className="partner-chip-name">{p.name}</span>
-                </button>
-              ))}
+              {c.partners.map((p, i) => {
+                const inner = (
+                  <>
+                    {p.logo
+                      ? <img src={p.logo} alt={p.name} loading="lazy" />
+                      : <span className="partner-chip-text" style={{'--c': p.color || 'var(--scouting-purple)'}}>{p.name}</span>}
+                    <span className="partner-chip-name">{p.name}</span>
+                  </>
+                );
+                // With a website URL, the logo links out to the partner's site
+                // in a new tab; otherwise it routes to the internal /partners page.
+                return p.url
+                  ? <a key={i} className="partner-chip" href={p.url} target="_blank" rel="noopener noreferrer"
+                       title={p.full || p.name} aria-label={p.name}>{inner}</a>
+                  : <button key={i} type="button" className="partner-chip" onClick={() => go('partners')}
+                       title={p.full || p.name} aria-label={(isKo ? p.role_ko : p.role_en) || p.name}>{inner}</button>;
+              })}
             </div>
           </div>
         </section>

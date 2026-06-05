@@ -298,11 +298,11 @@ body {
 .partner-chip {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-start;
   gap: 10px; min-width: 150px; height: auto; padding: 10px 18px;
-  background: transparent; border: none; cursor: pointer;
-  filter: grayscale(1); opacity: 0.6;
-  transition: filter var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+  background: transparent; border: none; cursor: pointer; text-decoration: none;
+  /* Partners always show in full colour (operator request) — no grayscale. */
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
-.partner-chip:hover, .partner-chip:focus-visible { filter: grayscale(0); opacity: 1; transform: translateY(-1px); }
+.partner-chip:hover, .partner-chip:focus-visible { transform: translateY(-2px); }
 /* Wide/horizontal logos shown a bit larger; name caption below. */
 .partner-chip img { max-width: 240px; max-height: 64px; object-fit: contain; }
 .partner-chip-name {
@@ -511,6 +511,9 @@ body {
 /* ============ PARTNERS ============ */
 .partners-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .partner { display: flex; gap: 20px; align-items: flex-start; background: var(--bg-elevated); border: 1px solid var(--border-hair); border-radius: var(--radius-xl); padding: 28px; }
+/* Partner card as a link to the partner's website (opens new tab). */
+.partner-link { text-decoration: none; color: inherit; transition: border-color 120ms, box-shadow 120ms, transform 120ms; }
+.partner-link:hover { border-color: var(--scouting-purple); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
 .partner-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--c); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-en); font-weight: 700; font-size: 17px; letter-spacing: 0.02em; flex-shrink: 0; }
 /* When a real logo image is uploaded, show it wide on a white plate instead
    of the coloured initials box (horizontal wordmarks like the CUFS logo). */

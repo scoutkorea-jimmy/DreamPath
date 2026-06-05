@@ -118,8 +118,10 @@
       // logo: optional URL or data URL — rendered in the home "partner
       // strip" and on /partners cards. When empty, falls back to the
       // stylized "name" text on a colored chip background.
-      { name: 'CUFS', full: '사이버한국외국어대학교',                role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University',     color: '#1E1654', logo: '' },
-      { name: 'KDP',  full: '주식회사 코리아드림패스',                role_ko: '운영 파트너',          role_en: 'Operating partner',              color: '#6B2DBE', logo: '' },
+      // url: optional partner website — when set, the logo links out to it in
+      // a new tab (home strip + /partners card). Empty → internal /partners.
+      { name: 'CUFS', full: '사이버한국외국어대학교',                role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University',     color: '#1E1654', logo: '', url: 'https://www.cufs.ac.kr' },
+      { name: 'KDP',  full: '주식회사 코리아드림패스',                role_ko: '운영 파트너',          role_en: 'Operating partner',              color: '#6B2DBE', logo: '', url: '' },
     ],
     stories_section: {
       ko: { kicker: 'STORIES', title: '먼저 걸어간 사람들.' },

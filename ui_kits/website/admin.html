@@ -1707,6 +1707,7 @@
               <div className="grid-2 tight">
                 <Text label="Short name" value={p.name} onChange={v => set(['partners',i,'name'], v)} />
                 <Text label="Full name" value={p.full} onChange={v => set(['partners',i,'full'], v)} />
+                <Text label="Website URL (새 탭으로 열림)" value={p.url || ''} onChange={v => set(['partners',i,'url'], v)} hint="예: https://www.cufs.ac.kr · 입력하면 로고 클릭 시 새 탭으로 그 사이트가 열립니다. 비우면 /partners 페이지로 이동." />
                 <Text label="Role (KO)" value={p.role_ko} onChange={v => set(['partners',i,'role_ko'], v)} lang="ko" />
                 <Text label="Role (EN)" value={p.role_en} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
                 <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
@@ -1722,7 +1723,7 @@
               </div>
             </div>
           ))}
-          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', role_ko: '역할', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
+          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', url: '', role_ko: '역할', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
         </div>
       </>
     );

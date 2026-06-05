@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.074.00`
+- **버전**: `v01.075.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0037** 모두 적용됨 (remote D1 검증 완료). 0037 = messages 테이블. d1_migrations bookkeeping이 0031에서 멈춰 있던 드리프트를 0032~0037 backfill로 정합화 → `migrations apply`가 clean no-op.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)

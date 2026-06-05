@@ -1711,13 +1711,13 @@
                 <Text label="Role (EN)" value={p.role_en} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
                 <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
                 <ImageUploadField
-                  label="Logo"
+                  label="Logo (가로형 권장)"
                   value={p.logo || ''}
                   onChange={v => set(['partners',i,'logo'], v)}
                   accept="image/svg+xml,image/png,image/jpeg,image/webp"
                   maxBytes={500 * 1024}
-                  preview="square"
-                  hint="홈 파트너 띠와 /partners 페이지에 표시됩니다. SVG 권장. 비우면 이름 텍스트로 대체."
+                  preview="banner"
+                  hint="홈 파트너 띠와 /partners 페이지에 로고 + 기업명으로 표시됩니다. 가로형(워드마크) 로고 권장 · SVG/PNG. 투명 배경 권장. 비우면 이름 텍스트로 대체."
                 />
               </div>
             </div>

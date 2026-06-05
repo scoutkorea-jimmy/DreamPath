@@ -69,6 +69,7 @@ function Home({ go, lang, c }) {
                   {p.logo
                     ? <img src={p.logo} alt={p.name} loading="lazy" />
                     : <span className="partner-chip-text" style={{'--c': p.color || 'var(--scouting-purple)'}}>{p.name}</span>}
+                  <span className="partner-chip-name">{p.name}</span>
                 </button>
               ))}
             </div>

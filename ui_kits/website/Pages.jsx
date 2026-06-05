@@ -25,7 +25,9 @@ function Partners({ lang, c }) {
           <div className="partners-grid">
             {list.map((p, i) => (
               <div key={i} className="partner">
-                <div className="partner-logo" style={{'--c': p.color}}>{p.name}</div>
+                <div className={'partner-logo' + (p.logo ? ' has-img' : '')} style={{'--c': p.color}}>
+                  {p.logo ? <img src={p.logo} alt={p.name} loading="lazy" /> : p.name}
+                </div>
                 <div className="partner-body">
                   <div className="partner-role">{isKo ? p.role_ko : p.role_en}</div>
                   <div className={'partner-name' + (isKo ? '' : ' en')}>{p.name}</div>

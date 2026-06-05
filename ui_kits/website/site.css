@@ -296,14 +296,19 @@ body {
 .partner-strip-kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-muted); text-align: center; margin: 0 0 24px; }
 .partner-strip-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px 48px; }
 .partner-chip {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 120px; height: 56px; padding: 8px 16px;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 10px; min-width: 150px; height: auto; padding: 10px 18px;
   background: transparent; border: none; cursor: pointer;
-  filter: grayscale(1); opacity: 0.55;
+  filter: grayscale(1); opacity: 0.6;
   transition: filter var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
 }
 .partner-chip:hover, .partner-chip:focus-visible { filter: grayscale(0); opacity: 1; transform: translateY(-1px); }
-.partner-chip img { max-width: 100%; max-height: 48px; object-fit: contain; }
+/* Wide/horizontal logos shown a bit larger; name caption below. */
+.partner-chip img { max-width: 240px; max-height: 64px; object-fit: contain; }
+.partner-chip-name {
+  font-family: var(--font-en); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted);
+}
 .partner-chip-text {
   font-family: var(--font-en); font-size: 22px; font-weight: 800;
   letter-spacing: -0.01em; color: var(--c, var(--scouting-purple));
@@ -507,6 +512,10 @@ body {
 .partners-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .partner { display: flex; gap: 20px; align-items: flex-start; background: var(--bg-elevated); border: 1px solid var(--border-hair); border-radius: var(--radius-xl); padding: 28px; }
 .partner-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--c); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-en); font-weight: 700; font-size: 17px; letter-spacing: 0.02em; flex-shrink: 0; }
+/* When a real logo image is uploaded, show it wide on a white plate instead
+   of the coloured initials box (horizontal wordmarks like the CUFS logo). */
+.partner-logo.has-img { width: auto; min-width: 132px; max-width: 220px; height: 76px; background: #fff; border: 1px solid var(--border-hair); padding: 10px 16px; }
+.partner-logo.has-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .partner-body { display: flex; flex-direction: column; gap: 6px; }
 .partner-name { font-family: var(--font-kr); font-size: 20px; font-weight: 700; }
 .partner-name.en { font-family: var(--font-en); }

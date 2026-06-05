@@ -3435,6 +3435,15 @@ async function handleApi(request, env, url, ctx) {
     return json({ error: 'method_not_allowed' }, 405);
   }
 
+  // ── Member → team member message (v01.072) ───────────────────────────────
+  // Logged-in members can message a team member from the public /team page.
+  // The message lands in the same admin inbox as contact-form inquiries,
+  // tagged category='team', with the sender's name/email pulled from their
+  // account (never typed) so the operator always knows who wrote in.
+  if (path === '/api/team/message' && method === 'POST') {
+    return submitTeamMessage(request, env);
+  }
+
   // ── Wiki (admin-only) — slugs: 'kms', 'design' ───────────────────────────
   // P1-4 — PUT validates that the body parses as JSON, sits under a
   // hard size cap, and is shaped { pages: [{ id, title, ... }, ...] }.
@@ -5046,6 +5055,95 @@ async function submitInquiry(request, env) {
       vars: { name: nameRaw, inquiry_id: id },
     });
   } catch {}
+
+  return json({ id, created_at });
+}
+
+// v01.072 — a logged-in member sends a message to a team member from the
+// public /team page. Reuses the inquiries table + admin inbox so the
+// operator reads team messages in one place. Differences vs submitInquiry:
+//   - login required (sender identity comes from the session, not the form)
+//   - name/email are taken from the user's account, never user-supplied
+//   - category is forced to 'team' and the recipient label is recorded in
+//     the subject so the operator sees who the message was for
+async function submitTeamMessage(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'login_required' }, 401);
+
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+
+  const errs = [];
+  const subjectIn = str(body.subject);
+  const bodyIn    = str(body.body);
+  const toLabel   = str(body.to).slice(0, 120);   // recipient display label
+  if (!nonEmpty(subjectIn)) errs.push('subject');
+  if (!nonEmpty(bodyIn) || bodyIn.length < 10) errs.push('body');
+  if (errs.length) return json({ error: 'validation', fields: errs }, 400);
+
+  // Per-member rate-limit so one account can't blast the inbox. Silent
+  // PRETEND_OK on trip — same shape as success.
+  const PRETEND_OK = () => json({
+    id: 'INQ-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4),
+    created_at: new Date().toISOString(),
+  });
+  const rl = await rateLimit(env, 'rl:team_msg:' + user.id, 10, 3600);
+  if (!rl.allowed) return PRETEND_OK();
+
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+  const id = 'INQ-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const created_at = new Date().toISOString();
+
+  // Sender identity from the account (not the form).
+  const emailNorm = normalizeEmail(user.email || '');
+  const nameRaw   = str(user.name) || emailNorm || 'Member';
+  // Prefix the subject with the recipient so the operator can see at a
+  // glance who the member wanted to reach.
+  const subjectRaw = toLabel ? `[→ ${toLabel}] ${subjectIn}` : subjectIn;
+
+  const nameEnc    = await encryptPii(env, nameRaw);
+  const emailEnc   = emailNorm ? await encryptPii(env, emailNorm) : null;
+  const subjectEnc = await encryptPii(env, subjectRaw);
+  const bodyEnc    = await encryptPii(env, bodyIn);
+  const emailH     = emailNorm ? await computePiiHmac(env, emailNorm, 'email-hmac') : null;
+  const namePlain    = nameEnc    ? null : nameRaw;
+  const emailPlain   = emailEnc   ? null : (emailNorm || null);
+  const subjectPlain = subjectEnc ? null : subjectRaw;
+  const bodyPlain    = bodyEnc    ? null : bodyIn;
+
+  await env.DB.prepare(
+    `INSERT INTO inquiries (
+       id, created_at, status,
+       name, name_enc,
+       email, email_enc, email_h,
+       phone, phone_enc, phone_h,
+       category,
+       subject, subject_enc,
+       body, body_enc,
+       lang, user_id, ip, user_agent
+     ) VALUES (?, ?, 'new',  ?, ?,  ?, ?, ?,  ?, ?, ?,  ?,  ?, ?,  ?, ?,  ?, ?, ?, ?)`
+  ).bind(
+    id, created_at,
+    namePlain, nameEnc,
+    emailPlain, emailEnc, emailH,
+    null, null, null,
+    'team',
+    subjectPlain, subjectEnc,
+    bodyPlain, bodyEnc,
+    str(body.lang), user.id, ip, ua
+  ).run();
+
+  // Best-effort confirmation to the member. Non-blocking.
+  if (emailNorm) {
+    try {
+      await sendEmail(env, {
+        to: emailNorm, slug: 'inquiry_received',
+        lang: body.lang === 'en' ? 'en' : 'ko',
+        vars: { name: nameRaw, inquiry_id: id },
+      });
+    } catch {}
+  }
 
   return json({ id, created_at });
 }

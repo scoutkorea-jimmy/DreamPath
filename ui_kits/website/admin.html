@@ -523,11 +523,16 @@
   //   maxBytes — raw upload cap (data URL grows ~33% from base64; we count
   //              raw bytes against this so the limit feels intuitive)
   //   preview  — 'square' | 'banner' (controls preview aspect)
+  //   requireSquare — when true, any uploaded raster image that isn't 1:1
+  //                   is auto-cropped to a centered square (the overflow on
+  //                   the long edge is trimmed away) before it's stored.
+  //                   Used for team member photos (v01.072).
   function ImageUploadField({
     label, value, onChange, hint,
     accept = 'image/png,image/svg+xml,image/jpeg,image/webp',
     maxBytes = 1024 * 1024,
     preview = 'square',
+    requireSquare = false,
   }) {
     const inputId = 'imgup-' + Math.random().toString(36).slice(2, 8);
     const [busy, setBusy] = useState(false);
@@ -547,7 +552,43 @@
       }
       setBusy(true);
       const reader = new FileReader();
-      reader.onload = () => { onChange(String(reader.result || '')); setBusy(false); };
+      reader.onload = () => {
+        const dataUrl = String(reader.result || '');
+        // 1:1 enforcement — load into an Image, and if it isn't already
+        // square, center-crop the long edge away on a canvas so the stored
+        // image is exactly 1:1. Raster only (PNG/JPG/WEBP); SVG is exempt
+        // because it has no reliable intrinsic pixel size.
+        if (requireSquare && file.type !== 'image/svg+xml') {
+          const img = new Image();
+          img.onload = () => {
+            const w = img.naturalWidth, h = img.naturalHeight;
+            if (Math.abs(w - h) <= 1) { onChange(dataUrl); setBusy(false); return; }
+            try {
+              const side = Math.min(w, h);
+              const sx = Math.round((w - side) / 2);
+              const sy = Math.round((h - side) / 2);
+              const canvas = document.createElement('canvas');
+              canvas.width = side; canvas.height = side;
+              const cx = canvas.getContext('2d');
+              cx.drawImage(img, sx, sy, side, side, 0, 0, side, side);
+              // Keep the original raster format; JPEG gets quality 0.92.
+              const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+              const cropped = canvas.toDataURL(outType, 0.92);
+              onChange(cropped);
+              setErr('');
+              setBusy(false);
+            } catch (e) {
+              setErr('이미지를 1:1로 자르지 못했습니다. 다른 파일을 시도해주세요.');
+              setBusy(false);
+            }
+          };
+          img.onerror = () => { setErr('이미지 크기를 확인할 수 없습니다.'); setBusy(false); };
+          img.src = dataUrl;
+          return;
+        }
+        onChange(dataUrl);
+        setBusy(false);
+      };
       reader.onerror = () => { setErr('파일 읽기 실패'); setBusy(false); };
       reader.readAsDataURL(file);
     }
@@ -5362,28 +5403,56 @@
   }
 
   // ---- Project team page --------------------------------------------------
+  // 공개 /team 페이지는 영어 전용이므로 콘텐츠 입력은 EN 필드만 둔다 (관리자
+  // UI 라벨은 한국어 유지 — 운영자가 한국인). 데이터는 영어 변수(name_en /
+  // role_en / bio_en / kicker_en)에 저장하고, 공개 페이지가 그대로 읽는다.
   function TeamAdminTab({ c, set, addItem, removeItem }) {
     const pt = c.project_team || {};
     const sections = pt.sections || [];
     const cta = pt.cta || {};
+    const coord = pt.coordinator || {};
     return (
       <>
         <div className="card">
           <h3>Hero (top of /team page)</h3>
+          <p className="desc" style={{marginTop:-4}}>공개 사이트는 영어 전용입니다 — 영어로만 입력하세요.</p>
           <div className="grid-2 tight">
-            {['ko','en'].map(L => (
-              <React.Fragment key={L}>
-                <Text label={`Kicker (${L.toUpperCase()})`} value={pt.hero?.[L]?.kicker || ''} onChange={v => set(['project_team','hero',L,'kicker'], v)} lang={L} />
-                <Text label={`Title L1 (${L.toUpperCase()})`} value={pt.hero?.[L]?.title_l1 || ''} onChange={v => set(['project_team','hero',L,'title_l1'], v)} lang={L} />
-                <Text label={`Title L2 (${L.toUpperCase()})`} value={pt.hero?.[L]?.title_l2 || ''} onChange={v => set(['project_team','hero',L,'title_l2'], v)} lang={L} />
-                <Area label={`Subtitle (${L.toUpperCase()})`} value={pt.hero?.[L]?.sub || ''} onChange={v => set(['project_team','hero',L,'sub'], v)} lang={L} />
-              </React.Fragment>
-            ))}
+            <Text label="Kicker" value={pt.hero?.en?.kicker || ''} onChange={v => set(['project_team','hero','en','kicker'], v)} lang="en" />
+            <Text label="Title L1" value={pt.hero?.en?.title_l1 || ''} onChange={v => set(['project_team','hero','en','title_l1'], v)} lang="en" />
+            <Text label="Title L2" value={pt.hero?.en?.title_l2 || ''} onChange={v => set(['project_team','hero','en','title_l2'], v)} lang="en" />
+            <Area label="Subtitle" value={pt.hero?.en?.sub || ''} onChange={v => set(['project_team','hero','en','sub'], v)} lang="en" />
           </div>
         </div>
 
         <div className="card">
+          <h3>Coordinator · 코디네이터</h3>
+          <p className="desc" style={{marginTop:-4}}>
+            공개 /team 페이지 상단의 <strong>“Message our coordinator”</strong> 상시 버튼이
+            가리키는 사람입니다. 회원이 보낸 메시지는 관리자 <strong>문의(Inquiries)</strong> 탭에
+            <code> 팀 메시지</code> 유형으로 도착합니다. 사진은 <strong>정사각형(1:1) JPG·PNG</strong>.
+          </p>
+          <div className="grid-2 tight">
+            <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
+            <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
+          </div>
+          <ImageUploadField
+            label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
+            value={coord.image || ''}
+            onChange={v => set(['project_team','coordinator','image'], v)}
+            accept="image/png,image/jpeg"
+            requireSquare={true}
+            preview="square"
+            hint="정사각형(1:1) JPG 또는 PNG만 업로드됩니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+          />
+        </div>
+
+        <div className="card">
           <h3>Sections</h3>
+          <p className="desc" style={{marginTop:-4}}>
+            그룹(예: <code>HQ</code>, <code>GLOBAL TEAM</code>)별로 섹션을 만들고 멤버를 추가하세요.
+            각 섹션 제목이 공개 /team 페이지의 그룹 헤딩으로 표시됩니다. 멤버 사진은
+            <strong> 정사각형(1:1) JPG·PNG</strong>만 업로드할 수 있습니다. 영어로만 입력하세요.
+          </p>
           {sections.map((s, si) => (
             <div className="rep-item" key={si}>
               <div className="rep-head">
@@ -5392,9 +5461,8 @@
                   <button className="icon-btn danger" onClick={() => removeItem(['project_team','sections'], si)}>Delete section</button>
                 </div>
               </div>
-              <div className="grid-2 tight" style={{marginBottom:14}}>
-                <Text label="Kicker (KO)" value={s.kicker_ko || ''} onChange={v => set(['project_team','sections',si,'kicker_ko'], v)} lang="ko" />
-                <Text label="Kicker (EN)" value={s.kicker_en || ''} onChange={v => set(['project_team','sections',si,'kicker_en'], v)} lang="en" />
+              <div style={{marginBottom:14}}>
+                <Text label="Group title (e.g. HQ, GLOBAL TEAM)" value={s.kicker_en || s.kicker_ko || ''} onChange={v => set(['project_team','sections',si,'kicker_en'], v)} lang="en" />
               </div>
               <h4 style={{margin:'8px 0',fontSize:13,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>Members</h4>
               {(s.members || []).map((m, mi) => (
@@ -5407,37 +5475,39 @@
                     }}>Remove</button>
                   </div>
                   <div className="grid-2 tight">
-                    <Text label="Name (KO)" value={m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name'], v)} lang="ko" />
-                    <Text label="Name (EN)" value={m.name_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
-                    <Text label="Role (KO)" value={m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_ko'], v)} lang="ko" />
-                    <Text label="Role (EN)" value={m.role_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
-                    <Area label="Bio (KO)" value={m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_ko'], v)} lang="ko" />
-                    <Area label="Bio (EN)" value={m.bio_en || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" />
-                    <Text label="Image URL (path or absolute)" value={m.image || ''} onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)} hint="e.g. /assets/team/jane.jpg" />
+                    <Text label="Name" value={m.name_en || m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
+                    <Text label="Role / title" value={m.role_en || m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
                   </div>
+                  <Area label="Bio / 약력" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" />
+                  <ImageUploadField
+                    label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
+                    value={m.image || ''}
+                    onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)}
+                    accept="image/png,image/jpeg"
+                    requireSquare={true}
+                    preview="square"
+                    hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+                  />
                 </div>
               ))}
               <button className="btn-add" onClick={() => {
-                const next = [...(s.members || []), { name:'', name_en:'', role_ko:'', role_en:'', bio_ko:'', bio_en:'', image:'' }];
+                const next = [...(s.members || []), { name_en:'', role_en:'', bio_en:'', image:'' }];
                 set(['project_team','sections',si,'members'], next);
               }}>+ Add member</button>
             </div>
           ))}
-          <button className="btn-add" onClick={() => addItem(['project_team','sections'], { kicker_ko:'새 섹션', kicker_en:'NEW SECTION', members:[] })}>+ Add section</button>
+          <button className="btn-add" onClick={() => addItem(['project_team','sections'], { kicker_en:'NEW GROUP', members:[] })}>+ Add section</button>
         </div>
 
         <div className="card">
           <h3>Join CTA</h3>
+          <p className="desc" style={{marginTop:-4}}>영어로만 입력하세요.</p>
           <div className="grid-2 tight">
-            {['ko','en'].map(L => (
-              <React.Fragment key={L}>
-                <Text label={`Kicker (${L.toUpperCase()})`} value={cta[L]?.kicker || ''} onChange={v => set(['project_team','cta',L,'kicker'], v)} lang={L} />
-                <Text label={`Title (${L.toUpperCase()})`} value={cta[L]?.title || ''} onChange={v => set(['project_team','cta',L,'title'], v)} lang={L} />
-                <Area label={`Sub (${L.toUpperCase()})`} value={cta[L]?.sub || ''} onChange={v => set(['project_team','cta',L,'sub'], v)} lang={L} />
-                <Text label={`Button (${L.toUpperCase()})`} value={cta[L]?.button || ''} onChange={v => set(['project_team','cta',L,'button'], v)} lang={L} />
-                <Text label={`Email (${L.toUpperCase()})`} value={cta[L]?.email || ''} onChange={v => set(['project_team','cta',L,'email'], v)} />
-              </React.Fragment>
-            ))}
+            <Text label="Kicker" value={cta.en?.kicker || ''} onChange={v => set(['project_team','cta','en','kicker'], v)} lang="en" />
+            <Text label="Title" value={cta.en?.title || ''} onChange={v => set(['project_team','cta','en','title'], v)} lang="en" />
+            <Area label="Sub" value={cta.en?.sub || ''} onChange={v => set(['project_team','cta','en','sub'], v)} lang="en" />
+            <Text label="Button" value={cta.en?.button || ''} onChange={v => set(['project_team','cta','en','button'], v)} lang="en" />
+            <Text label="Email" value={cta.en?.email || ''} onChange={v => set(['project_team','cta','en','email'], v)} />
           </div>
         </div>
       </>

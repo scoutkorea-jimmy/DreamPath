@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.071.03`
+- **버전**: `v01.072.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0036** 모두 적용됨 (remote D1 검증 완료)
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.072.00 — **프로젝트팀 페이지 정비 + 회원 메시지 + 1:1 사진**: /team에 상시 “Message our coordinator” CTA(로그아웃 시 회원가입 유도, 로그인 시 제목+본문 폼·계정 정보 자동 첨부) + 멤버별 메시지 버튼. 신규 <code>POST /api/team/message</code>(로그인 필수 → 기존 inquiries 재사용 category=team, 제목에 수신자 prefix, 이름/이메일은 세션 계정, 계정당 10/h). HQ/GLOBAL TEAM 그룹 + 사진 호버 컬러(평소 흑백) + 모바일 2열. 멤버/코디네이터 사진 1:1 강제 — 비정사각 업로드는 canvas 가운데 자동 크롭(JPG·PNG). 관리자 팀 탭 영어 전용화 + 코디네이터 편집 카드. 상단 배너 mid-June(6월 중순). 보너스 보안: <code>.assetsignore</code>에 <code>.claude/</code>·CLAUDE.md·HANDOFF.md·CLAUDE_TASKS.md 추가 — 배포 중 <code>/.claude/settings.local.json</code> 200 노출 발견·차단(이후 404 확인). 라이브 KV(dp_content_v1·wiki:versions·wiki:kms) 동시 갱신.
   - +01.028 — 사이드바 14→11 그룹 통합
   - +01.029 — 마이페이지 / 지원폼 대규모 개편 + VersionWatcher + 다크 버튼
   - +01.030 — 회원 측 첨부파일 편집 + 관리자 에세이 문항 탭 + 워커 안정성 강화

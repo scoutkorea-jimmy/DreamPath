@@ -484,13 +484,17 @@
       { value: 'partnership', label_ko: '파트너십',      label_en: 'Partnership' },
       { value: 'media',       label_ko: '취재 / 미디어', label_en: 'Media / press' },
       { value: 'bug',         label_ko: '오류 신고',     label_en: 'Report a bug' },
+      // Not shown on the public Contact dropdown — applied automatically to
+      // messages members send to a team member from /team (v01.072). Kept
+      // here so the admin inbox renders a friendly category label.
+      { value: 'team',        label_ko: '팀 메시지',     label_en: 'Team message' },
     ],
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
       enabled: true,
       style: 'dev',  // 'dev' | 'info' | 'warning' (changes the stripe color)
-      ko: '🚧 개발중입니다 · 정식 오픈은 5월 말 예정',
-      en: '🚧 Under development · Official launch end of May',
+      ko: '🚧 개발중입니다 · 정식 오픈은 6월 중순 예정',
+      en: '🚧 Under development · Official launch mid-June',
     },
     // ─── OG / SEO meta (per-route social-card overrides) ────────────────
     // App.jsx reads these on every view change to update <title>,
@@ -641,43 +645,42 @@
         ko: { kicker: '프로젝트 팀', title_l1: '함께 만드는', title_l2: 'KoreaDreamPath.', sub: '교육·재무·실무·디자인 4개 영역에서 사람들이 모여 운영합니다.' },
         en: { kicker: 'PROJECT TEAM', title_l1: 'The people behind', title_l2: 'KoreaDreamPath.', sub: 'A team of four functional areas: education, finance, operations, and design.' },
       },
+      // Coordinator — the always-on "Message our coordinator" CTA target on
+      // /team. Logged-out visitors are prompted to sign up; members' messages
+      // land in the admin Inquiries inbox as a 'team' message (v01.072).
+      coordinator: {
+        name: '프로그램 코디네이터', name_en: 'Program Coordinator',
+        role_ko: '지원·문의 총괄', role_en: 'Applicant support & inquiries',
+        image: '/assets/placeholder-student.svg',
+      },
+      // Two functional groups by default — HQ and GLOBAL TEAM. Each section's
+      // kicker renders as the group title on /team. Operators can add/remove
+      // sections and members from admin → Project team. Member photos are 1:1
+      // (square) JPG/PNG, auto-cropped on upload (v01.072).
       sections: [
         {
-          kicker_ko: '리드', kicker_en: 'LEAD',
+          kicker_ko: 'HQ', kicker_en: 'HQ',
           members: [
             { name: '운영 디렉터', name_en: 'Operations Director', role_ko: '총괄 · 파트너십', role_en: 'Operations · Partnerships',
               bio_ko: '국제 청년 교육 및 청소년 리더십 운영 경험을 바탕으로 프로젝트 전반을 조율합니다.',
               bio_en: 'Coordinates the project across partners, drawing on international youth-education and young-leader operations experience.',
               image: '/assets/placeholder-student.svg' },
-          ],
-        },
-        {
-          kicker_ko: '교육 트랙', kicker_en: 'EDUCATION',
-          members: [
             { name: '교육 설계자', name_en: 'Curriculum Designer', role_ko: '커리큘럼 · 학사 연계', role_en: 'Curriculum · Academic liaison',
               bio_ko: '파트너 대학과 마이크로디그리 커리큘럼을 함께 설계합니다.', bio_en: 'Designs micro-degree curricula with partner universities.',
               image: '/assets/placeholder-student.svg' },
-            { name: '학습자 지원 매니저', name_en: 'Learner Success', role_ko: '코호트 · 멘토링', role_en: 'Cohorts · Mentoring',
-              bio_ko: '학습자 진척과 멘토 매칭을 운영합니다.', bio_en: 'Runs learner progress tracking and mentor matching.',
-              image: '/assets/placeholder-student.svg' },
-          ],
-        },
-        {
-          kicker_ko: '재무 트랙', kicker_en: 'FINANCE',
-          members: [
             { name: '재무 매니저', name_en: 'Finance Manager', role_ko: '장학 · 후원 운영', role_en: 'Scholarship · Sponsorship',
               bio_ko: '장학 구조 설계와 파트너 기여 모델을 운영합니다.', bio_en: 'Manages scholarship structure and partner contributions.',
               image: '/assets/placeholder-student.svg' },
           ],
         },
         {
-          kicker_ko: '운영 / 디자인', kicker_en: 'OPERATIONS / DESIGN',
+          kicker_ko: 'GLOBAL TEAM', kicker_en: 'GLOBAL TEAM',
           members: [
             { name: '커뮤니티 매니저', name_en: 'Community Manager', role_ko: '청년 교육 파트너 커뮤니케이션', role_en: 'Youth-partner communications',
               bio_ko: '국가별 청년 교육 파트너 기관과의 정기 커뮤니케이션을 담당합니다.', bio_en: 'Maintains regular communication with national youth-education partner organizations.',
               image: '/assets/placeholder-student.svg' },
-            { name: '제품 디자이너', name_en: 'Product Designer', role_ko: '브랜드 · 사이트 디자인', role_en: 'Brand · Site design',
-              bio_ko: '디자인 시스템과 사이트 UI를 운영합니다.', bio_en: 'Owns the design system and the site UI.',
+            { name: '학습자 지원 매니저', name_en: 'Learner Success', role_ko: '코호트 · 멘토링', role_en: 'Cohorts · Mentoring',
+              bio_ko: '학습자 진척과 멘토 매칭을 운영합니다.', bio_en: 'Runs learner progress tracking and mentor matching.',
               image: '/assets/placeholder-student.svg' },
           ],
         },

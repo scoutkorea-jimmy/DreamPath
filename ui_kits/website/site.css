@@ -1309,23 +1309,133 @@ body {
 }
 .team-page-card:hover { border-color: var(--scouting-purple); box-shadow: var(--shadow-sm); }
 .team-page-photo {
-  aspect-ratio: 4 / 3; background-color: var(--bg-muted);
+  /* Member photos are uploaded as 1:1 (admin enforces square JPG/PNG).
+     At rest they show in grayscale; hovering the card reveals full colour. */
+  aspect-ratio: 1 / 1; background-color: var(--bg-muted);
   background-size: cover; background-position: center;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-en); font-size: 64px; font-weight: 800;
   color: rgba(98, 37, 153, 0.20);
+  filter: grayscale(1); transition: filter 220ms ease;
 }
-.team-page-body { padding: 18px 20px 24px; }
+.team-page-card:hover .team-page-photo,
+.team-page-card:focus-within .team-page-photo { filter: grayscale(0); }
+.team-page-body { padding: 18px 20px 24px; display: flex; flex-direction: column; flex: 1; }
 .team-page-name { font-family: var(--font-en); font-size: 18px; font-weight: 700; }
 .team-page-role { font-size: 13px; color: var(--scouting-purple); margin: 2px 0 10px; font-weight: 600; }
 .team-page-bio  { font-size: 14px; line-height: 1.6; color: var(--fg-secondary); margin: 0; }
+.team-group-title { font-size: 15px; }
+/* Always-on coordinator message band */
+.team-coord-band {
+  display: flex; align-items: center; gap: 22px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  border-radius: 18px; padding: 22px 26px; box-shadow: var(--shadow-sm);
+}
+.team-coord-photo {
+  flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%;
+  background-color: var(--bg-muted); background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-en); font-size: 30px; font-weight: 800;
+  color: rgba(98, 37, 153, 0.28);
+  filter: grayscale(1); transition: filter 220ms ease;
+}
+.team-coord-band:hover .team-coord-photo { filter: grayscale(0); }
+.team-coord-copy { flex: 1; min-width: 0; }
+.team-coord-copy h2 { margin: 4px 0 6px; font-size: 22px; }
+.team-coord-copy p { margin: 0; color: var(--fg-secondary); font-size: 14px; line-height: 1.6; }
+.team-coord-action { flex: 0 0 auto; }
+.team-coord-action .btn { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 720px) {
+  .team-coord-band { flex-direction: column; text-align: center; }
+  .team-coord-action, .team-coord-action .btn { width: 100%; justify-content: center; }
+}
+.team-msg-btn { margin-top: 16px; align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; }
+/* push the button to the bottom of the card so cards of varying bio length
+   keep their CTA aligned */
+.team-page-body .team-page-bio { margin-bottom: auto; }
 
 @media (max-width: 900px) {
   .team-page-grid { grid-template-columns: repeat(2, 1fr); }
 }
+/* Keep 2 per row on mobile too (operator request) — tighten the gap and
+   scale down the card text so two cards fit comfortably on narrow screens. */
 @media (max-width: 540px) {
-  .team-page-grid { grid-template-columns: 1fr; }
+  .team-page-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .team-page-body { padding: 12px 12px 16px; }
+  .team-page-name { font-size: 15px; }
+  .team-page-role { font-size: 12px; }
+  .team-page-bio { font-size: 12.5px; }
+  .team-msg-btn { margin-top: 12px; }
 }
+
+/* ============ TEAM MESSAGE MODAL ============ */
+.tm-overlay {
+  position: fixed; inset: 0; z-index: 9500;
+  background: rgba(20, 10, 40, 0.55); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: tm-fade 140ms ease-out;
+}
+@keyframes tm-fade { from { opacity: 0; } to { opacity: 1; } }
+.tm-modal {
+  position: relative; width: 100%; max-width: 480px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  border-radius: 18px; box-shadow: var(--shadow-lg); padding: 28px;
+  max-height: 90vh; overflow-y: auto;
+  animation: tm-rise 160ms ease-out;
+}
+@keyframes tm-rise { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.tm-close {
+  position: absolute; top: 14px; right: 14px; border: 0; background: transparent;
+  color: var(--fg-muted); cursor: pointer; padding: 6px; border-radius: 8px;
+  display: inline-flex;
+}
+.tm-close:hover { background: var(--bg-muted); color: var(--fg-primary); }
+.tm-head { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; padding-right: 24px; }
+.tm-avatar {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: 50%;
+  background-color: var(--bg-muted); background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-en); font-size: 22px; font-weight: 800;
+  color: rgba(98, 37, 153, 0.30);
+}
+.tm-to { font-family: var(--font-en); font-size: 18px; font-weight: 700; }
+.tm-to-role { font-size: 13px; color: var(--scouting-purple); font-weight: 600; }
+.tm-from {
+  font-size: 13px; color: var(--fg-secondary); margin: 0 0 16px;
+  padding: 9px 12px; background: var(--bg-muted); border-radius: 10px;
+}
+.tm-label { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--fg-secondary); margin: 12px 0 6px; }
+.tm-input {
+  width: 100%; padding: 11px 13px; border: 1px solid var(--border-default);
+  border-radius: 10px; background: var(--bg-muted); color: var(--fg-primary);
+  font-size: 14px; font-family: inherit;
+}
+.tm-input:focus { outline: none; border-color: var(--scouting-purple); box-shadow: 0 0 0 3px rgba(98, 37, 153, 0.14); }
+.tm-area { resize: vertical; line-height: 1.55; }
+.tm-err {
+  margin-top: 12px; padding: 9px 12px; font-size: 13px;
+  background: var(--state-danger-bg); color: var(--state-danger); border-radius: 9px;
+}
+.tm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.tm-actions .btn { display: inline-flex; align-items: center; gap: 7px; }
+.tm-done { text-align: center; padding: 12px 4px; }
+.tm-done-icon {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px;
+  background: var(--state-success-bg); color: var(--state-success);
+  display: flex; align-items: center; justify-content: center;
+}
+.tm-done h3 { margin: 0 0 8px; }
+.tm-done p { color: var(--fg-secondary); font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+.tm-gate { text-align: center; padding: 10px 4px 4px; }
+.tm-gate-icon {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px;
+  background: var(--bg-muted); color: var(--scouting-purple);
+  display: flex; align-items: center; justify-content: center;
+}
+.tm-gate h3 { margin: 0 0 8px; }
+.tm-gate p { color: var(--fg-secondary); font-size: 14px; line-height: 1.6; margin: 0 0 20px; }
+.tm-gate-actions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 
 /* ============ CONTACT TABS ============ */
 .contact-tabs {

@@ -6,7 +6,7 @@
 // prompted to sign up. Messages land in the admin inbox (category 'team').
 const { useState: useStateT, useEffect: useEffectT } = React;
 
-function TeamMessageModal({ open, onClose, member, lang }) {
+function TeamMessageModal({ open, onClose, member, lang, go }) {
   const isKo = lang === 'ko';
   const [subject, setSubject] = useStateT('');
   const [bodyText, setBodyText] = useStateT('');
@@ -42,11 +42,19 @@ function TeamMessageModal({ open, onClose, member, lang }) {
     if (bodyText.trim().length < 10) { setErr(isKo ? '메시지를 10자 이상 입력해주세요.' : 'Your message must be at least 10 characters.'); return; }
     setBusy(true);
     try {
-      const res = await window.DreamPathAuth.authFetch('/api/team/message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: name, subject: subject.trim(), body: bodyText.trim(), lang }),
-      });
+      // When the team member is linked to an account, send a real direct
+      // message to their inbox (threaded, repliable). Otherwise fall back to
+      // the admin inbox so the button still does something useful.
+      const dm = member.messageable && member.key;
+      const res = dm
+        ? await window.DreamPathAuth.authFetch('/api/me/messages', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to_key: member.key, subject: subject.trim(), body: bodyText.trim() }),
+          })
+        : await window.DreamPathAuth.authFetch('/api/team/message', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: name, subject: subject.trim(), body: bodyText.trim(), lang }),
+          });
       if (res.status === 401) { setErr(isKo ? '로그인이 필요합니다.' : 'Please log in first.'); setBusy(false); return; }
       if (!res.ok) { setErr(isKo ? '전송에 실패했습니다. 잠시 후 다시 시도해주세요.' : 'Could not send. Please try again shortly.'); setBusy(false); return; }
       setDone(true);
@@ -78,8 +86,17 @@ function TeamMessageModal({ open, onClose, member, lang }) {
           <div className="tm-done">
             <div className="tm-done-icon"><i data-lucide="check" width="28" height="28" strokeWidth="2.5" aria-hidden="true"></i></div>
             <h3>{isKo ? '메시지를 보냈어요' : 'Message sent'}</h3>
-            <p>{isKo ? `${name}님께 메시지가 전달되었습니다. 운영팀이 확인 후 회신드릴게요.` : `Your message to ${name} has been delivered. The team will get back to you.`}</p>
-            <button type="button" className="btn btn-primary" onClick={onClose}>{isKo ? '확인' : 'Done'}</button>
+            <p>{member.messageable
+              ? (isKo ? `${name}님께 메시지가 전달되었습니다. 답장은 마이페이지 → 메시지에서 받아볼 수 있어요.` : `Your message to ${name} was delivered. You'll see any reply under My page → Messages.`)
+              : (isKo ? `${name}님께 메시지가 전달되었습니다. 운영팀이 확인 후 회신드릴게요.` : `Your message to ${name} has been delivered. The team will get back to you.`)}</p>
+            <div className="tm-actions" style={{justifyContent:'center'}}>
+              {member.messageable && go && (
+                <button type="button" className="btn btn-ghost" onClick={() => { try { sessionStorage.setItem('dp_member_section', 'messages'); } catch {} onClose(); go('member'); }}>
+                  {isKo ? '메시지함 열기' : 'Open my messages'}
+                </button>
+              )}
+              <button type="button" className="btn btn-primary" onClick={onClose}>{isKo ? '확인' : 'Done'}</button>
+            </div>
           </div>
         ) : loggedOut ? (
           // Always-on entry point: logged-out users see a sign-up prompt
@@ -201,10 +218,12 @@ function Team({ go, lang, c }) {
                       <div className="team-page-name">{name}</div>
                       <div className="team-page-role">{role}</div>
                       {bio && <p className="team-page-bio">{bio}</p>}
-                      <button type="button" className="btn btn-outline btn-sm team-msg-btn" onClick={() => setTarget(m)}>
-                        <i data-lucide="mail" width="15" height="15" strokeWidth="2" aria-hidden="true"></i>
-                        {isKo ? '메시지 보내기' : 'Send a message'}
-                      </button>
+                      {m.messageable && (
+                        <button type="button" className="btn btn-outline btn-sm team-msg-btn" onClick={() => setTarget(m)}>
+                          <i data-lucide="mail" width="15" height="15" strokeWidth="2" aria-hidden="true"></i>
+                          {isKo ? '메시지 보내기' : 'Send a message'}
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
@@ -231,7 +250,7 @@ function Team({ go, lang, c }) {
         </div>
       </section>
 
-      <TeamMessageModal open={!!target} member={target} lang={lang} onClose={() => setTarget(null)} />
+      <TeamMessageModal open={!!target} member={target} lang={lang} go={go} onClose={() => setTarget(null)} />
     </div>
   );
 }

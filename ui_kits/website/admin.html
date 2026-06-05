@@ -5402,6 +5402,64 @@
     );
   }
 
+  // ---- Account link picker (team member ↔ registered account) -------------
+  // Searches /api/admin/users and links the selected account to a team
+  // member so /team messages reach that person's inbox (v01.073). A stable
+  // opaque `key` is generated on first link — it's what the public page uses
+  // to address the message (the real user_id is never exposed publicly).
+  function genTeamKey() {
+    try { if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID().replace(/-/g, '').slice(0, 12); } catch {}
+    return (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 12);
+  }
+  function AccountLinkField({ userId, userLabel, onLink, onUnlink }) {
+    const [q, setQ] = useState('');
+    const [results, setResults] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    async function search(term) {
+      setQ(term);
+      if (!term || term.trim().length < 2) { setResults([]); setOpen(false); return; }
+      setBusy(true);
+      try {
+        const tok = localStorage.getItem('dp_admin_token') || '';
+        const r = await fetch('/api/admin/users?limit=8&q=' + encodeURIComponent(term.trim()), { headers: { authorization: 'Bearer ' + tok } });
+        const d = await r.json();
+        setResults(d.items || []); setOpen(true);
+      } catch {} finally { setBusy(false); }
+    }
+    return (
+      <div className="field">
+        <label>Linked account · 메시지 받을 계정</label>
+        {userId ? (
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--state-success-bg)',border:'1px solid var(--border-subtle)',borderRadius:10}}>
+            <span style={{fontSize:13,color:'var(--fg-primary)'}}>🔗 {userLabel || userId}</span>
+            <button type="button" className="icon-btn danger" style={{marginLeft:'auto'}} onClick={onUnlink}>연결 해제</button>
+          </div>
+        ) : (
+          <div style={{position:'relative'}}>
+            <input type="text" placeholder="이름 또는 이메일로 가입 회원 검색…" value={q}
+              onChange={e => search(e.target.value)} onFocus={() => results.length && setOpen(true)} />
+            {busy && <span className="hint">검색 중…</span>}
+            {open && results.length > 0 && (
+              <ul style={{position:'absolute',zIndex:20,left:0,right:0,margin:'4px 0 0',padding:6,listStyle:'none',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:10,boxShadow:'var(--shadow-md)',maxHeight:220,overflowY:'auto'}}>
+                {results.map(u => (
+                  <li key={u.id}>
+                    <button type="button" style={{display:'block',width:'100%',textAlign:'left',padding:'8px 10px',border:0,background:'transparent',borderRadius:8,cursor:'pointer'}}
+                      onClick={() => { onLink(u); setOpen(false); setQ(''); setResults([]); }}>
+                      <strong style={{fontSize:13}}>{u.name || '(이름 없음)'}</strong>
+                      <span style={{display:'block',fontSize:12,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{u.email} · {u.role}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        <span className="hint">메시지를 받을 가입 계정을 연결하세요. 연결해야 /team에서 이 사람에게 메시지를 보낼 수 있습니다(미연결 시 버튼 숨김).</span>
+      </div>
+    );
+  }
+
   // ---- Project team page --------------------------------------------------
   // 공개 /team 페이지는 영어 전용이므로 콘텐츠 입력은 EN 필드만 둔다 (관리자
   // UI 라벨은 한국어 유지 — 운영자가 한국인). 데이터는 영어 변수(name_en /
@@ -5428,8 +5486,9 @@
           <h3>Coordinator · 코디네이터</h3>
           <p className="desc" style={{marginTop:-4}}>
             공개 /team 페이지 상단의 <strong>“Message our coordinator”</strong> 상시 버튼이
-            가리키는 사람입니다. 회원이 보낸 메시지는 관리자 <strong>문의(Inquiries)</strong> 탭에
-            <code> 팀 메시지</code> 유형으로 도착합니다. 사진은 <strong>정사각형(1:1) JPG·PNG</strong>.
+            가리키는 사람입니다. 아래에서 <strong>가입 계정을 연결</strong>하면, 회원이 보낸 메시지가
+            그 계정의 <strong>마이페이지 → 메시지</strong>로 직접 도착하고 답장도 주고받을 수 있습니다.
+            사진은 <strong>정사각형(1:1) JPG·PNG</strong>.
           </p>
           <div className="grid-2 tight">
             <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
@@ -5442,7 +5501,12 @@
             accept="image/png,image/jpeg"
             requireSquare={true}
             preview="square"
-            hint="정사각형(1:1) JPG 또는 PNG만 업로드됩니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+            hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+          />
+          <AccountLinkField
+            userId={coord.user_id} userLabel={coord.user_label}
+            onLink={u => set(['project_team','coordinator'], { ...coord, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: coord.key || genTeamKey() })}
+            onUnlink={() => set(['project_team','coordinator'], { ...coord, user_id: undefined, user_label: undefined })}
           />
         </div>
 
@@ -5450,8 +5514,10 @@
           <h3>Sections</h3>
           <p className="desc" style={{marginTop:-4}}>
             그룹(예: <code>HQ</code>, <code>GLOBAL TEAM</code>)별로 섹션을 만들고 멤버를 추가하세요.
-            각 섹션 제목이 공개 /team 페이지의 그룹 헤딩으로 표시됩니다. 멤버 사진은
-            <strong> 정사각형(1:1) JPG·PNG</strong>만 업로드할 수 있습니다. 영어로만 입력하세요.
+            각 섹션 제목이 공개 /team 페이지의 그룹 헤딩으로 표시됩니다. 멤버마다
+            <strong> 가입 계정을 연결</strong>하면 그 사람에게 직접 메시지를 받을 수 있습니다
+            (미연결 시 메시지 버튼 숨김). 사진은 1:1이 아니면 자동으로 정사각형으로 잘립니다.
+            영어로만 입력하세요.
           </p>
           {sections.map((s, si) => (
             <div className="rep-item" key={si}>
@@ -5487,6 +5553,11 @@
                     requireSquare={true}
                     preview="square"
                     hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+                  />
+                  <AccountLinkField
+                    userId={m.user_id} userLabel={m.user_label}
+                    onLink={u => set(['project_team','sections',si,'members',mi], { ...m, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: m.key || genTeamKey() })}
+                    onUnlink={() => set(['project_team','sections',si,'members',mi], { ...m, user_id: undefined, user_label: undefined })}
                   />
                 </div>
               ))}

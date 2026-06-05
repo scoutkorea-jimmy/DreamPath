@@ -9,6 +9,9 @@ function Member({ go, lang, c }) {
   // on the notifications view they clicked from. The flag is one-shot.
   const [section, setSection] = useStateM(() => {
     try {
+      // Generic deep-link into a section (e.g. "Open my messages" from /team).
+      const generic = sessionStorage.getItem('dp_member_section');
+      if (generic) return generic;
       if (sessionStorage.getItem('dp_open_notifications_section') ||
           sessionStorage.getItem('dp_open_notification')) {
         return 'notifications';
@@ -19,10 +22,28 @@ function Member({ go, lang, c }) {
   useEffectM(() => {
     try {
       sessionStorage.removeItem('dp_open_notifications_section');
+      sessionStorage.removeItem('dp_member_section');
       // dp_open_notification (specific id) is consumed by MemberNotifications
       // below — we leave it here so it survives the initial render.
     } catch {}
   }, []);
+  // Unread direct-message count — drives the badge on the Messages tab.
+  const [msgUnread, setMsgUnread] = useStateM(0);
+  useEffectM(() => {
+    if (!auth.user) return;
+    let alive = true;
+    async function tick() {
+      try {
+        const res = await window.DreamPathAuth.authFetch('/api/me/messages');
+        if (!res.ok) return;
+        const d = await res.json();
+        if (alive) setMsgUnread(d.unread || 0);
+      } catch {}
+    }
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => { alive = false; clearInterval(t); };
+  }, [auth.user, section]);
   // Unread notification count — drives the badge on the tab. Polled from
   // /api/me/notifications on mount + every 60s while the page is open.
   const [unread, setUnread] = useStateM(0);
@@ -85,6 +106,7 @@ function Member({ go, lang, c }) {
           <div className="member-tabs" role="tablist">
             {[
               { k: 'overview', l_ko: '대시보드', l_en: 'Dashboard' },
+              { k: 'messages', l_ko: '메시지', l_en: 'Messages' },
               { k: 'notifications', l_ko: '알림', l_en: 'Notifications' },
               { k: 'applications', l_ko: '내 지원 · 영수증', l_en: 'My applications · receipts' },
               { k: 'career',   l_ko: '커리어 등록', l_en: 'Career profile' },
@@ -98,11 +120,15 @@ function Member({ go, lang, c }) {
                 {t.k === 'notifications' && unread > 0 && (
                   <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'#fff',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{unread}</span>
                 )}
+                {t.k === 'messages' && msgUnread > 0 && (
+                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'#fff',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{msgUnread}</span>
+                )}
               </button>
             ))}
           </div>
 
           {section === 'overview' && <MemberOverview go={go} isKo={isKo} c={c} unread={unread} setSection={setSection} />}
+          {section === 'messages' && <MemberMessages isKo={isKo} go={go} onChange={setMsgUnread} />}
           {section === 'notifications' && <MemberNotifications isKo={isKo} onChange={setUnread} />}
           {section === 'applications' && <MemberApplications isKo={isKo} c={c} />}
           {section === 'career' && <MemberCareer isKo={isKo} />}
@@ -143,6 +169,123 @@ function MemberOverview({ go, isKo, c, unread, setSection }) {
         <p>{isKo ? '커리어 정보 기반으로 가장 잘 맞는 프로그램을 제안합니다.' : 'Get programs ranked by fit, based on your profile.'}</p>
         <button className="btn btn-secondary" onClick={() => window.dispatchEvent(new CustomEvent('dp-member-section', { detail: 'recommendations' }))}>{isKo ? '확인' : 'View'} →</button>
       </div>
+    </div>
+  );
+}
+
+// Direct messages — two-way threads between the member and team members.
+// List of conversations → open a thread → read + reply. Polls nothing on its
+// own; the parent badge poll keeps the unread count fresh.
+function MemberMessages({ isKo, go, onChange }) {
+  const [threads, setThreads] = useStateM([]);
+  const [loading, setLoading] = useStateM(true);
+  const [openTid, setOpenTid] = useStateM(null);
+  const [detail, setDetail] = useStateM(null);    // { subject, counterpart, messages[] }
+  const [reply, setReply] = useStateM('');
+  const [busy, setBusy] = useStateM(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/messages');
+      if (!r.ok) throw new Error('http');
+      const d = await r.json();
+      setThreads(d.threads || []);
+      onChange && onChange(d.unread || 0);
+    } catch {} finally { setLoading(false); }
+  }
+  useEffectM(() => { load(); }, []);
+
+  async function open(tid) {
+    setOpenTid(tid); setDetail(null); setReply('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/messages/' + encodeURIComponent(tid));
+      if (!r.ok) return;
+      setDetail(await r.json());
+      load();   // refresh unread now that this thread is read
+    } catch {}
+  }
+  async function sendReply(e) {
+    e.preventDefault();
+    if (reply.trim().length < 2) return;
+    setBusy(true);
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/messages', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ thread_id: openTid, body: reply.trim() }),
+      });
+      if (r.ok) { setReply(''); await open(openTid); }
+    } catch {} finally { setBusy(false); }
+  }
+  async function removeThread(tid) {
+    if (!confirm(isKo ? '이 대화를 삭제할까요?' : 'Delete this conversation?')) return;
+    try {
+      await window.DreamPathAuth.authFetch('/api/me/messages/' + encodeURIComponent(tid), { method: 'DELETE' });
+      setOpenTid(null); setDetail(null); load();
+    } catch {}
+  }
+  function fmt(ts) { try { return new Date(ts).toLocaleString(isKo ? 'ko-KR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return ts; } }
+
+  if (loading) return <div className="member-msg-empty">{isKo ? '불러오는 중…' : 'Loading…'}</div>;
+
+  // Thread detail view
+  if (openTid && detail) {
+    return (
+      <div className="member-msg">
+        <div className="member-msg-head">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setOpenTid(null); setDetail(null); }}>
+            ← {isKo ? '목록' : 'Back'}
+          </button>
+          <div className="member-msg-head-meta">
+            <strong>{detail.counterpart}</strong>
+            {detail.subject && <span className="member-msg-subject">{detail.subject}</span>}
+          </div>
+          <button type="button" className="icon-btn danger" onClick={() => removeThread(openTid)}>{isKo ? '삭제' : 'Delete'}</button>
+        </div>
+        <div className="member-msg-thread">
+          {(detail.messages || []).map(m => (
+            <div key={m.id} className={'member-msg-bubble' + (m.from_me ? ' me' : '')}>
+              <div className="member-msg-bubble-body">{m.body}</div>
+              <div className="member-msg-bubble-time">{fmt(m.created_at)}</div>
+            </div>
+          ))}
+        </div>
+        <form className="member-msg-reply" onSubmit={sendReply}>
+          <textarea rows={2} value={reply} onChange={e => setReply(e.target.value)} maxLength={4000}
+            placeholder={isKo ? '답장을 입력하세요…' : 'Write a reply…'} />
+          <button type="submit" className="btn btn-primary" disabled={busy || reply.trim().length < 2}>
+            {busy ? (isKo ? '전송 중…' : 'Sending…') : (isKo ? '보내기' : 'Send')}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // Conversation list
+  return (
+    <div className="member-msg">
+      {threads.length === 0 ? (
+        <div className="member-msg-empty">
+          <p>{isKo ? '아직 주고받은 메시지가 없습니다.' : 'No messages yet.'}</p>
+          {go && <button type="button" className="btn btn-secondary" onClick={() => go('team')}>{isKo ? '프로젝트 팀에게 메시지 보내기' : 'Message the project team'} →</button>}
+        </div>
+      ) : (
+        <ul className="member-msg-list">
+          {threads.map(t => (
+            <li key={t.thread_id}>
+              <button type="button" className={'member-msg-item' + (t.unread ? ' unread' : '')} onClick={() => open(t.thread_id)}>
+                <div className="member-msg-item-top">
+                  <strong>{t.counterpart}</strong>
+                  {t.unread > 0 && <span className="member-msg-dot">{t.unread}</span>}
+                  <span className="member-msg-item-time">{fmt(t.last_at)}</span>
+                </div>
+                {t.subject && <div className="member-msg-item-subject">{t.subject}</div>}
+                <div className="member-msg-item-preview">{t.last_from_me ? (isKo ? '나: ' : 'You: ') : ''}{t.preview}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -498,6 +498,39 @@ function getDefaultProgramDetail(id) {
   return { program_id: id, ...deepClone(row) };
 }
 
+// v01.073 — public content must not leak the linked account ids behind team
+// members. For non-admin GET /api/content we drop project_team `user_id` /
+// `user_label`, exposing only a `messageable` boolean (the opaque `key`
+// stays so the /team page can address a message to that person).
+function stripPrivateContent(content) {
+  if (!content || !content.project_team) return content;
+  const pt = content.project_team;
+  const scrub = (m) => m ? ({ ...m, messageable: !!m.user_id, user_id: undefined, user_label: undefined }) : m;
+  return {
+    ...content,
+    project_team: {
+      ...pt,
+      coordinator: pt.coordinator ? scrub(pt.coordinator) : pt.coordinator,
+      sections: (pt.sections || []).map(s => ({ ...s, members: (s.members || []).map(scrub) })),
+    },
+  };
+}
+
+// v01.073 — resolve a /team member key to the linked account it should
+// deliver to. Returns { user_id, label } or null when the key is unknown or
+// the member has no linked account (i.e. not messageable yet).
+async function resolveTeamRecipient(env, key) {
+  if (!key) return null;
+  const content = await readContentFromKv(env);
+  const pt = content && content.project_team;
+  if (!pt) return null;
+  const candidates = [];
+  if (pt.coordinator) candidates.push(pt.coordinator);
+  (pt.sections || []).forEach(s => (s.members || []).forEach(m => candidates.push(m)));
+  const hit = candidates.find(m => m && m.key === key && m.user_id);
+  return hit ? { user_id: hit.user_id, label: hit.name_en || hit.name || 'Team' } : null;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1390,7 +1423,10 @@ async function handleApi(request, env, url, ctx) {
   if (path === '/api/content') {
     if (method === 'GET') {
       const normalized = await readContentFromKv(env);
-      return new Response(JSON.stringify(normalized), { headers: JSON_HEADERS });
+      // Admins (editor) get the full blob incl. linked account ids; the
+      // public site gets a scrubbed copy (v01.073).
+      const out = (await isAdmin(request, env)) ? normalized : stripPrivateContent(normalized);
+      return new Response(JSON.stringify(out), { headers: JSON_HEADERS });
     }
     if (method === 'PUT' || method === 'POST') {
       if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
@@ -2324,6 +2360,143 @@ async function handleApi(request, env, url, ctx) {
     }
     if (method === 'DELETE') {
       await env.DB.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').bind(id, u.id).run();
+      return json({ ok: true });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // ── Member-to-member messages (v01.073) ──────────────────────────────────
+  // Direct messages between two member accounts. A logged-in member starts a
+  // thread with a team member (resolved from a /team member key → linked
+  // account) and either party can reply in the same thread. Subject/body are
+  // encrypted at rest like other PII.
+  if (path === '/api/me/messages') {
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'login_required' }, 401);
+
+    if (method === 'GET') {
+      // Thread list for the caller — latest message per thread + unread count.
+      const { results } = await env.DB.prepare(
+        `SELECT id, thread_id, sender_id, recipient_id, subject, subject_enc, body, body_enc, created_at, read_at
+         FROM messages
+         WHERE (sender_id = ?1 AND sender_deleted = 0) OR (recipient_id = ?1 AND recipient_deleted = 0)
+         ORDER BY created_at DESC LIMIT 500`
+      ).bind(u.id).all();
+      const rows = results || [];
+      const threads = new Map();
+      let unreadTotal = 0;
+      for (const r of rows) {
+        const counterpart = r.sender_id === u.id ? r.recipient_id : r.sender_id;
+        if (!threads.has(r.thread_id)) {
+          threads.set(r.thread_id, { thread_id: r.thread_id, counterpart_id: counterpart, last: r, unread: 0 });
+        }
+        if (r.recipient_id === u.id && !r.read_at) { threads.get(r.thread_id).unread++; unreadTotal++; }
+      }
+      const ids = [...new Set([...threads.values()].map(t => t.counterpart_id))];
+      const nameMap = {};
+      if (ids.length) {
+        const ph = ids.map(() => '?').join(',');
+        const { results: us } = await env.DB.prepare('SELECT id, name, email FROM users WHERE id IN (' + ph + ')').bind(...ids).all();
+        (us || []).forEach(x => { nameMap[x.id] = x.name || x.email || 'Member'; });
+      }
+      const out = [];
+      for (const t of threads.values()) {
+        const subj = t.last.subject_enc ? (await decryptPii(env, t.last.subject_enc)) : (t.last.subject || '');
+        const prev = t.last.body_enc ? (await decryptPii(env, t.last.body_enc)) : (t.last.body || '');
+        out.push({
+          thread_id: t.thread_id,
+          counterpart: nameMap[t.counterpart_id] || 'Member',
+          subject: subj || '',
+          preview: (prev || '').slice(0, 120),
+          last_at: t.last.created_at,
+          last_from_me: t.last.sender_id === u.id,
+          unread: t.unread,
+        });
+      }
+      out.sort((a, b) => (a.last_at < b.last_at ? 1 : -1));
+      return json({ threads: out, unread: unreadTotal });
+    }
+
+    if (method === 'POST') {
+      const b = await request.json().catch(() => null);
+      if (!b) return json({ error: 'invalid_json' }, 400);
+      const bodyTxt = str(b.body);
+      if (!nonEmpty(bodyTxt) || bodyTxt.trim().length < 2) return json({ error: 'validation', fields: ['body'] }, 400);
+
+      const rl = await rateLimit(env, 'rl:msg:' + u.id, 30, 3600);
+      if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
+
+      let threadId, recipientId, subjectTxt;
+      if (b.thread_id) {
+        // Reply — recipient is the other participant on the thread.
+        const row = await env.DB.prepare(
+          'SELECT thread_id, sender_id, recipient_id, subject, subject_enc FROM messages WHERE thread_id = ? ORDER BY created_at ASC LIMIT 1'
+        ).bind(str(b.thread_id)).first();
+        if (!row) return json({ error: 'thread_not_found' }, 404);
+        if (row.sender_id !== u.id && row.recipient_id !== u.id) return json({ error: 'forbidden' }, 403);
+        threadId = row.thread_id;
+        recipientId = row.sender_id === u.id ? row.recipient_id : row.sender_id;
+        subjectTxt = row.subject_enc ? (await decryptPii(env, row.subject_enc)) : (row.subject || '');
+      } else {
+        // New thread — resolve the /team member key to a linked account.
+        const target = await resolveTeamRecipient(env, str(b.to_key));
+        if (!target) return json({ error: 'recipient_unavailable' }, 400);
+        recipientId = target.user_id;
+        if (recipientId === u.id) return json({ error: 'cannot_message_self' }, 400);
+        subjectTxt = (str(b.subject).trim()) || (target.label ? ('Message to ' + target.label) : 'Message');
+      }
+
+      const id = 'MSG-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(6);
+      const created_at = new Date().toISOString();
+      threadId = threadId || ('THR-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(6));
+      const subjEnc = await encryptPii(env, subjectTxt);
+      const bodyEnc = await encryptPii(env, bodyTxt);
+      await env.DB.prepare(
+        'INSERT INTO messages (id, thread_id, sender_id, recipient_id, subject, subject_enc, body, body_enc, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+      ).bind(
+        id, threadId, u.id, recipientId,
+        subjEnc ? null : subjectTxt, subjEnc,
+        bodyEnc ? null : bodyTxt, bodyEnc,
+        created_at
+      ).run();
+      return json({ id, thread_id: threadId, created_at });
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  // Single thread — GET returns the full conversation (marks incoming read);
+  // DELETE soft-removes the caller's copy of the thread.
+  const myMsgThreadM = path.match(/^\/api\/me\/messages\/([A-Za-z0-9_-]+)$/);
+  if (myMsgThreadM) {
+    const u = await currentUser(request, env);
+    if (!u) return json({ error: 'login_required' }, 401);
+    const tid = myMsgThreadM[1];
+    if (method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT id, sender_id, recipient_id, subject, subject_enc, body, body_enc, created_at, read_at
+         FROM messages WHERE thread_id = ? ORDER BY created_at ASC`
+      ).bind(tid).all();
+      const rows = results || [];
+      if (!rows.length) return json({ error: 'not_found' }, 404);
+      if (!rows.some(r => r.sender_id === u.id || r.recipient_id === u.id)) return json({ error: 'forbidden' }, 403);
+      await env.DB.prepare(
+        'UPDATE messages SET read_at = ? WHERE thread_id = ? AND recipient_id = ? AND read_at IS NULL'
+      ).bind(new Date().toISOString(), tid, u.id).run();
+      const counterpartId = rows[0].sender_id === u.id ? rows[0].recipient_id : rows[0].sender_id;
+      const cp = await env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(counterpartId).first();
+      const subj = rows[0].subject_enc ? (await decryptPii(env, rows[0].subject_enc)) : (rows[0].subject || '');
+      const messages = [];
+      for (const r of rows) {
+        messages.push({
+          id: r.id, from_me: r.sender_id === u.id,
+          body: r.body_enc ? (await decryptPii(env, r.body_enc)) : (r.body || ''),
+          created_at: r.created_at,
+        });
+      }
+      return json({ thread_id: tid, subject: subj || '', counterpart: (cp && (cp.name || cp.email)) || 'Member', messages });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('UPDATE messages SET sender_deleted = 1 WHERE thread_id = ? AND sender_id = ?').bind(tid, u.id).run();
+      await env.DB.prepare('UPDATE messages SET recipient_deleted = 1 WHERE thread_id = ? AND recipient_id = ?').bind(tid, u.id).run();
       return json({ ok: true });
     }
     return json({ error: 'method_not_allowed' }, 405);

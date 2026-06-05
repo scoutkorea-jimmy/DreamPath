@@ -1385,8 +1385,8 @@ body {
 }
 
 /* ============ MEMBER MESSAGES (My page) ============ */
-.member-msg { max-width: 720px; }
-.member-msg-empty { padding: 40px 20px; text-align: center; color: var(--fg-muted); display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.member-msg { max-width: 720px; margin: 0 auto; }
+.member-msg-empty { padding: 64px 20px; text-align: center; color: var(--fg-muted); display: flex; flex-direction: column; gap: 16px; align-items: center; justify-content: center; }
 .member-msg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .member-msg-item {
   width: 100%; text-align: left; cursor: pointer;

@@ -3,8 +3,27 @@
 // a 1:1 photo (grayscale at rest, colour on hover), name, title and a short
 // bio (약력). An always-on "Message the coordinator" CTA + per-member message
 // buttons open a message modal. Sending requires login; logged-out users are
-// prompted to sign up. Messages land in the admin inbox (category 'team').
+// prompted to sign up. Linked members get a real DM to their inbox.
+//
+// NOTE: icons here are inline SVG, NOT lucide <i data-lucide> placeholders.
+// Lucide rewrites those <i> nodes into <svg> in-place, which fights React's
+// reconciliation inside this dynamic modal/button tree and throws
+// "removeChild ... is not a child of this node", blanking the page. Inline
+// SVG is fully React-managed and crash-free.
 const { useState: useStateT, useEffect: useEffectT } = React;
+
+function TIcon({ name, size = 16 }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+  switch (name) {
+    case 'x': return <svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+    case 'check': return <svg {...p}><polyline points="20 6 9 17 4 12"/></svg>;
+    case 'user-plus': return <svg {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>;
+    case 'send': return <svg {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
+    case 'mail': return <svg {...p}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>;
+    case 'arrow-right': return <svg {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
+    default: return null;
+  }
+}
 
 function TeamMessageModal({ open, onClose, member, lang, go }) {
   const isKo = lang === 'ko';
@@ -18,10 +37,6 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
   useEffectT(() => {
     if (open) { setSubject(''); setBodyText(''); setErr(''); setDone(false); setBusy(false); }
   }, [open, member]);
-
-  useEffectT(() => {
-    if (open && window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch {} }
-  });
 
   if (!open || !member) return null;
 
@@ -42,9 +57,8 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
     if (bodyText.trim().length < 10) { setErr(isKo ? '메시지를 10자 이상 입력해주세요.' : 'Your message must be at least 10 characters.'); return; }
     setBusy(true);
     try {
-      // When the team member is linked to an account, send a real direct
-      // message to their inbox (threaded, repliable). Otherwise fall back to
-      // the admin inbox so the button still does something useful.
+      // Linked members → real direct message; otherwise fall back to the
+      // admin inbox so the button still does something useful.
       const dm = member.messageable && member.key;
       const res = dm
         ? await window.DreamPathAuth.authFetch('/api/me/messages', {
@@ -55,7 +69,7 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ to: name, subject: subject.trim(), body: bodyText.trim(), lang }),
           });
-      if (res.status === 401) { setErr(isKo ? '로그인이 필요합니다.' : 'Please log in first.'); setBusy(false); return; }
+      if (res.status === 401) { setErr(isKo ? '로그인이 만료되었어요. 다시 로그인해주세요.' : 'Your session expired. Please log in again.'); setBusy(false); return; }
       if (!res.ok) { setErr(isKo ? '전송에 실패했습니다. 잠시 후 다시 시도해주세요.' : 'Could not send. Please try again shortly.'); setBusy(false); return; }
       setDone(true);
     } catch {
@@ -68,7 +82,7 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
     <div className="tm-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="tm-modal" onClick={e => e.stopPropagation()}>
         <button type="button" className="tm-close" onClick={onClose} aria-label={isKo ? '닫기' : 'Close'}>
-          <i data-lucide="x" width="20" height="20" strokeWidth="2" aria-hidden="true"></i>
+          <TIcon name="x" size={20} />
         </button>
 
         <div className="tm-head">
@@ -84,7 +98,7 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
 
         {done ? (
           <div className="tm-done">
-            <div className="tm-done-icon"><i data-lucide="check" width="28" height="28" strokeWidth="2.5" aria-hidden="true"></i></div>
+            <div className="tm-done-icon"><TIcon name="check" size={28} /></div>
             <h3>{isKo ? '메시지를 보냈어요' : 'Message sent'}</h3>
             <p>{member.messageable
               ? (isKo ? `${name}님께 메시지가 전달되었습니다. 답장은 마이페이지 → 메시지에서 받아볼 수 있어요.` : `Your message to ${name} was delivered. You'll see any reply under My page → Messages.`)
@@ -99,11 +113,8 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
             </div>
           </div>
         ) : loggedOut ? (
-          // Always-on entry point: logged-out users see a sign-up prompt
-          // rather than a dead button. Signing up (or logging in) lets them
-          // come back and send the message.
           <div className="tm-gate">
-            <div className="tm-gate-icon"><i data-lucide="user-plus" width="26" height="26" strokeWidth="2" aria-hidden="true"></i></div>
+            <div className="tm-gate-icon"><TIcon name="user-plus" size={26} /></div>
             <h3>{isKo ? '회원가입 후 메시지를 보낼 수 있어요' : 'Sign up to send a message'}</h3>
             <p>{isKo
               ? '메시지를 보내려면 먼저 회원가입(또는 로그인)을 해주세요. 가입은 1분이면 끝나고, 보내주신 메시지는 운영팀이 확인해 회신드립니다.'
@@ -136,7 +147,7 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
               <button type="button" className="btn btn-ghost" onClick={onClose}>{isKo ? '취소' : 'Cancel'}</button>
               <button type="submit" className="btn btn-primary" disabled={busy}>
                 {busy ? (isKo ? '보내는 중…' : 'Sending…') : (isKo ? '메시지 보내기' : 'Send message')}
-                {!busy && <i data-lucide="send" width="16" height="16" strokeWidth="2" aria-hidden="true"></i>}
+                {!busy && <TIcon name="send" />}
               </button>
             </div>
           </form>
@@ -152,16 +163,9 @@ function Team({ go, lang, c }) {
   const hero = (t.hero && t.hero[lang]) || {};
   const sections = t.sections || [];
   const cta = (t.cta && t.cta[lang]) || {};
-  // Coordinator — always-on message recipient. Falls back to a generic
-  // "Coordinator" label if the operator hasn't filled one in.
   const coordinator = t.coordinator || { name: '코디네이터', name_en: 'Coordinator', role_ko: '지원·문의 총괄', role_en: 'Applicant support & inquiries' };
   const coordName = isKo ? (coordinator.name || coordinator.name_en) : (coordinator.name_en || coordinator.name);
   const [target, setTarget] = useStateT(null);
-
-  // Re-render the Lucide icons whenever the section/modal markup changes.
-  useEffectT(() => {
-    if (window.lucide && window.lucide.createIcons) { try { window.lucide.createIcons(); } catch {} }
-  });
 
   return (
     <div data-screen-label="Project Team">
@@ -177,7 +181,7 @@ function Team({ go, lang, c }) {
 
       {/* Always-on coordinator CTA — visible to everyone; logged-out users
           are prompted to sign up inside the modal. */}
-      <section className="section-tight">
+      <section className="section-tight team-coord-section">
         <div className="container-narrow">
           <div className="team-coord-band">
             <div className="team-coord-photo" style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none'}}>
@@ -192,7 +196,7 @@ function Team({ go, lang, c }) {
             </div>
             <div className="team-coord-action">
               <button type="button" className="btn btn-primary btn-lg" onClick={() => setTarget(coordinator)}>
-                <i data-lucide="mail" width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+                <TIcon name="mail" size={18} />
                 {isKo ? '메시지 보내기' : 'Send a message'}
               </button>
             </div>
@@ -201,7 +205,7 @@ function Team({ go, lang, c }) {
       </section>
 
       {sections.map((s, si) => (
-        <section key={si} className="section" style={si % 2 === 1 ? { background: 'var(--bg-muted)' } : null}>
+        <section key={si} className="section team-section" style={si % 2 === 1 ? { background: 'var(--bg-muted)' } : null}>
           <div className="container">
             <div className="sec-kicker team-group-title">{isKo ? s.kicker_ko : (s.kicker_en || s.kicker_ko)}</div>
             <div className="team-page-grid">
@@ -220,7 +224,7 @@ function Team({ go, lang, c }) {
                       {bio && <p className="team-page-bio">{bio}</p>}
                       {m.messageable && (
                         <button type="button" className="btn btn-outline btn-sm team-msg-btn" onClick={() => setTarget(m)}>
-                          <i data-lucide="mail" width="15" height="15" strokeWidth="2" aria-hidden="true"></i>
+                          <TIcon name="mail" size={15} />
                           {isKo ? '메시지 보내기' : 'Send a message'}
                         </button>
                       )}
@@ -243,7 +247,7 @@ function Team({ go, lang, c }) {
             </div>
             <div className="btn-wrap">
               <a className="btn btn-lg btn-white" href={`mailto:${cta.email || 'info@koreadreampath.com'}`}>
-                {cta.button} <i data-lucide="arrow-right" width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+                {cta.button} <TIcon name="arrow-right" size={18} />
               </a>
             </div>
           </div>

@@ -3614,7 +3614,7 @@ async function handleApi(request, env, url, ctx) {
   // tagged category='team', with the sender's name/email pulled from their
   // account (never typed) so the operator always knows who wrote in.
   if (path === '/api/team/message' && method === 'POST') {
-    return submitTeamMessage(request, env);
+    return submitTeamMessage(request, env, ctx);
   }
 
   // ── Wiki (admin-only) — slugs: 'kms', 'design' ───────────────────────────
@@ -5239,7 +5239,7 @@ async function submitInquiry(request, env) {
 //   - name/email are taken from the user's account, never user-supplied
 //   - category is forced to 'team' and the recipient label is recorded in
 //     the subject so the operator sees who the message was for
-async function submitTeamMessage(request, env) {
+async function submitTeamMessage(request, env, ctx) {
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'login_required' }, 401);
 
@@ -5307,15 +5307,16 @@ async function submitTeamMessage(request, env) {
     str(body.lang), user.id, ip, ua
   ).run();
 
-  // Best-effort confirmation to the member. Non-blocking.
+  // Best-effort confirmation to the member. Truly non-blocking now — the
+  // Resend round-trip used to be awaited here, adding ~1s of latency to
+  // every send. Hand it to ctx.waitUntil so the response returns immediately.
   if (emailNorm) {
-    try {
-      await sendEmail(env, {
-        to: emailNorm, slug: 'inquiry_received',
-        lang: body.lang === 'en' ? 'en' : 'ko',
-        vars: { name: nameRaw, inquiry_id: id },
-      });
-    } catch {}
+    const send = sendEmail(env, {
+      to: emailNorm, slug: 'inquiry_received',
+      lang: body.lang === 'en' ? 'en' : 'ko',
+      vars: { name: nameRaw, inquiry_id: id },
+    }).catch(() => {});
+    if (ctx && ctx.waitUntil) ctx.waitUntil(send);
   }
 
   return json({ id, created_at });

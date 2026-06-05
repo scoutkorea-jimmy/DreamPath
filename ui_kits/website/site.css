@@ -1325,6 +1325,10 @@ body {
 .team-page-role { font-size: 13px; color: var(--scouting-purple); margin: 2px 0 10px; font-weight: 600; }
 .team-page-bio  { font-size: 14px; line-height: 1.6; color: var(--fg-secondary); margin: 0; }
 .team-group-title { font-size: 15px; }
+/* Tighten the gap between the coordinator CTA band and the first team
+   group (was section-tight 64px bottom + section 96px top = 160px). */
+.team-coord-section { padding-bottom: 8px; }
+.team-coord-section + .team-section { padding-top: 36px; }
 /* Always-on coordinator message band */
 .team-coord-band {
   display: flex; align-items: center; gap: 22px;

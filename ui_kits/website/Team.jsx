@@ -163,7 +163,14 @@ function Team({ go, lang, c }) {
   const hero = (t.hero && t.hero[lang]) || {};
   const sections = t.sections || [];
   const cta = (t.cta && t.cta[lang]) || {};
-  const coordinator = t.coordinator || { name: '코디네이터', name_en: 'Coordinator', role_ko: '지원·문의 총괄', role_en: 'Applicant support & inquiries' };
+  // Coordinator can be designated from a team member (admin) — when it carries
+  // a member_key we mirror that member fully (name/role/photo/account), so it
+  // stays in sync. Otherwise it's a standalone manual entry.
+  let coordinator = t.coordinator || { name: '코디네이터', name_en: 'Coordinator', role_ko: '지원·문의 총괄', role_en: 'Applicant support & inquiries' };
+  if (coordinator && coordinator.member_key) {
+    const ref = sections.reduce((acc, s) => acc || (s.members || []).find(m => m && m.key === coordinator.member_key), null);
+    if (ref) coordinator = ref;
+  }
   const coordName = isKo ? (coordinator.name || coordinator.name_en) : (coordinator.name_en || coordinator.name);
   const [target, setTarget] = useStateT(null);
 

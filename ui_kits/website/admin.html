@@ -5486,28 +5486,73 @@
           <h3>Coordinator · 코디네이터</h3>
           <p className="desc" style={{marginTop:-4}}>
             공개 /team 페이지 상단의 <strong>“Message our coordinator”</strong> 상시 버튼이
-            가리키는 사람입니다. 아래에서 <strong>가입 계정을 연결</strong>하면, 회원이 보낸 메시지가
-            그 계정의 <strong>마이페이지 → 메시지</strong>로 직접 도착하고 답장도 주고받을 수 있습니다.
-            사진은 <strong>정사각형(1:1) JPG·PNG</strong>.
+            가리키는 사람입니다. <strong>아래 팀원 중에서 지정</strong>하면 이름·직함·사진·연결계정이
+            그 팀원과 <strong>자동으로 동기화</strong>됩니다(중복 입력 불필요). 또는 팀원이 아닌 사람을
+            직접 입력할 수도 있습니다.
           </p>
-          <div className="grid-2 tight">
-            <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
-            <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
-          </div>
-          <ImageUploadField
-            label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
-            value={coord.image || ''}
-            onChange={v => set(['project_team','coordinator','image'], v)}
-            accept="image/png,image/jpeg"
-            requireSquare={true}
-            preview="square"
-            hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
-          />
-          <AccountLinkField
-            userId={coord.user_id} userLabel={coord.user_label}
-            onLink={u => set(['project_team','coordinator'], { ...coord, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: coord.key || genTeamKey() })}
-            onUnlink={() => set(['project_team','coordinator'], { ...coord, user_id: undefined, user_label: undefined })}
-          />
+          {(() => {
+            const all = [];
+            sections.forEach((s, si) => (s.members || []).forEach((m, mi) =>
+              all.push({ si, mi, m, label: (m.name_en || m.name || '(이름 없음)') + ' — ' + (s.kicker_en || s.kicker_ko || `Group ${si + 1}`) })));
+            const desigKey = coord.member_key || '';
+            const cur = desigKey ? (() => { const f = all.find(x => x.m.key === desigKey); return f ? (f.si + ':' + f.mi) : ''; })() : '';
+            const desigMember = desigKey ? (all.find(x => x.m.key === desigKey) || null) : null;
+            function pick(val) {
+              if (!val) { const { member_key, ...rest } = coord; set(['project_team','coordinator'], rest); return; }
+              const [si, mi] = val.split(':').map(Number);
+              const m = (sections[si] && sections[si].members && sections[si].members[mi]) || null;
+              if (!m) return;
+              let key = m.key;
+              if (!key) { key = genTeamKey(); set(['project_team','sections',si,'members',mi], { ...m, key }); }
+              set(['project_team','coordinator'], { member_key: key });
+            }
+            return (
+              <>
+                <div className="field">
+                  <label>코디네이터 지정 · Designate from team member</label>
+                  <select value={cur} onChange={e => pick(e.target.value)}>
+                    <option value="">— 직접 입력 (팀원 아님) —</option>
+                    {all.map(x => <option key={x.si + ':' + x.mi} value={x.si + ':' + x.mi}>{x.label}</option>)}
+                  </select>
+                  <span className="hint">팀원을 고르면 그 사람이 곧 코디네이터가 되고, 메시지는 그 팀원에 연결된 계정으로 갑니다.</span>
+                </div>
+                {desigKey ? (
+                  <div style={{padding:'10px 14px',background:'var(--state-success-bg)',border:'1px solid var(--border-subtle)',borderRadius:10}}>
+                    <p className="desc" style={{margin:0}}>
+                      ✅ 이 코디네이터는 팀원 <strong>{desigMember ? (desigMember.m.name_en || desigMember.m.name || '(이름 없음)') : '(찾을 수 없음)'}</strong> 와(과)
+                      자동 동기화됩니다. 이름·직함·사진·연결계정은 아래 <strong>Sections</strong>의 해당 팀원 카드에서 수정하세요.
+                      {desigMember && !desigMember.m.user_id && (
+                        <span style={{display:'block',marginTop:6,color:'var(--state-danger)'}}>
+                          ⚠️ 이 팀원에 아직 가입 계정이 연결되지 않았습니다 — 연결해야 회원 메시지가 그 사람의 메시지함으로 도착합니다(미연결 시 문의함으로 fallback).
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid-2 tight">
+                      <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
+                      <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
+                    </div>
+                    <ImageUploadField
+                      label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
+                      value={coord.image || ''}
+                      onChange={v => set(['project_team','coordinator','image'], v)}
+                      accept="image/png,image/jpeg"
+                      requireSquare={true}
+                      preview="square"
+                      hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+                    />
+                    <AccountLinkField
+                      userId={coord.user_id} userLabel={coord.user_label}
+                      onLink={u => set(['project_team','coordinator'], { ...coord, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: coord.key || genTeamKey() })}
+                      onUnlink={() => set(['project_team','coordinator'], { ...coord, user_id: undefined, user_label: undefined })}
+                    />
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         <div className="card">

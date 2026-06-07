@@ -1818,29 +1818,46 @@
   }
 
   function StoriesTab({ c, set, addItem, removeItem }) {
+    const stories = c.stories || [];
+    // Reorder helper (array splice → set). Used by the ↑/↓ buttons.
+    const moveStory = (from, to) => {
+      if (to < 0 || to >= stories.length) return;
+      const arr = [...stories];
+      const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+      set(['stories'], arr);
+    };
     return (
       <>
         <HeroBgFields title="스토리 페이지 — 히어로 배경" path={['page_heros','stories']} node={(c.page_heros || {}).stories} set={set} />
         <div className="card">
-        <h3>Learner stories</h3>
-        {c.stories.map((s, i) => (
-          <div className="rep-item" key={i}>
-            <div className="rep-head">
-              <strong>{s.name}</strong>
-              <div className="ctrls">
-                <button className="icon-btn danger" onClick={() => removeItem(['stories'], i)}>Delete</button>
+        <h3>Learner stories <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{stories.length}개 · 이름을 눌러 펼치기/접기</span></h3>
+        {stories.map((s, i) => {
+          const sName = s.name || `Story ${i + 1}`;
+          return (
+          <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+            <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
+              <span className="tm-chevron" aria-hidden="true">▶</span>
+              <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sName}{s.program ? <span style={{fontWeight:400,color:'var(--fg-muted)'}}> · {s.program}</span> : null}</strong>
+              <button type="button" className="icon-btn" disabled={i === 0} title="위로"
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveStory(i, i - 1); }}>↑</button>
+              <button type="button" className="icon-btn" disabled={i === stories.length - 1} title="아래로"
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveStory(i, i + 1); }}>↓</button>
+              <button type="button" className="icon-btn danger"
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!confirm(`Remove ${sName}?`)) return; removeItem(['stories'], i); }}>Delete</button>
+            </summary>
+            <div style={{padding:'0 14px 14px'}}>
+              <div className="grid-2 tight">
+                <Text label="Name" value={s.name} onChange={v => set(['stories',i,'name'], v)} />
+                <Text label="Program" value={s.program} onChange={v => set(['stories',i,'program'], v)} />
+                <Text label="Tag" value={s.tag} onChange={v => set(['stories',i,'tag'], v)} />
+                <Color label="Tag color" value={s.tag_color} onChange={v => set(['stories',i,'tag_color'], v)} />
+                <Area label="Quote (KO)" value={s.quote_ko} onChange={v => set(['stories',i,'quote_ko'], v)} lang="ko" rows={3} />
+                <Area label="Quote (EN)" value={s.quote_en} onChange={v => set(['stories',i,'quote_en'], v)} lang="en" rows={3} />
               </div>
             </div>
-            <div className="grid-2 tight">
-              <Text label="Tag" value={s.tag} onChange={v => set(['stories',i,'tag'], v)} />
-              <Color label="Tag color" value={s.tag_color} onChange={v => set(['stories',i,'tag_color'], v)} />
-              <Text label="Name" value={s.name} onChange={v => set(['stories',i,'name'], v)} />
-              <Text label="Program" value={s.program} onChange={v => set(['stories',i,'program'], v)} />
-              <Area label="Quote (KO)" value={s.quote_ko} onChange={v => set(['stories',i,'quote_ko'], v)} lang="ko" rows={3} />
-              <Area label="Quote (EN)" value={s.quote_en} onChange={v => set(['stories',i,'quote_en'], v)} lang="en" rows={3} />
-            </div>
-          </div>
-        ))}
+          </details>
+          );
+        })}
         <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
         </div>
       </>

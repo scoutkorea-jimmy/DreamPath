@@ -6354,7 +6354,7 @@
                   <h2 style={{margin:'4px 0 6px',fontSize:24,fontFamily:'var(--font-en)'}}>{active.title}</h2>
                   <div style={{fontSize:12,color:'var(--fg-muted)'}}>
                     {active.slug_path && <span style={{fontFamily:'var(--font-mono)'}}>{active.slug_path}</span>}
-                    {active.updated_at && <span style={{marginLeft: active.slug_path ? 12 : 0}}>updated {new Date(active.updated_at).toLocaleString()}</span>}
+                    {active.updated_at && <span style={{marginLeft: active.slug_path ? 12 : 0}}>updated {new Date(active.updated_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} KST</span>}
                   </div>
                 </div>
                 <div style={{display:'flex',gap:6}}>

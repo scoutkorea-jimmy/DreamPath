@@ -2,10 +2,11 @@
 function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = { hero: c.hero[lang], how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
+  const hb = (window.heroBg ? window.heroBg(c.hero) : { cls: '', style: null });
   return (
     <div>
       {/* HERO */}
-      <section className="hero" data-screen-label="Hero" aria-labelledby="hero-title">
+      <section className={('hero ' + hb.cls).trim()} style={hb.style} data-screen-label="Hero" aria-labelledby="hero-title">
         <div className="hero-dots" aria-hidden="true">
           {/* Hero accent stars (brand sparkle motif). Color cycles three brand
               tones via CSS .d1–.d4 classes — stored `c.hero.dots[i].color` is

@@ -1,7 +1,8 @@
 // Partners + Stories + News + Contact (bundled) — content-driven via c.page_heros
-function PageHero({ h, isKo }) {
+function PageHero({ h, isKo, bg }) {
+  const hb = (window.heroBg ? window.heroBg(bg) : { cls: '', style: null });
   return (
-    <div className="phead">
+    <div className={('phead ' + hb.cls).trim()} style={hb.style}>
       <div className="inner">
         <div className="sec-kicker">{h.kicker}</div>
         <h1 className={isKo ? '' : 'en'}>
@@ -19,7 +20,7 @@ function Partners({ lang, c }) {
   const h = ((c && c.page_heros && c.page_heros.partners && c.page_heros.partners[lang]) || {});
   return (
     <div data-screen-label="Partners">
-      <PageHero h={h} isKo={isKo} />
+      <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.partners) || {}} />
       <section className="section">
         <div className="container">
           <div className="partners-grid">
@@ -57,7 +58,7 @@ function Stories({ go, lang, c }) {
   const h = ((c && c.page_heros && c.page_heros.stories && c.page_heros.stories[lang]) || {});
   return (
     <div data-screen-label="Stories">
-      <PageHero h={h} isKo={isKo} />
+      <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.stories) || {}} />
       <section className="section">
         <div className="container">
           <div className="stories-grid">
@@ -206,7 +207,7 @@ function News({ go, lang, c }) {
 
   return (
     <div data-screen-label="News">
-      <PageHero h={h} isKo={isKo} />
+      <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.news) || {}} />
       <section className="section">
         <div className="container-narrow">
           {canEdit && (
@@ -369,7 +370,7 @@ function Contact({ lang, c }) {
   const [tab, setTab] = React.useState(initialTab); // 'faq' | 'form'
   return (
     <div data-screen-label="Contact">
-      <PageHero h={h} isKo={isKo} />
+      <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.contact) || {}} />
       <section className="section">
         <div className="container-narrow">
           <div className="contact-tabs" role="tablist">

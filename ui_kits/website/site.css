@@ -404,6 +404,29 @@ body {
 .phead h1.en { font-family: var(--font-en); }
 .phead p { font-size: 18px; color: var(--fg-secondary); max-width: 680px; line-height: 1.55; margin: 0; }
 
+/* ===== Hero backgrounds (image upload / color picker) — v01.079 =====
+   The component sets an inline background (image+overlay, or solid color) and
+   adds a class so text contrast stays correct. Image heroes always get light
+   text over a dark overlay; solid colors flip text by luminance. Responsive:
+   background-size:cover + the chosen focal position keeps the image sensible
+   on both mobile and desktop. */
+.phead.has-hero-media, .hero.has-hero-media,
+.phead.has-hero-dark { }
+.has-hero-media h1, .has-hero-media p, .has-hero-media .sec-kicker,
+.has-hero-dark h1,  .has-hero-dark p,  .has-hero-dark .sec-kicker { color: #fff !important; }
+.has-hero-media .sec-kicker, .has-hero-dark .sec-kicker { opacity: 0.92; }
+/* Light solid color → keep dark text (default) but ensure the kicker/body are
+   readable on an arbitrary light tone. */
+.has-hero-light h1 { color: var(--midnight-purple); }
+.has-hero-light p  { color: var(--fg-primary); }
+/* Image heroes: a touch more vertical room so the photo reads as a banner. */
+.phead.has-hero-media { padding-top: 132px; padding-bottom: 76px; }
+@media (max-width: 720px) {
+  /* On phones the cover image can crop tightly; keep the focal point centered
+     enough and the text block legible. */
+  .phead.has-hero-media { padding-top: 104px; padding-bottom: 56px; }
+}
+
 /* ============ STORIES ============ */
 .stories-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .story { background: var(--bg-elevated); border-radius: var(--radius-xl); border: 1px solid var(--border-hair); padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: var(--shadow-xs); }
@@ -1363,7 +1386,14 @@ body {
 .team-coord-action { flex: 0 0 auto; }
 .team-coord-action .btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 720px) {
-  .team-coord-band { flex-direction: column; text-align: center; }
+  /* v01.079 — operator: these bands were too tall on mobile. Halve the
+     vertical bulk: tighter padding, smaller photo/heading, button sits
+     directly below the copy (already column). */
+  .team-coord-band { flex-direction: column; text-align: center; gap: 12px; padding: 16px 16px; }
+  .team-coord-photo { width: 56px; height: 56px; font-size: 22px; }
+  .team-coord-copy h2 { font-size: 19px; margin: 2px 0 4px; }
+  .team-coord-copy p { font-size: 13px; line-height: 1.5; }
+  .team-coord-action { width: 100%; }
   .team-coord-action, .team-coord-action .btn { width: 100%; justify-content: center; }
 }
 .team-msg-btn { margin-top: 16px; align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; }
@@ -1842,6 +1872,14 @@ body {
   .nav-links { display: none; }
   .cta-banner { grid-template-columns: 1fr; padding: 48px 32px; }
   .cta-banner .btn-wrap { justify-self: start; }
+}
+/* v01.079 — phone: "WANT TO JOIN US" banner was too tall. Placed AFTER the
+   900px block so it wins at ≤720px. Roughly half the padding + button below. */
+@media (max-width: 720px) {
+  .cta-banner { padding: 28px 20px; gap: 16px; }
+  .cta-banner h2 { font-size: 26px; margin: 0 0 8px; }
+  .cta-banner p { font-size: 14px; }
+  .cta-banner .btn-wrap, .cta-banner .btn-wrap .btn { width: 100%; justify-content: center; }
   .footer-top { grid-template-columns: 1fr 1fr; }
   .footer-top.footer-top-cols { grid-template-columns: 1fr 1fr; }
   .footer-bot.footer-bot-with-brand { flex-direction: column; align-items: flex-start; }

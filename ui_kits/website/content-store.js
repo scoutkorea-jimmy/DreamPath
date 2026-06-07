@@ -21,6 +21,43 @@
   }
   window.dpClone = dpClone;
 
+  // Hero background helper (v01.079). Every page hero can carry an optional
+  // bg_image (upload), bg_color (picker), and bg_position (focal point). Returns
+  // { cls, style } applied to the hero element. Language-independent. Used by
+  // Home/About/Pages/Programs/Team so the behaviour stays consistent.
+  //   - image present → dark overlay + white text (always legible), cover-fit
+  //     with the chosen focal position (works on both mobile & desktop).
+  //   - solid color only → text auto-flips dark/light by luminance.
+  //   - neither → '' (component keeps its default gradient/grey).
+  function isDarkHex(hex) {
+    const m = String(hex || '').trim().replace('#', '');
+    if (!(m.length === 3 || m.length === 6)) return false;
+    const f = m.length === 3 ? m.split('').map(c => c + c).join('') : m;
+    const r = parseInt(f.slice(0, 2), 16), g = parseInt(f.slice(2, 4), 16), b = parseInt(f.slice(4, 6), 16);
+    if ([r, g, b].some(n => Number.isNaN(n))) return false;
+    // Relative luminance (sRGB). < 0.5 → dark background → needs light text.
+    const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    return L < 0.5;
+  }
+  function heroBg(node) {
+    node = node || {};
+    const img = node.bg_image, color = node.bg_color;
+    const pos = node.bg_position || 'center';
+    if (img) {
+      return { cls: 'has-hero-media', style: {
+        backgroundImage: `linear-gradient(rgba(17,9,38,0.55), rgba(17,9,38,0.55)), url("${img}")`,
+        backgroundSize: 'cover', backgroundPosition: pos, backgroundRepeat: 'no-repeat',
+      } };
+    }
+    if (color) {
+      return { cls: isDarkHex(color) ? 'has-hero-dark' : 'has-hero-light', style: { background: color } };
+    }
+    return { cls: '', style: null };
+  }
+  window.heroBg = heroBg;
+  window.isDarkHex = isDarkHex;
+
   // Default content — schema for the entire public site
   const DEFAULT_CONTENT = {
     brand: {

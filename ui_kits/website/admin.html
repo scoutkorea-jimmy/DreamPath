@@ -677,6 +677,35 @@
     mobile:  { label: 'Mobile', icon: 'smartphone',  width: 390,  height: 844 },  // iPhone 14
   };
 
+  // Reusable hero background editor (v01.079): image upload + color + focal
+  // position. `path` is the content path of the hero NODE (bg_* keys live at
+  // that node level, language-independent). Used by every hero editor.
+  function HeroBgFields({ path, node, set }) {
+    node = node || {};
+    const POS = [
+      ['center','중앙 (기본)'], ['top','상단'], ['bottom','하단'], ['left','좌측'], ['right','우측'],
+      ['left top','좌상단'], ['right top','우상단'], ['left bottom','좌하단'], ['right bottom','우하단'],
+    ];
+    return (
+      <div style={{border:'1px dashed var(--border-subtle)',borderRadius:10,padding:'12px 14px',margin:'12px 0'}}>
+        <div style={{fontSize:11,fontWeight:700,color:'var(--fg-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>히어로 배경 (선택)</div>
+        <ImageUploadField label="배경 이미지" value={node.bg_image || ''} onChange={v => set([...path,'bg_image'], v)}
+          preview="banner" accept="image/png,image/jpeg,image/webp"
+          hint="이미지를 올리면 색 대신 이미지가 배경이 됩니다(어두운 오버레이 + 흰 글씨, 모바일·PC 자동 cover). 비우면 아래 색 또는 기본 색." />
+        <div className="grid-2 tight">
+          <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />
+          <div className="field">
+            <label>이미지 위치 (초점)</label>
+            <select value={node.bg_position || 'center'} onChange={e => set([...path,'bg_position'], e.target.value)}>
+              {POS.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <span className="hint">이미지가 잘릴 때 어느 부분을 보여줄지 정합니다.</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function EditorWithPreview({ tabId, previewPath, content, onSave, onDirtyChange, addItem, removeItem, children }) {
     const [draft, setDraft] = useState(() => window.dpClone(content));
     const [dirty, setDirty] = useState(false);
@@ -1149,6 +1178,7 @@
             <Text label="Primary CTA" value={en.cta1} onChange={v => set(['hero','en','cta1'], v)} lang="en" />
             <Text label="Secondary CTA" value={en.cta2} onChange={v => set(['hero','en','cta2'], v)} lang="en" />
           </div>
+          <HeroBgFields path={['hero']} node={c.hero} set={set} />
         </div>
         <div className="card">
           <h3>Hero accent dots</h3>
@@ -5526,6 +5556,7 @@
             <Text label="Title L2" value={pt.hero?.en?.title_l2 || ''} onChange={v => set(['project_team','hero','en','title_l2'], v)} lang="en" />
             <Area label="Subtitle" value={pt.hero?.en?.sub || ''} onChange={v => set(['project_team','hero','en','sub'], v)} lang="en" />
           </div>
+          <HeroBgFields path={['project_team','hero']} node={pt.hero} set={set} />
         </div>
 
         <div className="card">
@@ -5773,6 +5804,7 @@
             <Area label="Body (KO)" value={ex.hero?.body_ko || ''} onChange={v => set(['about','exec','hero','body_ko'], v)} lang="ko" rows={4} />
             <Area label="Body (EN)" value={ex.hero?.body_en || ''} onChange={v => set(['about','exec','hero','body_en'], v)} lang="en" rows={4} />
           </div>
+          <HeroBgFields path={['about','exec','hero']} node={ex.hero} set={set} />
         </div>
 
         {/* Content blocks */}
@@ -5862,6 +5894,7 @@
               <Area label="Subtitle (KO)" value={ph[key]?.ko?.sub || ''} onChange={v => set(['page_heros',key,'ko','sub'], v)} lang="ko" />
               <Area label="Subtitle (EN)" value={ph[key]?.en?.sub || ''} onChange={v => set(['page_heros',key,'en','sub'], v)} lang="en" />
             </div>
+            <HeroBgFields path={['page_heros',key]} node={ph[key]} set={set} />
           </div>
         ))}
       </>

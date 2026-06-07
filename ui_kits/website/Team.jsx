@@ -267,7 +267,7 @@ function Team({ go, lang, c }) {
 
   return (
     <div data-screen-label="Project Team">
-      <div className="phead">
+      <div className={('phead ' + (window.heroBg ? window.heroBg(t.hero).cls : '')).trim()} style={window.heroBg ? window.heroBg(t.hero).style : null}>
         <div className="inner">
           <div className="sec-kicker">{hero.kicker}</div>
           <h1 className={isKo ? '' : 'en'}>
@@ -343,7 +343,7 @@ function Team({ go, lang, c }) {
 
       <section className="section-tight">
         <div className="container-narrow">
-          <div className="cta-banner" style={{padding:'56px 48px'}}>
+          <div className="cta-banner">
             <div>
               <div className="sec-kicker" style={{color:'rgba(255,255,255,0.85)'}}>{cta.kicker}</div>
               <h2>{cta.title}</h2>

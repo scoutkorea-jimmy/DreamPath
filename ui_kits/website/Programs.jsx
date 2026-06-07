@@ -10,6 +10,7 @@ function Programs({ go, lang, c }) {
   const isKo = lang === 'ko';
   const all = (c && c.programs) || window.PROGRAMS;
   const h = ((c && c.page_heros && c.page_heros.programs && c.page_heros.programs[lang]) || {});
+  const hb = (window.heroBg ? window.heroBg((c && c.page_heros && c.page_heros.programs) || {}) : { cls: '', style: null });
   function readCatFromUrl() {
     const usp = new URLSearchParams(window.location.search);
     return (usp.get('cat') || '').toLowerCase();
@@ -53,7 +54,7 @@ function Programs({ go, lang, c }) {
 
   return (
     <div data-screen-label="Programs">
-      <div className="phead">
+      <div className={('phead ' + hb.cls).trim()} style={hb.style}>
         <div className="inner">
           <div className="sec-kicker">{h.kicker}</div>
           <h1 className={isKo ? '' : 'en'}>

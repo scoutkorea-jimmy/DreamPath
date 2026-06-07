@@ -15,10 +15,11 @@ function About({ lang, c }) {
   const hero    = ex.hero    || {};
   const blocks  = Array.isArray(ex.blocks) ? ex.blocks : [];
   const closing = ex.closing || {};
+  const hb = (window.heroBg ? window.heroBg(hero) : { cls: '', style: null });
 
   return (
     <div data-screen-label="About">
-      <div className="phead">
+      <div className={('phead ' + hb.cls).trim()} style={hb.style}>
         <div className="inner">
           <div className="sec-kicker">{pick(hero, 'kicker')}</div>
           <h1 className={isKo ? '' : 'en'}>{pick(hero, 'title')}</h1>

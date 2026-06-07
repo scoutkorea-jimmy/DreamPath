@@ -68,16 +68,23 @@ function Member({ go, lang, c }) {
     return () => { alive = false; clearInterval(t); };
   }, [auth.user, section]);
 
+  // Editable hero copy (admin → 페이지 헤더) with fallback. Hooks declared
+  // before any conditional return to respect the Rules of Hooks.
+  const phMember = ((c && c.page_heros && c.page_heros.member && c.page_heros.member[lang]) || {});
+  const phMy     = ((c && c.page_heros && c.page_heros.mypage && c.page_heros.mypage[lang]) || {});
+  const hbMember = window.useHeroBg((c && c.page_heros && c.page_heros.member) || {});
+  const hbMy     = window.useHeroBg((c && c.page_heros && c.page_heros.mypage) || {});
+
   if (!auth.ready) {
     return <div className="container" style={{padding:'80px 24px',textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '로딩 중…' : 'Loading…'}</div>;
   }
   if (!auth.user) {
     return (
-      <div className="phead">
+      <div className={('phead ' + hbMember.cls).trim()} style={hbMember.style}>
         <div className="inner">
-          <div className="sec-kicker">{isKo ? '회원 전용' : 'MEMBERS ONLY'}</div>
-          <h1 className={isKo ? '' : 'en'}>{isKo ? '로그인이 필요합니다.' : 'Please log in.'}</h1>
-          <p>{isKo ? '회원 페이지를 이용하려면 로그인하거나 회원가입을 진행해주세요.' : 'Log in or create an account to access member features.'}</p>
+          <div className="sec-kicker">{phMember.kicker || (isKo ? '회원 전용' : 'MEMBERS ONLY')}</div>
+          <h1 className={isKo ? '' : 'en'}>{phMember.title_l1 || (isKo ? '로그인이 필요합니다.' : 'Please log in.')}</h1>
+          <p>{phMember.sub || (isKo ? '회원 페이지를 이용하려면 로그인하거나 회원가입을 진행해주세요.' : 'Log in or create an account to access member features.')}</p>
           <div style={{marginTop:24,display:'flex',gap:12}}>
             <button className="btn btn-primary btn-lg" onClick={() => window.dispatchEvent(new CustomEvent('dp-open-auth', { detail: { mode: 'login' } }))}>
               {isKo ? '로그인' : 'Log in'}
@@ -93,11 +100,11 @@ function Member({ go, lang, c }) {
 
   return (
     <div data-screen-label="Member">
-      <div className="phead">
+      <div className={('phead ' + hbMy.cls).trim()} style={hbMy.style}>
         <div className="inner">
-          <div className="sec-kicker">{isKo ? '내 페이지' : 'MY PAGE'}</div>
-          <h1 className={isKo ? '' : 'en'}>{(isKo ? '안녕하세요, ' : 'Hello, ') + (auth.user.name || auth.user.email)}</h1>
-          <p>{isKo ? '지원 · 커리어 등록 · 맞춤형 프로그램 추천을 한 곳에서 관리하세요.' : 'Apply, manage your career profile, and get personalized recommendations.'}</p>
+          <div className="sec-kicker">{phMy.kicker || (isKo ? '내 페이지' : 'MY PAGE')}</div>
+          <h1 className={isKo ? '' : 'en'}>{(phMy.title_l1 || (isKo ? '안녕하세요,' : 'Hello,')) + ' ' + (auth.user.name || auth.user.email)}</h1>
+          <p>{phMy.sub || (isKo ? '지원 · 커리어 등록 · 맞춤형 프로그램 추천을 한 곳에서 관리하세요.' : 'Apply, manage your career profile, and get personalized recommendations.')}</p>
         </div>
       </div>
 

@@ -2,12 +2,17 @@
 function Scholarships({ go, lang, c }) {
   const isKo = lang === 'ko';
   const s = (c && c.scholarships) || {};
-  const hero = (s.hero && s.hero[lang]) || {};
+  // Hero copy: prefer unified page_heros.scholarships (admin → 페이지 헤더),
+  // fall back to legacy c.scholarships.hero.
+  const ph = ((c && c.page_heros && c.page_heros.scholarships && c.page_heros.scholarships[lang]) || {});
+  const legacy = (s.hero && s.hero[lang]) || {};
+  const hero = { kicker: ph.kicker || legacy.kicker, title_l1: ph.title_l1 || legacy.title_l1, title_l2: ph.title_l2 || legacy.title_l2, sub: ph.sub || legacy.sub };
+  const hb = window.useHeroBg((c && c.page_heros && c.page_heros.scholarships) || {});
   const items = s.items || [];
 
   return (
     <div data-screen-label="Scholarships">
-      <div className="phead">
+      <div className={('phead ' + hb.cls).trim()} style={hb.style}>
         <div className="inner">
           <div className="sec-kicker">{hero.kicker}</div>
           <h1 className={isKo ? '' : 'en'}>

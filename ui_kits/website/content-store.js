@@ -859,6 +859,32 @@
         en: { kicker: 'PROGRAMS', title_l1: 'Five CUFS micro-degrees.', title_l2: 'All online.',
               sub: 'Choose your next step from five micro-degree tracks designed for global learners.' },
       },
+      apply: {
+        ko: { kicker: '지원하기', title_l1: '5단계. 온라인으로 완료.', title_l2: '',
+              sub: '동의 · 개인정보 · 서류 · 에세이 · 결제. 약 20분 소요됩니다.' },
+        en: { kicker: 'HOW TO APPLY', title_l1: 'Five steps. All online.', title_l2: '',
+              sub: 'Consent · personal · documents · essay · payment. About 20 minutes.' },
+      },
+      apply_done: {
+        ko: { kicker: '신청 완료', title_l1: '지원이 접수되었습니다.', title_l2: '', sub: '' },
+        en: { kicker: 'APPLICATION COMPLETE', title_l1: 'Your application is in.', title_l2: '', sub: '' },
+      },
+      member: {
+        ko: { kicker: '회원 전용', title_l1: '로그인이 필요합니다.', title_l2: '',
+              sub: '회원 페이지를 이용하려면 로그인하거나 회원가입을 진행해주세요.' },
+        en: { kicker: 'MEMBERS ONLY', title_l1: 'Please log in.', title_l2: '',
+              sub: 'Log in or create an account to access member features.' },
+      },
+      mypage: {
+        ko: { kicker: '내 페이지', title_l1: '안녕하세요,', title_l2: '',
+              sub: '지원 · 커리어 등록 · 맞춤형 프로그램 추천을 한 곳에서 관리하세요.' },
+        en: { kicker: 'MY PAGE', title_l1: 'Hello,', title_l2: '',
+              sub: 'Apply, manage your career profile, and get personalized recommendations.' },
+      },
+      scholarships: {
+        ko: { kicker: 'SCHOLARSHIPS', title_l1: '장학 안내.', title_l2: '', sub: '곧 게시됩니다.' },
+        en: { kicker: 'SCHOLARSHIPS', title_l1: 'Scholarships.', title_l2: '', sub: 'Coming soon.' },
+      },
     },
     // ─── Contact page extras ───────────────────────────────────────────
     partner_cta: {

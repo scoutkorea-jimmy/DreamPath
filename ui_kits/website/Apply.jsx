@@ -403,14 +403,20 @@ function Apply({ lang, c }) {
     }
   }
 
+  // Editable hero copy (admin → 페이지 헤더) with fallback to the originals.
+  const phApply = ((c && c.page_heros && c.page_heros.apply && c.page_heros.apply[lang]) || {});
+  const phDone  = ((c && c.page_heros && c.page_heros.apply_done && c.page_heros.apply_done[lang]) || {});
+  const hbApply = window.useHeroBg((c && c.page_heros && c.page_heros.apply) || {});
+  const hbDone  = window.useHeroBg((c && c.page_heros && c.page_heros.apply_done) || {});
+
   if (submitted) {
     return (
       <div data-screen-label="Apply · Complete">
-        <div className="phead">
+        <div className={('phead ' + hbDone.cls).trim()} style={hbDone.style}>
           <div className="inner">
-            <div className="sec-kicker">{isKo ? '신청 완료' : 'APPLICATION COMPLETE'}</div>
+            <div className="sec-kicker">{phDone.kicker || (isKo ? '신청 완료' : 'APPLICATION COMPLETE')}</div>
             <h1 className={isKo ? '' : 'en'}>
-              {isKo ? '지원이 접수되었습니다.' : 'Your application is in.'}
+              {phDone.title_l1 || (isKo ? '지원이 접수되었습니다.' : 'Your application is in.')}
             </h1>
             <p>{isKo
               ? `지원 ID: ${appId} · 이메일로 확인 메일이 발송됩니다.`
@@ -455,15 +461,15 @@ function Apply({ lang, c }) {
 
   return (
     <div data-screen-label="Apply">
-      <div className="phead">
+      <div className={('phead ' + hbApply.cls).trim()} style={hbApply.style}>
         <div className="inner">
-          <div className="sec-kicker">{isKo ? '지원하기' : 'HOW TO APPLY'}</div>
+          <div className="sec-kicker">{phApply.kicker || (isKo ? '지원하기' : 'HOW TO APPLY')}</div>
           <h1 className={isKo ? '' : 'en'}>
-            {isKo ? '5단계. 온라인으로 완료.' : 'Five steps. All online.'}
+            {phApply.title_l1 || (isKo ? '5단계. 온라인으로 완료.' : 'Five steps. All online.')}{phApply.title_l2 ? <><br/>{phApply.title_l2}</> : null}
           </h1>
-          <p>{isKo
+          <p>{phApply.sub || (isKo
             ? '동의 · 개인정보 · 서류 · 에세이 · 결제. 약 20분 소요됩니다.'
-            : 'Consent · personal · documents · essay · payment. About 20 minutes.'}</p>
+            : 'Consent · personal · documents · essay · payment. About 20 minutes.')}</p>
         </div>
       </div>
 

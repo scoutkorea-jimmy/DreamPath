@@ -971,7 +971,7 @@
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
         errors_copy:'Error pages copy',
         programs:'Programs', program_detail:'Program detail',
-        partners:'Partners', stories:'Stories', faq:'FAQ',
+        partners:'Partners', stories:'Stories', news:'News', faq:'FAQ',
         essays:'Apply essays',
         translations:'KO ↔ EN translations',
         design_system:'Design System (live)', error_preview:'Error pages preview',
@@ -1005,7 +1005,7 @@
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
         errors_copy:'에러 페이지 텍스트',
         programs:'프로그램', program_detail:'프로그램 상세',
-        partners:'파트너', stories:'스토리', faq:'FAQ',
+        partners:'파트너', stories:'스토리', news:'소식', faq:'FAQ',
         essays:'지원 에세이 문항',
         translations:'KO ↔ EN 번역',
         design_system:'디자인 시스템 (실시간)', error_preview:'에러 페이지 미리보기',
@@ -1127,6 +1127,7 @@
       { id: 'program_detail',group: 'Content' },
       { id: 'partners',      group: 'Content' },
       { id: 'stories',       group: 'Content' },
+      { id: 'news',          group: 'Content' },
       { id: 'faq',           group: 'Content' },
       { id: 'essays',        group: 'Content' },
 
@@ -5953,6 +5954,11 @@
       { key: 'news',     label: 'News page' },
       { key: 'contact',  label: 'Contact / FAQ page' },
       { key: 'programs', label: 'Programs page' },
+      { key: 'apply',       label: '지원 폼 (Apply)' },
+      { key: 'apply_done',  label: '지원 완료 (Apply complete)' },
+      { key: 'member',      label: '회원 로그인 안내 (Members only)' },
+      { key: 'mypage',      label: '마이페이지 (My page)' },
+      { key: 'scholarships',label: '장학 (Scholarships)' },
     ];
     return (
       <>
@@ -8223,7 +8229,7 @@
       about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,
-      partners: PartnersTab, stories: StoriesTab, faq: FaqTab,
+      partners: PartnersTab, stories: StoriesTab, news: NewsTab, faq: FaqTab,
       essays: EssaysTab,
       translations: TranslationsTab,
       design_system: DesignSystemTab, error_preview: ErrorPreviewTab,

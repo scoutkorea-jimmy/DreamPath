@@ -70,7 +70,23 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
             body: JSON.stringify({ to: name, subject: subject.trim(), body: bodyText.trim(), lang }),
           });
       if (res.status === 401) { setErr(isKo ? '로그인이 만료되었어요. 다시 로그인해주세요.' : 'Your session expired. Please log in again.'); setBusy(false); return; }
-      if (!res.ok) { setErr(isKo ? '전송에 실패했습니다. 잠시 후 다시 시도해주세요.' : 'Could not send. Please try again shortly.'); setBusy(false); return; }
+      if (!res.ok) {
+        // Surface the specific reason instead of a generic "try again" — the
+        // most common one is messaging your own linked account (self-send).
+        const data = await res.json().catch(() => ({}));
+        const code = data && data.error;
+        let msg;
+        if (code === 'cannot_message_self') {
+          msg = isKo ? '본인 계정에는 메시지를 보낼 수 없습니다.' : "You can't send a message to your own account.";
+        } else if (code === 'rate_limited') {
+          msg = isKo ? '잠시 후 다시 시도해주세요. (전송 한도 초과)' : 'Too many messages — please try again later.';
+        } else if (code === 'recipient_unavailable') {
+          msg = isKo ? '이 팀원에게는 현재 메시지를 보낼 수 없습니다.' : "This team member can't receive messages right now.";
+        } else {
+          msg = isKo ? '전송에 실패했습니다. 잠시 후 다시 시도해주세요.' : 'Could not send. Please try again shortly.';
+        }
+        setErr(msg); setBusy(false); return;
+      }
       setDone(true);
     } catch {
       setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'A network error occurred.');

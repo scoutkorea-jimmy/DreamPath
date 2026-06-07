@@ -28,7 +28,7 @@ body {
   border-radius: 4px;
 }
 .hero :focus-visible, .cta-banner :focus-visible, .pd-header :focus-visible, .footer :focus-visible {
-  outline-color: #FFE600;
+  outline-color: #FFE600; /* tokens-first 예외(wiki:design 등록) — 다크 히어로/CTA 위 포커스 링, 의도적 고정 옐로 */
   outline-offset: 3px;
 }
 
@@ -201,10 +201,10 @@ body {
 
 /* white — solid white on dark backgrounds (e.g. hero) */
 .btn-white {
-  background: #fff; color: var(--midnight-purple);
+  background: #fff; /* tokens-first 예외(wiki:design 등록) — "흰색 버튼" 표면은 테마 무관 흰색 유지 */ color: var(--midnight-purple);
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
 }
-.btn-white:hover  { background: #FFE600; color: var(--midnight-purple); transform: translateY(-1px); }
+.btn-white:hover  { background: #FFE600; /* tokens-first 예외(wiki:design 등록) — 흰 버튼 옐로 hover, 일회성 상호작용 색 */ color: var(--midnight-purple); transform: translateY(-1px); }
 .btn-white:active { transform: scale(0.98); }
 
 /* outline — transparent w/ light border, paired with btn-white on dark hero */
@@ -231,6 +231,7 @@ body {
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.42);
 }
 [data-theme="dark"] .btn-primary:hover {
+  /* tokens-first 예외(wiki:design 등록) — 다크 전용 버튼 hover, box-shadow와 짝맞춤 수작업 튜닝 */
   background: #9466F2;
   border-color: #9466F2;
   box-shadow: 0 8px 26px rgba(148, 102, 242, 0.50);
@@ -242,7 +243,7 @@ body {
 }
 [data-theme="dark"] .btn-secondary:hover {
   background: rgba(124, 58, 237, 0.12);
-  border-color: #9466F2;
+  border-color: #9466F2; /* tokens-first 예외(wiki:design 등록) — 위와 동일(다크 버튼 hover) */
   color: var(--fg-on-fill);
 }
 [data-theme="dark"] .btn-ghost {
@@ -250,7 +251,7 @@ body {
 }
 [data-theme="dark"] .btn-ghost:hover {
   background: rgba(199, 165, 255, 0.14);
-  color: #E9D5FF;
+  color: #E9D5FF; /* tokens-first 예외(wiki:design 등록) — 다크 ghost hover 텍스트, 일회성 */
 }
 
 /* ============ HERO ============ */
@@ -312,7 +313,7 @@ body {
 .partner-chip-text {
   font-family: var(--font-en); font-size: 22px; font-weight: 800;
   letter-spacing: -0.01em; color: var(--c, var(--scouting-purple));
-  background: linear-gradient(135deg, var(--c, var(--scouting-purple)) 0%, color-mix(in srgb, var(--c, var(--scouting-purple)) 70%, #000) 100%);
+  background: linear-gradient(135deg, var(--c, var(--scouting-purple)) 0%, color-mix(in srgb, var(--c, var(--scouting-purple)) 70%, #000) 100%); /* tokens-first 예외(wiki:design 등록) — #000은 color-mix 음영 연산 인자(토큰화 부적합) */
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 
@@ -366,6 +367,20 @@ body {
 .prog-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--fg-muted); margin-top: 6px; }
 .prog-meta span + span::before { content: '·'; margin-right: 14px; color: var(--gray-300); }
 .prog-arrow { position: absolute; bottom: 28px; right: 28px; color: var(--scouting-purple); }
+
+/* "View all programs" card — fills the last teaser slot, routes to /programs.
+   Ghost/dashed treatment so it reads as a CTA, not another track card. */
+.prog-more {
+  background: var(--brand-tint); border: 1px dashed var(--border-strong);
+  align-items: stretch; justify-content: center; text-align: left;
+  font: inherit;
+}
+.prog-more:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--scouting-purple); }
+.prog-more-inner { display: flex; flex-direction: column; gap: 14px; }
+.prog-more-cta {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-weight: 700; color: var(--scouting-purple); font-size: 15px;
+}
 
 /* ============ CTA BANNER ============ */
 .cta-banner { background: var(--midnight-purple); color: var(--fg-on-fill); border-radius: var(--radius-2xl); padding: 72px 56px; margin: 0 auto; max-width: 1200px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: center; position: relative; overflow: hidden; }
@@ -544,7 +559,7 @@ body {
 .partner-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--c); color: var(--fg-on-fill); display: flex; align-items: center; justify-content: center; font-family: var(--font-en); font-weight: 700; font-size: 17px; letter-spacing: 0.02em; flex-shrink: 0; }
 /* When a real logo image is uploaded, show it wide on a white plate instead
    of the coloured initials box (horizontal wordmarks like the CUFS logo). */
-.partner-logo.has-img { width: auto; min-width: 132px; max-width: 220px; height: 76px; background: #fff; border: 1px solid var(--border-hair); padding: 10px 16px; }
+.partner-logo.has-img { width: auto; min-width: 132px; max-width: 220px; height: 76px; background: #fff; /* tokens-first 예외(wiki:design 등록) — 로고 가독용 흰 판, 모든 테마에서 흰색 */ border: 1px solid var(--border-hair); padding: 10px 16px; }
 .partner-logo.has-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .partner-body { display: flex; flex-direction: column; gap: 6px; }
 .partner-name { font-family: var(--font-kr); font-size: 20px; font-weight: 700; }
@@ -1331,7 +1346,7 @@ body {
       rgba(77, 0, 110, 0.05) 12px,
       rgba(255, 212, 0, 0.20) 12px,
       rgba(255, 212, 0, 0.20) 24px);
-  background-color: #FFF7CC;
+  background-color: #FFF7CC; /* tokens-first 예외(wiki:design 등록) — 중립 공지 줄무늬 배경, 일회성 */
   border-bottom: 1px solid rgba(77, 0, 110, 0.15);
 }
 .topnotice.info     { color: var(--state-info); background-color: var(--state-info-bg); background-image: repeating-linear-gradient(135deg, rgba(29,78,216,0.04) 0, rgba(29,78,216,0.04) 12px, rgba(29,78,216,0.12) 12px, rgba(29,78,216,0.12) 24px); }
@@ -1841,7 +1856,7 @@ body {
 .rt-content .ProseMirror h3 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
 .rt-content .ProseMirror blockquote { border-left: 3px solid var(--scouting-purple); padding-left: 14px; color: var(--fg-secondary); margin: 12px 0; }
 .rt-content .ProseMirror code { background: var(--bg-muted); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono, monospace); font-size: 13px; }
-.rt-content .ProseMirror pre { background: #1F1B2E; color: #E0DDFF; padding: 14px; border-radius: 8px; overflow-x: auto; font-family: var(--font-mono, monospace); font-size: 13px; }
+.rt-content .ProseMirror pre { background: #1F1B2E; color: #E0DDFF; /* tokens-first 예외(wiki:design 등록) — 에디터 코드블록 콘텐츠 표현색, 일회성 */ padding: 14px; border-radius: 8px; overflow-x: auto; font-family: var(--font-mono, monospace); font-size: 13px; }
 .rt-content .ProseMirror pre code { background: transparent; padding: 0; color: inherit; }
 /* If the wiki author has overridden pre's background via inline style
    (the version-history pages use a light translucent box), the default
@@ -1858,7 +1873,7 @@ body {
 .rt-content .ProseMirror table td, .rt-content .ProseMirror table th { border: 1px solid var(--border-hair); padding: 6px 10px; }
 .rt-content .ProseMirror table th { background: var(--bg-muted); font-weight: 700; }
 .rt-content .ProseMirror hr { border: none; border-top: 1px solid var(--border-hair); margin: 16px 0; }
-.rt-content .ProseMirror mark { background: #FFF59D; padding: 0 2px; border-radius: 2px; }
+.rt-content .ProseMirror mark { background: #FFF59D; /* tokens-first 예외(wiki:design 등록) — 에디터 형광펜 마크, 일회성 */ padding: 0 2px; border-radius: 2px; }
 .rt-count { padding: 6px 12px; font-size: 12px; color: var(--fg-muted); background: var(--bg-muted); border-top: 1px solid var(--border-hair); text-align: right; }
 
 /* ============ RECEIPT ============ */
@@ -1887,6 +1902,7 @@ body {
 .receipt-foot { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--receipt-line-3); font-size: 12px; color: var(--receipt-muted); line-height: 1.6; }
 
 @media print {
+  /* tokens-first 예외(wiki:design 등록) — 인쇄는 흰 종이 고정 — 아래 #fff는 의도적 */
   body { background: #fff; }
   .nav, .footer, .auth-overlay, .no-print, .topnotice { display: none !important; }
   .receipt-page { background: #fff; padding: 0; }

@@ -3,6 +3,19 @@ function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = { hero: c.hero[lang], how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
   const hb = window.useHeroBg(c.hero);
+  // Programs teaser shows 4 RANDOM programs each load (so the homepage feels
+  // fresh and every track gets exposure), followed by a "view all" card that
+  // routes to the full Programs page. Reshuffles only when the program set
+  // changes (e.g. content load default→remote), not on every re-render/lang
+  // toggle — keyed on the list reference. Math.random is fine client-side.
+  const teaser = React.useMemo(() => {
+    const arr = [...(c.programs || [])];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, 4);
+  }, [c.programs]);
   return (
     <div>
       {/* HERO */}
@@ -91,9 +104,10 @@ function Home({ go, lang, c }) {
           <h2 id="programs-title" className={'sec-title' + (isKo ? '' : ' en')}>{t.programs.title}</h2>
           <p className="sec-sub">{t.programs.sub}</p>
           <div className="prog-grid">
-            {c.programs.slice(0, 4).map(p => (
+            {teaser.map(p => (
               <ProgramCard key={p.id} p={p} lang={lang} go={go} c={c} />
             ))}
+            <ProgramMoreCard go={go} count={(c.programs || []).length} />
           </div>
         </div>
       </section>
@@ -136,6 +150,24 @@ function ProgramCard({ p, lang, go, c }) {
         <i data-lucide={c.icons.card_arrow} width="20" height="20" strokeWidth="1.75"></i>
       </div>
     </article>
+  );
+}
+
+// "See all programs" card that fills the last slot of the teaser grid and
+// routes to the full Programs page. Public site is English-only.
+function ProgramMoreCard({ go, count }) {
+  return (
+    <button type="button" className="prog prog-more" onClick={() => go('programs')}
+      aria-label={'View all ' + (count || '') + ' programs'}>
+      <div className="prog-more-inner">
+        <p className="prog-kicker">ALL PROGRAMS</p>
+        <h3 className="prog-title en">{count ? ('Explore all ' + count + ' micro-degrees') : 'Explore all programs'}</h3>
+        <p className="prog-sub">See the full curriculum, faculty, and how to apply for every CUFS track.</p>
+        <span className="prog-more-cta">View all programs
+          <i data-lucide="arrow-right" width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+        </span>
+      </div>
+    </button>
   );
 }
 

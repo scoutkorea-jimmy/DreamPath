@@ -24,6 +24,9 @@
     /* Desktop-first admin shell. Min-width enforces PC layout; content scrolls horizontally on narrower screens. */
     body { min-width: 1280px; overflow-x: auto; background: var(--bg-muted); color: var(--fg-primary); }
     .admin { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; }
+    /* tokens-first 예외(wiki:design 등록): 관리자 사이드바/로그인은 "항상-다크" chrome.
+       공개 사이트 테마와 독립적으로 늘 어두우므로, flip하는 사이트 토큰 대신 고정 hex 사용.
+       이 영역의 #0F0A30/#1A1244/#FFC93E/#F2F0F7 등은 의도적 — 토큰화하지 말 것. */
     .side {
       background: linear-gradient(180deg, #0F0A30 0%, #1A1244 50%, #1E1654 100%);
       color: #fff; padding: 24px 18px; position: sticky; top: 0; height: 100vh;

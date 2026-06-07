@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.13`
+- **버전**: `v01.088.14`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.14 — **홈 "프로그램 더보기" 카드 전체폭 1단 배너화**: `.prog-more`를 `grid-column:1/-1`로 4개 카드 아래 전체폭 배너로(좌측 큰 타이틀 + 우측 pill CTA, accent-purple-fill, 모바일 CTA 전체폭). 2열 그리드에서 홀로 좁게 남던 카드 → 쫙 채운 큰 밴드.
   - +01.088.13 — **sitemap.xml / robots.txt 정비**: 누락된 /scholarships 추가, news 글 lastmod를 오늘 고정→실제 작성일(normDate YYYY-MM-DD), robots에 /verify·/reset-password·/activate Disallow. 비-인덱스 경로 제외 주석화.
   - +01.088.12 — **SEO 사이트 인증 메타 서버사이드 주입**: 네이버/구글 등 인증 메타가 App.jsx 클라이언트 주입만 존재 → JS 미실행 크롤러가 원본 HTML에서 못 찾아 인증 실패(값은 KV 정상 저장). worker `serveSpaShell()`이 HTMLRewriter로 `<head>`에 `site_verifications`(google/naver/bing/facebook/pinterest/yandex) 일괄 주입. App.jsx는 멱등 fallback 유지. `curl /`·/about·/programs 메타 노출 검증.
   - +01.088.11 — **홈 프로그램 랜덤+더보기 카드 / 디자인 가이드 라이브 샘플 / 예외 주석 인라인화**: 홈 프로그램 티저를 매 로드 랜덤 4개(useMemo Fisher-Yates) + 5번째 "View all programs" 카드(→/programs, `.prog-more`). 관리자 디자인 가이드(wiki:design) 7개 페이지에 실제 렌더 샘플(스와치/버튼/타입/카드/폼/아이콘/간격)을 코드 옆 좌우로 추가 — admin이 토큰+site.css+lucide 로드해 live 렌더, `data-live-sample` 마커로 멱등. tokens-first 예외 사유를 코드 인라인 주석화(site.css 12 + admin 사이드바 + Pages color-input 2).

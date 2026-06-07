@@ -4696,7 +4696,10 @@
   //   1. Workers Secrets — read-only status (configured / not). Values
   //      stay in env; admin shows the wrangler command + a "Copy" button.
   //   2. Site verifications — public meta-tag tokens (Google / Naver / etc.)
-  //      stored in c.site_verifications. Editable here; injected by App.jsx.
+  //      stored in c.site_verifications. Editable here; injected SERVER-SIDE
+  //      by the Worker into <head> (serveSpaShell) so verification crawlers —
+  //      which don't run JS — see them in the raw HTML. App.jsx also injects
+  //      client-side as an idempotent fallback. Paste only the content="..." value.
   // Truly secret values are NEVER stored in c.* / KV / sessionStorage; only
   // their setdness is reported. See KMS · 9. API & 통합 보안 모델.
   // Step-by-step setup guides per service id. Rendered inline as <details>

@@ -492,6 +492,49 @@ async function readContentFromKv(env) {
   }
 }
 
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Site-verification providers → the meta `name` each console looks for.
+const VERIFICATION_META = [
+  ['google',    'google-site-verification'],
+  ['naver',     'naver-site-verification'],
+  ['bing',      'msvalidate.01'],
+  ['facebook',  'facebook-domain-verification'],
+  ['pinterest', 'p:domain_verify'],
+  ['yandex',    'yandex-verification'],
+];
+
+// Serve the public SPA shell with server-side SEO injection.
+// WHY: search-console verification crawlers (Naver Search Advisor, Google,
+// Bing, …) fetch the raw HTML and do NOT execute JavaScript. The verification
+// <meta> tags were only injected client-side by App.jsx, so they never
+// appeared in the page source the crawler reads → verification always failed.
+// We inject the operator-managed values (CONTENT_KV → site_verifications) into
+// <head> with HTMLRewriter so every full page load carries them server-side.
+// Idempotent vs the App.jsx fallback (it updates the existing tag in place).
+async function serveSpaShell(request, env) {
+  const resp = await env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX));
+  try {
+    const content = await readContentFromKv(env);
+    const v = (content && content.site_verifications) || {};
+    const tags = VERIFICATION_META
+      .filter(([k]) => v[k] && String(v[k]).trim())
+      .map(([k, name]) => `<meta name="${escapeAttr(name)}" content="${escapeAttr(String(v[k]).trim())}">`)
+      .join('');
+    if (!tags) return resp;
+    return new HTMLRewriter()
+      .on('head', { element(el) { el.append(tags, { html: true }); } })
+      .transform(resp);
+  } catch {
+    // SEO injection must never break page serving — fall back to the raw shell.
+    return resp;
+  }
+}
+
 function getDefaultProgramDetail(id) {
   const row = DEFAULT_PROGRAM_DETAILS[id];
   if (!row) return null;
@@ -594,7 +637,7 @@ export default {
         || url.pathname.startsWith('/program/')
         || url.pathname.startsWith('/news/')
         || url.pathname.startsWith('/stories/')) {
-      return withSecurityHeaders(await env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX)));
+      return withSecurityHeaders(await serveSpaShell(request, env));
     }
 
     return withSecurityHeaders(await env.ASSETS.fetch(request));

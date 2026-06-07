@@ -1370,6 +1370,40 @@ body {
    keep their CTA aligned */
 .team-page-body .team-page-bio { margin-bottom: auto; }
 
+/* Clickable member card → bio modal (v01.078). Whole card is a button;
+   the message button stops propagation so the two actions stay distinct. */
+.team-page-card-click { cursor: pointer; }
+.team-page-card-click:focus-visible { outline: 2px solid var(--scouting-purple); outline-offset: 2px; }
+/* clamp inline bio to keep cards even; full text lives in the modal */
+.team-page-card-click .team-page-bio {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.team-page-more {
+  font-size: 12.5px; font-weight: 600; color: var(--scouting-purple);
+  margin-top: 10px; opacity: 0; transition: opacity 120ms;
+}
+.team-page-card-click:hover .team-page-more,
+.team-page-card-click:focus-within .team-page-more { opacity: 1; }
+@media (hover: none) { .team-page-more { opacity: 1; } } /* always visible on touch */
+
+/* Profile (약력) modal — reuses tm-overlay/tm-modal shell */
+.team-profile-head { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; padding-right: 24px; }
+.team-profile-photo {
+  flex: 0 0 auto; width: 88px; height: 88px; border-radius: 16px;
+  background-color: var(--bg-muted); background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-en); font-size: 34px; font-weight: 800; color: rgba(98, 37, 153, 0.30);
+}
+.team-profile-name { font-family: var(--font-en); font-size: 22px; font-weight: 700; color: var(--fg-primary); }
+.team-profile-role { font-size: 14px; color: var(--scouting-purple); font-weight: 600; margin-top: 3px; }
+.team-profile-bio { font-size: 15px; line-height: 1.7; color: var(--fg-secondary); margin: 0; white-space: pre-line; }
+.team-profile-bio-empty { color: var(--fg-muted); font-style: italic; }
+.team-profile-actions { margin-top: 22px; }
+.team-profile-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 540px) {
+  .team-profile-head { flex-direction: column; text-align: center; padding-right: 0; }
+}
+
 @media (max-width: 900px) {
   .team-page-grid { grid-template-columns: repeat(2, 1fr); }
 }

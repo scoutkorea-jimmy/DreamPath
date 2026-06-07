@@ -157,6 +157,46 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
   );
 }
 
+// Profile modal — clicking a team member (or the coordinator) opens their full
+// bio/약력. Reuses the tm-overlay/tm-modal shell of TeamMessageModal. When the
+// member is messageable, a "send a message" button hands off to onMessage.
+function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
+  if (!open || !member) return null;
+  const isKo = lang === 'ko';
+  const name = isKo ? (member.name || member.name_en) : (member.name_en || member.name);
+  const role = isKo ? (member.role_ko || member.role_en) : (member.role_en || member.role_ko);
+  const bio  = isKo ? (member.bio_ko || member.bio_en) : (member.bio_en || member.bio_ko);
+  return (
+    <div className="tm-overlay team-profile-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="tm-modal team-profile-modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="tm-close" onClick={onClose} aria-label={isKo ? '닫기' : 'Close'}>
+          <TIcon name="x" size={18} />
+        </button>
+        <div className="team-profile-head">
+          <div className="team-profile-photo" style={{backgroundImage: member.image ? `url(${member.image})` : 'none'}}>
+            {!member.image && (name || '?').charAt(0)}
+          </div>
+          <div className="team-profile-id">
+            <div className="team-profile-name">{name}</div>
+            {role && <div className="team-profile-role">{role}</div>}
+          </div>
+        </div>
+        {bio
+          ? <p className="team-profile-bio">{bio}</p>
+          : <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
+        {member.messageable && (
+          <div className="team-profile-actions">
+            <button type="button" className="btn btn-primary" onClick={() => { onClose(); onMessage(member); }}>
+              <TIcon name="mail" size={16} />
+              {isKo ? '메시지 보내기' : 'Send a message'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Team({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = (c && c.project_team) || {};
@@ -173,6 +213,7 @@ function Team({ go, lang, c }) {
   }
   const coordName = isKo ? (coordinator.name || coordinator.name_en) : (coordinator.name_en || coordinator.name);
   const [target, setTarget] = useStateT(null);
+  const [profile, setProfile] = useStateT(null);
 
   return (
     <div data-screen-label="Project Team">
@@ -191,7 +232,11 @@ function Team({ go, lang, c }) {
       <section className="section-tight team-coord-section">
         <div className="container-narrow">
           <div className="team-coord-band">
-            <div className="team-coord-photo" style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none'}}>
+            <div className="team-coord-photo team-page-card-click" role="button" tabIndex={0}
+              onClick={() => setProfile(coordinator)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProfile(coordinator); } }}
+              aria-label={(coordName || '') + (isKo ? ' 약력 보기' : ' — view bio')}
+              style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none', cursor:'pointer'}}>
               {!coordinator.image && (coordName || '?').charAt(0)}
             </div>
             <div className="team-coord-copy">
@@ -221,7 +266,11 @@ function Team({ go, lang, c }) {
                 const role = isKo ? m.role_ko : (m.role_en || m.role_ko);
                 const bio  = isKo ? m.bio_ko : (m.bio_en || m.bio_ko);
                 return (
-                  <article key={mi} className="team-page-card">
+                  <article key={mi} className="team-page-card team-page-card-click"
+                    role="button" tabIndex={0}
+                    onClick={() => setProfile(m)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProfile(m); } }}
+                    aria-label={(name || '') + (isKo ? ' 약력 보기' : ' — view bio')}>
                     <div className="team-page-photo" style={{backgroundImage: m.image ? `url(${m.image})` : 'none'}}>
                       {!m.image && (name || '?').charAt(0)}
                     </div>
@@ -229,8 +278,10 @@ function Team({ go, lang, c }) {
                       <div className="team-page-name">{name}</div>
                       <div className="team-page-role">{role}</div>
                       {bio && <p className="team-page-bio">{bio}</p>}
+                      <span className="team-page-more">{isKo ? '약력 보기 →' : 'View bio →'}</span>
                       {m.messageable && (
-                        <button type="button" className="btn btn-outline btn-sm team-msg-btn" onClick={() => setTarget(m)}>
+                        <button type="button" className="btn btn-outline btn-sm team-msg-btn"
+                          onClick={e => { e.stopPropagation(); setTarget(m); }}>
                           <TIcon name="mail" size={15} />
                           {isKo ? '메시지 보내기' : 'Send a message'}
                         </button>
@@ -261,6 +312,7 @@ function Team({ go, lang, c }) {
         </div>
       </section>
 
+      <TeamProfileModal open={!!profile} member={profile} lang={lang} onClose={() => setProfile(null)} onMessage={(m) => setTarget(m)} />
       <TeamMessageModal open={!!target} member={target} lang={lang} go={go} onClose={() => setTarget(null)} />
     </div>
   );

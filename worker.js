@@ -1099,6 +1099,28 @@ const ADMIN_TOTP_KEY = 'admin:totp_v1';
 const ADMIN_STEPUP_COOKIE = 'dp_admin_stepup';
 const ADMIN_STEPUP_TTL_SEC = 15 * 60; // 15 minutes
 
+const TOTP_PENDING_TTL_SEC = 600; // 10 min to scan + enter first code
+
+// v01.078 — 2FA is per ADMIN ACCOUNT, not a single shared secret. Who is the
+// caller? A logged-in admin user (session) → their own secret on the users row.
+// The bare ADMIN_TOKEN (curl/emergency) → the legacy shared KV admin:totp_v1.
+// Returns { kind, uid, user } or null when the caller is not an admin at all.
+async function totpIdentity(request, env) {
+  const user = await currentUser(request, env).catch(() => null);
+  if (userIsAdmin(user)) return { kind: 'user', uid: user.id, user };
+  // Bare ADMIN_TOKEN path (no user session).
+  const auth = request.headers.get('authorization') || '';
+  if (auth.startsWith('Bearer ')) {
+    const provided = auth.slice(7);
+    if ((env.ADMIN_TOKEN && safeEqual(provided, env.ADMIN_TOKEN)) ||
+        (env.ADMIN_TOKEN_NEXT && safeEqual(provided, env.ADMIN_TOKEN_NEXT))) {
+      return { kind: 'token', uid: '__token__', user: null };
+    }
+  }
+  return null;
+}
+
+// ---- legacy single-secret store (token path only) ----
 async function loadAdminTotp(env) {
   try {
     const raw = await env.CONTENT_KV.get(ADMIN_TOTP_KEY);
@@ -1109,11 +1131,66 @@ async function loadAdminTotp(env) {
 async function saveAdminTotp(env, obj) {
   await env.CONTENT_KV.put(ADMIN_TOTP_KEY, JSON.stringify(obj || {}));
 }
-// Read the confirmed (enrolled) secret in plaintext for verification only.
-async function getConfirmedTotpSecret(env, rec) {
-  const r = rec || await loadAdminTotp(env);
-  if (!r || !r.secret_enc) return null;
-  return decryptPii(env, r.secret_enc);
+
+// ---- identity-aware store (user row | legacy KV) ----
+const totpPendingKey = (uid) => 'admin:totp_pending:' + uid;
+
+// { enrolled, confirmed_at } for the given identity.
+async function totpState(env, ident) {
+  if (ident.kind === 'token') {
+    const r = await loadAdminTotp(env);
+    return { enrolled: !!r.secret_enc, confirmed_at: r.confirmed_at || null };
+  }
+  const row = await env.DB.prepare('SELECT totp_secret_enc, totp_confirmed_at FROM users WHERE id = ?')
+    .bind(ident.uid).first();
+  return { enrolled: !!(row && row.totp_secret_enc), confirmed_at: (row && row.totp_confirmed_at) || null };
+}
+// Confirmed secret in plaintext (verification only) or null.
+async function totpConfirmedSecret(env, ident) {
+  if (ident.kind === 'token') {
+    const r = await loadAdminTotp(env);
+    return r.secret_enc ? decryptPii(env, r.secret_enc) : null;
+  }
+  const row = await env.DB.prepare('SELECT totp_secret_enc FROM users WHERE id = ?').bind(ident.uid).first();
+  return (row && row.totp_secret_enc) ? decryptPii(env, row.totp_secret_enc) : null;
+}
+// Store a fresh pending (un-confirmed) encrypted secret.
+async function totpStorePending(env, ident, secretEnc) {
+  if (ident.kind === 'token') {
+    const r = await loadAdminTotp(env);
+    r.pending_secret_enc = secretEnc; r.pending_at = new Date().toISOString();
+    await saveAdminTotp(env, r);
+    return;
+  }
+  await env.CONTENT_KV.put(totpPendingKey(ident.uid), secretEnc, { expirationTtl: TOTP_PENDING_TTL_SEC });
+}
+async function totpLoadPending(env, ident) {
+  if (ident.kind === 'token') {
+    const r = await loadAdminTotp(env);
+    return r.pending_secret_enc || null;
+  }
+  return (await env.CONTENT_KV.get(totpPendingKey(ident.uid))) || null;
+}
+// Promote the pending secret to the confirmed (enrolled) secret.
+async function totpPromotePending(env, ident, pendingEnc) {
+  const now = new Date().toISOString();
+  if (ident.kind === 'token') {
+    const r = await loadAdminTotp(env);
+    r.secret_enc = pendingEnc; r.confirmed_at = now;
+    delete r.pending_secret_enc; delete r.pending_at;
+    await saveAdminTotp(env, r);
+    return;
+  }
+  await env.DB.prepare('UPDATE users SET totp_secret_enc = ?, totp_confirmed_at = ? WHERE id = ?')
+    .bind(pendingEnc, now, ident.uid).run();
+  await env.CONTENT_KV.delete(totpPendingKey(ident.uid));
+}
+// Remove enrollment for an identity (self-disable, or operator reset by uid).
+async function totpClear(env, ident) {
+  if (ident.kind === 'token') { await saveAdminTotp(env, {}); return; }
+  await env.DB.prepare('UPDATE users SET totp_secret_enc = NULL, totp_confirmed_at = NULL WHERE id = ?')
+    .bind(ident.uid).run();
+  await env.CONTENT_KV.delete(totpPendingKey(ident.uid));
 }
 
 // Sign material for the step-up cookie. Domain-separated from PII so the
@@ -1144,14 +1221,16 @@ function b64urlToBytes(str) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-async function mintStepupToken(env) {
-  const payload = JSON.stringify({ exp: Date.now() + ADMIN_STEPUP_TTL_SEC * 1000 });
+async function mintStepupToken(env, uid) {
+  const payload = JSON.stringify({ exp: Date.now() + ADMIN_STEPUP_TTL_SEC * 1000, uid: uid || '__token__' });
   const payloadB64 = b64url(new TextEncoder().encode(payload));
   const key = await loadStepupKey(env);
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64)));
   return payloadB64 + '.' + b64url(sig);
 }
-// True iff the request carries a valid, unexpired step-up cookie/header.
+// True iff the request carries a valid, unexpired step-up cookie/header that is
+// bound to the CURRENT caller. The uid binding stops admin A's cookie from
+// satisfying the gate while admin B's session is in use.
 async function adminStepUpOk(request, env) {
   try {
     const cookieH = request.headers.get('cookie') || '';
@@ -1163,13 +1242,17 @@ async function adminStepUpOk(request, env) {
     const ok = await crypto.subtle.verify('HMAC', key, b64urlToBytes(sigB64), new TextEncoder().encode(payloadB64));
     if (!ok) return false;
     const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64)));
-    return typeof payload.exp === 'number' && payload.exp > Date.now();
+    if (typeof payload.exp !== 'number' || payload.exp <= Date.now()) return false;
+    // Bind to the caller's identity.
+    const ident = await totpIdentity(request, env);
+    if (!ident) return false;
+    return payload.uid === ident.uid;
   } catch { return false; }
 }
 // Attach a fresh step-up cookie (HttpOnly, 15 min) to a response. Mirrors
 // withSessionCookie so the token stays out of JS reach (XSS-safe).
-async function withStepupCookie(env, resp) {
-  const token = await mintStepupToken(env);
+async function withStepupCookie(env, resp, uid) {
+  const token = await mintStepupToken(env, uid);
   const h = new Headers(resp.headers);
   h.append('set-cookie', ADMIN_STEPUP_COOKIE + '=' + encodeURIComponent(token)
     + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=' + ADMIN_STEPUP_TTL_SEC);
@@ -2941,82 +3024,80 @@ async function handleApi(request, env, url, ctx) {
     });
   }
 
-  // ── Admin TOTP 2FA (step-up) ─────────────────────────────────────────────
-  // All require the admin token (isAdmin) but are EXEMPT from the step-up gate
-  // above (pathNeedsStepUp does not match /api/admin/totp/*) — otherwise you
-  // could never enroll or verify. enroll = setup → confirm; access = verify.
+  // ── Admin TOTP 2FA (step-up) — PER ACCOUNT (v01.078) ─────────────────────
+  // Operate on the CALLER's own 2FA: a logged-in admin user → their users-row
+  // secret; the bare ADMIN_TOKEN → legacy shared KV. All require admin auth but
+  // are EXEMPT from the step-up gate (pathNeedsStepUp skips /api/admin/totp/*).
   if (path === '/api/admin/totp/state' && method === 'GET') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    const rec = await loadAdminTotp(env);
+    const ident = await totpIdentity(request, env);
+    if (!ident) return json({ error: 'unauthorized' }, 401);
+    const s = await totpState(env, ident);
     return json({
-      enrolled: !!rec.secret_enc,
-      pending: !!rec.pending_secret_enc,
+      enrolled: s.enrolled,
       stepup_active: await adminStepUpOk(request, env),
-      confirmed_at: rec.confirmed_at || null,
+      confirmed_at: s.confirmed_at,
+      account: ident.user ? ident.user.email : null,
     });
   }
   if (path === '/api/admin/totp/setup' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ident = await totpIdentity(request, env);
+    if (!ident) return json({ error: 'unauthorized' }, 401);
     const secret = generateTotpSecret();
     const secret_enc = await encryptPii(env, secret);
     if (!secret_enc) return json({ error: 'encryption_unavailable' }, 503); // PII key not set
-    const rec = await loadAdminTotp(env);
-    rec.pending_secret_enc = secret_enc;
-    rec.pending_at = new Date().toISOString();
-    await saveAdminTotp(env, rec);
+    await totpStorePending(env, ident, secret_enc);
     ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_setup_init', target_type: 'admin_2fa' }));
-    return json({ secret_base32: secret, otpauth_uri: otpauthUri(secret) });
+    const label = ident.user ? ident.user.email : 'admin-token';
+    return json({ secret_base32: secret, otpauth_uri: otpauthUri(secret, label) });
   }
   if (path === '/api/admin/totp/confirm' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ident = await totpIdentity(request, env);
+    if (!ident) return json({ error: 'unauthorized' }, 401);
     const ip = request.headers.get('cf-connecting-ip') || '';
-    const rl = await rateLimit(env, 'totp_confirm:' + ip, 10, 600);
+    const rl = await rateLimit(env, 'totp_confirm:' + ident.uid + ':' + ip, 10, 600);
     if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
-    const rec = await loadAdminTotp(env);
-    if (!rec.pending_secret_enc) return json({ error: 'no_pending_secret' }, 400);
-    const pendingSecret = await decryptPii(env, rec.pending_secret_enc);
+    const pendingEnc = await totpLoadPending(env, ident);
+    if (!pendingEnc) return json({ error: 'no_pending_secret' }, 400);
+    const pendingSecret = await decryptPii(env, pendingEnc);
     if (!pendingSecret || !(await verifyTotp(pendingSecret, body.code))) {
       ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_confirm_fail', target_type: 'admin_2fa' }));
       return json({ error: 'invalid_code' }, 400);
     }
-    // Promote pending → confirmed.
-    rec.secret_enc = rec.pending_secret_enc;
-    rec.confirmed_at = new Date().toISOString();
-    delete rec.pending_secret_enc;
-    delete rec.pending_at;
-    await saveAdminTotp(env, rec);
+    await totpPromotePending(env, ident, pendingEnc);
     ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_enrolled', target_type: 'admin_2fa' }));
-    // Enrolling also grants an immediate step-up so the operator isn't asked again right away.
-    return withStepupCookie(env, json({ ok: true }));
+    // Enrolling also grants an immediate step-up so the admin isn't asked again right away.
+    return withStepupCookie(env, json({ ok: true }), ident.uid);
   }
   if (path === '/api/admin/totp/verify' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ident = await totpIdentity(request, env);
+    if (!ident) return json({ error: 'unauthorized' }, 401);
     const ip = request.headers.get('cf-connecting-ip') || '';
-    const rl = await rateLimit(env, 'totp_verify:' + ip, 10, 300);
+    const rl = await rateLimit(env, 'totp_verify:' + ident.uid + ':' + ip, 10, 300);
     if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
-    const secret = await getConfirmedTotpSecret(env);
+    const secret = await totpConfirmedSecret(env, ident);
     if (!secret) return json({ error: 'not_enrolled' }, 400);
     if (!(await verifyTotp(secret, body.code))) {
       ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_verify_fail', target_type: 'admin_2fa' }));
       return json({ error: 'invalid_code' }, 400);
     }
-    return withStepupCookie(env, json({ ok: true, expires_in: ADMIN_STEPUP_TTL_SEC }));
+    return withStepupCookie(env, json({ ok: true, expires_in: ADMIN_STEPUP_TTL_SEC }), ident.uid);
   }
   if (path === '/api/admin/totp/disable' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ident = await totpIdentity(request, env);
+    if (!ident) return json({ error: 'unauthorized' }, 401);
     const body = await request.json().catch(() => null);
     if (!body) return json({ error: 'invalid_json' }, 400);
-    const secret = await getConfirmedTotpSecret(env);
+    const secret = await totpConfirmedSecret(env, ident);
     if (!secret) return json({ error: 'not_enrolled' }, 400);
     if (!(await verifyTotp(secret, body.code))) {
       ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_disable_fail', target_type: 'admin_2fa' }));
       return json({ error: 'invalid_code' }, 400);
     }
-    await saveAdminTotp(env, {});
+    await totpClear(env, ident);
     ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_disabled', target_type: 'admin_2fa' }));
     return clearStepupCookie(json({ ok: true }));
   }
@@ -3581,10 +3662,17 @@ async function handleApi(request, env, url, ctx) {
     // P2-5: pull the encrypted phone columns too so we can decrypt on read.
     const user = await env.DB.prepare(
       'SELECT id, email, name, role, created_at, updated_at, ' +
-      'phone_country, phone_national, phone_country_enc, phone_national_enc ' +
+      'phone_country, phone_national, phone_country_enc, phone_national_enc, ' +
+      'totp_secret_enc, totp_confirmed_at ' +
       'FROM users WHERE id = ?'
     ).bind(id).first();
     if (!user) return json({ error: 'not_found' }, 404);
+    // v01.078 — surface per-account 2FA status to the member directory. Never
+    // expose the secret itself, just whether it's enrolled + when.
+    const totpEnrolled = !!user.totp_secret_enc;
+    const totpConfirmedAt = user.totp_confirmed_at || null;
+    delete user.totp_secret_enc;
+    delete user.totp_confirmed_at;
     // Prefer encrypted columns. Fall back to plaintext for legacy rows
     // written before PII_ENCRYPTION_KEY was set (or before the migration).
     const phoneCountry  = user.phone_country_enc  ? await decryptPii(env, user.phone_country_enc)  : (user.phone_country  || null);
@@ -3608,11 +3696,28 @@ async function handleApi(request, env, url, ctx) {
       action: 'read_pii', target_type: 'user', target_id: id,
     }));
     return json({
-      user: { ...user, last_login: lastLogin?.last_login || null },
+      user: { ...user, last_login: lastLogin?.last_login || null,
+              totp_enrolled: totpEnrolled, totp_confirmed_at: totpConfirmedAt },
       profile: profile || null,
       consents: consents || [],
       audits: audits || [],
     });
+  }
+  // POST /api/admin/users/:id/totp-reset — operator clears a target admin's 2FA
+  // (lockout recovery when they lose their device). Requires admin + step-up
+  // (path matches /api/admin/users*). Enrollment can only be done by the user
+  // themselves on their own device; this just forces re-enrollment.
+  const totpResetM = path.match(/^\/api\/admin\/users\/([A-Za-z0-9_-]+)\/totp-reset$/);
+  if (totpResetM && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const id = totpResetM[1];
+    const target = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(id).first();
+    if (!target) return json({ error: 'not_found' }, 404);
+    await totpClear(env, { kind: 'user', uid: id });
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+      action: 'totp_reset_for_user', target_type: 'user', target_id: id,
+    }));
+    return json({ ok: true });
   }
   // PATCH /api/admin/users/:id — update name / role / email; optional password reset.
   // Each changed column writes one member_audits row for the trail.

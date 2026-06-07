@@ -2570,6 +2570,31 @@
                         {u.email === ALWAYS_ADMIN_EMAIL && <span style={{marginLeft:8,fontSize:11,color:'var(--fg-muted)'}}>· 시스템 항상-관리자 (변경 불가)</span>}
                       </div>
                     </div>
+                    {u.role === 'admin' && (
+                      <div className="app-row">
+                        <div className="app-k">2단계 인증</div>
+                        <div className="app-v">
+                          <span className="pill" style={{background:u.totp_enrolled?'var(--state-success-bg, var(--bg-muted))':'var(--bg-muted)',color:u.totp_enrolled?'var(--state-success)':'var(--fg-secondary)'}}>
+                            {u.totp_enrolled ? '● 등록됨' : '○ 미등록'}
+                          </span>
+                          {u.totp_enrolled && (
+                            <button type="button" className="icon-btn danger" style={{marginLeft:8}}
+                              onClick={async () => {
+                                if (!confirm(`${u.email}의 2단계 인증을 초기화하시겠습니까?\n\n이 관리자는 다음 접속 때 본인 기기로 다시 등록해야 합니다. (분실·기기교체 시 사용)`)) return;
+                                const tok = localStorage.getItem('dp_admin_token') || '';
+                                const r = await fetch('/api/admin/users/' + encodeURIComponent(u.id) + '/totp-reset', {
+                                  method: 'POST', headers: { authorization: 'Bearer ' + tok }, credentials: 'same-origin',
+                                });
+                                if (r.ok) { setTick(t => t + 1); }
+                                else alert(r.status === 403 ? '2단계 인증(step-up)이 필요합니다. 회원 정보 탭에 다시 인증 후 시도하세요.' : 'Failed: HTTP ' + r.status);
+                              }}>
+                              2FA 초기화
+                            </button>
+                          )}
+                          {u.totp_confirmed_at && <span style={{marginLeft:8,fontSize:11,color:'var(--fg-muted)'}}>· {new Date(u.totp_confirmed_at).toLocaleDateString()} 등록</span>}
+                        </div>
+                      </div>
+                    )}
                     <div className="app-row"><div className="app-k">Email verified</div><div className="app-v">{u.email_verified ? '✓ verified' : <Empty />}</div></div>
                     <div className="app-row"><div className="app-k">Joined</div><div className="app-v">{v(u.created_at, x => new Date(x).toLocaleString())}</div></div>
                     <div className="app-row"><div className="app-k">Updated</div><div className="app-v">{v(u.updated_at, x => new Date(x).toLocaleString())}</div></div>
@@ -7729,9 +7754,14 @@
           <h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3>
           <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
             {isKo
-              ? '회원 정보·학생 지원 탭은 가장 민감한 개인정보를 다루므로, 접근 시 Authenticator 6자리 코드를 추가로 요구합니다. 한 번 인증하면 15분간 유지됩니다.'
-              : 'The Member and Student-support tabs require an extra 6-digit Authenticator code on access (the most PII-heavy areas). One verification lasts 15 minutes.'}
+              ? '여기서 등록하는 2단계 인증은 지금 로그인한 본인 계정에만 적용됩니다. 회원 정보·학생 지원 탭 접근 시 본인 Authenticator의 6자리 코드를 추가로 요구하며, 한 번 인증하면 15분간 유지됩니다.'
+              : 'The 2FA you set up here applies only to your own logged-in account. The Member and Student-support tabs require a 6-digit code from your Authenticator; one verification lasts 15 minutes.'}
           </p>
+          {st && !st.error && st.account && (
+            <p style={{ color: 'var(--fg-muted)', fontSize: 13, margin: '0 0 10px' }}>
+              {isKo ? '계정: ' : 'Account: '}<strong style={{ color: 'var(--fg-secondary)' }}>{st.account}</strong>
+            </p>
+          )}
           {st == null && <p style={{ color: 'var(--fg-muted)' }}>{isKo ? '불러오는 중…' : 'Loading…'}</p>}
           {st && !st.error && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999,

@@ -755,6 +755,25 @@
     );
   }
 
+  // Profile photo focal-position nudge (X/Y). Photos display in a square
+  // frame with background-size:cover; this picks which part shows. (v01.088.04)
+  function PhotoPos({ img, value, onChange }) {
+    if (!img) return null;
+    const m = String(value || '').match(/(-?\d+)%\s+(-?\d+)%/);
+    const x = m ? Math.max(0, Math.min(100, +m[1])) : 50;
+    const y = m ? Math.max(0, Math.min(100, +m[2])) : 50;
+    const setP = (nx, ny) => onChange(nx + '% ' + ny + '%');
+    return (
+      <div className="field">
+        <label>사진 위치 조정 (가로 {x}% · 세로 {y}%)</label>
+        <div style={{width:96,height:96,borderRadius:10,border:'1px solid var(--border-subtle)',marginBottom:8,backgroundImage:'url("'+img+'")',backgroundSize:'cover',backgroundPosition:x+'% '+y+'%'}} />
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}><span style={{fontSize:12,color:'var(--fg-secondary)',width:48,flex:'0 0 auto'}}>가로 ↔</span><input type="range" min={0} max={100} value={x} style={{width:'100%'}} onChange={e => setP(+e.target.value, y)} /></div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:12,color:'var(--fg-secondary)',width:48,flex:'0 0 auto'}}>세로 ↕</span><input type="range" min={0} max={100} value={y} style={{width:'100%'}} onChange={e => setP(x, +e.target.value)} /></div>
+        <div style={{marginTop:6}}><button type="button" className="icon-btn" onClick={() => setP(50,50)}>가운데로</button></div>
+      </div>
+    );
+  }
+
   // Per-page hero editor (header text + background) — EN only, because the
   // public site renders English. Drop into each page's own content tab so the
   // whole page is managed in one place. (v01.083)
@@ -5670,14 +5689,14 @@
                       <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
                     </div>
                     <ImageUploadField
-                      label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
+                      label="Photo / 사진 (JPG·PNG·WebP)"
                       value={coord.image || ''}
                       onChange={v => set(['project_team','coordinator','image'], v)}
-                      accept="image/png,image/jpeg"
-                      requireSquare={true}
+                      accept="image/png,image/jpeg,image/webp"
                       preview="square"
-                      hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
+                      hint="정사각 프레임에 cover로 표시됩니다. 아래 슬라이더로 위치 조정."
                     />
+                    <PhotoPos img={coord.image} value={coord.photo_pos} onChange={v => set(['project_team','coordinator','photo_pos'], v)} />
                     <AccountLinkField
                       userId={coord.user_id} userLabel={coord.user_label}
                       onLink={u => set(['project_team','coordinator'], { ...coord, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: coord.key || genTeamKey() })}
@@ -5736,14 +5755,14 @@
                   </summary>
                   <div style={{padding:'0 14px 14px'}}>
                     <ImageUploadField
-                      label="사진 / Photo (1:1 정사각형, JPG·PNG)"
+                      label="사진 / Photo (JPG·PNG·WebP)"
                       value={m.image || ''}
                       onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)}
-                      accept="image/png,image/jpeg"
-                      requireSquare={true}
+                      accept="image/png,image/jpeg,image/webp"
                       preview="square"
-                      hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데 기준으로 자동 정사각형 크롭됩니다."
+                      hint="정사각 프레임에 cover로 표시됩니다. 아래 슬라이더로 보일 위치를 조정하세요."
                     />
+                    <PhotoPos img={m.image} value={m.photo_pos} onChange={v => set(['project_team','sections',si,'members',mi,'photo_pos'], v)} />
                     <div className="grid-2 tight">
                       <Text label="Name" value={m.name_en || m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
                       <Text label="Role / title" value={m.role_en || m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />

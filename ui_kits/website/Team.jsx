@@ -188,7 +188,7 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
           <TIcon name="x" size={18} />
         </button>
         <div className="team-profile-head">
-          <div className="team-profile-photo" style={{backgroundImage: member.image ? `url(${member.image})` : 'none'}}>
+          <div className="team-profile-photo" style={{backgroundImage: member.image ? `url(${member.image})` : 'none', backgroundPosition: member.photo_pos || 'center'}}>
             {!member.image && (name || '?').charAt(0)}
           </div>
           <div className="team-profile-id">
@@ -290,7 +290,7 @@ function Team({ go, lang, c }) {
       <section className="section-tight team-coord-section">
         <div className="container-narrow">
           <div className="team-coord-band">
-            <div className="team-coord-photo" style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none'}}>
+            <div className="team-coord-photo" style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none', backgroundPosition: coordinator.photo_pos || 'center'}}>
               {!coordinator.image && (coordName || '?').charAt(0)}
             </div>
             <div className="team-coord-copy">
@@ -325,7 +325,7 @@ function Team({ go, lang, c }) {
                     onClick={() => setProfile(m)}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProfile(m); } }}
                     aria-label={(name || '') + (isKo ? ' 약력 보기' : ' — view bio')}>
-                    <div className="team-page-photo" style={{backgroundImage: m.image ? `url(${m.image})` : 'none'}}>
+                    <div className="team-page-photo" style={{backgroundImage: m.image ? `url(${m.image})` : 'none', backgroundPosition: m.photo_pos || 'center'}}>
                       {!m.image && (name || '?').charAt(0)}
                     </div>
                     <div className="team-page-body">

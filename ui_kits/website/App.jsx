@@ -61,6 +61,14 @@ function App() {
     setTimeout(() => window.lucide && window.lucide.createIcons(), 50);
   }, [view, lang, programId, content]);
 
+  // Render Lucide icons after EVERY render — not just on route change. Child
+  // components (FAQ tabs, accordions, floaters) re-render on their own internal
+  // state, which re-inserts fresh <i data-lucide> nodes that the route-scoped
+  // call above never reprocesses → blank icons (empty squares/circles).
+  // createIcons() is idempotent and DOM-only (no React state), so running it
+  // each render is safe. This mirrors the admin shell, where icons always show.
+  useEffectR(() => { window.lucide && window.lucide.createIcons(); });
+
   useEffectR(() => {
     document.documentElement.lang = lang;
   }, [lang]);

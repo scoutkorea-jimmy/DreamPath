@@ -513,7 +513,7 @@ function InquiryForm({ lang, c }) {
     return (
       <div className="apply-card" style={{textAlign:'center',padding:40}}>
         <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(36,135,55,0.12)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
-          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
+          <i data-lucide="circle-check-big" width="32" height="32" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
         </div>
         <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:24,fontWeight:700,margin:'0 0 8px'}}>
           {isKo ? '문의가 접수되었습니다.' : 'Your message is in.'}

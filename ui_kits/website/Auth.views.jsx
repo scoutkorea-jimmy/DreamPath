@@ -47,7 +47,7 @@ function VerifyEmailView({ go, lang }) {
       <div style={{width:72,height:72,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',
         background: ok ? 'var(--state-success-bg)' : 'var(--bg-muted)',
         color: ok ? 'var(--state-success)' : 'var(--fg-secondary)', margin:'0 auto 16px'}}>
-        <i data-lucide={ok ? 'check-circle-2' : (state === 'working' ? 'loader' : 'mail-x')} width="32" height="32" strokeWidth="1.75" aria-hidden="true"></i>
+        <i data-lucide={ok ? 'circle-check-big' : (state === 'working' ? 'loader' : 'mail-x')} width="32" height="32" strokeWidth="1.75" aria-hidden="true"></i>
       </div>
       <h1 style={{fontFamily:'var(--font-en)',fontSize:32,margin:'0 0 8px',color:'var(--brand-text)'}}>
         {isKo ? '이메일 인증' : 'Email verification'}
@@ -243,7 +243,7 @@ function ActivateAccountView({ go, lang }) {
     return (
       <div className="container-narrow" style={{padding:'80px 24px',textAlign:'center'}}>
         <div style={{width:72,height:72,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',background:'var(--state-success-bg)',color:'var(--state-success)',margin:'0 auto 16px'}}>
-          <i data-lucide="check-circle-2" width="32" height="32" strokeWidth="1.75" aria-hidden="true"></i>
+          <i data-lucide="circle-check-big" width="32" height="32" strokeWidth="1.75" aria-hidden="true"></i>
         </div>
         <h1 style={{fontFamily:'var(--font-en)',fontSize:32,margin:'0 0 8px',color:'var(--brand-text)'}}>
           {isKo ? '계정이 활성화되었습니다' : 'Account activated'}

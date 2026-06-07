@@ -392,6 +392,36 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/lucide@0.461.0" integrity="sha384-HrCDLij30w5Z6GgGa/kDretzFok4R5UwUn9n+Peu+s+rCnObdOScnBr1DKSk75wA" crossorigin="anonymous"></script>
+  <script>
+  /* Lucide hardening — alias legacy/renamed icon names + fall back unknown
+     names to a visible 'circle' so an icon is never a blank box. Same shim as
+     the public site; wraps createIcons once. */
+  (function () {
+    var ALIAS = {
+      'check-circle-2':'circle-check-big','check-circle':'circle-check',
+      'help-circle':'circle-help','x-circle':'circle-x','alert-circle':'circle-alert',
+      'alert-triangle':'triangle-alert','plus-circle':'circle-plus','minus-circle':'circle-minus',
+      'bar-chart-3':'chart-column','bar-chart-2':'chart-column','bar-chart':'chart-column',
+      'pie-chart':'chart-pie','line-chart':'chart-line','loader-2':'loader-circle',
+      'more-vertical':'ellipsis-vertical','more-horizontal':'ellipsis'
+    };
+    function harden() {
+      if (!window.lucide || !window.lucide.createIcons || window.lucide.__hardened) return false;
+      var orig = window.lucide.createIcons.bind(window.lucide);
+      window.lucide.createIcons = function (opts) {
+        try { document.querySelectorAll('[data-lucide]').forEach(function (el) {
+          var a = ALIAS[el.getAttribute('data-lucide')]; if (a) el.setAttribute('data-lucide', a);
+        }); } catch (e) {}
+        orig(opts);
+        try { var left = document.querySelectorAll('i[data-lucide]');
+          if (left.length) { left.forEach(function (el) { el.setAttribute('data-lucide', 'circle'); }); orig(opts); }
+        } catch (e) {}
+      };
+      window.lucide.__hardened = true; return true;
+    }
+    if (!harden()) { var n = 0, t = setInterval(function () { if (harden() || ++n > 150) clearInterval(t); }, 30); }
+  })();
+  </script>
   <script src="/ui_kits/website/version.js"></script>
   <!-- theme-store applies data-theme to <html> before paint to avoid a flash. -->
   <script src="/ui_kits/website/theme-store.js"></script>
@@ -421,9 +451,9 @@
     'user','user-check','users','graduation-cap','book-open','book','briefcase','building-2',
     'globe','map-pin','map','compass','flag','award','trophy','star','heart','sparkles',
     'video','camera','image','mic','headphones','play-circle','monitor','laptop','smartphone',
-    'file-text','file-check','clipboard-check','check-circle-2','check','x','plus','minus',
+    'file-text','file-check','clipboard-check','circle-check-big','check','x','plus','minus',
     'calendar','clock','calendar-check','timer','hourglass',
-    'languages','message-circle','message-square','bell','info','help-circle','alert-circle',
+    'languages','message-circle','message-square','bell','info','circle-help','circle-alert',
     'search','filter','settings','log-in','log-out','share-2','link','download','upload',
     'lightbulb','target','puzzle','tent','backpack','footprints','mountain','tree-pine',
     'handshake','hand-heart','gift','zap','rocket','wand-2','palette','layers','grid-3x3',
@@ -452,7 +482,7 @@
     return (
       <div className="icon-picker-wrap" ref={ref}>
         <button type="button" className="current" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}>
-          <span className="glyph"><i data-lucide={value || 'help-circle'} width="18" height="18" strokeWidth="2"></i></span>
+          <span className="glyph"><i data-lucide={value || 'circle-help'} width="18" height="18" strokeWidth="2"></i></span>
           <span className="name">{value || '(none)'}</span>
           <i data-lucide={open ? 'chevron-up' : 'chevron-down'} width="16" height="16" aria-hidden="true"></i>
         </button>
@@ -1121,7 +1151,7 @@
     Setup:          'settings',
     Homepage:       'home',
     Content:        'layers',
-    Errors:         'alert-triangle',
+    Errors:         'triangle-alert',
     StudentSupport: 'graduation-cap',
     Members:        'users',
     Mail:           'mail',
@@ -5519,8 +5549,8 @@
             <Quick id="members" label="Member directory" icon="users" />
             <Quick id="programs" label="Edit programs" icon="graduation-cap" />
             <Quick id="og_images" label="OG / SEO images" icon="image" />
-            <Quick id="errors_copy" label="Error pages" icon="alert-triangle" />
-            <Quick id="analytics" label="Analytics deep-dive" icon="bar-chart-3" />
+            <Quick id="errors_copy" label="Error pages" icon="triangle-alert" />
+            <Quick id="analytics" label="Analytics deep-dive" icon="chart-column" />
             <Quick id="member_roles" label="Roles & permissions" icon="shield-check" />
             <Quick id="wiki_kms" label="KMS wiki" icon="book-open" />
           </div>
@@ -6899,7 +6929,7 @@
               return (
                 <div key={v} style={{textAlign:'center', minWidth:60}}>
                   <div style={{height:50, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--brand-text)'}}>
-                    <i data-lucide="check-circle-2" width={px} height={px} strokeWidth={sw}></i>
+                    <i data-lucide="circle-check-big" width={px} height={px} strokeWidth={sw}></i>
                   </div>
                   <div style={{fontSize:11, fontFamily:'var(--font-mono)', color:'var(--fg-muted)', marginTop:6}}>{v}</div>
                   <div style={{fontSize:12, fontWeight:600}}>{label} · {px}</div>

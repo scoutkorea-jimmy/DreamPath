@@ -427,7 +427,7 @@ function Apply({ lang, c }) {
           <div className="container-narrow">
             <div className="apply-card" style={{textAlign:'center'}}>
               <div style={{width:72,height:72,borderRadius:'50%',background:'rgba(36,135,55,0.12)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
-                <i data-lucide="check-circle-2" width="36" height="36" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
+                <i data-lucide="circle-check-big" width="36" height="36" strokeWidth="1.75" style={{color:'var(--state-success)'}}></i>
               </div>
               <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:28,fontWeight:700,margin:'0 0 12px'}}>
                 {isKo ? '감사합니다, ' : 'Thanks, '}{form.name}.

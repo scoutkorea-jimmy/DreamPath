@@ -23,6 +23,37 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/lucide@0.461.0" integrity="sha384-HrCDLij30w5Z6GgGa/kDretzFok4R5UwUn9n+Peu+s+rCnObdOScnBr1DKSk75wA" crossorigin="anonymous"></script>
+  <script>
+  /* Lucide hardening — lucide 0.461 dropped legacy icon names (check-circle-2,
+     help-circle, alert-triangle, bar-chart-3, …). Alias them to their current
+     names AND fall back any unknown name to a visible 'circle' so an icon is
+     NEVER a blank box. Wraps createIcons once → every caller benefits. */
+  (function () {
+    var ALIAS = {
+      'check-circle-2':'circle-check-big','check-circle':'circle-check',
+      'help-circle':'circle-help','x-circle':'circle-x','alert-circle':'circle-alert',
+      'alert-triangle':'triangle-alert','plus-circle':'circle-plus','minus-circle':'circle-minus',
+      'bar-chart-3':'chart-column','bar-chart-2':'chart-column','bar-chart':'chart-column',
+      'pie-chart':'chart-pie','line-chart':'chart-line','loader-2':'loader-circle',
+      'more-vertical':'ellipsis-vertical','more-horizontal':'ellipsis'
+    };
+    function harden() {
+      if (!window.lucide || !window.lucide.createIcons || window.lucide.__hardened) return false;
+      var orig = window.lucide.createIcons.bind(window.lucide);
+      window.lucide.createIcons = function (opts) {
+        try { document.querySelectorAll('[data-lucide]').forEach(function (el) {
+          var a = ALIAS[el.getAttribute('data-lucide')]; if (a) el.setAttribute('data-lucide', a);
+        }); } catch (e) {}
+        orig(opts);
+        try { var left = document.querySelectorAll('i[data-lucide]');
+          if (left.length) { left.forEach(function (el) { el.setAttribute('data-lucide', 'circle'); }); orig(opts); }
+        } catch (e) {}
+      };
+      window.lucide.__hardened = true; return true;
+    }
+    if (!harden()) { var n = 0, t = setInterval(function () { if (harden() || ++n > 150) clearInterval(t); }, 30); }
+  })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

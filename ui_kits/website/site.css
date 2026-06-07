@@ -1353,9 +1353,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-en); font-size: 30px; font-weight: 800;
   color: rgba(98, 37, 153, 0.28);
-  filter: grayscale(1); transition: filter 220ms ease;
+  /* v01.078.02 — operator: keep the "Have a question?" coordinator photo in
+     full colour at all times (no grayscale-until-hover). */
+  filter: none;
 }
-.team-coord-band:hover .team-coord-photo { filter: grayscale(0); }
 .team-coord-copy { flex: 1; min-width: 0; }
 .team-coord-copy h2 { margin: 4px 0 6px; font-size: 22px; }
 .team-coord-copy p { margin: 0; color: var(--fg-secondary); font-size: 14px; line-height: 1.6; }

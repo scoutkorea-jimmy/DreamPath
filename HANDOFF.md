@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.077.00`
+- **버전**: `v01.078.02`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0037** 모두 적용됨 (remote D1 검증 완료). 0037 = messages 테이블. d1_migrations bookkeeping이 0031에서 멈춰 있던 드리프트를 0032~0037 backfill로 정합화 → `migrations apply`가 clean no-op.
+- **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -21,6 +21,9 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.078.02 — **/team "Have a question?" 코디네이터 사진 항상 컬러**: `.team-coord-photo`의 grayscale-until-hover → `filter:none`. 운영자 요청.
+  - +01.078.01 — **Project Team 약력 모달 3단 구조 + 관리자 입력**: 멤버 클릭 모달을 ① BIO ② 주요 약력(career_en) ③ 이번 프로젝트 주요 역할(project_role_en) 3단으로. 관리자 프로젝트 팀 편집(멤버+코디네이터)에 "클릭 시 모달 내용" Area 3개 추가. Team.jsx TeamProfileModal이 값 있는 섹션만 라벨과 함께 렌더. site.css `.team-profile-section/-label`. (admin 팀 탭은 EN-only 예외 유지.)
+  - +01.078.00 — **관리자 2FA 계정단위(per-account) 전환 + Project Team 약력 모달**: v01.077의 단일 공유 2FA를 계정별로 전환(마이그레이션 0038 `users.totp_secret_enc`/`totp_confirmed_at`, encryptPii). 콘솔이 이미 계정별 로그인이라 `totpIdentity(request)`로 user 세션/bare ADMIN_TOKEN 분기 — user는 자기 계정 비밀키(+pending 단명 KV), token은 레거시 `admin:totp_v1` fallback. 5개 totp 엔드포인트 identity 기반, otpauth label=이메일. **step-up 쿠키에 uid 바인딩** → admin A 쿠키로 admin B 세션 통과 불가. 신규 `POST /api/admin/users/:id/totp-reset`(step-up+audit, 분실 admin 초기화→재등록 강제), `GET /api/admin/users/:id`에 `totp_enrolled`. admin: TwoFactorTab "내 계정" 문구+account 표시, MembersTab admin 회원 상세에 2FA 배지+초기화 버튼. Project Team 멤버·코디네이터 카드 클릭 → 약력 모달(TeamProfileModal). wiki(versions 3페이지 + kms 보안모델/관리자/changelog) 동시 갱신.
   - +01.077.00 — **회원정보/학생지원 탭 TOTP 2단계 인증(step-up) + 미해결 오류 3건 수정**: 가장 PII가 많은 Members/StudentSupport 그룹 탭과 해당 엔드포인트(`/api/admin/users`·`groups`·`search`, `/api/consents`, `/api/applications` admin GET·:id·bulk·files, `/api/inquiries` GET·:id·bulk)에 Google Authenticator(TOTP, RFC 6238) step-up을 **서버 단계 강제**. step-up = HttpOnly 쿠키 `dp_admin_stepup`(15분, HMAC 서명, PII 키 도메인분리). `pathNeedsStepUp ∩ isAdmin`일 때만 403 stepup_required → 회원 self-service(receipt/:id) 무영향. TOTP 코어 자체구현(base32 + Web Crypto HMAC-SHA1 + dynamic truncation, **RFC 6238 표준 벡터 5/5 통과**). 비밀키는 `encryptPii`로 KV `admin:totp_v1`에 암호화 저장, pending→confirmed 2단계 등록(오스캔 잠금 방지). 신규 5개 엔드포인트(state/setup/confirm/verify/disable, rate-limit + admin_audit). admin: `AdminStepUpGate`(탭 게이트) + Setup→**2단계 인증** 탭(`TwoFactorTab`, QR+수동키+confirm/disable), qrcode-generator(MIT) `/ui_kits/website/vendor/` 로컬 벤더링(CSP 'self'). **오류수정**: structuredClone 폴리필(content-store `dpClone`+admin 4곳, 구형 브라우저 백지 해결) / analytics ingest D1 timeout 내성화(500→204)+전역 catch transient D1 error→warn 강등 / `<html translate="no">`(자동번역 removeChild 크래시 제거). 오류 로그 27건 트리아지(해결 15 + 미해결 12 분석) 후 진행. wiki:versions·wiki:kms(보안모델·관리자기능·changelog) 동시 갱신. **Phase 5(admin 2FA) 보류 해제.**
   - +01.073.00 — **회원 간 다이렉트 메시지(스레드) + 팀원 계정 연결**: /team의 "메시지 보내기"를 관리자 문의함行 → 실제 1:1 DM으로 승격. 신규 `messages` 테이블(마이그레이션 0037, subject/body AES-GCM) + `/api/me/messages` CRUD(목록·열람·답장·소프트삭제, 계정당 30/h). 마이페이지 "메시지" 탭 신설(대화 목록 → 말풍선 스레드 → 답장, 미읽음 배지). 관리자 프로젝트팀 편집에 **가입계정 연결 피커**(`/api/admin/users` 검색 → 멤버에 `user_id` + 공개용 불투명 `key`). 공개 `GET /api/content`는 비관리자에게 `user_id` 스크럽 후 `messageable`만 노출. Team.jsx는 연결된 멤버만 버튼 노출 + DM 전송(미연결 코디네이터는 문의함 fallback). 라이브 round-trip(목록·읽음·답장·역방향 미읽음·at-rest 암호화) 전수 검증 후 테스트 데이터 정리. d1_migrations 0032~0037 backfill로 마이그레이션 정합화.
   - +01.072.00 — **프로젝트팀 페이지 정비 + 회원 메시지 + 1:1 사진**: /team에 상시 “Message our coordinator” CTA(로그아웃 시 회원가입 유도, 로그인 시 제목+본문 폼·계정 정보 자동 첨부) + 멤버별 메시지 버튼. 신규 <code>POST /api/team/message</code>(로그인 필수 → 기존 inquiries 재사용 category=team, 제목에 수신자 prefix, 이름/이메일은 세션 계정, 계정당 10/h). HQ/GLOBAL TEAM 그룹 + 사진 호버 컬러(평소 흑백) + 모바일 2열. 멤버/코디네이터 사진 1:1 강제 — 비정사각 업로드는 canvas 가운데 자동 크롭(JPG·PNG). 관리자 팀 탭 영어 전용화 + 코디네이터 편집 카드. 상단 배너 mid-June(6월 중순). 보너스 보안: <code>.assetsignore</code>에 <code>.claude/</code>·CLAUDE.md·HANDOFF.md·CLAUDE_TASKS.md 추가 — 배포 중 <code>/.claude/settings.local.json</code> 200 노출 발견·차단(이후 404 확인). 라이브 KV(dp_content_v1·wiki:versions·wiki:kms) 동시 갱신.

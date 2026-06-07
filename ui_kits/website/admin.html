@@ -5752,6 +5752,7 @@
                     <Area label="BIO 문구 (카드 요약 겸 모달 상단)" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" hint="카드에 보이는 짧은 한 줄 소개 + 모달 맨 위 BIO." />
                     <Area label="주요 약력 / Key background" value={m.career_en || m.career_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
                     <Area label="주요 프로젝트 역할 / Role in this project" value={m.project_role_en || m.project_role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
+                    <Area label="CREDENTIALS / 자격·학위" value={m.credentials_en || m.credentials_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'credentials_en'], v)} lang="en" rows={3} hint="학위·자격증·인증 등. 한 줄에 하나씩." />
                     <Area label="주요 링크 / Key links" value={m.links_en || m.links_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'links_en'], v)} lang="en" rows={3} hint="한 줄에 하나씩. 'LinkedIn | https://…' 처럼 '라벨 | URL' 형식 가능(라벨 생략 시 URL 표시)." />
                     <Text label="연락처 (이메일) / Contact email" value={m.contact_email || ''} onChange={v => set(['project_team','sections',si,'members',mi,'contact_email'], v)} lang="en" hint="모달에 메일 링크로 표시됩니다." />
                     <AccountLinkField

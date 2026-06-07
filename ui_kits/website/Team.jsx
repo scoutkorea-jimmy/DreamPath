@@ -169,6 +169,7 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
   const bio     = pick(member.bio_ko, member.bio_en);                    // ① BIO 문구
   const career  = pick(member.career_ko, member.career_en);             // ② 주요 약력
   const project = pick(member.project_role_ko, member.project_role_en); // ③ 이번 프로젝트 주요 역할
+  const credentials = pick(member.credentials_ko, member.credentials_en); // ④ CREDENTIALS
   // 주요 링크: one per line, "Label | URL" or bare URL.
   const links = (pick(member.links_ko, member.links_en) || '')
     .split('\n').map(s => s.trim()).filter(Boolean)
@@ -179,7 +180,7 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
     })
     .filter(l => l.url);
   const contactEmail = member.contact_email || '';
-  const hasAny = bio || career || project || links.length || contactEmail;
+  const hasAny = bio || career || project || credentials || links.length || contactEmail;
   return (
     <div className="tm-overlay team-profile-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="tm-modal team-profile-modal" onClick={e => e.stopPropagation()}>
@@ -211,6 +212,12 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
           <div className="team-profile-section">
             <div className="team-profile-label">{isKo ? '이번 프로젝트 주요 역할' : 'Role in this project'}</div>
             <p className="team-profile-bio">{project}</p>
+          </div>
+        )}
+        {credentials && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">CREDENTIALS</div>
+            <p className="team-profile-bio">{credentials}</p>
           </div>
         )}
         {links.length > 0 && (

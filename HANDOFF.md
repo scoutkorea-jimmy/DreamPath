@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.081.03`
+- **버전**: `v01.082.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.082.00 — **전 페이지 히어로 텍스트 편집 + News 관리 탭**: 하드코딩이던 Apply(폼/완료)·Member(로그인안내/마이페이지)·Scholarships 히어로 텍스트를 page_heros 키로 편집 가능화(Apply/Member/Scholarships가 page_heros.<key>[lang] 폴백 + useHeroBg 배경, 훅 최상단 호출). PageHerosTab(페이지 헤더)에 5키 추가 + live KV 시드. News를 사이드바 Content 그룹 탭으로 등록(글 관리는 /news 딥링크).
   - +01.081.03 — **러너 스토리 편집기 아코디언+순서이동**: StoriesTab을 팀 멤버 편집기와 동일하게 이름 기준 native <details> 아코디언(기본 접힘) + ↑/↓ moveStory + Delete로 개선(스토리 다수 시 관리 용이). + News 헤더 이미지 확인(버그 아님 — 페이지 헤더 탭에서 설정 가능, 현재 미설정).
   - +01.081.02 — **Team 약력 모달 "메시지 보내기" 항상 노출**: TeamProfileModal에서 계정 연결(messageable) 멤버에게만 보이던 메시지 버튼을 모든 멤버에게 항상 표시. 로그아웃 사용자는 회원가입/로그인 유도, 로그인 사용자는 연결 멤버면 DM·미연결이면 문의함(/api/team/message) fallback(기존 TeamMessageModal 재사용). 계정 미연결 멤버(예: CEO)에게 버튼이 누락되던 문제 해결. + 앞서 현재 코드 기준 KMS 18→핵심 9페이지 전면 갱신.
   - +01.081.01 — **버전 기록 시간 KST 고정 표시 + 타임스탬프 정상화**: 버전 기록 81개 페이지의 updated_at을 git 커밋 시각으로 채우고(63 정확 + 18 인접 배포 시각, 기존 가짜 00:00 UTC 제거), WikiTab 표시를 `toLocaleString(ko-KR,{timeZone:Asia/Seoul})` + `KST`로 고정해 해외 접속에서도 한국시간으로 보이게 함.

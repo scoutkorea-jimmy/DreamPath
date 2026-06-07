@@ -1573,6 +1573,48 @@ body {
 }
 .member-msg-reply textarea:focus { outline: none; border-color: var(--scouting-purple); box-shadow: 0 0 0 3px rgba(98, 37, 153, 0.14); }
 
+/* ============ HOMEPAGE BANNER AD MODAL ============ */
+.bnr-overlay {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: var(--bg-overlay); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: bnr-fade var(--duration-fast) var(--ease-out);
+}
+@keyframes bnr-fade { from { opacity: 0; } to { opacity: 1; } }
+.bnr-modal {
+  position: relative; width: min(520px, 100%);
+  background: var(--bg-elevated); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: bnr-pop var(--duration-normal) var(--ease-out);
+}
+@keyframes bnr-pop { from { transform: translateY(12px) scale(0.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.bnr-close {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 36px; height: 36px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(15,15,18,0.45); color: var(--fg-on-fill); border: none; cursor: pointer;
+  transition: background var(--duration-fast);
+}
+.bnr-close:hover { background: rgba(15,15,18,0.66); }
+.bnr-stage { position: relative; line-height: 0; background: var(--bg-muted); }
+.bnr-img, .bnr-imgbtn img { display: block; width: 100%; height: auto; }
+.bnr-imgbtn { display: block; width: 100%; padding: 0; border: none; background: none; cursor: pointer; }
+.bnr-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(15,15,18,0.45); color: var(--fg-on-fill); border: none; cursor: pointer;
+}
+.bnr-nav:hover { background: rgba(15,15,18,0.66); }
+.bnr-nav.prev { left: 10px; } .bnr-nav.next { right: 10px; }
+.bnr-dots { display: flex; gap: 8px; justify-content: center; padding: 12px 0 0; }
+.bnr-dot { width: 9px; height: 9px; border-radius: var(--radius-pill); border: none; cursor: pointer; background: var(--border-strong); padding: 0; }
+.bnr-dot.on { background: var(--scouting-purple); }
+.bnr-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-top: 1px solid var(--border-subtle);
+}
+
 /* ============ TEAM MESSAGE MODAL ============ */
 .tm-overlay {
   position: fixed; inset: 0; z-index: 9500;

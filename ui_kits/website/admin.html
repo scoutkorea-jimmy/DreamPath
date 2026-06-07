@@ -1014,7 +1014,7 @@
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
         notice:'Top notice banner', og_images:'OG / SEO images', two_factor:'2FA (Authenticator)', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
         mailbox:'Mailbox',
-        hero:'Hero', how:'How it works', cta:'CTA banner',
+        hero:'Hero', how:'How it works', cta:'CTA banner', banners:'Banner ads (popup)',
         about:'About page', menu_names:'Menu names', partner_cta:'Partner CTA', team:'Project team', apply:'Apply', apply_done:'Apply complete', mypage:'My page', scholarships:'Scholarships',
         errors_copy:'Error pages copy',
         programs:'Programs', program_detail:'Program detail',
@@ -1048,7 +1048,7 @@
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', two_factor:'2단계 인증', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
         mailbox:'메일함',
-        hero:'히어로', how:'How it works', cta:'CTA 배너',
+        hero:'히어로', how:'How it works', cta:'CTA 배너', banners:'배너 광고(팝업)',
         about:'About 페이지', menu_names:'메뉴 이름', partner_cta:'파트너 CTA', team:'프로젝트 팀', apply:'지원', apply_done:'지원 완료', mypage:'마이페이지', scholarships:'장학',
         errors_copy:'에러 페이지 텍스트',
         programs:'프로그램', program_detail:'프로그램 상세',
@@ -1095,6 +1095,7 @@
     hero:           '/',
     how:            '/',
     cta:            '/',
+    banners:        '/',
     // Pages
     about:          '/about',
     apply:          '/apply',
@@ -1168,6 +1169,7 @@
       { id: 'hero',          group: 'Homepage' },
       { id: 'how',           group: 'Homepage' },
       { id: 'cta',           group: 'Homepage' },
+      { id: 'banners',       group: 'Homepage' },
 
       // 페이지·콘텐츠 — every public-facing content tab in one place.
       { id: 'about',         group: 'Content' },
@@ -1934,6 +1936,70 @@
           <Text label="Subtitle" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
           <Text label="CTA label" value={c.cta_banner.en.cta} onChange={v => set(['cta_banner','en','cta'], v)} lang="en" />
         </div>
+      </details>
+    );
+  }
+
+  // Homepage popup banner ads — up to 3 image banners. Image-only upload
+  // (→ R2 URL). Shown to visitors as a modal on first homepage load; they can
+  // Close (session) or "Don't show again today" (per-day). Public is EN-only,
+  // so banners carry no text — just an image + optional click-through link.
+  function BannersTab({ c, set }) {
+    const b = (c.banners) || { enabled: true, items: [] };
+    const items = Array.isArray(b.items) ? b.items : [];
+    const setItems = (arr) => set(['banners', 'items'], arr);
+    const updItem = (i, key, val) => setItems(items.map((it, idx) => idx === i ? { ...it, [key]: val } : it));
+    const addBanner = () => { if (items.length >= 3) return; setItems([...items, { image: '', link: '', alt: '', active: true }]); };
+    const removeBanner = (i) => setItems(items.filter((_, idx) => idx !== i));
+    const move = (from, to) => { if (to < 0 || to >= items.length) return; const arr = [...items]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x); setItems(arr); };
+    return (
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>배너 광고 (팝업) <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{items.length}/3 · 홈 첫 진입 시 모달</span></h3></summary>
+        <p style={{fontSize:13,color:'var(--fg-muted)',margin:'4px 0 14px'}}>
+          홈페이지 첫 진입 시 모달 팝업으로 노출됩니다. 최대 3개(2개 이상이면 좌우 슬라이드).
+          <strong>이미지 전용</strong>이며, 방문자는 "닫기"(이번 세션) 또는 "오늘 하루 안 보기"(당일)로 끌 수 있습니다.
+          공개 사이트는 영어 전용이라 배너에 텍스트는 넣지 않습니다(이미지로 제작해 업로드).
+        </p>
+        <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,fontSize:14,fontWeight:600}}>
+          <input type="checkbox" checked={b.enabled !== false} onChange={e => set(['banners','enabled'], e.target.checked)} />
+          배너 팝업 사용 (끄면 어떤 배너도 노출되지 않음)
+        </label>
+
+        {items.length === 0 && (
+          <div style={{padding:'18px',border:'1px dashed var(--border-default)',borderRadius:10,color:'var(--fg-muted)',fontSize:13,textAlign:'center'}}>
+            등록된 배너가 없습니다. 아래 "배너 추가"로 이미지를 올리세요.
+          </div>
+        )}
+
+        {items.map((it, i) => (
+          <div key={i} style={{border:'1px solid var(--border-subtle)',borderRadius:12,padding:14,marginBottom:12,background:'var(--bg-elevated)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <strong style={{flex:1}}>배너 {i + 1}</strong>
+              <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}>
+                <input type="checkbox" checked={it.active !== false} onChange={e => updItem(i, 'active', e.target.checked)} /> 활성
+              </label>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={i === 0} title="위로" onClick={() => move(i, i - 1)}>↑</button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={i === items.length - 1} title="아래로" onClick={() => move(i, i + 1)}>↓</button>
+              <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={() => removeBanner(i)}>삭제</button>
+            </div>
+            <ImageUploadField
+              label="배너 이미지 (이미지 전용)"
+              value={it.image || ''}
+              onChange={v => updItem(i, 'image', v)}
+              preview="banner"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              maxBytes={4 * 1024 * 1024}
+              hint="PNG / JPG / WebP / SVG · 최대 4MB. 가로형 배너 권장."
+            />
+            <div className="grid-2 tight" style={{marginTop:10}}>
+              <Text label="클릭 시 이동 링크 (선택)" value={it.link || ''} onChange={v => updItem(i, 'link', v)} hint="https://… 비우면 클릭 비활성. 새 탭으로 열림." />
+              <Text label="대체 텍스트 (접근성)" value={it.alt || ''} onChange={v => updItem(i, 'alt', v)} hint="화면낭독기용 배너 설명." />
+            </div>
+          </div>
+        ))}
+
+        {items.length < 3 && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addBanner}>＋ 배너 추가</button>
+        )}
       </details>
     );
   }
@@ -8165,7 +8231,7 @@
       email_templates: EmailTemplatesTab,
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
-      hero: HeroTab, how: HowTab, cta: CtaTab,
+      hero: HeroTab, how: HowTab, cta: CtaTab, banners: BannersTab,
       about: AboutTab, team: TeamAdminTab, menu_names: MenuNamesTab,
       apply: ApplyHeroTab, apply_done: ApplyDoneTab, mypage: MyPageHeroTab, scholarships: ScholarshipsHeroTab,
       errors_copy: ErrorsCopyTab,

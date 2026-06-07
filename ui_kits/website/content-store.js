@@ -611,6 +611,16 @@
       ko: '🚧 개발중입니다 · 정식 오픈은 6월 중순 예정',
       en: '🚧 Under development · Official launch mid-June',
     },
+    // ─── Homepage banner ads (popup modal) ──────────────────────────────
+    // Up to 3 image banners shown in a modal on the first homepage load of a
+    // session. Image-only (uploaded to R2 → URL). Each item: image (URL),
+    // link (optional click-through), alt (a11y/admin label), active (toggle).
+    // Visitors get "Close" (session) and "Don't show again today" (per-day,
+    // localStorage). `enabled:false` or no active items → modal never shows.
+    banners: {
+      enabled: true,
+      items: [],   // [{ image:'', link:'', alt:'', active:true }] — max 3
+    },
     // ─── OG / SEO meta (per-route social-card overrides) ────────────────
     // App.jsx reads these on every view change to update <title>,
     // <meta name="description">, og:title, og:description, og:image.

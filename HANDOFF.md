@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.09`
+- **버전**: `v01.088.10`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.10 — **디자인 토큰 정리(raw hex → 시맨틱 토큰, 전체 raw-level 색 감사)**: 신규 `--fg-on-fill`(상수 흰색, fill 위 텍스트) + `--receipt-*` 12종(인쇄 고정) 토큰. site.css `color:#fff`×22→fg-on-fill, dark btn `#7C3AED`→accent-purple-fill, topnotice→state 토큰, 영수증 블록 전체→receipt 토큰; Floaters/Member/Nav/Receipt jsx 배지·플로터·영수증 색 토큰화. **값-동일 치환만 적용(시각 무변화)**. site.css raw hex 59→17(전부 의도적 예외). 미변환 예외(흰 표면·일회성 컴포넌트색·항상-다크 관리자 chrome·color-input 기본값)는 `wiki:design` → "Tokens-first 예외" 페이지에 등록.
   - +01.088.09 — **메시지 탭 UX 개선 + 깨진 버튼(.adminlang) 수정 + 버튼 raw-level 감사**: 마이페이지 메시지 탭을 이니셜 아바타 + 여유 레이아웃 + 패널형 스레드로 친근화(답답한 좌우 여백 해소). 관리자 "회원 개별·그룹" 토글이 기본 버튼으로 깨지던 cross-scope 버그 수정(`.topbar .adminlang`→`.adminlang` 일반화). 전 .jsx + admin.html 버튼 raw-level 전수 감사(brace/quote 파서) — 실제 깨짐은 .icon-btn(공개, .08)·.adminlang(.09) 2종뿐, 나머지는 부모 descendant 규칙/.btn로 정상.
   - +01.088.08 — **버튼 규칙 위반(죽은 .icon-btn) 정리**: CSS 미정의라 기본 회색 박스로 렌더되던 `.icon-btn`을 표준 `.btn btn-ghost btn-sm`로 일괄 교체(Member 메시지 Delete, Apply 추천인 Remove, Pages 뉴스 Edit/Delete/Read more). danger는 color:var(--state-danger). CLAUDE.md §6 위반 수정.
   - +01.088.07 — **메시지 전송 실패 사유 구체화**: TeamMessageModal이 모든 `!res.ok`를 "Could not send"로 뭉뚱그리던 것을 서버 error 코드별(cannot_message_self / rate_limited / recipient_unavailable)로 분기해 명확한 안내. 운영자(CEO 계정)가 동일 계정 연결된 CEO 카드에 전송 시 서버 `cannot_message_self` 400을 반환하나 generic 문구로 가려져 self-send 거부임을 알 수 없던 문제. **실제 버그 아님** — 학습자→CEO(다른 계정)는 정상 전송.

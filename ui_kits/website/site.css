@@ -368,18 +368,30 @@ body {
 .prog-meta span + span::before { content: '·'; margin-right: 14px; color: var(--gray-300); }
 .prog-arrow { position: absolute; bottom: 28px; right: 28px; color: var(--scouting-purple); }
 
-/* "View all programs" card — fills the last teaser slot, routes to /programs.
-   Ghost/dashed treatment so it reads as a CTA, not another track card. */
+/* "View all programs" — full-width band below the 4 teaser cards. Spans the
+   whole grid (both columns), larger than a track card, with the CTA pulled to
+   the right. Ghost/dashed treatment so it reads as a CTA, not a track card. */
 .prog-more {
+  grid-column: 1 / -1;
+  flex-direction: row; align-items: center; justify-content: space-between;
+  gap: 32px; flex-wrap: wrap; padding: 40px 48px; text-align: left; font: inherit;
   background: var(--brand-tint); border: 1px dashed var(--border-strong);
-  align-items: stretch; justify-content: center; text-align: left;
-  font: inherit;
 }
 .prog-more:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--scouting-purple); }
-.prog-more-inner { display: flex; flex-direction: column; gap: 14px; }
+.prog-more-text { display: flex; flex-direction: column; gap: 10px; flex: 1 1 420px; min-width: 260px; }
+.prog-more .prog-title { font-size: clamp(26px, 3vw, 34px); }
+.prog-more .prog-sub { font-size: 16px; max-width: 640px; }
 .prog-more-cta {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: 8px;
-  font-weight: 700; color: var(--scouting-purple); font-size: 15px;
+  display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto;
+  padding: 16px 28px; border-radius: var(--radius-pill);
+  background: var(--accent-purple-fill); color: var(--fg-on-fill);
+  font-weight: 700; font-size: 16px; white-space: nowrap;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+.prog-more:hover .prog-more-cta { transform: translateX(3px); }
+@media (max-width: 720px) {
+  .prog-more { padding: 28px 24px; }
+  .prog-more-cta { width: 100%; justify-content: center; }
 }
 
 /* ============ CTA BANNER ============ */

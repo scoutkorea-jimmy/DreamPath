@@ -159,14 +159,14 @@ function ProgramMoreCard({ go, count }) {
   return (
     <button type="button" className="prog prog-more" onClick={() => go('programs')}
       aria-label={'View all ' + (count || '') + ' programs'}>
-      <div className="prog-more-inner">
+      <div className="prog-more-text">
         <p className="prog-kicker">ALL PROGRAMS</p>
         <h3 className="prog-title en">{count ? ('Explore all ' + count + ' micro-degrees') : 'Explore all programs'}</h3>
         <p className="prog-sub">See the full curriculum, faculty, and how to apply for every CUFS track.</p>
-        <span className="prog-more-cta">View all programs
-          <i data-lucide="arrow-right" width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
-        </span>
       </div>
+      <span className="prog-more-cta">View all programs
+        <i data-lucide="arrow-right" width="20" height="20" strokeWidth="2" aria-hidden="true"></i>
+      </span>
     </button>
   );
 }

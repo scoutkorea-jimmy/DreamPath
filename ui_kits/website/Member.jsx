@@ -247,7 +247,7 @@ function MemberMessages({ isKo, go, onChange }) {
             <strong>{detail.counterpart}</strong>
             {detail.subject && <span className="member-msg-subject">{detail.subject}</span>}
           </div>
-          <button type="button" className="icon-btn danger" onClick={() => removeThread(openTid)}>{isKo ? '삭제' : 'Delete'}</button>
+          <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={() => removeThread(openTid)}>{isKo ? '삭제' : 'Delete'}</button>
         </div>
         <div className="member-msg-thread">
           {(detail.messages || []).map(m => (

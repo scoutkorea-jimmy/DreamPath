@@ -862,7 +862,7 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
           {isKo ? `추천인 ${index + 1}` : `Recommender ${index + 1}`}
         </strong>
         {onRemove && (
-          <button type="button" className="icon-btn danger" onClick={onRemove}>
+          <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={onRemove}>
             {isKo ? '삭제' : 'Remove'}
           </button>
         )}

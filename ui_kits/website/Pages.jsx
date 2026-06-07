@@ -258,11 +258,11 @@ function NewsRow({ n, isKo, canEdit, go, onEdit, onDelete }) {
         </button>
         {canEdit && (
           <span style={{display:'flex',gap:6}}>
-            <button className="icon-btn" onClick={onEdit}>{isKo ? '수정' : 'Edit'}</button>
-            <button className="icon-btn danger" onClick={onDelete}>{isKo ? '삭제' : 'Delete'}</button>
+            <button className="btn btn-ghost btn-sm" onClick={onEdit}>{isKo ? '수정' : 'Edit'}</button>
+            <button className="btn btn-ghost btn-sm" style={{color:'var(--state-danger)'}} onClick={onDelete}>{isKo ? '삭제' : 'Delete'}</button>
           </span>
         )}
-        <button type="button" className="icon-btn" onClick={() => go && go('newsdetail', n.id)} title={isKo ? '자세히 보기' : 'Read more'}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => go && go('newsdetail', n.id)} title={isKo ? '자세히 보기' : 'Read more'}>
           <i data-lucide="arrow-right" width="14" height="14" strokeWidth="2" aria-hidden="true"></i>
         </button>
       </div>

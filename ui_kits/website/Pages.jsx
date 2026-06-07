@@ -17,7 +17,7 @@ function PageHero({ h, isKo, bg }) {
 function Partners({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.partners) || window.PARTNERS;
-  const h = ((c && c.page_heros && c.page_heros.partners && c.page_heros.partners[lang]) || {});
+  const h = ((c && c.page_heros && c.page_heros.partners && (c.page_heros.partners.en || c.page_heros.partners[lang])) || {});
   return (
     <div data-screen-label="Partners">
       <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.partners) || {}} />
@@ -55,7 +55,7 @@ function storyIdOf(s, i) { return (s && (s.id || s.slug)) || ('s' + (i + 1)); }
 function Stories({ go, lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.stories) || window.STORIES;
-  const h = ((c && c.page_heros && c.page_heros.stories && c.page_heros.stories[lang]) || {});
+  const h = ((c && c.page_heros && c.page_heros.stories && (c.page_heros.stories.en || c.page_heros.stories[lang])) || {});
   return (
     <div data-screen-label="Stories">
       <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.stories) || {}} />
@@ -154,7 +154,7 @@ function News({ go, lang, c }) {
   const isKo = lang === 'ko';
   const auth = window.useAuth ? window.useAuth() : { user: null, ready: true };
   const canEdit = auth.user && (auth.user.role === 'admin' || auth.user.role === 'member');
-  const h = ((c && c.page_heros && c.page_heros.news && c.page_heros.news[lang]) || {});
+  const h = ((c && c.page_heros && c.page_heros.news && (c.page_heros.news.en || c.page_heros.news[lang])) || {});
 
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -356,8 +356,8 @@ function NewsEditor({ post, onSave, onCancel, isKo }) {
 function Contact({ lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.faq) || window.FAQ;
-  const h = ((c && c.page_heros && c.page_heros.contact && c.page_heros.contact[lang]) || {});
-  const cta = ((c && c.partner_cta && c.partner_cta[lang]) || {});
+  const h = ((c && c.page_heros && c.page_heros.contact && (c.page_heros.contact.en || c.page_heros.contact[lang])) || {});
+  const cta = ((c && c.partner_cta && (c.partner_cta.en || c.partner_cta[lang])) || {});
   const [open, setOpen] = React.useState(null);
   // Honor ?tab=form (used by the ChatBot fallback to deep-link straight
   // to the Send-a-message form). Falls back to the FAQ tab.

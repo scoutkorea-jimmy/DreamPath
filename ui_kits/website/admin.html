@@ -711,7 +711,7 @@
     const sliderStyle = { width: '100%' };
     const enabled = !!(node.bg_image || node.bg_color);
     return (
-      <details className="card hero-bg-card" open>
+      <details className="card hero-bg-card">
         <summary>
           <span className="hero-bg-chevron" aria-hidden="true">▶</span>
           <h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>{title || '히어로 배경'}</h3>
@@ -752,6 +752,31 @@
         </div>
         </div>
       </details>
+    );
+  }
+
+  // Per-page hero editor (header text + background) — EN only, because the
+  // public site renders English. Drop into each page's own content tab so the
+  // whole page is managed in one place. (v01.083)
+  function PageHeroText({ c, set, pageKey, label }) {
+    const ph = (c.page_heros || {});
+    const g = (k) => (ph[pageKey] && ph[pageKey].en && ph[pageKey].en[k]) || '';
+    const setF = (k, v) => set(['page_heros', pageKey, 'en', k], v);
+    return (
+      <>
+        <details className="card admin-fold">
+          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>{label || '히어로 (헤더)'}</h3></summary>
+          <div style={{marginTop:12}}>
+            <Text label="Kicker" value={g('kicker')} onChange={v => setF('kicker', v)} lang="en" />
+            <div className="grid-2 tight">
+              <Text label="Title line 1" value={g('title_l1')} onChange={v => setF('title_l1', v)} lang="en" />
+              <Text label="Title line 2 (선택)" value={g('title_l2')} onChange={v => setF('title_l2', v)} lang="en" />
+            </div>
+            <Area label="Subtitle" value={g('sub')} onChange={v => setF('sub', v)} lang="en" rows={2} />
+          </div>
+        </details>
+        <HeroBgFields title="히어로 배경" path={['page_heros', pageKey]} node={ph[pageKey]} set={set} />
+      </>
     );
   }
 
@@ -1121,7 +1146,6 @@
       // 페이지·콘텐츠 — every public-facing content tab in one place.
       { id: 'about',         group: 'Content' },
       { id: 'pageheros',     group: 'Content' },
-      { id: 'partner_cta',   group: 'Content' },
       { id: 'team',          group: 'Content' },
       { id: 'programs',      group: 'Content' },
       { id: 'program_detail',group: 'Content' },
@@ -1433,7 +1457,7 @@
             <Area label="Subtitle" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
           </div>
         </div>
-        <HeroBgFields title="프로그램 페이지 — 히어로 배경" path={['page_heros','programs']} node={(c.page_heros || {}).programs} set={set} />
+        <PageHeroText c={c} set={set} pageKey="programs" label="프로그램 페이지 히어로 (헤더)" />
 
         {/* Toolbar */}
         <div className="card" style={{padding:'14px 18px'}}>
@@ -1769,37 +1793,35 @@
   }
 
   function PartnersTab({ c, set, addItem, removeItem }) {
-    // NOTE: The "Partners section heading" form used to live here and edited
-    // c.partners_section. That field is not read by any public component
-    // (verified 2026-05-20). Hero text for /partners comes from
-    // c.page_heros.partners (edited under "페이지 헤더" tab). Form removed
-    // to avoid the "edits don't show up" confusion that prompted v01.059.
+    const partners = c.partners || [];
+    const pcta = c.partner_cta || {};
+    const movePartner = (from, to) => {
+      if (to < 0 || to >= partners.length) return;
+      const arr = [...partners]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+      set(['partners'], arr);
+    };
     return (
       <>
-        <div className="card" style={{padding:'12px 14px',background:'var(--state-info-bg, var(--bg-muted))',border:'1px solid var(--border-subtle)'}}>
-          <p style={{margin:0,fontSize:13,color:'var(--fg-secondary)'}}>
-            <strong>안내:</strong> 파트너 페이지의 상단 헤더(kicker · 제목 · 부제목) 텍스트는{' '}
-            <strong>사이트 설정 → 페이지 헤더 → Partners</strong>에서 편집합니다. 이 화면은 파트너 항목만 관리합니다.
-          </p>
-        </div>
-        <HeroBgFields title="파트너 페이지 — 히어로 배경" path={['page_heros','partners']} node={(c.page_heros || {}).partners} set={set} />
+        <PageHeroText c={c} set={set} pageKey="partners" label="파트너 페이지 히어로 (헤더)" />
         <div className="card">
-          <h3>Partners</h3>
-          {c.partners.map((p, i) => (
-            <div className="rep-item" key={i}>
-              <div className="rep-head">
-                <strong>{p.name}</strong>
-                <div className="ctrls">
-                  <button className="icon-btn danger" onClick={() => removeItem(['partners'], i)}>Delete</button>
+          <h3>Partners <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{partners.length}개 · 이름을 눌러 펼치기/접기</span></h3>
+          {partners.map((p, i) => (
+            <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+              <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
+                <span className="tm-chevron" aria-hidden="true">▶</span>
+                <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name || `Partner ${i+1}`}</strong>
+                <button type="button" className="icon-btn" disabled={i === 0} title="위로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); movePartner(i, i-1); }}>↑</button>
+                <button type="button" className="icon-btn" disabled={i === partners.length-1} title="아래로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); movePartner(i, i+1); }}>↓</button>
+                <button type="button" className="icon-btn danger" onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!confirm(`Remove ${p.name||'partner'}?`)) return; removeItem(['partners'], i); }}>Delete</button>
+              </summary>
+              <div style={{padding:'0 14px 14px'}}>
+                <div className="grid-2 tight">
+                  <Text label="Short name" value={p.name} onChange={v => set(['partners',i,'name'], v)} />
+                  <Text label="Full name" value={p.full} onChange={v => set(['partners',i,'full'], v)} />
+                  <Text label="Website URL (새 탭으로 열림)" value={p.url || ''} onChange={v => set(['partners',i,'url'], v)} hint="예: https://www.cufs.ac.kr · 로고 클릭 시 새 탭. 비우면 /partners 이동." />
+                  <Text label="Role / title" value={p.role_en || p.role_ko || ''} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
+                  <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
                 </div>
-              </div>
-              <div className="grid-2 tight">
-                <Text label="Short name" value={p.name} onChange={v => set(['partners',i,'name'], v)} />
-                <Text label="Full name" value={p.full} onChange={v => set(['partners',i,'full'], v)} />
-                <Text label="Website URL (새 탭으로 열림)" value={p.url || ''} onChange={v => set(['partners',i,'url'], v)} hint="예: https://www.cufs.ac.kr · 입력하면 로고 클릭 시 새 탭으로 그 사이트가 열립니다. 비우면 /partners 페이지로 이동." />
-                <Text label="Role (KO)" value={p.role_ko} onChange={v => set(['partners',i,'role_ko'], v)} lang="ko" />
-                <Text label="Role (EN)" value={p.role_en} onChange={v => set(['partners',i,'role_en'], v)} lang="en" />
-                <Color label="Color" value={p.color} onChange={v => set(['partners',i,'color'], v)} />
                 <ImageUploadField
                   label="Logo (가로형 권장)"
                   value={p.logo || ''}
@@ -1807,13 +1829,25 @@
                   accept="image/svg+xml,image/png,image/jpeg,image/webp"
                   maxBytes={500 * 1024}
                   preview="banner"
-                  hint="홈 파트너 띠와 /partners 페이지에 로고 + 기업명으로 표시됩니다. 가로형(워드마크) 로고 권장 · SVG/PNG. 투명 배경 권장. 비우면 이름 텍스트로 대체."
+                  hint="홈 파트너 띠와 /partners 페이지에 로고 + 기업명으로 표시. 가로형 로고·SVG/PNG·투명배경 권장. 비우면 이름 텍스트."
                 />
               </div>
-            </div>
+            </details>
           ))}
-          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', url: '', role_ko: '역할', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
+          <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', url: '', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
         </div>
+        <details className="card admin-fold">
+          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>파트너 CTA (Contact 페이지 하단 배너)</h3></summary>
+          <div style={{marginTop:12}}>
+            <div className="grid-2 tight">
+              <Text label="Kicker" value={pcta.en?.kicker || ''} onChange={v => set(['partner_cta','en','kicker'], v)} lang="en" />
+              <Text label="Title" value={pcta.en?.title || ''} onChange={v => set(['partner_cta','en','title'], v)} lang="en" />
+              <Text label="Button label" value={pcta.en?.cta || ''} onChange={v => set(['partner_cta','en','cta'], v)} lang="en" />
+            </div>
+            <Area label="Subtitle" value={pcta.en?.sub || ''} onChange={v => set(['partner_cta','en','sub'], v)} lang="en" rows={2} />
+            <p className="desc">버튼은 Brand &amp; Nav의 파트너 이메일로 연결됩니다.</p>
+          </div>
+        </details>
       </>
     );
   }
@@ -1829,7 +1863,7 @@
     };
     return (
       <>
-        <HeroBgFields title="스토리 페이지 — 히어로 배경" path={['page_heros','stories']} node={(c.page_heros || {}).stories} set={set} />
+        <PageHeroText c={c} set={set} pageKey="stories" label="스토리 페이지 히어로 (헤더)" />
         <div className="card">
         <h3>Learner stories <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{stories.length}개 · 이름을 눌러 펼치기/접기</span></h3>
         {stories.map((s, i) => {
@@ -1852,8 +1886,7 @@
                 <Text label="Program" value={s.program} onChange={v => set(['stories',i,'program'], v)} />
                 <Text label="Tag" value={s.tag} onChange={v => set(['stories',i,'tag'], v)} />
                 <Color label="Tag color" value={s.tag_color} onChange={v => set(['stories',i,'tag_color'], v)} />
-                <Area label="Quote (KO)" value={s.quote_ko} onChange={v => set(['stories',i,'quote_ko'], v)} lang="ko" rows={3} />
-                <Area label="Quote (EN)" value={s.quote_en} onChange={v => set(['stories',i,'quote_en'], v)} lang="en" rows={3} />
+                <Area label="Quote" value={s.quote_en} onChange={v => set(['stories',i,'quote_en'], v)} lang="en" rows={3} />
               </div>
             </div>
           </details>
@@ -1870,18 +1903,23 @@
   // never reads c.news. Edits here had zero effect on the live page. Replaced
   // with a deep-link to the actual news editor that lives on /news in admin
   // edit mode. (verified 2026-05-20, v01.059)
-  function NewsTab() {
+  function NewsTab({ c, set }) {
     return (
-      <div className="card">
-        <h3>News editing has moved</h3>
-        <p style={{margin:'8px 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
-          뉴스는 D1 데이터베이스에 저장됩니다. 글 작성·수정·삭제는 공개 /news 페이지에서{' '}
-          관리자로 로그인한 상태로 직접 진행합니다. 이 KV 탭은 더 이상 사용하지 않습니다.
-        </p>
-        <a className="btn btn-primary btn-sm" href="/news" target="_blank" rel="noopener">
-          /news 페이지 열기 ↗
-        </a>
-      </div>
+      <>
+        <PageHeroText c={c} set={set} pageKey="news" label="소식 페이지 히어로 (헤더)" />
+        <details className="card admin-fold">
+          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>뉴스 글 관리</h3></summary>
+          <div style={{marginTop:12}}>
+            <p style={{margin:'0 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
+              뉴스 글은 D1 데이터베이스에 저장됩니다. 작성·수정·삭제는 공개 /news 페이지에서{' '}
+              관리자로 로그인한 상태로 직접 진행합니다. (헤더는 위에서 편집)
+            </p>
+            <a className="btn btn-primary btn-sm" href="/news" target="_blank" rel="noopener">
+              /news 페이지 열기 ↗
+            </a>
+          </div>
+        </details>
+      </>
     );
   }
 
@@ -1899,67 +1937,49 @@
   }
 
   function FaqTab({ c, set, addItem, removeItem }) {
-    // Visually group items by category_ko in the admin so the editor sees
-    // the same structure that the public page renders. Each item still has
-    // its own category fields, so an item can be moved between categories
-    // by editing them directly.
+    const faq = c.faq || [];
     const groups = [];
     const idxByCat = new Map();
-    (c.faq || []).forEach((f, i) => {
-      const key = f.category_ko || '미분류';
-      if (!idxByCat.has(key)) {
-        idxByCat.set(key, groups.length);
-        groups.push({ title: key, items: [] });
-      }
+    faq.forEach((f, i) => {
+      const key = f.category_en || f.category_ko || 'Uncategorized';
+      if (!idxByCat.has(key)) { idxByCat.set(key, groups.length); groups.push({ title: key, items: [] }); }
       groups[idxByCat.get(key)].items.push({ f, i });
     });
+    const moveFaq = (from, to) => {
+      if (to < 0 || to >= faq.length) return;
+      const arr = [...faq]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+      set(['faq'], arr);
+    };
     return (
       <>
-        <HeroBgFields title="문의·FAQ 페이지 — 히어로 배경" path={['page_heros','contact']} node={(c.page_heros || {}).contact} set={set} />
+        <PageHeroText c={c} set={set} pageKey="contact" label="문의·FAQ 페이지 히어로 (헤더)" />
         <div className="card">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:14,marginBottom:8}}>
-          <h3 style={{margin:0}}>FAQ</h3>
-          <p className="desc" style={{margin:0,fontSize:13}}>
-            총 {(c.faq || []).length}문항 · {groups.length}개 카테고리.
-            카테고리(KO/EN) 두 필드가 같으면 같은 그룹으로 묶입니다.
-            답변에는 줄바꿈(Enter)이 그대로 반영됩니다.
-          </p>
-        </div>
-        {groups.map((g, gi) => (
-          <div key={gi} style={{marginTop:18,paddingTop:14,borderTop:gi===0?'none':'2px solid var(--border-subtle)'}}>
-            <div style={{
-              display:'flex',alignItems:'baseline',gap:10,marginBottom:10,
-              fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',
-              color:'var(--fg-muted)',fontWeight:700
-            }}>
-              <span style={{color:'var(--brand-text)'}}>{g.title}</span>
-              <span style={{fontFamily:'var(--font-mono)',textTransform:'none',letterSpacing:0,fontWeight:400}}>
-                {g.items.length} items
-              </span>
-            </div>
-            {g.items.map(({ f, i }) => (
-              <div className="rep-item" key={i}>
-                <div className="rep-head">
-                  <strong>Q{i+1}</strong>
-                  <div className="ctrls">
-                    <button className="icon-btn danger" onClick={() => removeItem(['faq'], i)}>Delete</button>
+          <h3 style={{margin:'0 0 8px'}}>FAQ <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{faq.length}문항 · 질문을 눌러 펼치기/접기</span></h3>
+          {groups.map((g, gi) => (
+            <div key={gi} style={{marginTop:14}}>
+              <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--brand-text)',fontWeight:700,margin:'8px 0 6px'}}>{g.title} · {g.items.length}</div>
+              {g.items.map(({ f, i }) => (
+                <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:8,border:'1px solid var(--border-subtle)'}}>
+                  <summary style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
+                    <span className="tm-chevron" aria-hidden="true">▶</span>
+                    <strong style={{fontSize:13,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{f.q_en || f.q_ko || ('Q' + (i+1))}</strong>
+                    <button type="button" className="icon-btn" disabled={i === 0} title="위로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveFaq(i, i-1); }}>↑</button>
+                    <button type="button" className="icon-btn" disabled={i === faq.length-1} title="아래로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveFaq(i, i+1); }}>↓</button>
+                    <button type="button" className="icon-btn danger" onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!confirm('Delete this FAQ?')) return; removeItem(['faq'], i); }}>Delete</button>
+                  </summary>
+                  <div style={{padding:'0 14px 14px'}}>
+                    <div className="grid-2 tight">
+                      <Text label="Category" value={f.category_en || ''} onChange={v => set(['faq',i,'category_en'], v)} lang="en" />
+                      <Text label="Category icon (Lucide, e.g. book-open)" value={f.category_icon || ''} onChange={v => set(['faq',i,'category_icon'], v)} />
+                    </div>
+                    <Text label="Question" value={f.q_en} onChange={v => set(['faq',i,'q_en'], v)} lang="en" />
+                    <Area label="Answer (줄바꿈 반영)" value={f.a_en} onChange={v => set(['faq',i,'a_en'], v)} lang="en" rows={5} />
                   </div>
-                </div>
-                <div className="grid-2 tight">
-                  <Text label="Category (KO)" value={f.category_ko || ''} onChange={v => set(['faq',i,'category_ko'], v)} lang="ko" />
-                  <Text label="Category (EN)" value={f.category_en || ''} onChange={v => set(['faq',i,'category_en'], v)} lang="en" />
-                  <Text label="Category icon (Lucide name, e.g. book-open)" value={f.category_icon || ''} onChange={v => set(['faq',i,'category_icon'], v)} />
-                  <span />{/* spacer to keep the grid balanced */}
-                  <Text label="Question (KO)" value={f.q_ko} onChange={v => set(['faq',i,'q_ko'], v)} lang="ko" />
-                  <Text label="Question (EN)" value={f.q_en} onChange={v => set(['faq',i,'q_en'], v)} lang="en" />
-                  <Area label="Answer (KO)" value={f.a_ko} onChange={v => set(['faq',i,'a_ko'], v)} lang="ko" rows={5} />
-                  <Area label="Answer (EN)" value={f.a_en} onChange={v => set(['faq',i,'a_en'], v)} lang="en" rows={5} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
-        <button className="btn-add" onClick={() => addItem(['faq'], { category_ko: '', category_en: '', category_icon: '', q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
+                </details>
+              ))}
+            </div>
+          ))}
+          <button className="btn-add" style={{marginTop:12}} onClick={() => addItem(['faq'], { category_en: '', category_icon: '', q_en: '', a_en: '' })}>+ Add FAQ</button>
         </div>
       </>
     );
@@ -5947,38 +5967,22 @@
 
   // ---- Page heros (Partners / Stories / News / Contact / Programs) -------
   function PageHerosTab({ c, set }) {
-    const ph = c.page_heros || {};
+    // Pages WITHOUT their own content tab. (Partners/Stories/News/Contact-FAQ/
+    // Programs heros now live in their own tabs.) EN only — public is English.
     const pages = [
-      { key: 'partners', label: 'Partners page' },
-      { key: 'stories',  label: 'Stories page' },
-      { key: 'news',     label: 'News page' },
-      { key: 'contact',  label: 'Contact / FAQ page' },
-      { key: 'programs', label: 'Programs page' },
-      { key: 'apply',       label: '지원 폼 (Apply)' },
-      { key: 'apply_done',  label: '지원 완료 (Apply complete)' },
-      { key: 'member',      label: '회원 로그인 안내 (Members only)' },
-      { key: 'mypage',      label: '마이페이지 (My page)' },
-      { key: 'scholarships',label: '장학 (Scholarships)' },
+      { key: 'apply',        label: '지원 폼 (Apply)' },
+      { key: 'apply_done',   label: '지원 완료 (Apply complete)' },
+      { key: 'member',       label: '회원 로그인 안내 (Members only)' },
+      { key: 'mypage',       label: '마이페이지 (My page)' },
+      { key: 'scholarships', label: '장학 (Scholarships)' },
     ];
     return (
       <>
+        <div className="card" style={{padding:'12px 14px',background:'var(--bg-muted)',border:'1px solid var(--border-subtle)'}}>
+          <p style={{margin:0,fontSize:13,color:'var(--fg-secondary)'}}>전용 탭이 없는 페이지들의 히어로(헤더)입니다. 파트너·스토리·소식·문의/FAQ·프로그램 헤더는 각 탭에서 편집합니다.</p>
+        </div>
         {pages.map(({ key, label }) => (
-          <React.Fragment key={key}>
-          <div className="card">
-            <h3>{label}</h3>
-            <div className="grid-2 tight">
-              <Text label="Kicker (KO)" value={ph[key]?.ko?.kicker || ''} onChange={v => set(['page_heros',key,'ko','kicker'], v)} lang="ko" />
-              <Text label="Kicker (EN)" value={ph[key]?.en?.kicker || ''} onChange={v => set(['page_heros',key,'en','kicker'], v)} lang="en" />
-              <Text label="Title line 1 (KO)" value={ph[key]?.ko?.title_l1 || ''} onChange={v => set(['page_heros',key,'ko','title_l1'], v)} lang="ko" />
-              <Text label="Title line 1 (EN)" value={ph[key]?.en?.title_l1 || ''} onChange={v => set(['page_heros',key,'en','title_l1'], v)} lang="en" />
-              <Text label="Title line 2 (KO)" value={ph[key]?.ko?.title_l2 || ''} onChange={v => set(['page_heros',key,'ko','title_l2'], v)} lang="ko" />
-              <Text label="Title line 2 (EN)" value={ph[key]?.en?.title_l2 || ''} onChange={v => set(['page_heros',key,'en','title_l2'], v)} lang="en" />
-              <Area label="Subtitle (KO)" value={ph[key]?.ko?.sub || ''} onChange={v => set(['page_heros',key,'ko','sub'], v)} lang="ko" />
-              <Area label="Subtitle (EN)" value={ph[key]?.en?.sub || ''} onChange={v => set(['page_heros',key,'en','sub'], v)} lang="en" />
-            </div>
-          </div>
-          <HeroBgFields title={label + ' — 히어로 배경'} path={['page_heros',key]} node={ph[key]} set={set} />
-          </React.Fragment>
+          <PageHeroText key={key} c={c} set={set} pageKey={key} label={label + ' 히어로'} />
         ))}
       </>
     );
@@ -8226,7 +8230,7 @@
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
-      about: AboutTab, pageheros: PageHerosTab, partner_cta: PartnerCtaTab, team: TeamAdminTab,
+      about: AboutTab, pageheros: PageHerosTab, team: TeamAdminTab,
       errors_copy: ErrorsCopyTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, news: NewsTab, faq: FaqTab,

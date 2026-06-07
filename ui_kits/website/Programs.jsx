@@ -9,7 +9,7 @@ function programCategory(p) {
 function Programs({ go, lang, c }) {
   const isKo = lang === 'ko';
   const all = (c && c.programs) || window.PROGRAMS;
-  const h = ((c && c.page_heros && c.page_heros.programs && c.page_heros.programs[lang]) || {});
+  const h = ((c && c.page_heros && c.page_heros.programs && (c.page_heros.programs.en || c.page_heros.programs[lang])) || {});
   const hb = window.useHeroBg((c && c.page_heros && c.page_heros.programs) || {});
   function readCatFromUrl() {
     const usp = new URLSearchParams(window.location.search);

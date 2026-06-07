@@ -1575,7 +1575,10 @@ body {
 
 /* ============ HOMEPAGE BANNER AD MODAL ============ */
 .bnr-overlay {
-  position: fixed; inset: 0; z-index: var(--z-modal);
+  /* Above the bottom-right floaters (chatbot / back-to-top, z 9000) so they
+     hide behind the ad, but below user-task modals (auth / team message, 9500)
+     and the version toast. */
+  position: fixed; inset: 0; z-index: 9200;
   background: var(--bg-overlay); backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
   animation: bnr-fade var(--duration-fast) var(--ease-out);

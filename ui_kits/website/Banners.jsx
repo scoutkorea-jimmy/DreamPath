@@ -28,18 +28,36 @@ function BannerAdModal({ view, c }) {
     return false;
   }
 
+  // Don't fight the cookie-consent banner. If an analytics-consent doc is
+  // configured AND the visitor hasn't decided yet, the CookieBanner is on
+  // screen — defer the ad so two popups don't compete (consent is the legal
+  // priority). The ad then appears on a later home visit. No cookie doc, or
+  // already decided → no deferral.
+  function cookiePending() {
+    if (!(c && c.legal && c.legal.analytics_cookies)) return false;
+    try { return localStorage.getItem('dp_consent_analytics') == null; } catch { return false; }
+  }
+
   const [open, setOpen] = useState(false);
   const [idx, setIdx] = useState(0);
 
   // Decide visibility whenever the route or banner set changes. Only ever
   // shows on the home view; never re-opens once closed/suppressed.
   useEffect(() => {
-    if (view === 'home' && featureOn && !suppressed()) setOpen(true);
+    if (view === 'home' && featureOn && !suppressed() && !cookiePending()) setOpen(true);
     else setOpen(false);
   }, [view, featureOn, items.length]);
 
   // Re-init lucide icons (close X / arrows) once the modal mounts.
   useEffect(() => { if (open) setTimeout(() => window.lucide && window.lucide.createIcons(), 0); }, [open, idx]);
+
+  // Escape closes (treated as a session Close), matching modal conventions.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
 
   if (!open || !featureOn) return null;
 

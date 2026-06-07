@@ -1206,8 +1206,7 @@
     const b = c.brand, n = c.nav;
     return (
       <>
-        <div className="card">
-          <h3>Brand</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Brand</h3></summary>
           <div className="grid-2">
             <Text label="Brand name (EN)" value={b.name_en} onChange={v => set(['brand','name_en'], v)} lang="en" />
           </div>
@@ -1225,9 +1224,8 @@
             <Text label="Contact email" value={b.email} onChange={v => set(['brand','email'], v)} />
             <Text label="Partners email" value={b.partners_email} onChange={v => set(['brand','partners_email'], v)} />
           </div>
-        </div>
-        <div className="card">
-          <h3>Navigation labels</h3>
+        </details>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Navigation labels</h3></summary>
           <p className="desc">Labels for the top navigation. Most are shared across languages; the Apply CTA differs.</p>
           <div className="grid-2">
             {['programs','about','partners','stories','news','apply'].map(k => (
@@ -1236,7 +1234,7 @@
               </React.Fragment>
             ))}
           </div>
-        </div>
+        </details>
       </>
     );
   }
@@ -1245,8 +1243,7 @@
     const en = c.hero.en;
     return (
       <>
-        <div className="card">
-          <h3>Hero copy</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero copy</h3></summary>
           <Text label="Kicker" value={en.kicker} onChange={v => set(['hero','en','kicker'], v)} lang="en" />
           <div className="grid-2 tight">
             <Text label="Title line 1" value={en.title_l1} onChange={v => set(['hero','en','title_l1'], v)} lang="en" />
@@ -1257,10 +1254,9 @@
             <Text label="Primary CTA" value={en.cta1} onChange={v => set(['hero','en','cta1'], v)} lang="en" />
             <Text label="Secondary CTA" value={en.cta2} onChange={v => set(['hero','en','cta2'], v)} lang="en" />
           </div>
-        </div>
+        </details>
         <HeroBgFields title="홈 히어로 배경" path={['hero']} node={c.hero} set={set} />
-        <div className="card">
-          <h3>Hero accent dots</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero accent dots</h3></summary>
           <p className="desc">The four color dots floating in the hero. Edit color and accessibility label.</p>
           {c.hero.dots.map((d, i) => (
             <div className="rep-item" key={i}>
@@ -1271,7 +1267,7 @@
               </div>
             </div>
           ))}
-        </div>
+        </details>
       </>
     );
   }
@@ -1304,15 +1300,13 @@
   function HowTab({ c, set, addItem, removeItem }) {
     return (
       <>
-        <div className="card">
-          <h3>Section heading</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Section heading</h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker" value={c.how.en.kicker} onChange={v => set(['how','en','kicker'], v)} lang="en" />
             <Text label="Title" value={c.how.en.title} onChange={v => set(['how','en','title'], v)} lang="en" />
           </div>
-        </div>
-        <div className="card">
-          <h3>Steps</h3>
+        </details>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Steps</h3></summary>
           {c.how.steps.map((s, i) => (
             <div className="rep-item" key={i}>
               <div className="rep-head">
@@ -1330,7 +1324,7 @@
             </div>
           ))}
           <button className="btn-add" onClick={() => addItem(['how','steps'], { n: String(c.how.steps.length+1).padStart(2,'0'), icon: 'check', t_ko: '', t_en: 'Title', d_ko: '', d_en: '' })}>+ Add step</button>
-        </div>
+        </details>
       </>
     );
   }
@@ -1453,14 +1447,13 @@
 
     return (
       <>
-        <div className="card">
-          <h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
             <Text label="Title" value={c.programs_section.en.title} onChange={v => set(['programs_section','en','title'], v)} lang="en" />
             <Area label="Subtitle" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
           </div>
-        </div>
+        </details>
         <PageHeroText c={c} set={set} pageKey="programs" label="프로그램 페이지 히어로 (헤더)" />
 
         {/* Toolbar */}
@@ -1653,8 +1646,7 @@
           <button type="button" className="icon-btn danger" onClick={onDelete}>Delete program</button>
         </div>
 
-        <div className="card">
-          <h3>Card / list info <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(auto-saved to KV)</span></h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Card / list info <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(auto-saved to KV)</span></h3></summary>
           <div className="grid-2 tight">
             <Text label="ID" value={program.id} onChange={v => set(['programs',index,'id'], v)} hint="URL-friendly. Used in /program/:id" />
             <Text label="Kicker" value={program.kicker} onChange={v => set(['programs',index,'kicker'], v)} />
@@ -1669,15 +1661,14 @@
             <Color label="Primary color" value={program.color} onChange={v => set(['programs',index,'color'], v)} />
             <Color label="Accent color" value={program.accent} onChange={v => set(['programs',index,'accent'], v)} />
           </div>
-        </div>
+        </details>
         <HeroBgFields title="상세 히어로 배경" hideColor path={['programs',index]} node={program} set={set} />
 
         {loading ? (
           <div className="card" style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>Loading details…</div>
         ) : (
           <>
-            <div className="card">
-              <h3>Logistics</h3>
+            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Logistics</h3></summary>
               <div className="grid-2 tight">
                 <Text label="Duration" value={details?.duration || ''} onChange={v => updDetail('duration', v)} hint="e.g. 12 weeks · 4 semesters" />
                 <Text label="Format" value={details?.format || ''} onChange={v => updDetail('format', v)} hint="online · hybrid · onsite" />
@@ -1688,10 +1679,9 @@
                 <Text label="Cost (USD)" value={details?.cost_full ?? ''} onChange={v => updDetail('cost_full', v ? parseInt(v, 10) : null)} type="number" />
                 <Text label="Currency" value={details?.cost_currency || 'USD'} onChange={v => updDetail('cost_currency', v)} />
               </div>
-            </div>
+            </details>
 
-            <div className="card">
-              <h3>Instructor</h3>
+            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Instructor</h3></summary>
               <div className="grid-2 tight">
                 <Text label="Name" value={details?.instructor_name || ''} onChange={v => updDetail('instructor_name', v)} />
                 <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies, CUFS" />
@@ -1700,7 +1690,7 @@
                   <window.RichEditor value={details?.instructor_bio_en || ''} onChange={v => updDetail('instructor_bio_en', v)} lang="en" minHeight={140} />
                 </div>
               </div>
-            </div>
+            </details>
 
             <div className="card">
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
@@ -1746,8 +1736,7 @@
               ))}
             </div>
 
-            <div className="card">
-              <h3>Long-form content</h3>
+            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Long-form content</h3></summary>
               <p className="desc" style={{marginBottom:14}}>
                 Each section is a rich-text body. Use it to write the full program description. These are stored in D1, separate from the lightweight card data above.
               </p>
@@ -1763,7 +1752,7 @@
                   <window.RichEditor value={details?.[s.k + '_en'] || ''} onChange={v => updDetail(s.k + '_en', v)} lang="en" minHeight={200} />
                 </div>
               ))}
-            </div>
+            </details>
           </>
         )}
 
@@ -1788,8 +1777,7 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="partners" label="파트너 페이지 히어로 (헤더)" />
-        <div className="card">
-          <h3>Partners <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{partners.length}개 · 이름을 눌러 펼치기/접기</span></h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Partners <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{partners.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
           {partners.map((p, i) => (
             <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
               <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
@@ -1820,7 +1808,7 @@
             </details>
           ))}
           <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', url: '', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
-        </div>
+        </details>
         <details className="card admin-fold">
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>파트너 CTA (Contact 페이지 하단 배너)</h3></summary>
           <div style={{marginTop:12}}>
@@ -1849,8 +1837,7 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="stories" label="스토리 페이지 히어로 (헤더)" />
-        <div className="card">
-        <h3>스토리 <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>추천자(리더) + 학습자 후기 · {stories.length}개 · 이름을 눌러 펼치기/접기</span></h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>스토리 <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>추천자(리더) + 학습자 후기 · {stories.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
         {stories.map((s, i) => {
           const sName = s.name || `Story ${i + 1}`;
           const isLeader = s.kind === 'leader';
@@ -1887,7 +1874,7 @@
           );
         })}
         <button className="btn-add" onClick={() => addItem(['stories'], { kind: 'learner', tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_en: '' })}>+ Add story</button>
-        </div>
+        </details>
       </>
     );
   }
@@ -1919,14 +1906,13 @@
 
   function CtaTab({ c, set }) {
     return (
-      <div className="card">
-        <h3>CTA banner (homepage)</h3>
+      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>CTA banner (homepage)</h3></summary>
         <div className="grid-2 tight">
           <Text label="Title" value={c.cta_banner.en.title} onChange={v => set(['cta_banner','en','title'], v)} lang="en" />
           <Text label="Subtitle" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
           <Text label="CTA label" value={c.cta_banner.en.cta} onChange={v => set(['cta_banner','en','cta'], v)} lang="en" />
         </div>
-      </div>
+      </details>
     );
   }
 
@@ -1947,8 +1933,7 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="contact" label="문의·FAQ 페이지 히어로 (헤더)" />
-        <div className="card">
-          <h3 style={{margin:'0 0 8px'}}>FAQ <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{faq.length}문항 · 질문을 눌러 펼치기/접기</span></h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>FAQ <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{faq.length}문항 · 질문을 눌러 펼치기/접기</span></h3></summary>
           {groups.map((g, gi) => (
             <div key={gi} style={{marginTop:14}}>
               <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--brand-text)',fontWeight:700,margin:'8px 0 6px'}}>{g.title} · {g.items.length}</div>
@@ -1974,7 +1959,7 @@
             </div>
           ))}
           <button className="btn-add" style={{marginTop:12}} onClick={() => addItem(['faq'], { category_en: '', category_icon: '', q_en: '', a_en: '' })}>+ Add FAQ</button>
-        </div>
+        </details>
       </>
     );
   }
@@ -1994,8 +1979,7 @@
       set(['essay_questions', i, 'max_chars'], n);
     }
     return (
-      <div className="card">
-        <h3>Apply essays · 지원 에세이 문항</h3>
+      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Apply essays · 지원 에세이 문항</h3></summary>
         <p className="desc" style={{marginTop:0}}>
           Each entry adds one essay slot to the public Apply form (Step 4 — Essays). Reorder, edit, or remove freely. Length limits are enforced by the textarea (input is blocked past Max).
         </p>
@@ -2051,7 +2035,7 @@
           placeholder_ko: '', placeholder_en: '',
           min_chars: 500, max_chars: 1500,
         })}>+ Add essay question</button>
-      </div>
+      </details>
     );
   }
 
@@ -2069,11 +2053,10 @@
           </p>
         </div>
         {codes.map(code => (
-          <div className="card" key={code}>
-            <h3 style={{display:'flex',alignItems:'center',gap:10}}>
+          <details className="card admin-fold" key={code}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{display:'flex',alignItems:'center',gap:10}}>
               <span>{titles[code]}</span>
               <a className="icon-btn" href={code === 'offline' ? '/offline' : '/' + code} target="_blank" rel="noopener" style={{marginLeft:'auto'}}>Preview ↗</a>
-            </h3>
+            </h3></summary>
             <div className="grid-2 tight">
               {['ko','en'].map(L => (
                 <React.Fragment key={L}>
@@ -2085,7 +2068,7 @@
                 </React.Fragment>
               ))}
             </div>
-          </div>
+          </details>
         ))}
       </>
     );
@@ -2886,15 +2869,14 @@
 
     return (
       <>
-        <div className="card">
-          <h3>Roles & permissions</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Roles & permissions</h3></summary>
           <p className="desc">
             Define which pages each member role can access and what they can do on each page.
             <strong> Note:</strong> the public site does not yet enforce these rules — this tab persists the policy
             you intend to apply. Backend enforcement is a follow-up task.
           </p>
           <button type="button" className="btn-add" onClick={newRole}>+ Add role</button>
-        </div>
+        </details>
 
         {roles.length === 0 && (
           <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>
@@ -3587,8 +3569,7 @@
         )}
 
         {view === 'compose' && (
-          <div className="card">
-            <h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3></summary>
             {composeReplyTo && (
               <p className="desc">In reply to: <code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{composeReplyTo.subject}</code></p>
             )}
@@ -3676,7 +3657,7 @@
                 {sending ? '발송 중…' : '📨 발송'}
               </button>
             </div>
-          </div>
+          </details>
         )}
       </>
     );
@@ -3750,13 +3731,12 @@
 
     return (
       <>
-        <div className="card">
-          <h3>내부 알림 보내기</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내부 알림 보내기</h3></summary>
           <p className="desc">
             선택한 회원의 마이페이지에만 표시되는 내부 메시지입니다 (외부로 발송되지 않음).
             외부 이메일이 필요하면 메일함 → 새 메일을 사용하세요.
           </p>
-        </div>
+        </details>
 
         {/* 2-column shell — 받는 사람 picker | 작성 패널. Admin은 화면을
             가득 채우는 게 원칙이라 sparse한 1단 대신 좌우 배치로 복귀. */}
@@ -3826,8 +3806,7 @@
 
           {/* Composer (right) — 한 줄당 한 필드, 두 컬럼은 picker 섹션과의
               관계로만 형성. KO/EN은 라벨로 구분. */}
-          <div className="card">
-            <h3>내용 작성</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내용 작성</h3></summary>
             <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
             <Text label="제목" value={subjectEn} onChange={setSubjectEn} lang="en" />
             <Area label="본문" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
@@ -3843,7 +3822,7 @@
                 {busy ? '발송 중…' : `📨 발송하기${picked.size || pickedGroups.size ? ` (${picked.size}명${pickedGroups.size ? ' + ' + pickedGroups.size + '그룹' : ''})` : ''}`}
               </button>
             </div>
-          </div>
+          </details>
         </div>
       </>
     );
@@ -3888,12 +3867,11 @@
 
     return (
       <>
-        <div className="card">
-          <h3>발송 기록</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>발송 기록</h3></summary>
           <p className="desc">
             지금까지 보낸 내부 알림 캠페인입니다. 각 행은 한 번의 "알림 보내기" 액션이며, 수신자별 읽음 상태도 확인할 수 있습니다.
           </p>
-        </div>
+        </details>
 
         <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
           {/* Campaign list (left) */}
@@ -4068,8 +4046,7 @@
 
     return (
       <>
-        <div className="card">
-          <h3>회원 그룹</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>회원 그룹</h3></summary>
           <p className="desc">
             회원을 그룹으로 묶어 알림 보내기에서 한 번에 선택할 수 있습니다. 그룹을 삭제해도 회원 자체는 유지됩니다.
           </p>
@@ -4079,7 +4056,7 @@
               style={{flex:1,maxWidth:320,padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)',color:'var(--fg-primary)'}} />
             <button type="button" className="btn-add" onClick={createGroup} disabled={creating || !newName.trim()}>+ 그룹 만들기</button>
           </div>
-        </div>
+        </details>
 
         <div className="grid-3" style={{alignItems:'flex-start',gap:16,gridTemplateColumns:'1fr 1.4fr 1fr'}}>
           {/* Group list */}
@@ -4187,14 +4164,13 @@
     }
     return (
       <>
-        <div className="card">
-          <h3>문의 유형 · Inquiry categories</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>문의 유형 · Inquiry categories</h3></summary>
           <p className="desc">
             공개 사이트 Contact 폼의 \"문의 유형\" 드롭다운 항목입니다. <code>value</code>는 DB에 저장되는 슬러그
             (영문/숫자/언더스코어), 라벨은 KO/EN 양쪽을 채워주세요.
           </p>
           <button type="button" className="btn-add" onClick={() => addItem(['inquiry_categories'], { value: 'cat_' + Date.now().toString(36), label_ko: '새 유형', label_en: 'New category' })}>+ Add category</button>
-        </div>
+        </details>
         {cats.length === 0 && (
           <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>No categories yet. Add one to start.</div>
         )}
@@ -4413,11 +4389,10 @@
 
     return (
       <>
-        <div className="card">
-          <h3 style={{margin:'0 0 4px'}}>API directory</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 4px'}}>API directory</h3></summary>
           <p className="desc">Worker가 노출하는 모든 HTTP 엔드포인트. <code>/api/public/*</code>는 외부 통합용 CORS 허용. 그 외는 세션 토큰 또는 관리자 Bearer 필요.</p>
           <p className="desc" style={{marginTop:8}}>Base URL: <code>https://koreadreampath.com</code></p>
-        </div>
+        </details>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <table className="apps-table">
             <thead><tr><th style={{width:80}}>Method</th><th>Path</th><th style={{width:160}}>Auth</th><th>Description</th><th style={{width:80,textAlign:'right'}}></th></tr></thead>
@@ -4438,11 +4413,10 @@
             </tbody>
           </table>
         </div>
-        <div className="card">
-          <h3 style={{margin:'0 0 8px'}}>외부 통합 예시</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>외부 통합 예시</h3></summary>
           <pre style={{background:'#1F1B2E',color:'#E0DDFF',padding:14,borderRadius:8,fontSize:12,fontFamily:'var(--font-mono)',overflowX:'auto'}}>{`curl https://koreadreampath.com/api/public/programs
 # → { "items": [{ id, title_ko, title_en, kicker, ... }, ...] }`}</pre>
-        </div>
+        </details>
       </>
     );
   }
@@ -4483,16 +4457,14 @@
 
     return (
       <>
-        <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}>
-          <h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>Resend integration</h3>
+        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>Resend integration</h3></summary>
           <p className="desc" style={{color:'var(--state-info)',margin:0,fontSize:13}}>
             Set <code>RESEND_API_KEY</code> as a worker secret to enable real sends.{' '}
             <code>wrangler secret put RESEND_API_KEY</code>. Until then signup / verify / reset
             return the token in the response so flows can still be tested manually.
           </p>
-        </div>
-        <div className="card">
-          <h3>Sender identity</h3>
+        </details>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sender identity</h3></summary>
           <p className="desc">Used as the "From" header on every transactional email. Make sure the <code>from_email</code> domain is verified in Resend (SPF + DKIM).</p>
           <div className="grid-2 tight">
             <Text label="From name"  value={et.from_name || ''}  onChange={v => set(['email_templates','from_name'], v)} />
@@ -4512,7 +4484,7 @@
               {!result.sent && result.reason === 'no_key' && <div style={{marginTop:4,fontSize:11,opacity:0.8}}>RESEND_API_KEY not configured — set the worker secret.</div>}
             </div>
           )}
-        </div>
+        </details>
         {KEYS.map(k => {
           const t = items[k.id] || {};
           return (
@@ -4574,8 +4546,7 @@
 
     return (
       <>
-        <div className="card">
-          <h3>Receipt template</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Receipt template</h3></summary>
           <p className="desc">
             Upload a background image (your letterhead / receipt form), define field
             positions, and the public <code>/receipt</code> page auto-fills application data
@@ -4599,7 +4570,7 @@
               <input type="number" value={tpl.page_h || 1754} onChange={e => set(['receipt_template','page_h'], parseInt(e.target.value, 10) || 1754)} />
             </div>
           </div>
-        </div>
+        </details>
 
         {/* Live preview pinned at the top of the field list. The operator
             adjusts numbers below and watches the preview update. */}
@@ -4651,11 +4622,10 @@
         </div>
 
         {/* Field list editor */}
-        <div className="card">
-          <h3>Fields ({fields.length})</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Fields ({fields.length})</h3></summary>
           <p className="desc">Each field overlays a single piece of data on the background. Move with ↑↓ to control z-order.</p>
           <button type="button" className="btn-add" onClick={addField}>+ Add field</button>
-        </div>
+        </details>
         {fields.map((f, i) => (
           <div className="card" key={i}>
             <div className="rep-head" style={{marginBottom:14}}>
@@ -4958,13 +4928,12 @@
       <>
         {/* Security model preface — operators must understand WHY some
             keys live in env and others in KV. */}
-        <div className="card" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}>
-          <h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>두 가지 종류의 키</h3>
+        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>두 가지 종류의 키</h3></summary>
           <div className="desc" style={{color:'var(--state-info)',fontSize:13,lineHeight:1.6}}>
             <p style={{margin:'0 0 8px'}}><strong>1. 시크릿 (env에만 보관):</strong> Resend API 키, 결제 시크릿, OAuth client_secret 등. <code>/api/content</code>는 public이므로 KV에 절대 저장하지 않습니다. 등록 방법: <code>wrangler secret put NAME</code></p>
             <p style={{margin:0}}><strong>2. 공개 인증 토큰 (KV에 보관):</strong> Google / Naver / Bing 등 검색엔진 도메인 verification. 어차피 HTML head에 노출돼야 정상 작동하므로 어드민에서 직접 입력합니다.</p>
           </div>
-        </div>
+        </details>
 
         {/* Section 1: Workers secrets — read-only status */}
         <div className="card">
@@ -5028,8 +4997,7 @@
         </div>
 
         {/* Section 1.5: Cloudflare Email Routing — receiving inbound mail */}
-        <div className="card">
-          <h3>Cloudflare Email Routing · 받은 메일</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Cloudflare Email Routing · 받은 메일</h3></summary>
           <p className="desc">
             메일함 (관리자 → Mailbox)에서 받은 메일을 보려면 Cloudflare 대시보드에서 Email Routing을 활성화하고 워커로 라우팅 규칙을 추가해야 합니다. 발송은 Resend로, 수신은 Email Routing으로 — 두 시스템이 분리되어 있음.
           </p>
@@ -5045,11 +5013,10 @@
               </ol>
             </div>
           </details>
-        </div>
+        </details>
 
         {/* Section 2: Public verification tokens — editable */}
-        <div className="card">
-          <h3>Site verification · 공개 인증 토큰</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Site verification · 공개 인증 토큰</h3></summary>
           <p className="desc">검색엔진·소셜 플랫폼에 도메인 소유권 증명. 입력한 값은 모든 페이지의 <code>&lt;head&gt;</code>에 자동 주입됩니다. 값이 비어있는 항목은 무시됩니다.</p>
           {VERIFY_ROWS.map(row => {
             const guide = VERIFICATION_GUIDES[row.key];
@@ -5088,7 +5055,7 @@
               </div>
             );
           })}
-        </div>
+        </details>
       </>
     );
   }
@@ -5097,8 +5064,7 @@
   function NoticeTab({ c, set }) {
     const n = c.notice || {};
     return (
-      <div className="card">
-        <h3>Top notice banner</h3>
+      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top notice banner</h3></summary>
         <p className="desc">A diagonal-stripe banner shown at the very top of every page on the public site. Use it for "under development" notices, launch countdowns, or maintenance windows.</p>
         <div className="grid-2 tight">
           <div className="field">
@@ -5118,7 +5084,7 @@
           </div>
           <Text label="Message (EN)" value={n.en || ''} onChange={v => set(['notice','en'], v)} lang="en" />
         </div>
-      </div>
+      </details>
     );
   }
 
@@ -5142,8 +5108,7 @@
     ];
     return (
       <>
-        <div className="card">
-          <h3>How it works</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>How it works</h3></summary>
           <p className="desc">
             Set a default OG image and per-route overrides. The public site updates&nbsp;
             <code>&lt;title&gt;</code>, <code>og:title</code>, <code>og:description</code>, and <code>og:image</code> on every navigation.
@@ -5151,10 +5116,9 @@
             파일을 직접 업로드하거나 (PNG / JPG / WebP, 최대 1.5 MB), CDN URL을 붙여 넣을 수 있습니다.
             SVG는 페이스북·트위터·카카오 미리보기에서 렌더되지 않으므로 OG 이미지에는 권장하지 않습니다.
           </p>
-        </div>
+        </details>
 
-        <div className="card">
-          <h3>Default (site-wide fallback)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Default (site-wide fallback)</h3></summary>
           <p className="desc">Used on any page that doesn't set its own OG image. Leave empty to keep the static defaults from <code>index.html</code>.</p>
           <ImageUploadField
             label="OG image"
@@ -5168,13 +5132,12 @@
             <Text label="Title (EN)" value={og.default?.title_en || ''} onChange={v => set(['og','default','title_en'], v)} lang="en" />
             <Area label="Description (EN)" value={og.default?.desc_en || ''} onChange={v => set(['og','default','desc_en'], v)} lang="en" rows={2} />
           </div>
-        </div>
+        </details>
 
         {PAGES.map(p => {
           const pg = (og.pages && og.pages[p.id]) || {};
           return (
-            <div className="card" key={p.id}>
-              <h3>{p.label} <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>· {p.path}</span></h3>
+            <details className="card admin-fold" key={p.id}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{p.label} <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>· {p.path}</span></h3></summary>
               <ImageUploadField
                 label="OG image (override)"
                 value={pg.image || ''}
@@ -5188,7 +5151,7 @@
                 <Text label="Title (EN)" value={pg.title_en || ''} onChange={v => set(['og','pages',p.id,'title_en'], v)} lang="en" hint="Empty = page <title>" />
                 <Area label="Description (EN)" value={pg.desc_en || ''} onChange={v => set(['og','pages',p.id,'desc_en'], v)} lang="en" rows={2} />
               </div>
-            </div>
+            </details>
           );
         })}
       </>
@@ -5392,8 +5355,7 @@
 
         {/* Top pages + traffic sources */}
         <div className="grid-2">
-          <div className="card">
-            <h3>Top pages · 30d</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top pages · 30d</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : data.topPaths.length === 0 ? <p className="desc">No pageviews yet.</p>
              : (
@@ -5410,9 +5372,8 @@
                 </tbody>
               </table>
             )}
-          </div>
-          <div className="card">
-            <h3>Traffic sources · 30d</h3>
+          </details>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Traffic sources · 30d</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : data.sources.length === 0 ? <p className="desc">No data yet.</p>
              : (
@@ -5429,7 +5390,7 @@
                 </tbody>
               </table>
             )}
-          </div>
+          </details>
         </div>
 
         {/* Content inventory + GDPR */}
@@ -5441,8 +5402,7 @@
         </div>
 
         {/* Quick actions */}
-        <div className="card">
-          <h3>Quick actions</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Quick actions</h3></summary>
           <p className="desc">Jump into the things you most often manage.</p>
           <div className="grid-3">
             <Quick id="apps" label="Review applications" icon="clipboard-check" />
@@ -5455,12 +5415,11 @@
             <Quick id="member_roles" label="Roles & permissions" icon="shield-check" />
             <Quick id="wiki_kms" label="KMS wiki" icon="book-open" />
           </div>
-        </div>
+        </details>
 
         {/* Recent activity — 4 columns */}
         <div className="grid-2">
-          <div className="card">
-            <h3>Recent applications</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent applications</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentApps.length === 0 ? <p className="desc">No applications yet.</p>
              : (
@@ -5479,9 +5438,8 @@
             <div style={{textAlign:'right',marginTop:8}}>
               <button type="button" className="icon-btn" onClick={() => setTab('apps')}>View all →</button>
             </div>
-          </div>
-          <div className="card">
-            <h3>Recent inquiries</h3>
+          </details>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent inquiries</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentInq.length === 0 ? <p className="desc">No inquiries yet.</p>
              : (
@@ -5497,9 +5455,8 @@
             <div style={{textAlign:'right',marginTop:8}}>
               <button type="button" className="icon-btn" onClick={() => setTab('inquiries')}>View all →</button>
             </div>
-          </div>
-          <div className="card">
-            <h3>Newest members</h3>
+          </details>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Newest members</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentMembers.length === 0 ? <p className="desc">No members yet.</p>
              : (
@@ -5518,9 +5475,8 @@
             <div style={{textAlign:'right',marginTop:8}}>
               <button type="button" className="icon-btn" onClick={() => setTab('members')}>View all →</button>
             </div>
-          </div>
-          <div className="card">
-            <h3>Recent error logs</h3>
+          </details>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent error logs</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentErrors.length === 0 ? <p className="desc" style={{color:'var(--forest-green)'}}>✓ No errors logged.</p>
              : (
@@ -5536,7 +5492,7 @@
             <div style={{textAlign:'right',marginTop:8}}>
               <button type="button" className="icon-btn" onClick={() => setTab('error_logs')}>View all →</button>
             </div>
-          </div>
+          </details>
         </div>
       </>
     );
@@ -5625,8 +5581,7 @@
     };
     return (
       <>
-        <div className="card">
-          <h3>Hero (top of /team page)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of /team page)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>공개 사이트는 영어 전용입니다 — 영어로만 입력하세요.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={pt.hero?.en?.kicker || ''} onChange={v => set(['project_team','hero','en','kicker'], v)} lang="en" />
@@ -5634,11 +5589,10 @@
             <Text label="Title L2" value={pt.hero?.en?.title_l2 || ''} onChange={v => set(['project_team','hero','en','title_l2'], v)} lang="en" />
             <Area label="Subtitle" value={pt.hero?.en?.sub || ''} onChange={v => set(['project_team','hero','en','sub'], v)} lang="en" />
           </div>
-        </div>
+        </details>
         <HeroBgFields title="팀 히어로 배경" path={['project_team','hero']} node={pt.hero} set={set} />
 
-        <div className="card">
-          <h3>Coordinator · 코디네이터</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Coordinator · 코디네이터</h3></summary>
           <p className="desc" style={{marginTop:-4}}>
             공개 /team 페이지 상단의 <strong>“Message our coordinator”</strong> 상시 버튼이
             가리키는 사람입니다. <strong>아래 팀원 중에서 지정</strong>하면 이름·직함·사진·연결계정이
@@ -5708,20 +5662,18 @@
               </>
             );
           })()}
-        </div>
+        </details>
 
-        <div className="card">
-          <h3>상단 메시지 밴드 (Meet our CEO)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>상단 메시지 밴드 (Meet our CEO)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>/team 상단 메시지 밴드 문구. 비우면 기본 문구가 표시됩니다.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
             <Text label="Title" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
           </div>
           <Area label="Subtitle" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
-        </div>
+        </details>
 
-        <div className="card">
-          <h3>Sections</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sections</h3></summary>
           <p className="desc" style={{marginTop:-4}}>
             그룹(예: <code>HQ</code>, <code>GLOBAL TEAM</code>)별로 섹션을 만들고 멤버를 추가하세요.
             각 섹션 제목이 공개 /team 페이지의 그룹 헤딩으로 표시됩니다. 멤버마다
@@ -5801,10 +5753,9 @@
             </div>
           ))}
           <button className="btn-add" onClick={() => addItem(['project_team','sections'], { kicker_en:'NEW GROUP', members:[] })}>+ Add section</button>
-        </div>
+        </details>
 
-        <div className="card">
-          <h3>Join CTA</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Join CTA</h3></summary>
           <p className="desc" style={{marginTop:-4}}>영어로만 입력하세요.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={cta.en?.kicker || ''} onChange={v => set(['project_team','cta','en','kicker'], v)} lang="en" />
@@ -5813,7 +5764,7 @@
             <Text label="Button" value={cta.en?.button || ''} onChange={v => set(['project_team','cta','en','button'], v)} lang="en" />
             <Text label="Email" value={cta.en?.email || ''} onChange={v => set(['project_team','cta','en','email'], v)} />
           </div>
-        </div>
+        </details>
       </>
     );
   }
@@ -5866,22 +5817,20 @@
     return (
       <>
         {/* Hero band */}
-        <div className="card">
-          <h3>Hero (top of About page)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of About page)</h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker (EN)" value={ex.hero?.kicker_en || ''} onChange={v => set(['about','exec','hero','kicker_en'], v)} lang="en" />
             <Area label="Title (EN)" value={ex.hero?.title_en || ''} onChange={v => set(['about','exec','hero','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
             <Area label="Body (EN)" value={ex.hero?.body_en || ''} onChange={v => set(['about','exec','hero','body_en'], v)} lang="en" rows={4} />
           </div>
-        </div>
+        </details>
         <HeroBgFields title="About 히어로 배경" path={['about','exec','hero']} node={ex.hero} set={set} />
 
         {/* Content blocks */}
-        <div className="card">
-          <h3>Content blocks</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Content blocks</h3></summary>
           <p className="desc">A grid of cards (default: 정책 정합성 / 핵심 특징 / 기대 효과 / 컴플라이언스). Each block has its own kicker, heading, and bullet list.</p>
           <button type="button" className="btn-add" onClick={addBlock}>+ Add block</button>
-        </div>
+        </details>
 
         {blocks.map((b, bi) => {
           const itemsKo = b.items_ko || [];
@@ -5919,15 +5868,14 @@
         })}
 
         {/* Closing strategic-value band */}
-        <div className="card">
-          <h3>Closing — Strategic Value</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Closing — Strategic Value</h3></summary>
           <p className="desc">The grey panel at the bottom of /about. One kicker + one big title + one body paragraph.</p>
           <div className="grid-2 tight">
             <Text label="Kicker (EN)" value={ex.closing?.kicker_en || ''} onChange={v => set(['about','exec','closing','kicker_en'], v)} lang="en" />
             <Area label="Title (EN)" value={ex.closing?.title_en || ''} onChange={v => set(['about','exec','closing','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
             <Area label="Body (EN)" value={ex.closing?.body_en || ''} onChange={v => set(['about','exec','closing','body_en'], v)} lang="en" rows={3} />
           </div>
-        </div>
+        </details>
       </>
     );
   }
@@ -5939,13 +5887,12 @@
     const cols = (c.footer && c.footer.columns) || [];
     return (
       <>
-        <div className="card">
-          <h3 style={{marginTop:0}}>상단 메뉴 이름 (Top navigation)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{marginTop:0}}>상단 메뉴 이름 (Top navigation)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>공개 사이트 상단 네비게이션 메뉴 이름입니다(영어).</p>
           <div className="grid-2 tight">
             {navOrder.map(k => <Text key={k} label={k} value={nav[k] || ''} onChange={v => set(['nav','en',k], v)} lang="en" />)}
           </div>
-        </div>
+        </details>
         {cols.map((col, ci) => (
           <details key={ci} className="card admin-fold">
             <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>푸터 메뉴: {col.title_en || ('Column ' + (ci+1))}</h3></summary>
@@ -5998,8 +5945,7 @@
     };
     return (
       <>
-        <div className="card">
-          <h3>프로그램 상세 본문 (공통 카피)</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>프로그램 상세 본문 (공통 카피)</h3></summary>
           <Text label="Back link" value={en.back_link || ''} onChange={v => set(['program_detail','en','back_link'], v)} lang="en" />
           <Text label="Overview heading" value={en.overview_h || ''} onChange={v => set(['program_detail','en','overview_h'], v)} lang="en" />
           <Area label="Overview body" value={en.overview_body || ''} onChange={v => set(['program_detail','en','overview_body'], v)} lang="en" rows={4} />
@@ -6016,7 +5962,7 @@
             <Text label="Status label" value={en.label_status || ''} onChange={v => set(['program_detail','en','label_status'], v)} lang="en" />
             <Text label="Apply CTA" value={en.apply_cta || ''} onChange={v => set(['program_detail','en','apply_cta'], v)} lang="en" />
           </div>
-        </div>
+        </details>
       </>
     );
   }
@@ -6065,8 +6011,7 @@
 
     return (
       <>
-        <div className="card">
-          <h3>Footer columns</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Footer columns</h3></summary>
           <p className="desc">
             Each column shows a heading and a list of items rendered in the public-site footer.
             Items can navigate within the SPA (<code>view</code>), open an external URL, or trigger
@@ -6078,7 +6023,7 @@
           <div style={{marginTop:14}}>
             <button type="button" className="btn-add" onClick={addColumn}>+ Add column</button>
           </div>
-        </div>
+        </details>
 
         {columns.length === 0 && (
           <div className="card" style={{textAlign:'center',color:'var(--fg-muted)',padding:32}}>
@@ -6298,10 +6243,9 @@
         <main style={{minWidth:0}}>
           {err && <div role="alert" style={{padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:10,marginBottom:14,fontSize:13}}>{err}</div>}
           {!active ? (
-            <div className="card" style={{textAlign:'center',padding:60,color:'var(--fg-muted)'}}>
-              <h3 style={{margin:'0 0 8px'}}>{title}</h3>
+            <details className="card admin-fold" style={{textAlign:'center',padding:60,color:'var(--fg-muted)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>{title}</h3></summary>
               <p style={{margin:0}}>Click <strong>+ New</strong> to create your first page.</p>
-            </div>
+            </details>
           ) : draft ? (
             <div className="card">
               <div className="field">
@@ -7334,8 +7278,7 @@
           </div>
         </div>
         {grouped.map((g, gi) => (
-          <div className="card" key={gi}>
-            <h3 style={{margin:'0 0 12px'}}>{g.title}</h3>
+          <details className="card admin-fold" key={gi}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 12px'}}>{g.title}</h3></summary>
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr>
@@ -7376,7 +7319,7 @@
                 ))}
               </tbody>
             </table>
-          </div>
+          </details>
         ))}
       </>
     );
@@ -7385,15 +7328,14 @@
   function IconsTab({ c, set }) {
     const keys = Object.keys(c.icons);
     return (
-      <div className="card">
-        <h3>Icon slots</h3>
+      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Icon slots</h3></summary>
         <p className="desc">Each slot is a named role used somewhere on the site. Pick any Lucide icon.</p>
         <div className="grid-3">
           {keys.map(k => (
             <IconField key={k} label={k} value={c.icons[k]} onChange={v => set(['icons',k], v)} />
           ))}
         </div>
-      </div>
+      </details>
     );
   }
 
@@ -7878,8 +7820,7 @@
 
     return (
       <div>
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3></summary>
           <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
             {isKo
               ? '여기서 등록하는 2단계 인증은 지금 로그인한 본인 계정에만 적용됩니다. 회원 정보·학생 지원 탭 접근 시 본인 Authenticator의 6자리 코드를 추가로 요구하며, 한 번 인증하면 15분간 유지됩니다.'
@@ -7900,12 +7841,11 @@
           )}
           {msg && <div style={{ color: 'var(--state-success)', fontSize: 13, marginTop: 12 }}>{msg}</div>}
           {err && <div style={{ color: 'var(--state-danger)', fontSize: 13, marginTop: 12 }}>{err}</div>}
-        </div>
+        </details>
 
         {/* Enroll flow */}
         {!enrolled && !setup && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>{isKo ? '등록' : 'Enroll'}</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '등록' : 'Enroll'}</h3></summary>
             <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
               {isKo ? '아래 버튼을 누르면 비밀키와 QR이 생성됩니다. Google Authenticator로 스캔한 뒤 첫 코드를 입력해 등록을 완료하세요.'
                     : 'Generate a secret + QR, scan it with Google Authenticator, then enter the first code to finish.'}
@@ -7913,12 +7853,11 @@
             <button type="button" className="btn btn-primary" onClick={startSetup} disabled={busy}>
               {busy ? '…' : (isKo ? '설정 시작' : 'Start setup')}
             </button>
-          </div>
+          </details>
         )}
 
         {setup && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>{isKo ? 'Authenticator에 추가' : 'Add to Authenticator'}</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? 'Authenticator에 추가' : 'Add to Authenticator'}</h3></summary>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
               <div style={{ textAlign: 'center' }}>
                 {dataUrl
@@ -7947,13 +7886,12 @@
                 </div>
               </div>
             </div>
-          </div>
+          </details>
         )}
 
         {/* Manage when enrolled */}
         {enrolled && (
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>{isKo ? '관리' : 'Manage'}</h3>
+          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '관리' : 'Manage'}</h3></summary>
             <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
               {isKo ? '기기를 바꾸려면 재설정하거나, 현재 코드로 2단계 인증을 해제할 수 있습니다.'
                     : 'Re-enroll on a new device, or disable 2FA with your current code.'}
@@ -7971,7 +7909,7 @@
                 {isKo ? '해제' : 'Disable'}
               </button>
             </div>
-          </div>
+          </details>
         )}
       </div>
     );

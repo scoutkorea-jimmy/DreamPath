@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.15`
+- **버전**: `v01.088.16`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.16 — **홈 배너 모달 충돌 검토·정리**: (1) 배너 팝업이 쿠키 동의 배너와 첫 방문 동시 노출되던 것 → 분석동의 doc 존재+미결정 시 `cookiePending()`로 배너 보류(동의 우선, 광고는 다음 방문). (2) `.bnr-overlay` z 9000→9200 — 챗봇/맨위로 플로터(9000)는 광고 뒤로, auth/team 모달(9500)·버전 토스트(100000)는 위 유지. (3) 배너 Escape 닫기. 나머지(랜덤 reshuffle 멱등·lucide 멱등·오버레이가 nav 클릭 차단)는 충돌 없음 확인.
   - +01.088.15 — **홈페이지 배너 광고 팝업(최대 3개, 이미지 전용)**: 신규 `Banners.jsx`(`window.BannerAdModal`) — 홈 첫 진입(세션 1회, 전 방문자) 시 모달로 최대 3개 이미지 배너 노출(2개↑ 슬라이드+점), 이미지 클릭→link 새 탭. 방문자 컨트롤 "Close"(sessionStorage)·"Don't show again today"(localStorage 날짜). content-store `banners{enabled,items[]}`. 관리자 Homepage 그룹 "배너 광고(팝업)" 탭(`BannersTab`): 이미지 전용 업로드(png/jpg/webp/svg 4MB→R2)+링크+alt+순서/활성/사용 토글. App.jsx 렌더(view=home), site.css `.bnr-*`. 노출 시점은 "세션 1회"로 구현(로그인 게이트 아님 — 필요 시 조정 가능).
   - +01.088.14 — **홈 "프로그램 더보기" 카드 전체폭 1단 배너화**: `.prog-more`를 `grid-column:1/-1`로 4개 카드 아래 전체폭 배너로(좌측 큰 타이틀 + 우측 pill CTA, accent-purple-fill, 모바일 CTA 전체폭). 2열 그리드에서 홀로 좁게 남던 카드 → 쫙 채운 큰 밴드.
   - +01.088.13 — **sitemap.xml / robots.txt 정비**: 누락된 /scholarships 추가, news 글 lastmod를 오늘 고정→실제 작성일(normDate YYYY-MM-DD), robots에 /verify·/reset-password·/activate Disallow. 비-인덱스 경로 제외 주석화.

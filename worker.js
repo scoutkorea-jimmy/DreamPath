@@ -1609,17 +1609,28 @@ async function sitemapXml(env, url) {
   const origin = url.origin;
   const today = new Date().toISOString().slice(0, 10);
 
-  // Static SPA paths (high-priority public pages)
+  // Normalise a stored date ("2026.06.07" / "2026-6-7" / ISO) → W3C YYYY-MM-DD.
+  // Falls back to today's build date when the value is missing/unparseable.
+  const normDate = (s) => {
+    const m = String(s || '').match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+    return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : today;
+  };
+
+  // Static SPA paths (high-priority public, indexable pages). Auth/utility
+  // routes (/member, /receipt, /verify, /reset-password, /activate) and error
+  // pages are intentionally excluded — they carry no SEO value (and some carry
+  // one-time tokens). They're also blocked in robots.txt.
   const STATIC = [
-    { path: '/',          priority: 1.0, change: 'weekly' },
-    { path: '/about',     priority: 0.8, change: 'monthly' },
-    { path: '/programs',  priority: 0.9, change: 'weekly' },
-    { path: '/news',      priority: 0.8, change: 'weekly' },
-    { path: '/stories',   priority: 0.7, change: 'monthly' },
-    { path: '/partners',  priority: 0.6, change: 'monthly' },
-    { path: '/contact',   priority: 0.6, change: 'monthly' },
-    { path: '/team',      priority: 0.5, change: 'monthly' },
-    { path: '/apply',     priority: 0.9, change: 'monthly' },
+    { path: '/',             priority: 1.0, change: 'weekly' },
+    { path: '/about',        priority: 0.8, change: 'monthly' },
+    { path: '/programs',     priority: 0.9, change: 'weekly' },
+    { path: '/scholarships', priority: 0.8, change: 'monthly' },
+    { path: '/news',         priority: 0.8, change: 'weekly' },
+    { path: '/stories',      priority: 0.7, change: 'monthly' },
+    { path: '/partners',     priority: 0.6, change: 'monthly' },
+    { path: '/contact',      priority: 0.6, change: 'monthly' },
+    { path: '/team',         priority: 0.5, change: 'monthly' },
+    { path: '/apply',        priority: 0.9, change: 'monthly' },
   ];
 
   // Dynamic: each program detail page from KV content
@@ -1638,7 +1649,7 @@ async function sitemapXml(env, url) {
     const { results } = await env.DB.prepare('SELECT id, date FROM news_posts ORDER BY date DESC LIMIT 200').all();
     newsPaths = (results || [])
       .filter(n => n && n.id)
-      .map(n => ({ path: '/news/' + encodeURIComponent(n.id), priority: 0.6, change: 'monthly' }));
+      .map(n => ({ path: '/news/' + encodeURIComponent(n.id), priority: 0.6, change: 'monthly', lastmod: normDate(n.date) }));
   } catch {}
 
   // Dynamic: each story → /stories/:id (stories live in c.stories[])
@@ -1663,7 +1674,7 @@ async function sitemapXml(env, url) {
     all.map(u =>
       '  <url>\n' +
       '    <loc>' + origin + u.path + '</loc>\n' +
-      '    <lastmod>' + today + '</lastmod>\n' +
+      '    <lastmod>' + (u.lastmod || today) + '</lastmod>\n' +
       '    <changefreq>' + u.change + '</changefreq>\n' +
       '    <priority>' + u.priority.toFixed(1) + '</priority>\n' +
       '  </url>'
@@ -1687,6 +1698,9 @@ function robotsTxt(url) {
     'Disallow: /api/\n' +
     'Disallow: /receipt\n' +
     'Disallow: /member\n' +
+    'Disallow: /verify\n' +
+    'Disallow: /reset-password\n' +
+    'Disallow: /activate\n' +
     '\n' +
     'Sitemap: ' + origin + '/sitemap.xml\n';
   return new Response(body, {

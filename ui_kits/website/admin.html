@@ -993,7 +993,7 @@
         notice:'Top notice banner', og_images:'OG / SEO images', two_factor:'2FA (Authenticator)', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
         mailbox:'Mailbox',
         hero:'Hero', how:'How it works', cta:'CTA banner',
-        about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
+        about:'About page', partner_cta:'Partner CTA', team:'Project team', apply:'Apply', apply_done:'Apply complete', mypage:'My page', scholarships:'Scholarships',
         errors_copy:'Error pages copy',
         programs:'Programs', program_detail:'Program detail',
         partners:'Partners', stories:'Stories', news:'News', faq:'FAQ',
@@ -1027,7 +1027,7 @@
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', two_factor:'2단계 인증', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
         mailbox:'메일함',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
-        about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
+        about:'About 페이지', partner_cta:'파트너 CTA', team:'프로젝트 팀', apply:'지원', apply_done:'지원 완료', mypage:'마이페이지', scholarships:'장학',
         errors_copy:'에러 페이지 텍스트',
         programs:'프로그램', program_detail:'프로그램 상세',
         partners:'파트너', stories:'스토리', news:'소식', faq:'FAQ',
@@ -1075,7 +1075,10 @@
     cta:            '/',
     // Pages
     about:          '/about',
-    pageheros:      '/programs',     // page heros are visible across multiple page headers; /programs is a representative one
+    apply:          '/apply',
+    apply_done:     '/apply',
+    mypage:         '/member',
+    scholarships:   '/scholarships',
     partner_cta:    '/partners',
     team:           '/team',
     // Programs
@@ -1146,7 +1149,10 @@
 
       // 페이지·콘텐츠 — every public-facing content tab in one place.
       { id: 'about',         group: 'Content' },
-      { id: 'pageheros',     group: 'Content' },
+      { id: 'apply',         group: 'Content' },
+      { id: 'apply_done',    group: 'Content' },
+      { id: 'mypage',        group: 'Content' },
+      { id: 'scholarships',  group: 'Content' },
       { id: 'team',          group: 'Content' },
       { id: 'programs',      group: 'Content' },
       { id: 'program_detail',group: 'Content' },
@@ -1202,7 +1208,6 @@
         <div className="card">
           <h3>Brand</h3>
           <div className="grid-2">
-            <Text label="Brand name (KO)" value={b.name_kr} onChange={v => set(['brand','name_kr'], v)} lang="ko" />
             <Text label="Brand name (EN)" value={b.name_en} onChange={v => set(['brand','name_en'], v)} lang="en" />
           </div>
           <ImageUploadField
@@ -1214,7 +1219,6 @@
             preview="square"
             hint="SVG 권장 (해상도 무관). PNG/JPG/WebP도 가능. URL 또는 /assets/… 경로 직접 입력도 지원."
           />
-          <Area label="Footer tagline (KO)" value={b.footer_tagline_ko} onChange={v => set(['brand','footer_tagline_ko'], v)} lang="ko" />
           <Area label="Footer tagline (EN)" value={b.footer_tagline_en} onChange={v => set(['brand','footer_tagline_en'], v)} lang="en" />
           <div className="grid-2">
             <Text label="Contact email" value={b.email} onChange={v => set(['brand','email'], v)} />
@@ -1227,7 +1231,6 @@
           <div className="grid-2">
             {['programs','about','partners','stories','news','apply'].map(k => (
               <React.Fragment key={k}>
-                <Text label={`${k} (KO)`} value={n.ko[k]} onChange={v => set(['nav','ko',k], v)} lang="ko" />
                 <Text label={`${k} (EN)`} value={n.en[k]} onChange={v => set(['nav','en',k], v)} lang="en" />
               </React.Fragment>
             ))}
@@ -1656,11 +1659,8 @@
             <Text label="ID" value={program.id} onChange={v => set(['programs',index,'id'], v)} hint="URL-friendly. Used in /program/:id" />
             <Text label="Kicker" value={program.kicker} onChange={v => set(['programs',index,'kicker'], v)} />
             <Text label="Category (slug)" value={program.category || ''} onChange={v => set(['programs',index,'category'], v)} hint="Used in /programs?cat=...; e.g. micro-degree" />
-            <Text label="Category label (KO)" value={program.category_ko || ''} onChange={v => set(['programs',index,'category_ko'], v)} lang="ko" hint="Display name in KO. Falls back to kicker first segment." />
             <Text label="Category label (EN)" value={program.category_en || ''} onChange={v => set(['programs',index,'category_en'], v)} lang="en" hint="Display name in EN. Falls back to kicker first segment." />
-            <Text label="Title (KO)" value={program.title_ko} onChange={v => set(['programs',index,'title_ko'], v)} lang="ko" />
             <Text label="Title (EN)" value={program.title_en} onChange={v => set(['programs',index,'title_en'], v)} lang="en" />
-            <Area label="Short subtitle (KO)" value={program.sub_ko} onChange={v => set(['programs',index,'sub_ko'], v)} lang="ko" rows={2} />
             <Area label="Short subtitle (EN)" value={program.sub_en} onChange={v => set(['programs',index,'sub_en'], v)} lang="en" rows={2} />
             <Text label="Meta chips (comma-separated)" value={(program.meta || []).join(', ')} onChange={v => set(['programs',index,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN / KO" />
             <Text label="Level" value={program.level} onChange={v => set(['programs',index,'level'], v)} hint="Beginner · Intermediate · All" />
@@ -1696,11 +1696,7 @@
                 <Text label="Name" value={details?.instructor_name || ''} onChange={v => updDetail('instructor_name', v)} />
                 <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies, CUFS" />
                 <div className="field span-2">
-                  <label>Bio (KO)</label>
-                  <window.RichEditor value={details?.instructor_bio_ko || ''} onChange={v => updDetail('instructor_bio_ko', v)} lang="ko" minHeight={140} />
-                </div>
-                <div className="field span-2">
-                  <label>Bio (EN)</label>
+                  <label>Bio</label>
                   <window.RichEditor value={details?.instructor_bio_en || ''} onChange={v => updDetail('instructor_bio_en', v)} lang="en" minHeight={140} />
                 </div>
               </div>
@@ -1731,13 +1727,10 @@
                   <div className="grid-2 tight">
                     <Text label="Semester label" value={course.semester || ''} onChange={v => updCourse(ci, 'semester', v)} hint="Semester 1 · Semester 2 · Semester 1 + 2" />
                     <Text label="Lecture preview URL" value={course.preview_url || ''} onChange={v => updCourse(ci, 'preview_url', v)} hint="https://youtu.be/..." />
-                    <Text label="Course title (KO)" value={course.title_ko || ''} onChange={v => updCourse(ci, 'title_ko', v)} lang="ko" />
                     <Text label="Course title (EN)" value={course.title_en || ''} onChange={v => updCourse(ci, 'title_en', v)} lang="en" />
-                    <Area label="Course description (KO)" value={course.desc_ko || ''} onChange={v => updCourse(ci, 'desc_ko', v)} lang="ko" rows={3} />
                     <Area label="Course description (EN)" value={course.desc_en || ''} onChange={v => updCourse(ci, 'desc_en', v)} lang="en" rows={3} />
                     <Text label="Professor name" value={course.faculty_name || ''} onChange={v => updCourse(ci, 'faculty_name', v)} hint="Shown as the clickable professor button" />
                     <Text label="Professor title" value={course.faculty_title || ''} onChange={v => updCourse(ci, 'faculty_title', v)} hint="Department · specialty · short one-line intro" />
-                    <Area label="Professor bio (KO)" value={course.faculty_bio_ko || ''} onChange={v => updCourse(ci, 'faculty_bio_ko', v)} lang="ko" rows={4} />
                     <Area label="Professor bio (EN)" value={course.faculty_bio_en || ''} onChange={v => updCourse(ci, 'faculty_bio_en', v)} lang="en" rows={4} />
                     <ImageUploadField
                       label="Professor photo"
@@ -1767,16 +1760,7 @@
                 <div key={s.k} style={{marginBottom:18}}>
                   <h4 style={{margin:'0 0 4px',fontSize:14}}>{s.label}</h4>
                   <p className="desc" style={{margin:'0 0 10px'}}>{s.hint}</p>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>한국어</label>
-                      <window.RichEditor value={details?.[s.k + '_ko'] || ''} onChange={v => updDetail(s.k + '_ko', v)} lang="ko" minHeight={180} />
-                    </div>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>English</label>
-                      <window.RichEditor value={details?.[s.k + '_en'] || ''} onChange={v => updDetail(s.k + '_en', v)} lang="en" minHeight={180} />
-                    </div>
-                  </div>
+                  <window.RichEditor value={details?.[s.k + '_en'] || ''} onChange={v => updDetail(s.k + '_en', v)} lang="en" minHeight={200} />
                 </div>
               ))}
             </div>
@@ -2043,9 +2027,7 @@
               </div>
             </div>
             <div className="grid-2 tight">
-              <Area label="Prompt (KO)" value={q.prompt_ko || ''} onChange={v => set(['essay_questions',i,'prompt_ko'], v)} lang="ko" rows={3} />
               <Area label="Prompt (EN)" value={q.prompt_en || ''} onChange={v => set(['essay_questions',i,'prompt_en'], v)} lang="en" rows={3} />
-              <Text label="Placeholder (KO)" value={q.placeholder_ko || ''} onChange={v => set(['essay_questions',i,'placeholder_ko'], v)} lang="ko" />
               <Text label="Placeholder (EN)" value={q.placeholder_en || ''} onChange={v => set(['essay_questions',i,'placeholder_en'], v)} lang="en" />
             </div>
             <div className="grid-2 tight" style={{marginTop:8}}>
@@ -5139,7 +5121,6 @@
               <option value="warning">warning (amber — heads-up)</option>
             </select>
           </div>
-          <Text label="Message (KO)" value={n.ko || ''} onChange={v => set(['notice','ko'], v)} lang="ko" />
           <Text label="Message (EN)" value={n.en || ''} onChange={v => set(['notice','en'], v)} lang="en" />
         </div>
       </div>
@@ -5189,9 +5170,7 @@
             preview="banner"
           />
           <div className="grid-2 tight">
-            <Text label="Title (KO)" value={og.default?.title_ko || ''} onChange={v => set(['og','default','title_ko'], v)} lang="ko" />
             <Text label="Title (EN)" value={og.default?.title_en || ''} onChange={v => set(['og','default','title_en'], v)} lang="en" />
-            <Area label="Description (KO)" value={og.default?.desc_ko || ''} onChange={v => set(['og','default','desc_ko'], v)} lang="ko" rows={2} />
             <Area label="Description (EN)" value={og.default?.desc_en || ''} onChange={v => set(['og','default','desc_en'], v)} lang="en" rows={2} />
           </div>
         </div>
@@ -5211,9 +5190,7 @@
                 hint="비워두면 기본 OG 이미지를 사용합니다."
               />
               <div className="grid-2 tight">
-                <Text label="Title (KO)" value={pg.title_ko || ''} onChange={v => set(['og','pages',p.id,'title_ko'], v)} lang="ko" hint="Empty = page <title>" />
                 <Text label="Title (EN)" value={pg.title_en || ''} onChange={v => set(['og','pages',p.id,'title_en'], v)} lang="en" hint="Empty = page <title>" />
-                <Area label="Description (KO)" value={pg.desc_ko || ''} onChange={v => set(['og','pages',p.id,'desc_ko'], v)} lang="ko" rows={2} />
                 <Area label="Description (EN)" value={pg.desc_en || ''} onChange={v => set(['og','pages',p.id,'desc_en'], v)} lang="en" rows={2} />
               </div>
             </div>
@@ -5739,19 +5716,13 @@
         </div>
 
         <div className="card">
-          <h3>상단 메시지 밴드 / Top message band</h3>
-          <p className="desc" style={{marginTop:-4}}>
-            /team 상단의 "Meet our CEO" 메시지 밴드 문구입니다. 공개 사이트는 한/영 토글이
-            있으므로 두 언어 모두 입력하세요. 비우면 기본 문구가 표시됩니다.
-          </p>
+          <h3>상단 메시지 밴드 (Meet our CEO)</h3>
+          <p className="desc" style={{marginTop:-4}}>/team 상단 메시지 밴드 문구. 비우면 기본 문구가 표시됩니다.</p>
           <div className="grid-2 tight">
-            <Text label="작은 라벨 (KO)" value={(pt.coord_cta && pt.coord_cta.kicker_ko) || ''} onChange={v => set(['project_team','coord_cta','kicker_ko'], v)} lang="ko" />
-            <Text label="Kicker (EN)" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
-            <Text label="제목 (KO)" value={(pt.coord_cta && pt.coord_cta.title_ko) || ''} onChange={v => set(['project_team','coord_cta','title_ko'], v)} lang="ko" />
-            <Text label="Title (EN)" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
+            <Text label="Kicker" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
+            <Text label="Title" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
           </div>
-          <Area label="본문 (KO)" value={(pt.coord_cta && pt.coord_cta.sub_ko) || ''} onChange={v => set(['project_team','coord_cta','sub_ko'], v)} lang="ko" rows={3} />
-          <Area label="Body (EN)" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
+          <Area label="Subtitle" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
         </div>
 
         <div className="card">
@@ -5903,11 +5874,8 @@
         <div className="card">
           <h3>Hero (top of About page)</h3>
           <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={ex.hero?.kicker_ko || ''} onChange={v => set(['about','exec','hero','kicker_ko'], v)} lang="ko" />
             <Text label="Kicker (EN)" value={ex.hero?.kicker_en || ''} onChange={v => set(['about','exec','hero','kicker_en'], v)} lang="en" />
-            <Area label="Title (KO)" value={ex.hero?.title_ko || ''} onChange={v => set(['about','exec','hero','title_ko'], v)} lang="ko" rows={3} hint="Use \\n for line break" />
             <Area label="Title (EN)" value={ex.hero?.title_en || ''} onChange={v => set(['about','exec','hero','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
-            <Area label="Body (KO)" value={ex.hero?.body_ko || ''} onChange={v => set(['about','exec','hero','body_ko'], v)} lang="ko" rows={4} />
             <Area label="Body (EN)" value={ex.hero?.body_en || ''} onChange={v => set(['about','exec','hero','body_en'], v)} lang="en" rows={4} />
           </div>
         </div>
@@ -5935,9 +5903,7 @@
                 </div>
               </div>
               <div className="grid-2 tight">
-                <Text label="Kicker (KO)" value={b.kicker_ko || ''} onChange={v => set(['about','exec','blocks',bi,'kicker_ko'], v)} lang="ko" />
                 <Text label="Kicker (EN)" value={b.kicker_en || ''} onChange={v => set(['about','exec','blocks',bi,'kicker_en'], v)} lang="en" />
-                <Text label="Heading (KO)" value={b.heading_ko || ''} onChange={v => set(['about','exec','blocks',bi,'heading_ko'], v)} lang="ko" />
                 <Text label="Heading (EN)" value={b.heading_en || ''} onChange={v => set(['about','exec','blocks',bi,'heading_en'], v)} lang="en" />
               </div>
               <div className="app-sec" style={{marginTop:18}}>Bullet list ({maxLen})</div>
@@ -5948,7 +5914,6 @@
                     <button type="button" className="icon-btn danger" onClick={() => removeRow(bi, ri)}>Remove</button>
                   </div>
                   <div className="grid-2 tight">
-                    <Text label="KO" value={itemsKo[ri] || ''} onChange={v => setRow(bi, ri, 'ko', v)} lang="ko" />
                     <Text label="EN" value={itemsEn[ri] || ''} onChange={v => setRow(bi, ri, 'en', v)} lang="en" />
                   </div>
                 </div>
@@ -5963,11 +5928,8 @@
           <h3>Closing — Strategic Value</h3>
           <p className="desc">The grey panel at the bottom of /about. One kicker + one big title + one body paragraph.</p>
           <div className="grid-2 tight">
-            <Text label="Kicker (KO)" value={ex.closing?.kicker_ko || ''} onChange={v => set(['about','exec','closing','kicker_ko'], v)} lang="ko" />
             <Text label="Kicker (EN)" value={ex.closing?.kicker_en || ''} onChange={v => set(['about','exec','closing','kicker_en'], v)} lang="en" />
-            <Area label="Title (KO)" value={ex.closing?.title_ko || ''} onChange={v => set(['about','exec','closing','title_ko'], v)} lang="ko" rows={3} hint="Use \\n for line break" />
             <Area label="Title (EN)" value={ex.closing?.title_en || ''} onChange={v => set(['about','exec','closing','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
-            <Area label="Body (KO)" value={ex.closing?.body_ko || ''} onChange={v => set(['about','exec','closing','body_ko'], v)} lang="ko" rows={3} />
             <Area label="Body (EN)" value={ex.closing?.body_en || ''} onChange={v => set(['about','exec','closing','body_en'], v)} lang="en" rows={3} />
           </div>
         </div>
@@ -5976,6 +5938,10 @@
   }
 
   // ---- Page heros (Partners / Stories / News / Contact / Programs) -------
+  function ApplyHeroTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply" label="지원 폼 히어로 (헤더)" />; }
+  function ApplyDoneTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply_done" label="지원 완료 히어로 (헤더)" />; }
+  function MyPageHeroTab({ c, set }) { return (<><PageHeroText c={c} set={set} pageKey="member" label="회원 로그인 안내 히어로 (헤더)" /><PageHeroText c={c} set={set} pageKey="mypage" label="마이페이지 히어로 (헤더)" /></>); }
+  function ScholarshipsHeroTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="scholarships" label="장학 페이지 히어로 (헤더)" />; }
   function PageHerosTab({ c, set }) {
     // Pages WITHOUT their own content tab. (Partners/Stories/News/Contact-FAQ/
     // Programs heros now live in their own tabs.) EN only — public is English.
@@ -5995,27 +5961,6 @@
           <PageHeroText key={key} c={c} set={set} pageKey={key} label={label + ' 히어로'} />
         ))}
       </>
-    );
-  }
-
-  // ---- Partner CTA (bottom of Contact page) ------------------------------
-  function PartnerCtaTab({ c, set }) {
-    const p = c.partner_cta || {};
-    return (
-      <div className="card">
-        <h3>Partner CTA box (bottom of Contact page)</h3>
-        <div className="grid-2 tight">
-          <Text label="Kicker (KO)" value={p.ko?.kicker || ''} onChange={v => set(['partner_cta','ko','kicker'], v)} lang="ko" />
-          <Text label="Kicker (EN)" value={p.en?.kicker || ''} onChange={v => set(['partner_cta','en','kicker'], v)} lang="en" />
-          <Text label="Title (KO)" value={p.ko?.title || ''} onChange={v => set(['partner_cta','ko','title'], v)} lang="ko" />
-          <Text label="Title (EN)" value={p.en?.title || ''} onChange={v => set(['partner_cta','en','title'], v)} lang="en" />
-          <Area label="Subtitle (KO)" value={p.ko?.sub || ''} onChange={v => set(['partner_cta','ko','sub'], v)} lang="ko" />
-          <Area label="Subtitle (EN)" value={p.en?.sub || ''} onChange={v => set(['partner_cta','en','sub'], v)} lang="en" />
-          <Text label="Button label (KO)" value={p.ko?.cta || ''} onChange={v => set(['partner_cta','ko','cta'], v)} lang="ko" />
-          <Text label="Button label (EN)" value={p.en?.cta || ''} onChange={v => set(['partner_cta','en','cta'], v)} lang="en" />
-        </div>
-        <p className="desc">Button links to the partners email set in <em>Brand & Nav</em>.</p>
-      </div>
     );
   }
 
@@ -6106,7 +6051,6 @@
             a <code>mailto:</code>. Pick a Lucide icon to display next to the label.
           </p>
           <div className="grid-2 tight">
-            <Text label="© line (KO)" value={f.ko?.rights || ''} onChange={v => set(['footer','ko','rights'], v)} lang="ko" />
             <Text label="© line (EN)" value={f.en?.rights || ''} onChange={v => set(['footer','en','rights'], v)} lang="en" />
           </div>
           <div style={{marginTop:14}}>
@@ -6132,7 +6076,6 @@
             </div>
             <div className="grid-3 tight">
               <Text label="Slug (id)" value={col.id || ''} onChange={v => set(['footer','columns',ci,'id'], v)} hint="machine-readable, no spaces" />
-              <Text label="Title (KO)" value={col.title_ko || ''} onChange={v => set(['footer','columns',ci,'title_ko'], v)} lang="ko" />
               <Text label="Title (EN)" value={col.title_en || ''} onChange={v => set(['footer','columns',ci,'title_en'], v)} lang="en" />
             </div>
 
@@ -6148,7 +6091,6 @@
                   </div>
                 </div>
                 <div className="grid-2 tight">
-                  <Text label="Label (KO)" value={it.label_ko || ''} onChange={v => set(['footer','columns',ci,'items',ii,'label_ko'], v)} lang="ko" />
                   <Text label="Label (EN)" value={it.label_en || ''} onChange={v => set(['footer','columns',ci,'items',ii,'label_en'], v)} lang="en" />
                 </div>
                 <div className="grid-3 tight" style={{marginTop:10}}>
@@ -8221,7 +8163,8 @@
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
-      about: AboutTab, pageheros: PageHerosTab, team: TeamAdminTab,
+      about: AboutTab, team: TeamAdminTab,
+      apply: ApplyHeroTab, apply_done: ApplyDoneTab, mypage: MyPageHeroTab, scholarships: ScholarshipsHeroTab,
       errors_copy: ErrorsCopyTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,
       partners: PartnersTab, stories: StoriesTab, news: NewsTab, faq: FaqTab,

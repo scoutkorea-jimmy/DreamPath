@@ -5236,19 +5236,37 @@
       </div>
     );
 
-    // Inline SVG sparkline from a series of {day, sessions}
+    // Inline SVG sparkline from a series of {day, sessions}. Smoothed with a
+    // Catmull-Rom→bezier curve + soft area fill so the trend reads as a calm
+    // line rather than a jittery zig-zag.
     function Spark({ series, color = '#6B2DBE', height = 36 }) {
       if (!series.length) return <div style={{height,display:'grid',placeItems:'center',color:'var(--fg-muted)',fontSize:11}}>no data</div>;
       const w = 200;
       const max = Math.max(1, ...series.map(d => d.sessions || 0));
       const step = w / Math.max(1, series.length - 1);
-      const points = series.map((d, i) => `${(i*step).toFixed(1)},${(height - (d.sessions/max)*(height-4) - 2).toFixed(1)}`).join(' ');
+      const pts = series.map((d, i) => ({ x: i * step, y: height - (d.sessions / max) * (height - 8) - 4 }));
+      // Smooth path via Catmull-Rom converted to cubic beziers.
+      let line = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+      if (pts.length === 1) { line += ` L${w},${pts[0].y.toFixed(1)}`; }
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+        line += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+      }
+      const gid = 'spk-' + color.replace(/[^a-z0-9]/gi, '');
+      const last = pts[pts.length - 1];
       return (
-        <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{width:'100%',height,display:'block'}}>
-          <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-          {series.map((d, i) => (
-            <circle key={i} cx={(i*step).toFixed(1)} cy={(height - (d.sessions/max)*(height-4) - 2).toFixed(1)} r="1.6" fill={color} />
-          ))}
+        <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{width:'100%',height,display:'block',overflow:'visible'}}>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={`${line} L${w.toFixed(1)},${height} L0,${height} Z`} fill={`url(#${gid})`} stroke="none" />
+          <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <circle cx={last.x.toFixed(1)} cy={last.y.toFixed(1)} r="2.4" fill={color} vectorEffect="non-scaling-stroke" />
         </svg>
       );
     }

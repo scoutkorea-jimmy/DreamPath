@@ -232,6 +232,7 @@ function MemberMessages({ isKo, go, onChange }) {
     } catch {}
   }
   function fmt(ts) { try { return new Date(ts).toLocaleString(isKo ? 'ko-KR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return ts; } }
+  function initials(nm) { const s = (nm || '').trim(); if (!s) return '?'; const parts = s.split(/\s+/); return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase(); }
 
   if (loading) return <div className="member-msg-empty">{isKo ? '불러오는 중…' : 'Loading…'}</div>;
 
@@ -243,6 +244,7 @@ function MemberMessages({ isKo, go, onChange }) {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setOpenTid(null); setDetail(null); }}>
             ← {isKo ? '목록' : 'Back'}
           </button>
+          <span className="member-msg-avatar" aria-hidden="true">{initials(detail.counterpart)}</span>
           <div className="member-msg-head-meta">
             <strong>{detail.counterpart}</strong>
             {detail.subject && <span className="member-msg-subject">{detail.subject}</span>}
@@ -281,13 +283,16 @@ function MemberMessages({ isKo, go, onChange }) {
           {threads.map(t => (
             <li key={t.thread_id}>
               <button type="button" className={'member-msg-item' + (t.unread ? ' unread' : '')} onClick={() => open(t.thread_id)}>
-                <div className="member-msg-item-top">
-                  <strong>{t.counterpart}</strong>
-                  {t.unread > 0 && <span className="member-msg-dot">{t.unread}</span>}
-                  <span className="member-msg-item-time">{fmt(t.last_at)}</span>
-                </div>
-                {t.subject && <div className="member-msg-item-subject">{t.subject}</div>}
-                <div className="member-msg-item-preview">{t.last_from_me ? (isKo ? '나: ' : 'You: ') : ''}{t.preview}</div>
+                <span className="member-msg-avatar" aria-hidden="true">{initials(t.counterpart)}</span>
+                <span className="member-msg-item-main">
+                  <span className="member-msg-item-top">
+                    <strong>{t.counterpart}</strong>
+                    <span className="member-msg-item-time">{fmt(t.last_at)}</span>
+                  </span>
+                  {t.subject && <span className="member-msg-item-subject">{t.subject}</span>}
+                  <span className="member-msg-item-preview">{t.last_from_me ? (isKo ? '나: ' : 'You: ') : ''}{t.preview}</span>
+                </span>
+                {t.unread > 0 && <span className="member-msg-dot">{t.unread}</span>}
               </button>
             </li>
           ))}

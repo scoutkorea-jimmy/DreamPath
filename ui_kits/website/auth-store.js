@@ -35,6 +35,12 @@
         const data = await res.json();
         _user = data.user || null;
         _ready = true;
+        // Cookie auth works → the dp_session cookie is authoritative. Drop any
+        // stale legacy localStorage token so authFetch never attaches it as a
+        // Bearer header (which would OVERRIDE the valid cookie server-side and
+        // cause a spurious 401 on writes). Fixes "session expired" on message
+        // send when both a valid cookie and an old dp_user_token are present.
+        clearLegacyToken();
         emit();
         return _user;
       }

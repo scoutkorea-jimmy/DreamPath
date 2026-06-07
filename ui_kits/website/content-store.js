@@ -7,6 +7,20 @@
   const API_URL = '/api/content';
   const TOKEN_KEY = 'dp_admin_token';
 
+  // Deep clone helper. `structuredClone` is only available in Chrome ≥98 /
+  // Firefox ≥94 / Safari ≥15.4 — older browsers (Chrome 79/92 seen in the
+  // error log) threw "structuredClone is not defined" at app init, which
+  // crashed the entire SPA into a white screen. DEFAULT_CONTENT and saved
+  // content are pure JSON (no functions/Dates/Maps), so JSON round-trip is a
+  // safe fallback. Exposed on window so admin.html shares one implementation.
+  function dpClone(o) {
+    if (typeof structuredClone === 'function') {
+      try { return structuredClone(o); } catch { /* fall through */ }
+    }
+    return JSON.parse(JSON.stringify(o));
+  }
+  window.dpClone = dpClone;
+
   // Default content — schema for the entire public site
   const DEFAULT_CONTENT = {
     brand: {
@@ -834,10 +848,10 @@
   function load() {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return structuredClone(DEFAULT_CONTENT);
+      if (!raw) return dpClone(DEFAULT_CONTENT);
       const saved = JSON.parse(raw);
-      return deepMerge(structuredClone(DEFAULT_CONTENT), saved);
-    } catch { return structuredClone(DEFAULT_CONTENT); }
+      return deepMerge(dpClone(DEFAULT_CONTENT), saved);
+    } catch { return dpClone(DEFAULT_CONTENT); }
   }
 
   async function fetchRemote() {

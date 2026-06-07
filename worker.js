@@ -542,10 +542,16 @@ export default {
       try {
         return withSecurityHeaders(headStrip(await handleApi(request, env, url, ctx)));
       } catch (err) {
-        // Log every uncaught server error to D1 for the admin error console
+        // Log every uncaught server error to D1 for the admin error console.
+        // v01.077 — transient D1 infra hiccups ("exceeded timeout", "Network
+        // connection lost", "reset because its code was updated") are not
+        // actionable code defects; log them as 'warn' so the actionable error
+        // list (filtered to level=error) stays signal, not D1 weather noise.
+        const msg = String(err && err.message || err);
+        const transientD1 = /exceeded timeout|Network connection lost|storage operation|was reset|code was updated/i.test(msg);
         ctx.waitUntil(logError(env, {
-          level: 'error', source: 'server',
-          message: String(err && err.message || err),
+          level: transientD1 ? 'warn' : 'error', source: 'server',
+          message: msg,
           stack: err && err.stack ? String(err.stack).slice(0, 4000) : null,
           path: url.pathname, method: request.method,
           status: 500,
@@ -1012,6 +1018,193 @@ async function computePiiHmac(env, value, domain = 'phone-hmac') {
 }
 function normalizeEmail(e) { return String(e || '').trim().toLowerCase(); }
 
+// ── TOTP (RFC 6238) — admin 2FA step-up for Members / StudentSupport ───────
+// v01.077 — operator asked to gate the most PII-heavy admin tabs behind a
+// Google Authenticator code. We implement TOTP ourselves (no npm) on top of
+// Web Crypto HMAC-SHA1. The shared secret is generated in-admin, stored
+// AES-GCM-encrypted in KV (admin:totp_v1), and never leaves the worker in
+// plaintext after enrollment. A successful code mints a short-lived HttpOnly
+// "step-up" cookie that the sensitive endpoints require in addition to the
+// admin token.
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; // RFC 4648, no padding
+function base32Encode(bytes) {
+  let bits = 0, value = 0, out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8) | bytes[i];
+    bits += 8;
+    while (bits >= 5) {
+      out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  return out;
+}
+function base32Decode(str) {
+  const clean = String(str || '').toUpperCase().replace(/=+$/, '').replace(/\s+/g, '');
+  let bits = 0, value = 0;
+  const out = [];
+  for (const ch of clean) {
+    const idx = BASE32_ALPHABET.indexOf(ch);
+    if (idx === -1) continue; // skip stray chars defensively
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+}
+function generateTotpSecret() {
+  // 20 random bytes → 32-char base32, the de-facto standard for Authenticator.
+  const a = new Uint8Array(20);
+  crypto.getRandomValues(a);
+  return base32Encode(a);
+}
+// HOTP/TOTP core: HMAC-SHA1 over an 8-byte big-endian counter, then RFC 4226
+// dynamic truncation to a 6-digit code.
+async function totpCode(secretBase32, counter) {
+  const keyBytes = base32Decode(secretBase32);
+  if (!keyBytes.length) return null;
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const msg = new Uint8Array(8);
+  // counter is < 2^53; fill 8 bytes big-endian.
+  let c = counter;
+  for (let i = 7; i >= 0; i--) { msg[i] = c & 0xff; c = Math.floor(c / 256); }
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const bin = ((sig[offset] & 0x7f) << 24) | (sig[offset + 1] << 16) | (sig[offset + 2] << 8) | sig[offset + 3];
+  return String(bin % 1000000).padStart(6, '0');
+}
+// Verify a user-entered code against the secret, allowing ±1 time step
+// (±30s) for clock skew. Constant-time compare per candidate window.
+async function verifyTotp(secretBase32, code, period = 30) {
+  const clean = String(code || '').replace(/\D/g, '');
+  if (clean.length !== 6 || !secretBase32) return false;
+  const counter = Math.floor(Date.now() / 1000 / period);
+  for (let w = -1; w <= 1; w++) {
+    const expected = await totpCode(secretBase32, counter + w);
+    if (expected && safeEqual(expected, clean)) return true;
+  }
+  return false;
+}
+function otpauthUri(secretBase32, label = 'admin', issuer = 'KoreaDreamPath') {
+  const acct = encodeURIComponent(issuer + ':' + label);
+  return `otpauth://totp/${acct}?secret=${secretBase32}&issuer=${encodeURIComponent(issuer)}&digits=6&period=30&algorithm=SHA1`;
+}
+
+// ── Admin TOTP secret store (KV) + step-up session cookie ──────────────────
+const ADMIN_TOTP_KEY = 'admin:totp_v1';
+const ADMIN_STEPUP_COOKIE = 'dp_admin_stepup';
+const ADMIN_STEPUP_TTL_SEC = 15 * 60; // 15 minutes
+
+async function loadAdminTotp(env) {
+  try {
+    const raw = await env.CONTENT_KV.get(ADMIN_TOTP_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) || {};
+  } catch { return {}; }
+}
+async function saveAdminTotp(env, obj) {
+  await env.CONTENT_KV.put(ADMIN_TOTP_KEY, JSON.stringify(obj || {}));
+}
+// Read the confirmed (enrolled) secret in plaintext for verification only.
+async function getConfirmedTotpSecret(env, rec) {
+  const r = rec || await loadAdminTotp(env);
+  if (!r || !r.secret_enc) return null;
+  return decryptPii(env, r.secret_enc);
+}
+
+// Sign material for the step-up cookie. Domain-separated from PII so the
+// key never overlaps other HMAC uses. Falls back to ADMIN_TOKEN when no
+// PII key is configured (dev), so the feature still works pre-encryption.
+let _stepupKeyPromise = null;
+function loadStepupKey(env) {
+  if (_stepupKeyPromise) return _stepupKeyPromise;
+  const material = env.PII_ENCRYPTION_KEY
+    ? String(env.PII_ENCRYPTION_KEY) + ':admin-stepup'
+    : 'admin-stepup:' + String(env.ADMIN_TOKEN || 'dev-fallback');
+  _stepupKeyPromise = (async () => {
+    const hashed = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
+    return crypto.subtle.importKey('raw', hashed, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+  })();
+  return _stepupKeyPromise;
+}
+function b64url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlToBytes(str) {
+  const s = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s.length % 4 ? '='.repeat(4 - (s.length % 4)) : '';
+  const bin = atob(s + pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function mintStepupToken(env) {
+  const payload = JSON.stringify({ exp: Date.now() + ADMIN_STEPUP_TTL_SEC * 1000 });
+  const payloadB64 = b64url(new TextEncoder().encode(payload));
+  const key = await loadStepupKey(env);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64)));
+  return payloadB64 + '.' + b64url(sig);
+}
+// True iff the request carries a valid, unexpired step-up cookie/header.
+async function adminStepUpOk(request, env) {
+  try {
+    const cookieH = request.headers.get('cookie') || '';
+    const m = cookieH.match(/(?:^|;\s*)dp_admin_stepup=([^;]+)/);
+    const token = m ? decodeURIComponent(m[1]) : (request.headers.get('x-admin-stepup') || '');
+    if (!token || token.indexOf('.') === -1) return false;
+    const [payloadB64, sigB64] = token.split('.');
+    const key = await loadStepupKey(env);
+    const ok = await crypto.subtle.verify('HMAC', key, b64urlToBytes(sigB64), new TextEncoder().encode(payloadB64));
+    if (!ok) return false;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64)));
+    return typeof payload.exp === 'number' && payload.exp > Date.now();
+  } catch { return false; }
+}
+// Attach a fresh step-up cookie (HttpOnly, 15 min) to a response. Mirrors
+// withSessionCookie so the token stays out of JS reach (XSS-safe).
+async function withStepupCookie(env, resp) {
+  const token = await mintStepupToken(env);
+  const h = new Headers(resp.headers);
+  h.append('set-cookie', ADMIN_STEPUP_COOKIE + '=' + encodeURIComponent(token)
+    + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=' + ADMIN_STEPUP_TTL_SEC);
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+}
+function clearStepupCookie(resp) {
+  const h = new Headers(resp.headers);
+  h.append('set-cookie', ADMIN_STEPUP_COOKIE + '=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+}
+// Sensitive admin paths that require a fresh TOTP step-up in addition to the
+// admin token. Scoped to the Members + StudentSupport data surfaces (PII).
+// Public submit paths (POST /api/applications, POST /api/inquiries) and member
+// self-service (/api/me/*) are intentionally EXCLUDED — those are non-admin
+// session paths and must keep working without step-up.
+function pathNeedsStepUp(path, method) {
+  if (path.startsWith('/api/admin/users')) return true;
+  if (path.startsWith('/api/admin/groups')) return true;
+  if (path === '/api/admin/search') return true;
+  if (path === '/api/consents') return true; // admin GET (consent log)
+  // Applications: admin reads only. POST = public submit, /upload = public.
+  if (path === '/api/applications' && method === 'GET') return true;
+  if (path === '/api/applications/bulk') return true;
+  // /api/applications/:id (GET) and its receipt/files are admin-or-owner; the
+  // step-up guard below only fires when the caller is admin-authenticated, so
+  // member self-access is unaffected.
+  if (/^\/api\/applications\/[^/]+$/.test(path) && method === 'GET') return true;
+  if (/^\/api\/applications\/[^/]+\/(file|files)/.test(path)) return true;
+  // Inquiries: admin reads + bulk. POST /api/inquiries = public submit.
+  if (path === '/api/inquiries' && method === 'GET') return true;
+  if (path === '/api/inquiries/bulk') return true;
+  if (/^\/api\/inquiries\/[^/]+$/.test(path) && method !== 'POST') return true;
+  return false;
+}
+
 // v01.068 (Phase 4) — envelope encryption for R2 attachments.
 //
 // R2 already encrypts at rest with a Cloudflare-held key. This adds a
@@ -1393,6 +1586,18 @@ async function handleApi(request, env, url, ctx) {
   if (path.startsWith('/api/admin/') && method !== 'GET') {
     if (!sameOriginOrEmpty(request, url)) {
       return json({ error: 'origin_blocked' }, 403);
+    }
+  }
+
+  // v01.077 — TOTP step-up gate for the PII-heavy Members / StudentSupport
+  // surfaces. Only ENFORCED when the caller is admin-authenticated: a regular
+  // member hitting their own /api/applications/:id or receipt is NOT admin, so
+  // it falls through to the handler's own owner-or-admin check unchanged. An
+  // admin (token or admin role) must present a valid step-up cookie minted by
+  // POST /api/admin/totp/verify, otherwise we 403 stepup_required.
+  if (pathNeedsStepUp(path, method) && await isAdmin(request, env)) {
+    if (!(await adminStepUpOk(request, env))) {
+      return json({ error: 'stepup_required' }, 403);
     }
   }
 
@@ -2734,6 +2939,86 @@ async function handleApi(request, env, url, ctx) {
       wiki: wikiHits,
       content: contentHits,
     });
+  }
+
+  // ── Admin TOTP 2FA (step-up) ─────────────────────────────────────────────
+  // All require the admin token (isAdmin) but are EXEMPT from the step-up gate
+  // above (pathNeedsStepUp does not match /api/admin/totp/*) — otherwise you
+  // could never enroll or verify. enroll = setup → confirm; access = verify.
+  if (path === '/api/admin/totp/state' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const rec = await loadAdminTotp(env);
+    return json({
+      enrolled: !!rec.secret_enc,
+      pending: !!rec.pending_secret_enc,
+      stepup_active: await adminStepUpOk(request, env),
+      confirmed_at: rec.confirmed_at || null,
+    });
+  }
+  if (path === '/api/admin/totp/setup' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const secret = generateTotpSecret();
+    const secret_enc = await encryptPii(env, secret);
+    if (!secret_enc) return json({ error: 'encryption_unavailable' }, 503); // PII key not set
+    const rec = await loadAdminTotp(env);
+    rec.pending_secret_enc = secret_enc;
+    rec.pending_at = new Date().toISOString();
+    await saveAdminTotp(env, rec);
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_setup_init', target_type: 'admin_2fa' }));
+    return json({ secret_base32: secret, otpauth_uri: otpauthUri(secret) });
+  }
+  if (path === '/api/admin/totp/confirm' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    const rl = await rateLimit(env, 'totp_confirm:' + ip, 10, 600);
+    if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const rec = await loadAdminTotp(env);
+    if (!rec.pending_secret_enc) return json({ error: 'no_pending_secret' }, 400);
+    const pendingSecret = await decryptPii(env, rec.pending_secret_enc);
+    if (!pendingSecret || !(await verifyTotp(pendingSecret, body.code))) {
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_confirm_fail', target_type: 'admin_2fa' }));
+      return json({ error: 'invalid_code' }, 400);
+    }
+    // Promote pending → confirmed.
+    rec.secret_enc = rec.pending_secret_enc;
+    rec.confirmed_at = new Date().toISOString();
+    delete rec.pending_secret_enc;
+    delete rec.pending_at;
+    await saveAdminTotp(env, rec);
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_enrolled', target_type: 'admin_2fa' }));
+    // Enrolling also grants an immediate step-up so the operator isn't asked again right away.
+    return withStepupCookie(env, json({ ok: true }));
+  }
+  if (path === '/api/admin/totp/verify' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    const rl = await rateLimit(env, 'totp_verify:' + ip, 10, 300);
+    if (!rl.allowed) return json({ error: 'rate_limited' }, 429);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const secret = await getConfirmedTotpSecret(env);
+    if (!secret) return json({ error: 'not_enrolled' }, 400);
+    if (!(await verifyTotp(secret, body.code))) {
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_verify_fail', target_type: 'admin_2fa' }));
+      return json({ error: 'invalid_code' }, 400);
+    }
+    return withStepupCookie(env, json({ ok: true, expires_in: ADMIN_STEPUP_TTL_SEC }));
+  }
+  if (path === '/api/admin/totp/disable' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body) return json({ error: 'invalid_json' }, 400);
+    const secret = await getConfirmedTotpSecret(env);
+    if (!secret) return json({ error: 'not_enrolled' }, 400);
+    if (!(await verifyTotp(secret, body.code))) {
+      ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_disable_fail', target_type: 'admin_2fa' }));
+      return json({ error: 'invalid_code' }, 400);
+    }
+    await saveAdminTotp(env, {});
+    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_disabled', target_type: 'admin_2fa' }));
+    return clearStepupCookie(json({ ok: true }));
   }
 
   // Reports whether each Workers-secret env var is set, WITHOUT ever
@@ -5010,7 +5295,16 @@ async function ingestEvents(request, env) {
   }
   if (ops.length === 0) return json({ ok: true, inserted: 0 });
 
-  await env.DB.batch(ops);
+  // Analytics is fire-and-forget. D1 occasionally throws a transient
+  // "storage operation exceeded timeout" under load — surfacing that as a 500
+  // (and an error_logs row) is pure noise: the client doesn't care and there's
+  // nothing to fix. Swallow it, return 204, and don't pollute the error log.
+  // (v01.077 — error-log triage: this was the single biggest source of 500s.)
+  try {
+    await env.DB.batch(ops);
+  } catch (e) {
+    return new Response(null, { status: 204 });
+  }
   return json({ ok: true, inserted: ops.length });
 }
 

@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="ko">
+<!-- translate="no": admin has its own ko/en + browser auto-translate mutates
+     React text nodes (removeChild crashes). The site toggles language itself. -->
+<html lang="ko" translate="no">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -391,6 +393,9 @@
   <!-- theme-store applies data-theme to <html> before paint to avoid a flash. -->
   <script src="/ui_kits/website/theme-store.js"></script>
   <script src="/ui_kits/website/content-store.js"></script>
+  <!-- qrcode-generator (MIT, vendored locally → CSP 'self', no CDN/SRI churn).
+       Used by the 2FA tab to render the otpauth:// QR for Google Authenticator. -->
+  <script src="/ui_kits/website/vendor/qrcode.min.js"></script>
   <script src="/ui_kits/website/editor-loader.js"></script>
   <link rel="stylesheet" href="/ui_kits/website/site.css">
   <script type="text/babel" src="/ui_kits/website/RichEditor.jsx"></script>
@@ -673,7 +678,7 @@
   };
 
   function EditorWithPreview({ tabId, previewPath, content, onSave, onDirtyChange, addItem, removeItem, children }) {
-    const [draft, setDraft] = useState(() => structuredClone(content));
+    const [draft, setDraft] = useState(() => window.dpClone(content));
     const [dirty, setDirty] = useState(false);
     const [iframeReady, setIframeReady] = useState(false);
     const [previewKey, setPreviewKey] = useState(0);
@@ -724,12 +729,12 @@
     // Reset draft when parent content changes externally (after Save) — but
     // only if we're not currently editing. Otherwise we'd nuke the user's work.
     useEffect(() => {
-      if (!dirty) setDraft(structuredClone(content));
+      if (!dirty) setDraft(window.dpClone(content));
     }, [content]);
 
     // Reset draft completely when switching to a different page tab.
     useEffect(() => {
-      setDraft(structuredClone(content));
+      setDraft(window.dpClone(content));
       setDirty(false);
       setIframeReady(false);
       clearPreviewRetry();
@@ -787,7 +792,7 @@
     function discard() {
       if (!dirty) return;
       if (!confirm('Discard unsaved changes? This cannot be undone.')) return;
-      setDraft(structuredClone(content));
+      setDraft(window.dpClone(content));
       setDirty(false);
       setPreviewKey(k => k + 1);  // reload iframe to flush stale draft
     }
@@ -882,7 +887,7 @@
         send_notification:'Send notification', notification_history:'Send history',
         inquiry_categories:'Inquiry categories',
         brand:'Brand & Nav', footer:'Footer', icons:'Icons',
-        notice:'Top notice banner', og_images:'OG / SEO images', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
+        notice:'Top notice banner', og_images:'OG / SEO images', two_factor:'2FA (Authenticator)', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
         mailbox:'Mailbox',
         hero:'Hero', how:'How it works', cta:'CTA banner',
         about:'About page', pageheros:'Page headers', partner_cta:'Partner CTA', team:'Project team',
@@ -916,7 +921,7 @@
         send_notification:'알림 보내기', notification_history:'발송 기록',
         inquiry_categories:'문의 유형',
         brand:'브랜드 / 네비게이션', footer:'푸터', icons:'아이콘',
-        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
+        notice:'상단 공지 배너', og_images:'OG / SEO 이미지', two_factor:'2단계 인증', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
         mailbox:'메일함',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
         about:'About 페이지', pageheros:'페이지 헤더', partner_cta:'파트너 CTA', team:'프로젝트 팀',
@@ -1029,6 +1034,7 @@
       { id: 'icons',         group: 'Setup' },
       { id: 'notice',        group: 'Setup' },
       { id: 'og_images',     group: 'Setup' },
+      { id: 'two_factor',    group: 'Setup' },
 
       { id: 'hero',          group: 'Homepage' },
       { id: 'how',           group: 'Homepage' },
@@ -7538,6 +7544,281 @@
     );
   }
 
+  // ---- 2FA (TOTP) — Authenticator helpers ---------------------------------
+  // v01.077 — Google Authenticator step-up for Members / StudentSupport.
+  const adminLangNow = () => localStorage.getItem('dp_admin_lang') || 'ko';
+  const adminTok = () => localStorage.getItem('dp_admin_token') || '';
+  function qrDataUrl(text) {
+    try {
+      if (typeof qrcode !== 'function') return null;
+      const qr = qrcode(0, 'M');   // 0 = auto type, 'M' = ~15% error correction
+      qr.addData(text);
+      qr.make();
+      return qr.createDataURL(5, 8); // cellSize, margin
+    } catch { return null; }
+  }
+
+  // Step-up challenge shown IN PLACE of a gated tab until a valid code unlocks
+  // it (or the server reports an active step-up cookie). The server is the real
+  // gate; this is the UX in front of it.
+  function AdminStepUpGate({ lang, onUnlocked, goTab }) {
+    const isKo = lang === 'ko';
+    const [phase, setPhase] = useState('loading'); // loading | prompt | enroll_needed | error
+    const [code, setCode] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
+
+    useEffect(() => {
+      let cancelled = false;
+      fetch('/api/admin/totp/state', { headers: { authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (cancelled) return;
+          if (!d) { setPhase('error'); return; }
+          if (d.stepup_active) { onUnlocked(); return; }
+          setPhase(d.enrolled ? 'prompt' : 'enroll_needed');
+        })
+        .catch(() => { if (!cancelled) setPhase('error'); });
+      return () => { cancelled = true; };
+    }, []);
+
+    async function submit(e) {
+      if (e) e.preventDefault();
+      const c = code.replace(/\D/g, '');
+      if (c.length !== 6) { setErr(isKo ? '6자리 코드를 입력하세요.' : 'Enter the 6-digit code.'); return; }
+      setBusy(true); setErr('');
+      try {
+        const r = await fetch('/api/admin/totp/verify', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() },
+          credentials: 'same-origin',
+          body: JSON.stringify({ code: c }),
+        });
+        if (r.ok) { onUnlocked(); return; }
+        if (r.status === 429) setErr(isKo ? '시도가 너무 많습니다. 잠시 후 다시 시도하세요.' : 'Too many attempts. Try again shortly.');
+        else setErr(isKo ? '코드가 올바르지 않습니다.' : 'Invalid code.');
+      } catch { setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'Network error.'); }
+      finally { setBusy(false); setCode(''); }
+    }
+
+    const wrap = { maxWidth: 440, margin: '40px auto', textAlign: 'center' };
+    if (phase === 'loading') {
+      return <div className="card" style={wrap}><p style={{ color: 'var(--fg-muted)' }}>{isKo ? '확인 중…' : 'Checking…'}</p></div>;
+    }
+    if (phase === 'error') {
+      return <div className="card" style={wrap}><p style={{ color: 'var(--state-danger)' }}>{isKo ? '인증 상태를 불러오지 못했습니다.' : 'Could not load 2FA status.'}</p></div>;
+    }
+    if (phase === 'enroll_needed') {
+      return (
+        <div className="card" style={wrap}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+          <h3 style={{ margin: '0 0 8px' }}>{isKo ? '2단계 인증이 필요합니다' : 'Two-factor required'}</h3>
+          <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
+            {isKo
+              ? '회원 정보·학생 지원 탭은 가장 민감한 개인정보를 다룹니다. 먼저 Google Authenticator를 등록해야 접근할 수 있습니다.'
+              : 'The Member and Student-support tabs hold the most sensitive PII. Enroll Google Authenticator first to access them.'}
+          </p>
+          <button type="button" className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => goTab('two_factor')}>
+            {isKo ? '2단계 인증 설정으로 이동' : 'Go to 2FA setup'}
+          </button>
+        </div>
+      );
+    }
+    // phase === 'prompt'
+    return (
+      <div className="card" style={wrap}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+        <h3 style={{ margin: '0 0 4px' }}>{isKo ? '인증 코드 입력' : 'Enter your code'}</h3>
+        <p style={{ color: 'var(--fg-secondary)', fontSize: 14, margin: '0 0 16px' }}>
+          {isKo ? 'Google Authenticator 앱의 6자리 코드를 입력하세요.' : 'Enter the 6-digit code from Google Authenticator.'}
+        </p>
+        <form onSubmit={submit}>
+          <input
+            autoFocus inputMode="numeric" pattern="[0-9]*" maxLength={6}
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            style={{ width: 180, textAlign: 'center', fontSize: 28, letterSpacing: '0.3em', padding: '10px 8px',
+                     border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--fg-primary)' }}
+          />
+          {err && <div style={{ color: 'var(--state-danger)', fontSize: 13, marginTop: 10 }}>{err}</div>}
+          <div style={{ marginTop: 16 }}>
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? (isKo ? '확인 중…' : 'Verifying…') : (isKo ? '확인' : 'Verify')}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // Setup / management tab (Setup → 2단계 인증). Enrollment is pending→confirmed:
+  // a fresh secret is only activated once the operator proves they can generate
+  // a valid code, so a mis-scanned key never locks them out.
+  function TwoFactorTab() {
+    const isKo = adminLangNow() === 'ko';
+    const [st, setSt] = useState(null);            // /state response
+    const [setup, setSetup] = useState(null);      // { secret_base32, otpauth_uri }
+    const [code, setCode] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState('');
+    const [err, setErr] = useState('');
+
+    async function loadState() {
+      try {
+        const r = await fetch('/api/admin/totp/state', { headers: { authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin' });
+        setSt(r.ok ? await r.json() : { error: true });
+      } catch { setSt({ error: true }); }
+    }
+    useEffect(() => { loadState(); }, []);
+
+    async function startSetup() {
+      setBusy(true); setErr(''); setMsg('');
+      try {
+        const r = await fetch('/api/admin/totp/setup', {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          body: '{}',
+        });
+        const d = await r.json().catch(() => null);
+        if (r.ok && d) setSetup(d);
+        else if (d && d.error === 'encryption_unavailable') setErr(isKo ? '서버에 암호화 키(PII_ENCRYPTION_KEY)가 설정되어 있지 않아 등록할 수 없습니다.' : 'Server encryption key (PII_ENCRYPTION_KEY) is not configured.');
+        else setErr(isKo ? '설정을 시작하지 못했습니다.' : 'Could not start setup.');
+      } catch { setErr(isKo ? '네트워크 오류' : 'Network error'); }
+      finally { setBusy(false); }
+    }
+
+    async function confirm() {
+      const c = code.replace(/\D/g, '');
+      if (c.length !== 6) { setErr(isKo ? '6자리 코드를 입력하세요.' : 'Enter the 6-digit code.'); return; }
+      setBusy(true); setErr(''); setMsg('');
+      try {
+        const r = await fetch('/api/admin/totp/confirm', {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          body: JSON.stringify({ code: c }),
+        });
+        if (r.ok) { setSetup(null); setCode(''); setMsg(isKo ? '등록이 완료되었습니다.' : 'Enrollment complete.'); await loadState(); }
+        else if (r.status === 429) setErr(isKo ? '시도가 너무 많습니다.' : 'Too many attempts.');
+        else setErr(isKo ? '코드가 올바르지 않습니다. 앱의 코드와 기기 시간을 확인하세요.' : 'Invalid code. Check the app code and device time.');
+      } catch { setErr(isKo ? '네트워크 오류' : 'Network error'); }
+      finally { setBusy(false); }
+    }
+
+    async function disable() {
+      const c = code.replace(/\D/g, '');
+      if (c.length !== 6) { setErr(isKo ? '해제하려면 현재 6자리 코드를 입력하세요.' : 'Enter the current 6-digit code to disable.'); return; }
+      if (!confirmDialog(isKo ? '2단계 인증을 해제하시겠습니까? 회원/학생지원 탭이 코드 없이 열립니다.' : 'Disable 2FA? Member/Student tabs will open without a code.')) return;
+      setBusy(true); setErr(''); setMsg('');
+      try {
+        const r = await fetch('/api/admin/totp/disable', {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          body: JSON.stringify({ code: c }),
+        });
+        if (r.ok) { setCode(''); setMsg(isKo ? '2단계 인증이 해제되었습니다.' : '2FA disabled.'); await loadState(); }
+        else setErr(isKo ? '코드가 올바르지 않습니다.' : 'Invalid code.');
+      } catch { setErr(isKo ? '네트워크 오류' : 'Network error'); }
+      finally { setBusy(false); }
+    }
+    function confirmDialog(m) { return window.confirm(m); }
+
+    const enrolled = st && st.enrolled;
+    const dataUrl = setup ? qrDataUrl(setup.otpauth_uri) : null;
+
+    return (
+      <div>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3>
+          <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
+            {isKo
+              ? '회원 정보·학생 지원 탭은 가장 민감한 개인정보를 다루므로, 접근 시 Authenticator 6자리 코드를 추가로 요구합니다. 한 번 인증하면 15분간 유지됩니다.'
+              : 'The Member and Student-support tabs require an extra 6-digit Authenticator code on access (the most PII-heavy areas). One verification lasts 15 minutes.'}
+          </p>
+          {st == null && <p style={{ color: 'var(--fg-muted)' }}>{isKo ? '불러오는 중…' : 'Loading…'}</p>}
+          {st && !st.error && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999,
+                          background: enrolled ? 'var(--state-success-bg, var(--bg-muted))' : 'var(--bg-muted)',
+                          color: enrolled ? 'var(--state-success)' : 'var(--fg-secondary)', fontSize: 13, fontWeight: 600 }}>
+              {enrolled ? (isKo ? '● 등록됨 (활성)' : '● Enrolled (active)') : (isKo ? '○ 미등록' : '○ Not enrolled')}
+            </div>
+          )}
+          {msg && <div style={{ color: 'var(--state-success)', fontSize: 13, marginTop: 12 }}>{msg}</div>}
+          {err && <div style={{ color: 'var(--state-danger)', fontSize: 13, marginTop: 12 }}>{err}</div>}
+        </div>
+
+        {/* Enroll flow */}
+        {!enrolled && !setup && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>{isKo ? '등록' : 'Enroll'}</h3>
+            <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
+              {isKo ? '아래 버튼을 누르면 비밀키와 QR이 생성됩니다. Google Authenticator로 스캔한 뒤 첫 코드를 입력해 등록을 완료하세요.'
+                    : 'Generate a secret + QR, scan it with Google Authenticator, then enter the first code to finish.'}
+            </p>
+            <button type="button" className="btn btn-primary" onClick={startSetup} disabled={busy}>
+              {busy ? '…' : (isKo ? '설정 시작' : 'Start setup')}
+            </button>
+          </div>
+        )}
+
+        {setup && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>{isKo ? 'Authenticator에 추가' : 'Add to Authenticator'}</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
+              <div style={{ textAlign: 'center' }}>
+                {dataUrl
+                  ? <img src={dataUrl} alt="TOTP QR" width={180} height={180} style={{ borderRadius: 8, background: '#fff', padding: 8 }} />
+                  : <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  border: '1px dashed var(--border-subtle)', borderRadius: 8, color: 'var(--fg-muted)', fontSize: 12 }}>
+                      {isKo ? 'QR 생성 실패 — 아래 키를 수동 입력' : 'QR failed — use manual key'}
+                    </div>}
+              </div>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: 12, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                  {isKo ? '수동 입력 키' : 'Manual key'}
+                </div>
+                <code style={{ display: 'block', wordBreak: 'break-all', background: 'var(--bg-muted)', padding: '8px 10px',
+                               borderRadius: 6, margin: '6px 0 16px', fontSize: 14, color: 'var(--fg-primary)' }}>{setup.secret_base32}</code>
+                <label style={{ fontSize: 13, color: 'var(--fg-secondary)' }}>{isKo ? '첫 코드 입력' : 'Enter first code'}</label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <input inputMode="numeric" maxLength={6} value={code}
+                    onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    style={{ width: 140, textAlign: 'center', fontSize: 20, letterSpacing: '0.2em', padding: '8px',
+                             border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--fg-primary)' }} />
+                  <button type="button" className="btn btn-primary" onClick={confirm} disabled={busy}>
+                    {isKo ? '등록 완료' : 'Confirm'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manage when enrolled */}
+        {enrolled && (
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>{isKo ? '관리' : 'Manage'}</h3>
+            <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
+              {isKo ? '기기를 바꾸려면 재설정하거나, 현재 코드로 2단계 인증을 해제할 수 있습니다.'
+                    : 'Re-enroll on a new device, or disable 2FA with your current code.'}
+            </p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input inputMode="numeric" maxLength={6} value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                style={{ width: 120, textAlign: 'center', fontSize: 18, letterSpacing: '0.2em', padding: '8px',
+                         border: '1px solid var(--border-subtle)', borderRadius: 8, background: 'var(--bg-elevated)', color: 'var(--fg-primary)' }} />
+              <button type="button" className="btn btn-secondary" onClick={startSetup} disabled={busy}>
+                {isKo ? '재설정' : 'Re-enroll'}
+              </button>
+              <button type="button" className="btn btn-outline" onClick={disable} disabled={busy} style={{ color: 'var(--state-danger)', borderColor: 'var(--state-danger)' }}>
+                {isKo ? '해제' : 'Disable'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ---- Main admin shell ----------------------------------------------------
   // Idle session timeout — 30 min of inactivity logs the operator out.
   // "Activity" now means actual user actions (mousedown/keydown/touchstart),
@@ -7616,6 +7897,18 @@
     }, [tab]);  // refresh when tab changes (cheap signal that user just acted on a mail)
     const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
     const t = I18N[adminLang] || I18N.en;
+
+    // v01.077 — TOTP step-up: Members / StudentSupport groups require a fresh
+    // Authenticator code. `stepupOk` is the in-session unlock flag; the server
+    // is the real gate (403 stepup_required). We auto-expire the flag after the
+    // cookie's 15-min TTL so the gate re-challenges exactly when the cookie dies.
+    const [stepupOk, setStepupOk] = useState(false);
+    const stepupTimer = useRef(null);
+    const unlockStepup = () => {
+      setStepupOk(true);
+      if (stepupTimer.current) clearTimeout(stepupTimer.current);
+      stepupTimer.current = setTimeout(() => setStepupOk(false), 15 * 60 * 1000);
+    };
     useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
     // Theme toggle (light / dark / system) — synced with the global store
     // so changing it here flips the public site too on the same device.
@@ -7746,6 +8039,7 @@
       notification_history: NotificationCampaignsTab,
       member_groups: MemberGroupsTab,
       inquiry_categories: InquiryCategoriesTab,
+      two_factor: TwoFactorTab,
     };
     const tabAccount = tab.startsWith('mailbox:') ? tab.slice('mailbox:'.length) : null;
     const TabComp = tabAccount ? MailboxTab : STATIC_TAB_COMP[tab];
@@ -7997,6 +8291,11 @@
             </div>
             {(() => {
               if (!TabComp) return null;
+              // v01.077 — gate the PII-heavy groups behind a TOTP step-up.
+              const GATED_GROUPS = ['Members', 'StudentSupport'];
+              if (GATED_GROUPS.includes(activeGroupId) && !stepupOk) {
+                return <AdminStepUpGate lang={adminLang} onUnlocked={unlockStepup} goTab={setTabSafe} />;
+              }
               const previewPath = PREVIEW_PATHS[tab];
               // key={tab} forces React to unmount/remount when switching
               // between dynamic mailbox sub-tabs (mailbox:info → mailbox:hello)

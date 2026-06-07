@@ -1451,6 +1451,13 @@ body {
 .tm-chevron { display: inline-block; flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; transition: transform 150ms ease; }
 .team-admin-member[open] > summary .tm-chevron { transform: rotate(90deg); }
 .team-admin-member > summary:hover { background: var(--bg-muted); border-radius: 10px; }
+
+/* Collapsible hero-background card (v01.079.03) — appears inside each page tab. */
+.hero-bg-card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; }
+.hero-bg-card > summary::-webkit-details-marker { display: none; }
+.hero-bg-chevron { display: inline-block; flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; transition: transform 150ms ease; }
+.hero-bg-card[open] > summary .hero-bg-chevron { transform: rotate(90deg); }
+.hero-bg-state { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg-muted); }
 .team-profile-actions { margin-top: 22px; }
 .team-profile-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 540px) {

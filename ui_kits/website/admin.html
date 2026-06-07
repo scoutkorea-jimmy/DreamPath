@@ -694,9 +694,15 @@
     const [px, py] = parsePos(node.bg_position);
     const setPos = (x, y) => set([...path, 'bg_position'], x + '% ' + y + '%');
     const sliderStyle = { width: '100%' };
+    const enabled = !!(node.bg_image || node.bg_color);
     return (
-      <div className="card">
-        <h3 style={{marginTop:0}}>{title || '히어로 배경'}</h3>
+      <details className="card hero-bg-card" open>
+        <summary>
+          <span className="hero-bg-chevron" aria-hidden="true">▶</span>
+          <h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>{title || '히어로 배경'}</h3>
+          <span className="hero-bg-state">{enabled ? '● 설정됨' : '○ 기본'}</span>
+        </summary>
+        <div style={{marginTop:12}}>
         <p className="desc" style={{marginTop:-4}}>이미지를 올리면 배경이 이미지로 바뀝니다(어두운 오버레이 + 흰 글씨). 둘 다 비우면 기본 색이 유지됩니다.</p>
         <ImageUploadField label="배경 이미지" value={node.bg_image || ''} onChange={v => set([...path,'bg_image'], v)}
           preview="banner" accept="image/png,image/jpeg,image/webp"
@@ -729,7 +735,8 @@
             <button type="button" className="icon-btn" onClick={() => setPos(50, 50)}>가운데로 초기화</button>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
     );
   }
 
@@ -1410,6 +1417,7 @@
             <Area label="Subtitle" value={c.programs_section.en.sub} onChange={v => set(['programs_section','en','sub'], v)} lang="en" />
           </div>
         </div>
+        <HeroBgFields title="프로그램 페이지 — 히어로 배경" path={['page_heros','programs']} node={(c.page_heros || {}).programs} set={set} />
 
         {/* Toolbar */}
         <div className="card" style={{padding:'14px 18px'}}>
@@ -1758,6 +1766,7 @@
             <strong>사이트 설정 → 페이지 헤더 → Partners</strong>에서 편집합니다. 이 화면은 파트너 항목만 관리합니다.
           </p>
         </div>
+        <HeroBgFields title="파트너 페이지 — 히어로 배경" path={['page_heros','partners']} node={(c.page_heros || {}).partners} set={set} />
         <div className="card">
           <h3>Partners</h3>
           {c.partners.map((p, i) => (
@@ -1795,7 +1804,9 @@
 
   function StoriesTab({ c, set, addItem, removeItem }) {
     return (
-      <div className="card">
+      <>
+        <HeroBgFields title="스토리 페이지 — 히어로 배경" path={['page_heros','stories']} node={(c.page_heros || {}).stories} set={set} />
+        <div className="card">
         <h3>Learner stories</h3>
         {c.stories.map((s, i) => (
           <div className="rep-item" key={i}>
@@ -1816,7 +1827,8 @@
           </div>
         ))}
         <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -1869,7 +1881,9 @@
       groups[idxByCat.get(key)].items.push({ f, i });
     });
     return (
-      <div className="card">
+      <>
+        <HeroBgFields title="문의·FAQ 페이지 — 히어로 배경" path={['page_heros','contact']} node={(c.page_heros || {}).contact} set={set} />
+        <div className="card">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:14,marginBottom:8}}>
           <h3 style={{margin:0}}>FAQ</h3>
           <p className="desc" style={{margin:0,fontSize:13}}>
@@ -1913,7 +1927,8 @@
           </div>
         ))}
         <button className="btn-add" onClick={() => addItem(['faq'], { category_ko: '', category_en: '', category_icon: '', q_ko: '', q_en: '', a_ko: '', a_en: '' })}>+ Add FAQ</button>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -7992,6 +8007,9 @@
         const elapsed = Date.now() - lastActivityRef.current;
         if (elapsed >= ADMIN_IDLE_MS) {
           localStorage.removeItem('dp_admin_token');
+          // v01.079.03 — idle timeout also clears the 2FA step-up so Members /
+          // Student access requires the Authenticator code again on return.
+          try { fetch('/api/admin/totp/lock', { method: 'POST', credentials: 'same-origin', keepalive: true }); } catch {}
           try { sessionStorage.setItem('dp_admin_idle_logout', '1'); } catch {}
           window.location.reload();
           return;
@@ -8053,7 +8071,9 @@
     const unlockStepup = () => {
       setStepupOk(true);
       if (stepupTimer.current) clearTimeout(stepupTimer.current);
-      stepupTimer.current = setTimeout(() => setStepupOk(false), 15 * 60 * 1000);
+      // Re-lock when the step-up cookie's window elapses (matches server TTL /
+      // the idle window). Idle logout + IP change also invalidate it server-side.
+      stepupTimer.current = setTimeout(() => setStepupOk(false), ADMIN_IDLE_MS);
     };
     useEffect(() => { localStorage.setItem('dp_admin_lang', adminLang); }, [adminLang]);
     // Theme toggle (light / dark / system) — synced with the global store
@@ -8533,6 +8553,8 @@
     }
 
     function logout() {
+      // Also clear the 2FA step-up cookie so the next session must re-enter the code.
+      try { fetch('/api/admin/totp/lock', { method: 'POST', credentials: 'same-origin', keepalive: true }); } catch {}
       localStorage.removeItem('dp_admin_token');
       setToken(''); setAuthed(false);
       setEmail(''); setPassword('');

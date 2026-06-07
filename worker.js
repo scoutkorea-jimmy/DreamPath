@@ -1097,7 +1097,7 @@ function otpauthUri(secretBase32, label = 'admin', issuer = 'KoreaDreamPath') {
 // ── Admin TOTP secret store (KV) + step-up session cookie ──────────────────
 const ADMIN_TOTP_KEY = 'admin:totp_v1';
 const ADMIN_STEPUP_COOKIE = 'dp_admin_stepup';
-const ADMIN_STEPUP_TTL_SEC = 15 * 60; // 15 minutes
+const ADMIN_STEPUP_TTL_SEC = 30 * 60; // matches the admin idle window (v01.079.03)
 
 const TOTP_PENDING_TTL_SEC = 600; // 10 min to scan + enter first code
 
@@ -1221,16 +1221,17 @@ function b64urlToBytes(str) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-async function mintStepupToken(env, uid) {
-  const payload = JSON.stringify({ exp: Date.now() + ADMIN_STEPUP_TTL_SEC * 1000, uid: uid || '__token__' });
+async function mintStepupToken(env, uid, ip) {
+  const payload = JSON.stringify({ exp: Date.now() + ADMIN_STEPUP_TTL_SEC * 1000, uid: uid || '__token__', ip: ip || '' });
   const payloadB64 = b64url(new TextEncoder().encode(payload));
   const key = await loadStepupKey(env);
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64)));
   return payloadB64 + '.' + b64url(sig);
 }
 // True iff the request carries a valid, unexpired step-up cookie/header that is
-// bound to the CURRENT caller. The uid binding stops admin A's cookie from
-// satisfying the gate while admin B's session is in use.
+// bound to the CURRENT caller AND the SAME client IP. The uid binding stops
+// admin A's cookie satisfying the gate while admin B is in use; the IP binding
+// re-requires the code if the network/IP changes (v01.079.03).
 async function adminStepUpOk(request, env) {
   try {
     const cookieH = request.headers.get('cookie') || '';
@@ -1246,13 +1247,16 @@ async function adminStepUpOk(request, env) {
     // Bind to the caller's identity.
     const ident = await totpIdentity(request, env);
     if (!ident) return false;
-    return payload.uid === ident.uid;
+    if (payload.uid !== ident.uid) return false;
+    // Bind to the client IP — a changed IP invalidates the step-up.
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    if ((payload.ip || '') !== ip) return false;
+    return true;
   } catch { return false; }
 }
-// Attach a fresh step-up cookie (HttpOnly, 15 min) to a response. Mirrors
-// withSessionCookie so the token stays out of JS reach (XSS-safe).
-async function withStepupCookie(env, resp, uid) {
-  const token = await mintStepupToken(env, uid);
+// Attach a fresh step-up cookie (HttpOnly) to a response, bound to uid + IP.
+async function withStepupCookie(env, resp, uid, ip) {
+  const token = await mintStepupToken(env, uid, ip);
   const h = new Headers(resp.headers);
   h.append('set-cookie', ADMIN_STEPUP_COOKIE + '=' + encodeURIComponent(token)
     + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=' + ADMIN_STEPUP_TTL_SEC);
@@ -3068,7 +3072,7 @@ async function handleApi(request, env, url, ctx) {
     await totpPromotePending(env, ident, pendingEnc);
     ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_enrolled', target_type: 'admin_2fa' }));
     // Enrolling also grants an immediate step-up so the admin isn't asked again right away.
-    return withStepupCookie(env, json({ ok: true }), ident.uid);
+    return withStepupCookie(env, json({ ok: true }), ident.uid, ip);
   }
   if (path === '/api/admin/totp/verify' && method === 'POST') {
     const ident = await totpIdentity(request, env);
@@ -3084,7 +3088,7 @@ async function handleApi(request, env, url, ctx) {
       ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_verify_fail', target_type: 'admin_2fa' }));
       return json({ error: 'invalid_code' }, 400);
     }
-    return withStepupCookie(env, json({ ok: true, expires_in: ADMIN_STEPUP_TTL_SEC }), ident.uid);
+    return withStepupCookie(env, json({ ok: true, expires_in: ADMIN_STEPUP_TTL_SEC }), ident.uid, ip);
   }
   if (path === '/api/admin/totp/disable' && method === 'POST') {
     const ident = await totpIdentity(request, env);
@@ -3099,6 +3103,12 @@ async function handleApi(request, env, url, ctx) {
     }
     await totpClear(env, ident);
     ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, { action: 'totp_disabled', target_type: 'admin_2fa' }));
+    return clearStepupCookie(json({ ok: true }));
+  }
+  // Clear the step-up cookie (re-lock Members/Student). Called by the admin
+  // client on logout AND on idle timeout so the TOTP code is required again.
+  // No code needed — it only expires the caller's own cookie. (v01.079.03)
+  if (path === '/api/admin/totp/lock' && method === 'POST') {
     return clearStepupCookie(json({ ok: true }));
   }
 

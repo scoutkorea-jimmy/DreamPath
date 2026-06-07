@@ -1458,6 +1458,18 @@ body {
 .hero-bg-chevron { display: inline-block; flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; transition: transform 150ms ease; }
 .hero-bg-card[open] > summary .hero-bg-chevron { transform: rotate(90deg); }
 .hero-bg-state { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg-muted); }
+
+/* Generic collapsible admin card — default collapsed (v01.083). */
+.admin-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; }
+.admin-fold > summary::-webkit-details-marker { display: none; }
+.fold-chevron { display: inline-block; flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; transition: transform 150ms ease; }
+.admin-fold[open] > summary .fold-chevron { transform: rotate(90deg); }
+.admin-fold > summary:hover { opacity: 0.85; }
+/* Hard-hide the browser's native disclosure marker (▼/▶) on every admin
+   accordion so only our single rotating chevron shows (no double icon). */
+.admin-fold > summary, .team-admin-member > summary, .hero-bg-card > summary { list-style: none; list-style-type: none; }
+.admin-fold > summary::marker, .team-admin-member > summary::marker, .hero-bg-card > summary::marker { content: ""; font-size: 0; }
+.admin-fold > summary::-webkit-details-marker, .team-admin-member > summary::-webkit-details-marker, .hero-bg-card > summary::-webkit-details-marker { display: none; }
 .team-profile-actions { margin-top: 22px; }
 .team-profile-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 540px) {

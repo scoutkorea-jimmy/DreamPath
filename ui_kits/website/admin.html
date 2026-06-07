@@ -1084,6 +1084,7 @@
     // Content lists
     partners:       '/partners',
     stories:        '/stories',
+    news:           '/news',
     faq:            '/contact',      // FAQ section lives on /contact
   };
 
@@ -1865,13 +1866,15 @@
       <>
         <PageHeroText c={c} set={set} pageKey="stories" label="스토리 페이지 히어로 (헤더)" />
         <div className="card">
-        <h3>Learner stories <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{stories.length}개 · 이름을 눌러 펼치기/접기</span></h3>
+        <h3>스토리 <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>추천자(리더) + 학습자 후기 · {stories.length}개 · 이름을 눌러 펼치기/접기</span></h3>
         {stories.map((s, i) => {
           const sName = s.name || `Story ${i + 1}`;
+          const isLeader = s.kind === 'leader';
           return (
           <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
             <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
               <span className="tm-chevron" aria-hidden="true">▶</span>
+              <span className="pill" style={{flex:'0 0 auto',background:isLeader?'var(--sunshine-yellow)':'var(--bg-muted)',color:isLeader?'var(--midnight-purple)':'var(--fg-secondary)',fontSize:11}}>{isLeader?'추천자':'학습자'}</span>
               <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sName}{s.program ? <span style={{fontWeight:400,color:'var(--fg-muted)'}}> · {s.program}</span> : null}</strong>
               <button type="button" className="icon-btn" disabled={i === 0} title="위로"
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveStory(i, i - 1); }}>↑</button>
@@ -1881,6 +1884,13 @@
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!confirm(`Remove ${sName}?`)) return; removeItem(['stories'], i); }}>Delete</button>
             </summary>
             <div style={{padding:'0 14px 14px'}}>
+              <div className="field">
+                <label>유형 (Type)</label>
+                <select value={s.kind || 'learner'} onChange={e => set(['stories',i,'kind'], e.target.value)}>
+                  <option value="learner">학습자 후기 (Learner)</option>
+                  <option value="leader">추천자 · 리더 목소리 (Leader)</option>
+                </select>
+              </div>
               <div className="grid-2 tight">
                 <Text label="Name" value={s.name} onChange={v => set(['stories',i,'name'], v)} />
                 <Text label="Program" value={s.program} onChange={v => set(['stories',i,'program'], v)} />
@@ -1892,7 +1902,7 @@
           </details>
           );
         })}
-        <button className="btn-add" onClick={() => addItem(['stories'], { tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_ko: '', quote_en: '' })}>+ Add story</button>
+        <button className="btn-add" onClick={() => addItem(['stories'], { kind: 'learner', tag: 'Country', tag_color: '#6B2DBE', name: 'Name', program: 'Program', quote_en: '' })}>+ Add story</button>
         </div>
       </>
     );
@@ -6022,26 +6032,7 @@
     return (
       <>
         <div className="card">
-          <h3>Program detail body — Korean</h3>
-          <Text label="Back link" value={ko.back_link || ''} onChange={v => set(['program_detail','ko','back_link'], v)} lang="ko" />
-          <Text label="Overview heading" value={ko.overview_h || ''} onChange={v => set(['program_detail','ko','overview_h'], v)} lang="ko" />
-          <Area label="Overview body" value={ko.overview_body || ''} onChange={v => set(['program_detail','ko','overview_body'], v)} lang="ko" rows={4} />
-          <Text label="What you'll learn — heading" value={ko.learn_h || ''} onChange={v => set(['program_detail','ko','learn_h'], v)} lang="ko" />
-          <Area label="Learn items (one per line)" value={koItems} onChange={v => setItems('ko', v)} lang="ko" rows={4} />
-          <Text label="Eligibility heading" value={ko.eligibility_h || ''} onChange={v => set(['program_detail','ko','eligibility_h'], v)} lang="ko" />
-          <Area label="Eligibility body" value={ko.eligibility_body || ''} onChange={v => set(['program_detail','ko','eligibility_body'], v)} lang="ko" rows={3} />
-          <Text label="Sidebar info kicker" value={ko.info_kicker || ''} onChange={v => set(['program_detail','ko','info_kicker'], v)} lang="ko" />
-          <div className="grid-2 tight">
-            <Text label="Length label" value={ko.label_length || ''} onChange={v => set(['program_detail','ko','label_length'], v)} lang="ko" />
-            <Text label="Format label" value={ko.label_format || ''} onChange={v => set(['program_detail','ko','label_format'], v)} lang="ko" />
-            <Text label="Language label" value={ko.label_language || ''} onChange={v => set(['program_detail','ko','label_language'], v)} lang="ko" />
-            <Text label="Level label" value={ko.label_level || ''} onChange={v => set(['program_detail','ko','label_level'], v)} lang="ko" />
-            <Text label="Status label" value={ko.label_status || ''} onChange={v => set(['program_detail','ko','label_status'], v)} lang="ko" />
-            <Text label="Apply CTA" value={ko.apply_cta || ''} onChange={v => set(['program_detail','ko','apply_cta'], v)} lang="ko" />
-          </div>
-        </div>
-        <div className="card">
-          <h3>Program detail body — English</h3>
+          <h3>프로그램 상세 본문 (공통 카피)</h3>
           <Text label="Back link" value={en.back_link || ''} onChange={v => set(['program_detail','en','back_link'], v)} lang="en" />
           <Text label="Overview heading" value={en.overview_h || ''} onChange={v => set(['program_detail','en','overview_h'], v)} lang="en" />
           <Area label="Overview body" value={en.overview_body || ''} onChange={v => set(['program_detail','en','overview_body'], v)} lang="en" rows={4} />

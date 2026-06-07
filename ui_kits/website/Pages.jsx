@@ -56,36 +56,42 @@ function Stories({ go, lang, c }) {
   const isKo = lang === 'ko';
   const list = (c && c.stories) || window.STORIES;
   const h = ((c && c.page_heros && c.page_heros.stories && (c.page_heros.stories.en || c.page_heros.stories[lang])) || {});
+  // Two groups: leaders who recommend the program, and learner reviews.
+  const card = (s) => {
+    const i = list.indexOf(s);
+    const sid = storyIdOf(s, i);
+    return (
+      <button key={sid} type="button" onClick={() => go && go('storydetail', sid)}
+        className="story"
+        style={{'--c1': s.tag_color, '--c2': 'var(--scouting-purple)', textAlign:'left', cursor:'pointer', font:'inherit', color:'inherit'}}>
+        <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
+        <blockquote className={isKo ? '' : 'en'}>"{s.quote_en || s.quote_ko}"</blockquote>
+        <div className="story-foot">
+          <div className="story-avatar" />
+          <div>
+            <div className="story-name">{s.name}</div>
+            <div className="story-prog">{s.program}</div>
+          </div>
+        </div>
+      </button>
+    );
+  };
+  const leaders = list.filter(s => s.kind === 'leader');
+  const learners = list.filter(s => s.kind !== 'leader');
+  const Section = ({ kicker, title, items, muted }) => items.length === 0 ? null : (
+    <section className="section" style={muted ? { background: 'var(--bg-muted)' } : null}>
+      <div className="container">
+        <div className="sec-kicker">{kicker}</div>
+        {title ? <h2 className="en" style={{margin:'4px 0 28px',fontSize:'clamp(26px,3.4vw,40px)'}}>{title}</h2> : null}
+        <div className="stories-grid">{items.map(card)}</div>
+      </div>
+    </section>
+  );
   return (
     <div data-screen-label="Stories">
       <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.stories) || {}} />
-      <section className="section">
-        <div className="container">
-          <div className="stories-grid">
-            {list.map((s, i) => {
-              const sid = storyIdOf(s, i);
-              return (
-                <button
-                  key={sid}
-                  type="button"
-                  onClick={() => go && go('storydetail', sid)}
-                  className="story"
-                  style={{'--c1': s.tag_color, '--c2': 'var(--scouting-purple)', textAlign:'left', cursor:'pointer', font:'inherit', color:'inherit'}}>
-                  <span className="tag" style={{background: s.tag_color + '22', color: s.tag_color}}>{s.tag}</span>
-                  <blockquote className={isKo ? '' : 'en'}>"{isKo ? s.quote_ko : s.quote_en}"</blockquote>
-                  <div className="story-foot">
-                    <div className="story-avatar" />
-                    <div>
-                      <div className="story-name">{s.name}</div>
-                      <div className="story-prog">{s.program}</div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <Section kicker="LEADERS WHO RECOMMEND" title="Voices from leaders" items={leaders} />
+      <Section kicker="LEARNER STORIES" title="What learners say" items={learners} muted={leaders.length > 0} />
     </div>
   );
 }

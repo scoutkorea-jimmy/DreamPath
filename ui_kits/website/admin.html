@@ -5566,6 +5566,10 @@
                       <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
                       <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
                     </div>
+                    <div style={{margin:'4px 0 8px',fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>클릭 시 모달 내용</div>
+                    <Area label="① BIO 문구" value={coord.bio_en || coord.bio_ko || ''} onChange={v => set(['project_team','coordinator','bio_en'], v)} lang="en" hint="모달 맨 위 BIO." />
+                    <Area label="② 주요 약력 / Key background" value={coord.career_en || coord.career_ko || ''} onChange={v => set(['project_team','coordinator','career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
+                    <Area label="③ 이번 프로젝트 주요 역할 / Role in this project" value={coord.project_role_en || coord.project_role_ko || ''} onChange={v => set(['project_team','coordinator','project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
                     <ImageUploadField
                       label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
                       value={coord.image || ''}
@@ -5621,7 +5625,10 @@
                     <Text label="Name" value={m.name_en || m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
                     <Text label="Role / title" value={m.role_en || m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
                   </div>
-                  <Area label="Bio / 약력" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" />
+                  <div style={{margin:'4px 0 8px',fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>클릭 시 모달 내용</div>
+                  <Area label="① BIO 문구 (카드 요약 겸 모달 상단)" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" hint="카드에 보이는 짧은 한 줄 소개 + 모달 맨 위 BIO." />
+                  <Area label="② 주요 약력 / Key background" value={m.career_en || m.career_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
+                  <Area label="③ 이번 프로젝트 주요 역할 / Role in this project" value={m.project_role_en || m.project_role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
                   <ImageUploadField
                     label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
                     value={m.image || ''}

@@ -163,9 +163,13 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
 function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
   if (!open || !member) return null;
   const isKo = lang === 'ko';
-  const name = isKo ? (member.name || member.name_en) : (member.name_en || member.name);
-  const role = isKo ? (member.role_ko || member.role_en) : (member.role_en || member.role_ko);
-  const bio  = isKo ? (member.bio_ko || member.bio_en) : (member.bio_en || member.bio_ko);
+  const pick = (ko, en) => isKo ? (ko || en) : (en || ko);
+  const name = pick(member.name, member.name_en);
+  const role = pick(member.role_ko, member.role_en);
+  const bio     = pick(member.bio_ko, member.bio_en);                    // ① BIO 문구
+  const career  = pick(member.career_ko, member.career_en);             // ② 주요 약력
+  const project = pick(member.project_role_ko, member.project_role_en); // ③ 이번 프로젝트 주요 역할
+  const hasAny = bio || career || project;
   return (
     <div className="tm-overlay team-profile-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="tm-modal team-profile-modal" onClick={e => e.stopPropagation()}>
@@ -181,9 +185,25 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
             {role && <div className="team-profile-role">{role}</div>}
           </div>
         </div>
-        {bio
-          ? <p className="team-profile-bio">{bio}</p>
-          : <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
+        {bio && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">BIO</div>
+            <p className="team-profile-bio">{bio}</p>
+          </div>
+        )}
+        {career && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">{isKo ? '주요 약력' : 'Key background'}</div>
+            <p className="team-profile-bio">{career}</p>
+          </div>
+        )}
+        {project && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">{isKo ? '이번 프로젝트 주요 역할' : 'Role in this project'}</div>
+            <p className="team-profile-bio">{project}</p>
+          </div>
+        )}
+        {!hasAny && <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
         {member.messageable && (
           <div className="team-profile-actions">
             <button type="button" className="btn btn-primary" onClick={() => { onClose(); onMessage(member); }}>

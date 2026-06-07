@@ -1396,6 +1396,12 @@ body {
 }
 .team-profile-name { font-family: var(--font-en); font-size: 22px; font-weight: 700; color: var(--fg-primary); }
 .team-profile-role { font-size: 14px; color: var(--scouting-purple); font-weight: 600; margin-top: 3px; }
+.team-profile-section { margin-top: 18px; }
+.team-profile-section:first-of-type { margin-top: 4px; }
+.team-profile-label {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700;
+  color: var(--brand-text); margin-bottom: 6px;
+}
 .team-profile-bio { font-size: 15px; line-height: 1.7; color: var(--fg-secondary); margin: 0; white-space: pre-line; }
 .team-profile-bio-empty { color: var(--fg-muted); font-style: italic; }
 .team-profile-actions { margin-top: 22px; }

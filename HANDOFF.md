@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.07`
+- **버전**: `v01.088.08`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.08 — **버튼 규칙 위반(죽은 .icon-btn) 정리**: CSS 미정의라 기본 회색 박스로 렌더되던 `.icon-btn`을 표준 `.btn btn-ghost btn-sm`로 일괄 교체(Member 메시지 Delete, Apply 추천인 Remove, Pages 뉴스 Edit/Delete/Read more). danger는 color:var(--state-danger). CLAUDE.md §6 위반 수정.
   - +01.088.07 — **메시지 전송 실패 사유 구체화**: TeamMessageModal이 모든 `!res.ok`를 "Could not send"로 뭉뚱그리던 것을 서버 error 코드별(cannot_message_self / rate_limited / recipient_unavailable)로 분기해 명확한 안내. 운영자(CEO 계정)가 동일 계정 연결된 CEO 카드에 전송 시 서버 `cannot_message_self` 400을 반환하나 generic 문구로 가려져 self-send 거부임을 알 수 없던 문제. **실제 버그 아님** — 학습자→CEO(다른 계정)는 정상 전송.
   - +01.088.06 — **메시지 전송 401("session expired") 회귀 수정**: 운영자(유효 dp_session 쿠키 + 옛 `dp_user_token` 잔존)가 /team에서 메시지 전송 시 401. 원인: auth-store `fetchMe`의 쿠키-우선 성공 경로가 레거시 localStorage 토큰을 안 지워, `authFetch`가 stale 토큰을 `Authorization: Bearer`로 첨부 → 서버 `bearerToken()`이 헤더를 쿠키보다 우선 → 유효 쿠키 덮어쓰고 `currentUser=null` → 401. 수정: 쿠키 인증 성공 시 `clearLegacyToken()` 호출(쿠키가 authoritative). 새로고침하면 stale 토큰 정리되어 정상.
   - +01.088.01~.04 — **스파크라인 곡선화 + 코디네이터 통합 + CREDENTIALS + 프로필 사진 위치 + 오류로그 0건 정리**: 대시보드 스파크라인 Catmull-Rom 곡선화(.01). 프로젝트팀 코디네이터를 상단 메시지 밴드 카드로 통합(.02). 멤버 세부이력 CREDENTIALS 항목(.03). 프로필 사진 상하좌우 위치 조정 PhotoPos/photo_pos, 정사각 강제 해제(.04). 미해결 오류 12건은 v01.077 수정 이전 발생분 — 재발 0 확인 후 해결완료(미해결 0).

@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.17`
+- **버전**: `v01.088.18`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.18 — **아이콘 전체 점검(무효 lucide 이름 치환 + createIcons 하드닝 shim)**: lucide 0.461 유효셋(1540) 대조 → 무효 5종 치환(check-circle-2→circle-check-big, help-circle→circle-help, alert-triangle→triangle-alert, alert-circle→circle-alert, bar-chart-3→chart-column; 코드+content-store 기본값). index.html·admin.html에 `createIcons` 1회 래핑 shim: 별칭 매핑 + 미지의 이름은 `circle` 폴백 → 빈 아이콘 영구 방지("없는 아이콘 생성"), KV 옛값·미래 오타도 런타임 커버. CSP unsafe-inline로 인라인 shim 동작.
   - +01.088.17 — **공개 사이트 아이콘 사라짐 수정**: 공개 사이트가 `lucide.createIcons()`를 route 변경 시 1회만 호출 → FAQ 탭/아코디언/플로터가 내부 state로 재렌더되면 새 `<i data-lucide>`가 미처리되어 빈 사각형/원으로 노출(유효 아이콘 plus도 빔). App.jsx에 deps 없는 `useEffect(()=>lucide.createIcons())` 추가(매 렌더 재생성, 관리자 셸과 동일). 멱등·DOM전용이라 루프 없음, svg 치환 노드는 skip.
   - +01.088.16 — **홈 배너 모달 충돌 검토·정리**: (1) 배너 팝업이 쿠키 동의 배너와 첫 방문 동시 노출되던 것 → 분석동의 doc 존재+미결정 시 `cookiePending()`로 배너 보류(동의 우선, 광고는 다음 방문). (2) `.bnr-overlay` z 9000→9200 — 챗봇/맨위로 플로터(9000)는 광고 뒤로, auth/team 모달(9500)·버전 토스트(100000)는 위 유지. (3) 배너 Escape 닫기. 나머지(랜덤 reshuffle 멱등·lucide 멱등·오버레이가 nav 클릭 차단)는 충돌 없음 확인.
   - +01.088.15 — **홈페이지 배너 광고 팝업(최대 3개, 이미지 전용)**: 신규 `Banners.jsx`(`window.BannerAdModal`) — 홈 첫 진입(세션 1회, 전 방문자) 시 모달로 최대 3개 이미지 배너 노출(2개↑ 슬라이드+점), 이미지 클릭→link 새 탭. 방문자 컨트롤 "Close"(sessionStorage)·"Don't show again today"(localStorage 날짜). content-store `banners{enabled,items[]}`. 관리자 Homepage 그룹 "배너 광고(팝업)" 탭(`BannersTab`): 이미지 전용 업로드(png/jpg/webp/svg 4MB→R2)+링크+alt+순서/활성/사용 토글. App.jsx 렌더(view=home), site.css `.bnr-*`. 노출 시점은 "세션 1회"로 구현(로그인 게이트 아님 — 필요 시 조정 가능).

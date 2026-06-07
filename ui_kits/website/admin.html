@@ -542,6 +542,23 @@
     const inputId = 'imgup-' + Math.random().toString(36).slice(2, 8);
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState('');
+    // v01.080 — upload to R2 and store only the URL (not base64 in the content
+    // blob). Keeps dp_content_v1 small so every page load stays fast.
+    async function store(dataUrl) {
+      try {
+        const tok = localStorage.getItem('dp_admin_token') || '';
+        const r = await fetch('/api/admin/upload-image', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+          credentials: 'same-origin',
+          body: JSON.stringify({ dataUrl }),
+        });
+        const d = await r.json().catch(() => null);
+        if (r.ok && d && d.url) { onChange(d.url); setErr(''); }
+        else { setErr('업로드 실패 — ' + ((d && d.error) || ('HTTP ' + r.status))); }
+      } catch { setErr('업로드 중 네트워크 오류가 발생했습니다.'); }
+      finally { setBusy(false); }
+    }
     function readFile(file) {
       setErr('');
       if (!file) return;
@@ -567,7 +584,7 @@
           const img = new Image();
           img.onload = () => {
             const w = img.naturalWidth, h = img.naturalHeight;
-            if (Math.abs(w - h) <= 1) { onChange(dataUrl); setBusy(false); return; }
+            if (Math.abs(w - h) <= 1) { store(dataUrl); return; }
             try {
               const side = Math.min(w, h);
               const sx = Math.round((w - side) / 2);
@@ -579,9 +596,8 @@
               // Keep the original raster format; JPEG gets quality 0.92.
               const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
               const cropped = canvas.toDataURL(outType, 0.92);
-              onChange(cropped);
               setErr('');
-              setBusy(false);
+              store(cropped);
             } catch (e) {
               setErr('이미지를 1:1로 자르지 못했습니다. 다른 파일을 시도해주세요.');
               setBusy(false);
@@ -591,8 +607,7 @@
           img.src = dataUrl;
           return;
         }
-        onChange(dataUrl);
-        setBusy(false);
+        store(dataUrl);
       };
       reader.onerror = () => { setErr('파일 읽기 실패'); setBusy(false); };
       reader.readAsDataURL(file);
@@ -705,7 +720,7 @@
         <div style={{marginTop:12}}>
         <p className="desc" style={{marginTop:-4}}>이미지를 올리면 배경이 이미지로 바뀝니다(어두운 오버레이 + 흰 글씨). 둘 다 비우면 기본 색이 유지됩니다.</p>
         <ImageUploadField label="배경 이미지" value={node.bg_image || ''} onChange={v => set([...path,'bg_image'], v)}
-          preview="banner" accept="image/png,image/jpeg,image/webp"
+          preview="banner" accept="image/png,image/jpeg,image/webp" maxBytes={4 * 1024 * 1024}
           hint="이미지를 올리면 색 대신 이미지가 배경이 됩니다(어두운 오버레이 + 흰 글씨, 모바일·PC 자동 cover). 비우면 아래 색 또는 기본 색." />
         {!hideColor && <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />}
         <div className="field">

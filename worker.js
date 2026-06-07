@@ -569,6 +569,22 @@ export default {
     if (url.pathname === '/sitemap.xml')  return withSecurityHeaders(headStrip(await sitemapXml(env, url)));
     if (url.pathname === '/robots.txt')   return withSecurityHeaders(headStrip(await robotsTxt(url)));
 
+    // Public uploaded images (R2). Admin uploads land under the `public/` R2
+    // prefix (unencrypted, since browsers fetch them directly) and are served
+    // here with a long immutable cache. v01.080 — replaces base64-in-KV images
+    // so the content blob stays small. Keys are random, so immutable caching is
+    // safe. Only the `public/` prefix is reachable (no path traversal).
+    if (url.pathname.startsWith('/uploads/')) {
+      const rest = url.pathname.slice('/uploads/'.length);
+      if (!rest || rest.includes('..')) return withSecurityHeaders(new Response('Not found', { status: 404 }));
+      const obj = await env.ATTACHMENTS.get('public/' + rest);
+      if (!obj) return withSecurityHeaders(new Response('Not found', { status: 404 }));
+      const h = new Headers();
+      obj.writeHttpMetadata(h);
+      h.set('cache-control', 'public, max-age=31536000, immutable');
+      return withSecurityHeaders(headStrip(new Response(obj.body, { headers: h })));
+    }
+
     // Friendly URL → real asset path. Use the same Request (preserves headers,
     // method) but with a rewritten URL. ASSETS binding handles HEAD natively.
     if (ADMIN_PATHS.has(url.pathname)) {
@@ -3653,6 +3669,32 @@ async function handleApi(request, env, url, ctx) {
       'ORDER BY created_at DESC LIMIT 8'
     ).bind(like, like).all();
     return json({ items: results || [] });
+  }
+  // Admin image upload → R2 (v01.080). Accepts a data URL, stores the decoded
+  // bytes under the public/ R2 prefix (unencrypted), and returns a /uploads/
+  // URL. This replaces base64-in-KV: content stores only the URL, so the
+  // dp_content_v1 blob (fetched on every page load) stays small.
+  if (path === '/api/admin/upload-image' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body || !body.dataUrl) return json({ error: 'invalid_json' }, 400);
+    const m = String(body.dataUrl).match(/^data:([\w.+-]+\/[\w.+-]+);base64,(.+)$/s);
+    if (!m) return json({ error: 'invalid_data_url' }, 400);
+    const mime = m[1];
+    const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/gif': 'gif' };
+    if (!EXT[mime]) return json({ error: 'unsupported_type' }, 400);
+    let bytes;
+    try {
+      const bin = atob(m[2]);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } catch { return json({ error: 'decode_failed' }, 400); }
+    if (bytes.length > 4 * 1024 * 1024) return json({ error: 'too_large' }, 413); // 4MB hard cap
+    const key = 'public/img/' + randomHex(12) + '.' + EXT[mime];
+    try {
+      await env.ATTACHMENTS.put(key, bytes, { httpMetadata: { contentType: mime } });
+    } catch { return json({ error: 'storage_failed' }, 500); }
+    return json({ url: '/uploads/' + key.slice('public/'.length) });
   }
   // Admin: create a new member directly. Bypasses the public signup form so
   // the operator can pre-provision accounts (e.g. for a new admin teammate).

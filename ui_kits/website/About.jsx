@@ -15,7 +15,7 @@ function About({ lang, c }) {
   const hero    = ex.hero    || {};
   const blocks  = Array.isArray(ex.blocks) ? ex.blocks : [];
   const closing = ex.closing || {};
-  const hb = (window.heroBg ? window.heroBg(hero) : { cls: '', style: null });
+  const hb = window.useHeroBg(hero);
 
   return (
     <div data-screen-label="About">

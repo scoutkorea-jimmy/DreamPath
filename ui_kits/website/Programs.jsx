@@ -10,7 +10,7 @@ function Programs({ go, lang, c }) {
   const isKo = lang === 'ko';
   const all = (c && c.programs) || window.PROGRAMS;
   const h = ((c && c.page_heros && c.page_heros.programs && c.page_heros.programs[lang]) || {});
-  const hb = (window.heroBg ? window.heroBg((c && c.page_heros && c.page_heros.programs) || {}) : { cls: '', style: null });
+  const hb = window.useHeroBg((c && c.page_heros && c.page_heros.programs) || {});
   function readCatFromUrl() {
     const usp = new URLSearchParams(window.location.search);
     return (usp.get('cat') || '').toLowerCase();

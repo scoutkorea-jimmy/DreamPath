@@ -58,6 +58,68 @@
   window.heroBg = heroBg;
   window.isDarkHex = isDarkHex;
 
+  // v01.081 — progressive hero background for slow / overseas connections.
+  // A React hook: returns the same {cls,style} as heroBg, BUT only applies the
+  // image once it has actually loaded within a timeout. On a slow link
+  // (Save-Data or 2g) the image is never requested at all. Until/unless the
+  // image is ready it falls back to the color (bg_color) or the component's
+  // default — so a heavy photo never blocks first paint abroad.
+  //   - image loads fast  → photo shown.
+  //   - image too slow / save-data / 2g → color only (or default).
+  // Tip: set BOTH a background image AND a background color for a graceful
+  // colored fallback on slow networks.
+  const HERO_IMG_TIMEOUT_MS = 2500;
+  function colorFallback(node) {
+    if (node.bg_color) return { cls: isDarkHex(node.bg_color) ? 'has-hero-dark' : 'has-hero-light', style: { background: node.bg_color } };
+    return { cls: '', style: null }; // component keeps its default gradient/grey
+  }
+  function connectionIsSlow() {
+    try {
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!c) return false;
+      if (c.saveData) return true;
+      return /(^|\b)(slow-2g|2g)$/.test(c.effectiveType || '');
+    } catch { return false; }
+  }
+  // Hook: true once `src` has loaded within the timeout. Returns false on a
+  // slow link (Save-Data / 2g) without ever requesting the image. Reused by
+  // useHeroBg and the program-detail header.
+  function useImageReady(src) {
+    const R = window.React;
+    const [ready, setReady] = R.useState(false);
+    R.useEffect(() => {
+      setReady(false);
+      if (!src || connectionIsSlow()) return; // slow link → never fetch the image
+      let settled = false;
+      const im = new Image();
+      const timer = setTimeout(() => { settled = true; }, HERO_IMG_TIMEOUT_MS); // too slow → keep fallback
+      im.onload = () => { if (!settled) { settled = true; clearTimeout(timer); setReady(true); } };
+      im.onerror = () => { if (!settled) { settled = true; clearTimeout(timer); } };
+      im.src = src;
+      return () => { settled = true; clearTimeout(timer); };
+    }, [src]);
+    return ready;
+  }
+  window.useImageReady = useImageReady;
+  function useHeroBg(node) {
+    node = node || {};
+    const R = window.React;
+    if (!R || !R.useState) return heroBg(node); // safety: no React → static
+    const img = node.bg_image;
+    const ready = useImageReady(img);
+    if (img && ready) {
+      return {
+        cls: 'has-hero-media',
+        style: {
+          backgroundImage: `linear-gradient(rgba(17,9,38,0.55), rgba(17,9,38,0.55)), url("${img}")`,
+          backgroundSize: 'cover', backgroundPosition: node.bg_position || 'center', backgroundRepeat: 'no-repeat',
+        },
+      };
+    }
+    return colorFallback(node);
+  }
+  window.useHeroBg = useHeroBg;
+
   // Default content — schema for the entire public site
   const DEFAULT_CONTENT = {
     brand: {

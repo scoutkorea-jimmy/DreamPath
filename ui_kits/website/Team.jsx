@@ -262,12 +262,13 @@ function Team({ go, lang, c }) {
   const coordName = isKo ? (coordinator.name || coordinator.name_en) : (coordinator.name_en || coordinator.name);
   const pick = (ko, en) => isKo ? (ko || en) : (en || ko);
   const cc = t.coord_cta || {}; // editable copy for the top message band
+  const hbTeam = window.useHeroBg(t.hero); // progressive hero background
   const [target, setTarget] = useStateT(null);
   const [profile, setProfile] = useStateT(null);
 
   return (
     <div data-screen-label="Project Team">
-      <div className={('phead ' + (window.heroBg ? window.heroBg(t.hero).cls : '')).trim()} style={window.heroBg ? window.heroBg(t.hero).style : null}>
+      <div className={('phead ' + hbTeam.cls).trim()} style={hbTeam.style}>
         <div className="inner">
           <div className="sec-kicker">{hero.kicker}</div>
           <h1 className={isKo ? '' : 'en'}>

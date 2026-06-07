@@ -237,9 +237,12 @@ function ProgramDetail({ go, lang, programId, c }) {
   };
 
   // Optional hero background image (per program) — overrides the color gradient
-  // with the image + dark overlay (pd-header text is already white).
+  // with the image + dark overlay (pd-header text is already white). On slow /
+  // overseas links the image is skipped (or times out) and the color gradient
+  // shows instead — keeps the page light. (v01.081)
   const pdStyle = {'--c1': p.color, '--c2': 'var(--midnight-purple)'};
-  if (p.bg_image) {
+  const pdImgReady = window.useImageReady ? window.useImageReady(p.bg_image) : false;
+  if (p.bg_image && pdImgReady) {
     pdStyle.backgroundImage = `linear-gradient(rgba(17,9,38,0.62), rgba(17,9,38,0.62)), url("${p.bg_image}")`;
     pdStyle.backgroundSize = 'cover';
     pdStyle.backgroundPosition = p.bg_position || 'center';

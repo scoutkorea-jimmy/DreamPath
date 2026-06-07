@@ -2,7 +2,7 @@
 function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = { hero: c.hero[lang], how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
-  const hb = (window.heroBg ? window.heroBg(c.hero) : { cls: '', style: null });
+  const hb = window.useHeroBg(c.hero);
   return (
     <div>
       {/* HERO */}

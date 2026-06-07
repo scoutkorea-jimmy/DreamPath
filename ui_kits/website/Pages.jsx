@@ -1,6 +1,6 @@
 // Partners + Stories + News + Contact (bundled) — content-driven via c.page_heros
 function PageHero({ h, isKo, bg }) {
-  const hb = (window.heroBg ? window.heroBg(bg) : { cls: '', style: null });
+  const hb = window.useHeroBg(bg);
   return (
     <div className={('phead ' + hb.cls).trim()} style={hb.style}>
       <div className="inner">

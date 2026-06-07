@@ -236,9 +236,18 @@ function ProgramDetail({ go, lang, programId, c }) {
     ],
   };
 
+  // Optional hero background image (per program) — overrides the color gradient
+  // with the image + dark overlay (pd-header text is already white).
+  const pdStyle = {'--c1': p.color, '--c2': 'var(--midnight-purple)'};
+  if (p.bg_image) {
+    pdStyle.backgroundImage = `linear-gradient(rgba(17,9,38,0.62), rgba(17,9,38,0.62)), url("${p.bg_image}")`;
+    pdStyle.backgroundSize = 'cover';
+    pdStyle.backgroundPosition = p.bg_position || 'center';
+    pdStyle.backgroundRepeat = 'no-repeat';
+  }
   return (
     <div data-screen-label="Program Detail">
-      <div className="pd-header" style={{'--c1': p.color, '--c2': 'var(--midnight-purple)'}}>
+      <div className="pd-header" style={pdStyle}>
         <div className="inner">
           <div className="pd-back" onClick={() => go('programs')}
             role="button" tabIndex="0"

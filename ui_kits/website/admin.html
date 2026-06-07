@@ -680,7 +680,7 @@
   // Reusable hero background editor (v01.079): image upload + color + focal
   // position. `path` is the content path of the hero NODE (bg_* keys live at
   // that node level, language-independent). Used by every hero editor.
-  function HeroBgFields({ path, node, set }) {
+  function HeroBgFields({ path, node, set, title, hideColor }) {
     node = node || {};
     // Parse bg_position into X/Y percentages for the sliders. Supports both the
     // new "X% Y%" format and the legacy keyword presets.
@@ -695,12 +695,13 @@
     const setPos = (x, y) => set([...path, 'bg_position'], x + '% ' + y + '%');
     const sliderStyle = { width: '100%' };
     return (
-      <div style={{border:'1px dashed var(--border-subtle)',borderRadius:10,padding:'12px 14px',margin:'12px 0'}}>
-        <div style={{fontSize:11,fontWeight:700,color:'var(--fg-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>히어로 배경 (선택)</div>
+      <div className="card">
+        <h3 style={{marginTop:0}}>{title || '히어로 배경'}</h3>
+        <p className="desc" style={{marginTop:-4}}>이미지를 올리면 배경이 이미지로 바뀝니다(어두운 오버레이 + 흰 글씨). 둘 다 비우면 기본 색이 유지됩니다.</p>
         <ImageUploadField label="배경 이미지" value={node.bg_image || ''} onChange={v => set([...path,'bg_image'], v)}
           preview="banner" accept="image/png,image/jpeg,image/webp"
           hint="이미지를 올리면 색 대신 이미지가 배경이 됩니다(어두운 오버레이 + 흰 글씨, 모바일·PC 자동 cover). 비우면 아래 색 또는 기본 색." />
-        <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />
+        {!hideColor && <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />}
         <div className="field">
           <label>이미지 위치 조정 (가로 {px}% · 세로 {py}%)</label>
           {/* Live preview — reflects the sliders so the operator sees the crop. */}
@@ -1204,8 +1205,8 @@
             <Text label="Primary CTA" value={en.cta1} onChange={v => set(['hero','en','cta1'], v)} lang="en" />
             <Text label="Secondary CTA" value={en.cta2} onChange={v => set(['hero','en','cta2'], v)} lang="en" />
           </div>
-          <HeroBgFields path={['hero']} node={c.hero} set={set} />
         </div>
+        <HeroBgFields title="홈 히어로 배경" path={['hero']} node={c.hero} set={set} />
         <div className="card">
           <h3>Hero accent dots</h3>
           <p className="desc">The four color dots floating in the hero. Edit color and accessibility label.</p>
@@ -1620,6 +1621,7 @@
             <Color label="Accent color" value={program.accent} onChange={v => set(['programs',index,'accent'], v)} />
           </div>
         </div>
+        <HeroBgFields title="상세 히어로 배경" hideColor path={['programs',index]} node={program} set={set} />
 
         {loading ? (
           <div className="card" style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>Loading details…</div>
@@ -5582,8 +5584,8 @@
             <Text label="Title L2" value={pt.hero?.en?.title_l2 || ''} onChange={v => set(['project_team','hero','en','title_l2'], v)} lang="en" />
             <Area label="Subtitle" value={pt.hero?.en?.sub || ''} onChange={v => set(['project_team','hero','en','sub'], v)} lang="en" />
           </div>
-          <HeroBgFields path={['project_team','hero']} node={pt.hero} set={set} />
         </div>
+        <HeroBgFields title="팀 히어로 배경" path={['project_team','hero']} node={pt.hero} set={set} />
 
         <div className="card">
           <h3>Coordinator · 코디네이터</h3>
@@ -5830,8 +5832,8 @@
             <Area label="Body (KO)" value={ex.hero?.body_ko || ''} onChange={v => set(['about','exec','hero','body_ko'], v)} lang="ko" rows={4} />
             <Area label="Body (EN)" value={ex.hero?.body_en || ''} onChange={v => set(['about','exec','hero','body_en'], v)} lang="en" rows={4} />
           </div>
-          <HeroBgFields path={['about','exec','hero']} node={ex.hero} set={set} />
         </div>
+        <HeroBgFields title="About 히어로 배경" path={['about','exec','hero']} node={ex.hero} set={set} />
 
         {/* Content blocks */}
         <div className="card">
@@ -5908,7 +5910,8 @@
     return (
       <>
         {pages.map(({ key, label }) => (
-          <div className="card" key={key}>
+          <React.Fragment key={key}>
+          <div className="card">
             <h3>{label}</h3>
             <div className="grid-2 tight">
               <Text label="Kicker (KO)" value={ph[key]?.ko?.kicker || ''} onChange={v => set(['page_heros',key,'ko','kicker'], v)} lang="ko" />
@@ -5920,8 +5923,9 @@
               <Area label="Subtitle (KO)" value={ph[key]?.ko?.sub || ''} onChange={v => set(['page_heros',key,'ko','sub'], v)} lang="ko" />
               <Area label="Subtitle (EN)" value={ph[key]?.en?.sub || ''} onChange={v => set(['page_heros',key,'en','sub'], v)} lang="en" />
             </div>
-            <HeroBgFields path={['page_heros',key]} node={ph[key]} set={set} />
           </div>
+          <HeroBgFields title={label + ' — 히어로 배경'} path={['page_heros',key]} node={ph[key]} set={set} />
+          </React.Fragment>
         ))}
       </>
     );

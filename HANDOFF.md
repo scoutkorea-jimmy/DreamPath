@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.11`
+- **버전**: `v01.088.12`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.12 — **SEO 사이트 인증 메타 서버사이드 주입**: 네이버/구글 등 인증 메타가 App.jsx 클라이언트 주입만 존재 → JS 미실행 크롤러가 원본 HTML에서 못 찾아 인증 실패(값은 KV 정상 저장). worker `serveSpaShell()`이 HTMLRewriter로 `<head>`에 `site_verifications`(google/naver/bing/facebook/pinterest/yandex) 일괄 주입. App.jsx는 멱등 fallback 유지. `curl /`·/about·/programs 메타 노출 검증.
   - +01.088.11 — **홈 프로그램 랜덤+더보기 카드 / 디자인 가이드 라이브 샘플 / 예외 주석 인라인화**: 홈 프로그램 티저를 매 로드 랜덤 4개(useMemo Fisher-Yates) + 5번째 "View all programs" 카드(→/programs, `.prog-more`). 관리자 디자인 가이드(wiki:design) 7개 페이지에 실제 렌더 샘플(스와치/버튼/타입/카드/폼/아이콘/간격)을 코드 옆 좌우로 추가 — admin이 토큰+site.css+lucide 로드해 live 렌더, `data-live-sample` 마커로 멱등. tokens-first 예외 사유를 코드 인라인 주석화(site.css 12 + admin 사이드바 + Pages color-input 2).
   - +01.088.10 — **디자인 토큰 정리(raw hex → 시맨틱 토큰, 전체 raw-level 색 감사)**: 신규 `--fg-on-fill`(상수 흰색, fill 위 텍스트) + `--receipt-*` 12종(인쇄 고정) 토큰. site.css `color:#fff`×22→fg-on-fill, dark btn `#7C3AED`→accent-purple-fill, topnotice→state 토큰, 영수증 블록 전체→receipt 토큰; Floaters/Member/Nav/Receipt jsx 배지·플로터·영수증 색 토큰화. **값-동일 치환만 적용(시각 무변화)**. site.css raw hex 59→17(전부 의도적 예외). 미변환 예외(흰 표면·일회성 컴포넌트색·항상-다크 관리자 chrome·color-input 기본값)는 `wiki:design` → "Tokens-first 예외" 페이지에 등록.
   - +01.088.09 — **메시지 탭 UX 개선 + 깨진 버튼(.adminlang) 수정 + 버튼 raw-level 감사**: 마이페이지 메시지 탭을 이니셜 아바타 + 여유 레이아웃 + 패널형 스레드로 친근화(답답한 좌우 여백 해소). 관리자 "회원 개별·그룹" 토글이 기본 버튼으로 깨지던 cross-scope 버그 수정(`.topbar .adminlang`→`.adminlang` 일반화). 전 .jsx + admin.html 버튼 raw-level 전수 감사(brace/quote 파서) — 실제 깨짐은 .icon-btn(공개, .08)·.adminlang(.09) 2종뿐, 나머지는 부모 descendant 규칙/.btn로 정상.

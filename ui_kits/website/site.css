@@ -1409,6 +1409,14 @@ body {
 .team-profile-links a { font-size: 14px; color: var(--brand-text); text-decoration: none; word-break: break-all; }
 .team-profile-links a:hover { text-decoration: underline; }
 .team-profile-bio a { color: var(--brand-text); }
+
+/* Admin Project Team — member accordion (v01.078.05). Chevron is the explicit
+   expand/collapse affordance; rotates when the <details> is open. */
+.team-admin-member > summary { list-style: none; }
+.team-admin-member > summary::-webkit-details-marker { display: none; }
+.tm-chevron { display: inline-block; flex: 0 0 auto; color: var(--fg-muted); font-size: 11px; transition: transform 150ms ease; }
+.team-admin-member[open] > summary .tm-chevron { transform: rotate(90deg); }
+.team-admin-member > summary:hover { background: var(--bg-muted); border-radius: 10px; }
 .team-profile-actions { margin-top: 22px; }
 .team-profile-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 540px) {

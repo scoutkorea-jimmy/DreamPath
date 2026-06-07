@@ -5501,6 +5501,20 @@
     const sections = pt.sections || [];
     const cta = pt.cta || {};
     const coord = pt.coordinator || {};
+    // Reorder helpers (array splice → set). Used by the ↑/↓ buttons on
+    // sections and members.
+    const moveSection = (from, to) => {
+      if (to < 0 || to >= sections.length) return;
+      const arr = [...sections];
+      const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+      set(['project_team','sections'], arr);
+    };
+    const moveMember = (si, from, to) => {
+      const arr = [...((sections[si] && sections[si].members) || [])];
+      if (to < 0 || to >= arr.length) return;
+      const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
+      set(['project_team','sections', si, 'members'], arr);
+    };
     return (
       <>
         <div className="card">
@@ -5599,8 +5613,10 @@
           {sections.map((s, si) => (
             <div className="rep-item" key={si}>
               <div className="rep-head">
-                <strong>Section {si + 1}</strong>
+                <strong>Section {si + 1}{s.kicker_en ? ' · ' + s.kicker_en : ''}</strong>
                 <div className="ctrls">
+                  <button type="button" className="icon-btn" disabled={si === 0} title="위로" onClick={() => moveSection(si, si - 1)}>↑</button>
+                  <button type="button" className="icon-btn" disabled={si === sections.length - 1} title="아래로" onClick={() => moveSection(si, si + 1)}>↓</button>
                   <button className="icon-btn danger" onClick={() => removeItem(['project_team','sections'], si)}>Delete section</button>
                 </div>
               </div>
@@ -5614,8 +5630,15 @@
                 const mName = m.name_en || m.name || `Member ${mi + 1}`;
                 return (
                 <details key={mi} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
-                  <summary style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
-                    <strong style={{fontSize:14,color:'var(--fg-primary)'}}>{mName}</strong>
+                  <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
+                    {/* chevron = explicit 펼치기/접기 버튼. Part of summary so it
+                        toggles; rotates via CSS on [open]. Name click also toggles. */}
+                    <span className="tm-chevron" aria-hidden="true">▶</span>
+                    <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{mName}</strong>
+                    <button type="button" className="icon-btn" disabled={mi === 0} title="위로"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveMember(si, mi, mi - 1); }}>↑</button>
+                    <button type="button" className="icon-btn" disabled={mi === (s.members || []).length - 1} title="아래로"
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); moveMember(si, mi, mi + 1); }}>↓</button>
                     <button className="icon-btn danger" onClick={(e) => {
                       e.stopPropagation(); e.preventDefault();
                       if (!confirm(`Remove ${mName}?`)) return;

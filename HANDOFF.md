@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.078.06`
+- **버전**: `v01.079.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.079.00 — **모든 히어로 배경 이미지 업로드 + 배경색/위치 선택 + 모바일 밴드 높이 축소**: 콘텐츠 기반 히어로 8개(Home `.hero` / About / page_heros 5종 / Team)에 배경 이미지·색·초점 위치 추가. 신규 `window.heroBg(node)`(content-store) — 이미지면 어두운 오버레이+흰 글씨+cover(위치), 단색이면 `isDarkHex` 휘도로 글씨색 자동, 비우면 기존 컬러 유지. 각 컴포넌트 히어로에 적용(인라인 style + `has-hero-*`). 관리자엔 재사용 `HeroBgFields`(ImageUploadField banner + Color + 위치 select)를 HeroTab/AboutTab/PageHerosTab(5)/TeamAdminTab에 삽입. 모바일(운영자): `.team-coord-band`(Meet our CEO) + `.cta-banner`(WANT TO JOIN US) 패딩/사진/제목 약 절반, 버튼 하단 전체폭(cta-banner 인라인 패딩 제거 + ≤720px 규칙을 900px 블록 뒤 배치).
   - +01.078.06 — **/team 상단 메시지 밴드 문구 편집 가능화 + 기본 "Meet our CEO"**: "Have a question?" 밴드의 하드코딩 kicker/title/sub를 `project_team.coord_cta`(ko·en) 스키마로 분리, admin → 프로젝트 팀 → "상단 메시지 밴드" 카드(한/영)에서 편집. 기본 문구를 "Meet our CEO"(KO "CEO에게 물어보세요") + CEO가 적절한 담당자를 연결한다는 안내로 변경. Team.jsx는 coord_cta를 읽고 비면 새 기본으로 폴백. live `dp_content_v1` KV에 coord_cta 시드.
   - +01.078.05 — **Project Team 편집기: 섹션·멤버 순서 이동 + 멤버 펼치기/접기 버튼**: 섹션 헤더 ↑/↓(moveSection), 멤버 아코디언 summary ↑/↓(moveMember)로 순서 조정(끝단 disabled). 멤버 summary에 chevron(▶, `[open]` 90° 회전) 명시적 펼치기/접기 버튼 추가 — 이름 클릭 토글도 유지. 이동·삭제 버튼은 stopPropagation으로 `<details>` 토글과 분리. site.css `.tm-chevron` + summary 마커 제거.
   - +01.078.04 — **Project Team 멤버 편집기 정비 + 모달 링크/연락처 + 계정검색 회귀 수정**: 멤버 편집을 이름 기준 아코디언(native `<details>`, 기본 접힘)으로, 입력 순서 사진→이름·직함→BIO→주요 약력→주요 프로젝트 역할→**주요 링크(links_en)**→**연락처(contact_email)**. 공개 멤버 모달에 링크(새 탭)·연락처(mailto) 섹션 추가. **회귀 수정**: AccountLinkField(메시지 받을 계정 검색)가 `/api/admin/users`(v01.077 step-up 게이트) 호출로 비-게이트 Project Team 탭에서 403 → 검색 불가였음. 경량 `GET /api/admin/account-search`(isAdmin만, step-up 불필요, id/name/email/role) 신설로 복구.

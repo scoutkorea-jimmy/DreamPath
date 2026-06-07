@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.080.00`
+- **버전**: `v01.081.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.081.00 — **저속/해외용 히어로 배경 점진 로딩(느리면 색만)**: 신규 `window.useImageReady(src)`(2.5초 타임아웃, `navigator.connection` Save-Data/2g면 이미지 미요청) + `window.useHeroBg`. 이미지가 타임아웃 내 로드되면 표시, 너무 느리면 색(bg_color)·기본 배경으로 폴백 → 무거운 사진이 해외 첫 로딩을 막지 않음. Home/About/PageHero/Programs/Team→useHeroBg(Team 인라인 2회→단일), ProgramDetail `.pd-header`는 useImageReady 게이트(폴백=program.color 그라디언트). v01.080 R2 분리와 결합해 콘텐츠 블롭 경량 + 점진 이미지. 팁: 이미지+배경색 함께 지정 시 저속에서 그 색으로 폴백.
   - +01.080.00 — **이미지 업로드 base64-in-KV → R2 전환(홈페이지 안정성)**: 운영자 안정성 점검 중 `/api/content`(~1.49MB)의 ~90%가 인라인 base64 이미지임을 확인 — 매 페이지 로드마다 받는 블롭이라 히어로 이미지 누적 시 급격히 무거워지고 KV 25MB 한도 근접 리스크. 신규 `POST /api/admin/upload-image`(data URL→R2 `public/img/<hex>`, 비암호화, 4MB 캡)→`/uploads/` URL, 공개 `GET /uploads/<path>`(R2 서빙·immutable 1년 캐시·`..`차단). `ImageUploadField`가 base64 대신 업로드 URL 저장(히어로 배경/로고/팀 사진/OG 공통, 히어로 maxBytes 4MB). 기존 base64 항목은 하위호환 유지(data: 렌더), 백필 후속. 라이브 R2 put→GET /uploads 200 검증.
   - +01.079.03 — **페이지별 히어로 배경 카드(접이식) + 2FA를 IDLE·IP에 결속**: 프로그램/파트너/스토리/문의·FAQ 편집 탭에 각 `page_heros` 키의 "히어로 배경" 카드를 직접 추가(HeroBgFields를 접이식 `<details>` 카드로, 기본 펼침 + ▶ + 설정 상태 배지). 2FA step-up 토큰에 `ip` 추가 → IP 변경 시 무효(코드 재요구). step-up 쿠키 TTL 15→30분(idle 창 일치). 신규 `POST /api/admin/totp/lock`(=clearStepupCookie)을 admin idle 타임아웃 핸들러 + logout()에서 keepalive로 호출 → IDLE/로그아웃 시 회원정보·학생지원 코드 재요구. 클라 stepupOk 재잠금 타이머도 idle 창에 맞춤.
   - +01.079.02 — **프로그램 상세 히어로 배경 + 히어로 배경 별도 카드 분리 + 이미지 히어로 여백 보강**: 프로그램 상세(`.pd-header`)에도 히어로 배경 이미지 지원(ProgramEditor "상세 히어로 배경" 카드, 색은 기존 program.color → HeroBgFields `hideColor`; ProgramDetail.jsx가 `p.bg_image` 시 이미지+오버레이로 색 그라디언트 대체). 히어로 배경 편집을 모든 탭에서 별도 카드로 분리(HeroBgFields가 자체 `.card`+제목 렌더, PageHerosTab은 Fragment로 페이지별). `.phead.has-hero-media`에 min-height 380px(모바일 260)+수직 중앙정렬+패딩 확대로 상하 여백 보강.

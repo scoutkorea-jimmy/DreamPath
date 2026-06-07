@@ -354,7 +354,10 @@ body {
 .prog-media { height: 160px; border-radius: var(--radius-lg); margin: -8px -8px 8px; position: relative; overflow: hidden; display: flex; align-items: flex-end; padding: 20px; }
 .prog-media::before { content:''; position:absolute; inset:0; background: linear-gradient(160deg, var(--c1) 0%, var(--c2) 100%); }
 .prog-media::after { content:''; position:absolute; top:20px; right:20px; width:56px; height:56px; border-radius:50%; background: var(--accent); opacity:0.85; }
-.prog-icon { position: absolute; top: 28px; left: 28px; color: var(--fg-on-fill); z-index: 2; opacity: 0.95; }
+/* Align the icon to the same 20px inset as the media padding, the chip row
+   (bottom-left), and the decorative circle (top-right) — so the icon's
+   top-left sits on the same grid lines instead of an odd 28px offset. */
+.prog-icon { position: absolute; top: 20px; left: 20px; color: var(--fg-on-fill); z-index: 2; opacity: 0.95; }
 .prog-chips { display: flex; gap: 6px; flex-wrap: wrap; position: relative; z-index: 2; }
 /* Chips sit on a coloured card hero with an opaque-white pill bg, so text
    stays fixed dark in BOTH themes — fg-primary would flip near-white and

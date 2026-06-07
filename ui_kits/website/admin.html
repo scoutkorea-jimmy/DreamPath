@@ -993,7 +993,7 @@
         notice:'Top notice banner', og_images:'OG / SEO images', two_factor:'2FA (Authenticator)', email_templates:'Email templates', receipt_template:'Receipt template', integrations:'API & integrations',
         mailbox:'Mailbox',
         hero:'Hero', how:'How it works', cta:'CTA banner',
-        about:'About page', partner_cta:'Partner CTA', team:'Project team', apply:'Apply', apply_done:'Apply complete', mypage:'My page', scholarships:'Scholarships',
+        about:'About page', menu_names:'Menu names', partner_cta:'Partner CTA', team:'Project team', apply:'Apply', apply_done:'Apply complete', mypage:'My page', scholarships:'Scholarships',
         errors_copy:'Error pages copy',
         programs:'Programs', program_detail:'Program detail',
         partners:'Partners', stories:'Stories', news:'News', faq:'FAQ',
@@ -1027,7 +1027,7 @@
         notice:'상단 공지 배너', og_images:'OG / SEO 이미지', two_factor:'2단계 인증', email_templates:'이메일 템플릿', receipt_template:'영수증 템플릿', integrations:'API · 통합',
         mailbox:'메일함',
         hero:'히어로', how:'How it works', cta:'CTA 배너',
-        about:'About 페이지', partner_cta:'파트너 CTA', team:'프로젝트 팀', apply:'지원', apply_done:'지원 완료', mypage:'마이페이지', scholarships:'장학',
+        about:'About 페이지', menu_names:'메뉴 이름', partner_cta:'파트너 CTA', team:'프로젝트 팀', apply:'지원', apply_done:'지원 완료', mypage:'마이페이지', scholarships:'장학',
         errors_copy:'에러 페이지 텍스트',
         programs:'프로그램', program_detail:'프로그램 상세',
         partners:'파트너', stories:'스토리', news:'소식', faq:'FAQ',
@@ -1149,6 +1149,7 @@
 
       // 페이지·콘텐츠 — every public-facing content tab in one place.
       { id: 'about',         group: 'Content' },
+      { id: 'menu_names',    group: 'Content' },
       { id: 'apply',         group: 'Content' },
       { id: 'apply_done',    group: 'Content' },
       { id: 'mypage',        group: 'Content' },
@@ -5938,6 +5939,33 @@
   }
 
   // ---- Page heros (Partners / Stories / News / Contact / Programs) -------
+  function MenuNamesTab({ c, set }) {
+    const nav = (c.nav && c.nav.en) || {};
+    const navOrder = ['about','programs','scholarships','news','stories','partners','contact','apply'];
+    const cols = (c.footer && c.footer.columns) || [];
+    return (
+      <>
+        <div className="card">
+          <h3 style={{marginTop:0}}>상단 메뉴 이름 (Top navigation)</h3>
+          <p className="desc" style={{marginTop:-4}}>공개 사이트 상단 네비게이션 메뉴 이름입니다(영어).</p>
+          <div className="grid-2 tight">
+            {navOrder.map(k => <Text key={k} label={k} value={nav[k] || ''} onChange={v => set(['nav','en',k], v)} lang="en" />)}
+          </div>
+        </div>
+        {cols.map((col, ci) => (
+          <details key={ci} className="card admin-fold">
+            <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>푸터 메뉴: {col.title_en || ('Column ' + (ci+1))}</h3></summary>
+            <div style={{marginTop:12}}>
+              <Text label="컬럼 제목 (Column title)" value={col.title_en || ''} onChange={v => set(['footer','columns',ci,'title_en'], v)} lang="en" />
+              {(col.items || []).map((it, ii) => (
+                <Text key={ii} label={'항목 ' + (ii+1)} value={it.label_en || ''} onChange={v => set(['footer','columns',ci,'items',ii,'label_en'], v)} lang="en" />
+              ))}
+            </div>
+          </details>
+        ))}
+      </>
+    );
+  }
   function ApplyHeroTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply" label="지원 폼 히어로 (헤더)" />; }
   function ApplyDoneTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply_done" label="지원 완료 히어로 (헤더)" />; }
   function MyPageHeroTab({ c, set }) { return (<><PageHeroText c={c} set={set} pageKey="member" label="회원 로그인 안내 히어로 (헤더)" /><PageHeroText c={c} set={set} pageKey="mypage" label="마이페이지 히어로 (헤더)" /></>); }
@@ -8163,7 +8191,7 @@
       receipt_template: ReceiptTemplateTab,
       integrations: IntegrationsTab,
       hero: HeroTab, how: HowTab, cta: CtaTab,
-      about: AboutTab, team: TeamAdminTab,
+      about: AboutTab, team: TeamAdminTab, menu_names: MenuNamesTab,
       apply: ApplyHeroTab, apply_done: ApplyDoneTab, mypage: MyPageHeroTab, scholarships: ScholarshipsHeroTab,
       errors_copy: ErrorsCopyTab,
       programs: ProgramsTab, program_detail: ProgramDetailTab,

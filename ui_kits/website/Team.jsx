@@ -232,14 +232,14 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
           </div>
         )}
         {!hasAny && <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
-        {member.messageable && (
-          <div className="team-profile-actions">
-            <button type="button" className="btn btn-primary" onClick={() => { onClose(); onMessage(member); }}>
-              <TIcon name="mail" size={16} />
-              {isKo ? '메시지 보내기' : 'Send a message'}
-            </button>
-          </div>
-        )}
+        {/* 메시지 보내기는 항상 노출. 로그아웃 사용자는 메시지 모달이 회원가입/로그인으로
+            유도하고, 로그인 사용자는 계정 연결 멤버면 DM, 미연결 멤버면 문의함으로 전달. */}
+        <div className="team-profile-actions">
+          <button type="button" className="btn btn-primary" onClick={() => { onClose(); onMessage(member); }}>
+            <TIcon name="mail" size={16} />
+            {isKo ? '메시지 보내기' : 'Send a message'}
+          </button>
+        </div>
       </div>
     </div>
   );

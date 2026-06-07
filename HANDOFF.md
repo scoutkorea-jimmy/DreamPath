@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.086.00`
+- **버전**: `v01.088.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,8 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.088.00 — **관리자 모든 카드 기본 접힘**: card+h3 카드 62개를 접이식 details(admin-fold)로 일괄 변환(균형 스캐너, 복잡 58개 스킵, babel 통과). 전역 규칙.
+  - +01.087.00 — **운영용 KO 정리**: 이메일 템플릿·내부 알림·문의 유형·stats KO 입력 제거(EN전용). RBAC 라벨·메일 컴포저·번역툴 유지.
   - +01.086.00 — **메뉴 이름 일괄 편집 탭**: 페이지·콘텐츠 하위 "메뉴 이름"(menu_names) 탭 — 상단 nav.en 8개 + 푸터 컬럼·항목 라벨 일괄 편집(EN전용, 접이식). 운영자 요청.
   - +01.085.00 — **공개 프론트 KO 입력 전면 삭제(EN전용) + 페이지 헤더 탭 폐지→지원/지원완료/마이페이지/장학 전용 탭**: 공개는 영어 전용이므로 Brand/Nav/Footer·Program(코스/강사Bio)·Long-form rich(한영→영어)·Essays·Notice·OG/SEO·About(hero/blocks/closing)·coord_cta·ProgramDetail Korean 카드의 KO 입력 제거 + 죽은 PartnerCtaTab 삭제. 운영용(이메일/내부메시지/RBAC/번역툴)·관리자 라벨은 유지. "페이지 헤더" 통합 탭 폐지하고 apply/apply_done/mypage/scholarships 전용 탭(PageHeroText, 우측 미리보기) 신설. 남은 lang=ko 11개는 운영용.
   - +01.084.00 — **스토리 2분류(추천자/학습자) + 아코디언 네이티브 마커 제거 + 소식탭 미리보기 + ProgramDetail EN전용**: 스토리에 kind(learner/leader) → 공개 /stories 두 섹션. admin 유형 select+배지. 모든 admin 아코디언 네이티브 ▼/▶ 제거(단일 chevron). 소식 탭 2단 미리보기. ProgramDetail Korean 본문 카드 제거.

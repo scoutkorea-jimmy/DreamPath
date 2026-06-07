@@ -5602,6 +5602,22 @@
         </div>
 
         <div className="card">
+          <h3>상단 메시지 밴드 / Top message band</h3>
+          <p className="desc" style={{marginTop:-4}}>
+            /team 상단의 "Meet our CEO" 메시지 밴드 문구입니다. 공개 사이트는 한/영 토글이
+            있으므로 두 언어 모두 입력하세요. 비우면 기본 문구가 표시됩니다.
+          </p>
+          <div className="grid-2 tight">
+            <Text label="작은 라벨 (KO)" value={(pt.coord_cta && pt.coord_cta.kicker_ko) || ''} onChange={v => set(['project_team','coord_cta','kicker_ko'], v)} lang="ko" />
+            <Text label="Kicker (EN)" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
+            <Text label="제목 (KO)" value={(pt.coord_cta && pt.coord_cta.title_ko) || ''} onChange={v => set(['project_team','coord_cta','title_ko'], v)} lang="ko" />
+            <Text label="Title (EN)" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
+          </div>
+          <Area label="본문 (KO)" value={(pt.coord_cta && pt.coord_cta.sub_ko) || ''} onChange={v => set(['project_team','coord_cta','sub_ko'], v)} lang="ko" rows={3} />
+          <Area label="Body (EN)" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
+        </div>
+
+        <div className="card">
           <h3>Sections</h3>
           <p className="desc" style={{marginTop:-4}}>
             그룹(예: <code>HQ</code>, <code>GLOBAL TEAM</code>)별로 섹션을 만들고 멤버를 추가하세요.

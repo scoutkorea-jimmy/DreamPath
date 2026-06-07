@@ -669,6 +669,14 @@
         role_ko: '지원·문의 총괄', role_en: 'Applicant support & inquiries',
         image: '/assets/placeholder-student.svg',
       },
+      // Editable copy for the always-on message band at the top of /team
+      // (admin → Project team → "상단 메시지 밴드"). v01.078.06.
+      coord_cta: {
+        kicker_ko: '궁금한 점이 있나요?', kicker_en: 'HAVE A QUESTION?',
+        title_ko: 'CEO에게 물어보세요', title_en: 'Meet our CEO',
+        sub_ko: '궁금한 이야기가 있다면 무엇이든 들려주세요. 우리 CEO가 직접 듣고, 가장 적절한 답을 드릴 수 있는 사람을 연결해 드립니다.',
+        sub_en: 'Have something on your mind? Share it — our CEO will personally read it and connect you with the right person to give you the best answer.',
+      },
       // Two functional groups by default — HQ and GLOBAL TEAM. Each section's
       // kicker renders as the group title on /team. Operators can add/remove
       // sections and members from admin → Project team. Member photos are 1:1

@@ -260,6 +260,8 @@ function Team({ go, lang, c }) {
     if (ref) coordinator = ref;
   }
   const coordName = isKo ? (coordinator.name || coordinator.name_en) : (coordinator.name_en || coordinator.name);
+  const pick = (ko, en) => isKo ? (ko || en) : (en || ko);
+  const cc = t.coord_cta || {}; // editable copy for the top message band
   const [target, setTarget] = useStateT(null);
   const [profile, setProfile] = useStateT(null);
 
@@ -284,11 +286,11 @@ function Team({ go, lang, c }) {
               {!coordinator.image && (coordName || '?').charAt(0)}
             </div>
             <div className="team-coord-copy">
-              <div className="sec-kicker">{isKo ? '궁금한 점이 있나요?' : 'HAVE A QUESTION?'}</div>
-              <h2>{isKo ? '코디네이터에게 메시지 보내기' : 'Message our coordinator'}</h2>
-              <p>{isKo
-                ? '프로그램·지원 절차·일정 등 무엇이든 코디네이터에게 직접 물어보세요. 회원가입 후 메시지를 보내면 운영팀이 확인해 회신드립니다.'
-                : 'Ask the coordinator anything — programs, how to apply, schedules. Sign up, send a message, and the team will reply.'}</p>
+              <div className="sec-kicker">{pick(cc.kicker_ko, cc.kicker_en) || (isKo ? '궁금한 점이 있나요?' : 'HAVE A QUESTION?')}</div>
+              <h2>{pick(cc.title_ko, cc.title_en) || (isKo ? 'CEO에게 물어보세요' : 'Meet our CEO')}</h2>
+              <p>{pick(cc.sub_ko, cc.sub_en) || (isKo
+                ? '궁금한 이야기가 있다면 무엇이든 들려주세요. 우리 CEO가 직접 듣고, 가장 적절한 답을 드릴 수 있는 사람을 연결해 드립니다.'
+                : 'Have something on your mind? Share it — our CEO will personally read it and connect you with the right person to give you the best answer.')}</p>
             </div>
             <div className="team-coord-action">
               <button type="button" className="btn btn-primary btn-lg" onClick={() => setTarget(coordinator)}>

@@ -5610,7 +5610,15 @@
         </details>
         <HeroBgFields title="팀 히어로 배경" path={['project_team','hero']} node={pt.hero} set={set} />
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Coordinator · 코디네이터</h3></summary>
+        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>상단 메시지 밴드 (Meet our CEO)</h3></summary>
+          <p className="desc" style={{marginTop:-4}}>/team 상단 메시지 밴드 문구. 비우면 기본 문구가 표시됩니다.</p>
+          <div className="grid-2 tight">
+            <Text label="Kicker" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
+            <Text label="Title" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
+          </div>
+          <Area label="Subtitle" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
+        
+          <div style={{margin:'18px 0 6px',paddingTop:14,borderTop:'1px solid var(--border-subtle)',fontSize:12,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)'}}>메시지를 받을 코디네이터 (수신자)</div>
           <p className="desc" style={{marginTop:-4}}>
             공개 /team 페이지 상단의 <strong>“Message our coordinator”</strong> 상시 버튼이
             가리키는 사람입니다. <strong>아래 팀원 중에서 지정</strong>하면 이름·직함·사진·연결계정이
@@ -5680,15 +5688,6 @@
               </>
             );
           })()}
-        </details>
-
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>상단 메시지 밴드 (Meet our CEO)</h3></summary>
-          <p className="desc" style={{marginTop:-4}}>/team 상단 메시지 밴드 문구. 비우면 기본 문구가 표시됩니다.</p>
-          <div className="grid-2 tight">
-            <Text label="Kicker" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
-            <Text label="Title" value={(pt.coord_cta && pt.coord_cta.title_en) || ''} onChange={v => set(['project_team','coord_cta','title_en'], v)} lang="en" />
-          </div>
-          <Area label="Subtitle" value={(pt.coord_cta && pt.coord_cta.sub_en) || ''} onChange={v => set(['project_team','coord_cta','sub_en'], v)} lang="en" rows={3} />
         </details>
 
         <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sections</h3></summary>

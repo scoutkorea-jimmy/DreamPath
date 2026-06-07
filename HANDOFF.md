@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.078.02`
+- **버전**: `v01.078.04`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,8 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.078.04 — **Project Team 멤버 편집기 정비 + 모달 링크/연락처 + 계정검색 회귀 수정**: 멤버 편집을 이름 기준 아코디언(native `<details>`, 기본 접힘)으로, 입력 순서 사진→이름·직함→BIO→주요 약력→주요 프로젝트 역할→**주요 링크(links_en)**→**연락처(contact_email)**. 공개 멤버 모달에 링크(새 탭)·연락처(mailto) 섹션 추가. **회귀 수정**: AccountLinkField(메시지 받을 계정 검색)가 `/api/admin/users`(v01.077 step-up 게이트) 호출로 비-게이트 Project Team 탭에서 403 → 검색 불가였음. 경량 `GET /api/admin/account-search`(isAdmin만, step-up 불필요, id/name/email/role) 신설로 복구.
+  - +01.078.03 — **코디네이터 세부약력 제거**: 코디네이터는 약력 프로필이 아니라 메시지 CTA 용도이므로, v01.078.01에서 추가했던 코디네이터 BIO/약력/역할 입력 3칸 + 사진 클릭 모달을 되돌림(멤버 카드 모달은 유지).
   - +01.078.02 — **/team "Have a question?" 코디네이터 사진 항상 컬러**: `.team-coord-photo`의 grayscale-until-hover → `filter:none`. 운영자 요청.
   - +01.078.01 — **Project Team 약력 모달 3단 구조 + 관리자 입력**: 멤버 클릭 모달을 ① BIO ② 주요 약력(career_en) ③ 이번 프로젝트 주요 역할(project_role_en) 3단으로. 관리자 프로젝트 팀 편집(멤버+코디네이터)에 "클릭 시 모달 내용" Area 3개 추가. Team.jsx TeamProfileModal이 값 있는 섹션만 라벨과 함께 렌더. site.css `.team-profile-section/-label`. (admin 팀 탭은 EN-only 예외 유지.)
   - +01.078.00 — **관리자 2FA 계정단위(per-account) 전환 + Project Team 약력 모달**: v01.077의 단일 공유 2FA를 계정별로 전환(마이그레이션 0038 `users.totp_secret_enc`/`totp_confirmed_at`, encryptPii). 콘솔이 이미 계정별 로그인이라 `totpIdentity(request)`로 user 세션/bare ADMIN_TOKEN 분기 — user는 자기 계정 비밀키(+pending 단명 KV), token은 레거시 `admin:totp_v1` fallback. 5개 totp 엔드포인트 identity 기반, otpauth label=이메일. **step-up 쿠키에 uid 바인딩** → admin A 쿠키로 admin B 세션 통과 불가. 신규 `POST /api/admin/users/:id/totp-reset`(step-up+audit, 분실 admin 초기화→재등록 강제), `GET /api/admin/users/:id`에 `totp_enrolled`. admin: TwoFactorTab "내 계정" 문구+account 표시, MembersTab admin 회원 상세에 2FA 배지+초기화 버튼. Project Team 멤버·코디네이터 카드 클릭 → 약력 모달(TeamProfileModal). wiki(versions 3페이지 + kms 보안모델/관리자/changelog) 동시 갱신.

@@ -231,7 +231,7 @@ function ChatBot({ lang, c, go }) {
           style={{
             position: 'fixed', right: 20, bottom: 24, zIndex: 9000,
             width: 56, height: 56, borderRadius: '50%',
-            background: 'var(--accent-purple-fill)', color: '#fff',
+            background: 'var(--accent-purple-fill)', color: 'var(--fg-on-fill)',
             border: 'none', boxShadow: '0 10px 28px rgba(107,45,190,0.42)',
             cursor: 'pointer', padding: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -275,7 +275,7 @@ function ChatBot({ lang, c, go }) {
         <div style={{
           padding: '14px 16px',
           background: 'linear-gradient(135deg, var(--midnight-purple), var(--accent-purple-fill))',
-          color: '#fff', display: 'flex', alignItems: 'center', gap: 12,
+          color: 'var(--fg-on-fill)', display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
@@ -301,7 +301,7 @@ function ChatBot({ lang, c, go }) {
             aria-label={isKo ? '대화 지우기' : 'Clear conversation'}
             title={isKo ? '대화 지우기' : 'Clear conversation'}
             style={{
-              background:'rgba(255,255,255,0.14)', border:'none', color:'#fff',
+              background:'rgba(255,255,255,0.14)', border:'none', color:'var(--fg-on-fill)',
               width:30, height:30, borderRadius:8, cursor:'pointer', padding:0,
               display:'flex', alignItems:'center', justifyContent:'center',
             }}
@@ -318,7 +318,7 @@ function ChatBot({ lang, c, go }) {
             aria-label={isKo ? '닫기' : 'Close'}
             title={isKo ? '닫기' : 'Close'}
             style={{
-              background:'rgba(255,255,255,0.14)', border:'none', color:'#fff',
+              background:'rgba(255,255,255,0.14)', border:'none', color:'var(--fg-on-fill)',
               width:30, height:30, borderRadius:8, cursor:'pointer', padding:0,
               fontSize:20, lineHeight:1,
             }}
@@ -397,7 +397,7 @@ function ChatBubble({ m, lang, onSuggest, go }) {
       <div style={{display:'flex',justifyContent:'flex-end'}}>
         <div style={{
           maxWidth:'82%',
-          background:'var(--accent-purple-fill)', color:'#fff',
+          background:'var(--accent-purple-fill)', color:'var(--fg-on-fill)',
           padding:'10px 13px', borderRadius:'14px 14px 4px 14px',
           fontSize:14, lineHeight:1.5, whiteSpace:'pre-line',
           boxShadow:'0 2px 6px rgba(0,0,0,0.08)',

@@ -125,10 +125,10 @@ function Member({ go, lang, c }) {
                 onClick={() => setSection(t.k)}>
                 {isKo ? t.l_ko : t.l_en}
                 {t.k === 'notifications' && unread > 0 && (
-                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'#fff',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{unread}</span>
+                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'var(--fg-on-fill)',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{unread}</span>
                 )}
                 {t.k === 'messages' && msgUnread > 0 && (
-                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'#fff',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{msgUnread}</span>
+                  <span style={{display:'inline-block',marginLeft:6,padding:'1px 7px',borderRadius:999,background:'var(--badge-danger-fill)',color:'var(--fg-on-fill)',fontSize:11,fontWeight:700,fontFamily:'var(--font-mono)'}}>{msgUnread}</span>
                 )}
               </button>
             ))}

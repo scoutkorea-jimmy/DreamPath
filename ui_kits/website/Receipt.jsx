@@ -66,7 +66,7 @@ function Receipt({ lang, c }) {
       <div className="receipt-paper">
         <header className="receipt-head">
           <div>
-            <div className="receipt-brand">KoreaDream<span style={{color:'#F4B72E'}}>Path</span></div>
+            <div className="receipt-brand">KoreaDream<span style={{color:'var(--receipt-accent)'}}>Path</span></div>
             <div className="receipt-issuer">{data.issuer.name}<br/>{data.issuer.email}</div>
           </div>
           <div className="receipt-meta">
@@ -105,8 +105,8 @@ function Receipt({ lang, c }) {
             </tbody>
             <tfoot>
               <tr>
-                <td style={{borderTop:'2px solid #333',paddingTop:12,fontWeight:700}}>{isKo ? '합계' : 'Total'}</td>
-                <td style={{borderTop:'2px solid #333',paddingTop:12,textAlign:'right',fontWeight:700,fontSize:18}}>{symbol}{amount}.00 {currency}</td>
+                <td style={{borderTop:'2px solid var(--receipt-rule)',paddingTop:12,fontWeight:700}}>{isKo ? '합계' : 'Total'}</td>
+                <td style={{borderTop:'2px solid var(--receipt-rule)',paddingTop:12,textAlign:'right',fontWeight:700,fontSize:18}}>{symbol}{amount}.00 {currency}</td>
               </tr>
             </tfoot>
           </table>
@@ -184,7 +184,7 @@ function ReceiptTemplate({ tpl, data, isKo }) {
           position:'relative',
           width: tpl.page_w, height: tpl.page_h,
           transform: 'scale(' + scale + ')', transformOrigin: 'top left',
-          background: `url(${tpl.background_url}) no-repeat top left / 100% 100%, #fff`,
+          background: `url(${tpl.background_url}) no-repeat top left / 100% 100%, var(--receipt-paper)`,
         }}>
           {(tpl.fields || []).map((f, i) => {
             const raw = VALUE[f.key];
@@ -196,7 +196,7 @@ function ReceiptTemplate({ tpl, data, isKo }) {
                 left: f.x, top: f.y,
                 width: f.w || 'auto',
                 fontSize: f.font_size || 14,
-                color: f.color || '#1A1A1A',
+                color: f.color || 'var(--receipt-field)',
                 fontWeight: f.weight || 400,
                 textAlign: f.align || 'left',
                 lineHeight: 1.2,

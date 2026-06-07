@@ -152,6 +152,31 @@
   --accent-purple-fill:  #6B2DBE;       /* white ≥ 5.5:1 — AA       */
   --badge-danger-fill:   #B91C1C;       /* white ≥ 6.4:1 — AAA      */
 
+  /* Text/icon color that sits ON a saturated colored fill (the *-fill tokens,
+     brand hero, purple/danger badges). Intentionally CONSTANT white in both
+     themes — unlike --fg-inverse, which flips to near-black in dark mode.
+     Use instead of a literal #fff anywhere text/icons paint over a fill. */
+  --fg-on-fill:          #FFFFFF;
+
+  /* ============ RECEIPT (print-fixed) ============
+     Formal printable documents (invoices / receipts) must look identical on
+     screen and on paper regardless of the active theme. These tokens
+     intentionally do NOT flip in dark mode — a receipt is always ink-on-white.
+     Registered Tokens-first exception (see wiki:design). */
+  --receipt-bg:      #F4F4F8;   /* viewer page backdrop */
+  --receipt-paper:   #FFFFFF;   /* the document sheet */
+  --receipt-ink:     #222222;   /* body text */
+  --receipt-brand:   #1E0B33;   /* brand wordmark + header rule */
+  --receipt-muted:   #666666;   /* issuer / dates / labels */
+  --receipt-id:      #333333;   /* mono document id */
+  --receipt-faint:   #888888;   /* section / table column headers */
+  --receipt-line:    #E0E0E0;   /* table header rule (heaviest hairline) */
+  --receipt-line-2:  #F0F0F0;   /* table row rule */
+  --receipt-line-3:  #EEEEEE;   /* footer rule */
+  --receipt-accent:  #F4B72E;   /* brand wordmark accent ("Path") on the sheet */
+  --receipt-rule:    #333333;   /* totals separator rule */
+  --receipt-field:   #1A1A1A;   /* default template field ink (operator may override) */
+
   /* ============ TYPOGRAPHY ============ */
   --font-kr:    "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif;
   --font-en:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;

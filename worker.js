@@ -3627,6 +3627,23 @@ async function handleApi(request, env, url, ctx) {
     const { results } = await env.DB.prepare(sql).bind(...binds, limit, offset).all();
     return json({ items: results || [], total: total?.n || 0, limit, offset });
   }
+  // Lightweight account picker — name/email/role only, NO step-up gate. The
+  // Project Team editor (a non-gated tab) needs to link a member to a user
+  // account for DMs; the full /api/admin/users directory now requires step-up
+  // (v01.077), which broke that picker. This minimal admin-only search restores
+  // it without exposing the PII-heavy directory fields. (v01.078.04)
+  if (path === '/api/admin/account-search' && method === 'GET') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    if (q.length < 2) return json({ items: [] });
+    const like = '%' + q + '%';
+    const { results } = await env.DB.prepare(
+      'SELECT id, email, name, role FROM users ' +
+      'WHERE LOWER(email) LIKE ? OR LOWER(COALESCE(name,\'\')) LIKE ? ' +
+      'ORDER BY created_at DESC LIMIT 8'
+    ).bind(like, like).all();
+    return json({ items: results || [] });
+  }
   // Admin: create a new member directly. Bypasses the public signup form so
   // the operator can pre-provision accounts (e.g. for a new admin teammate).
   if (path === '/api/admin/users' && method === 'POST') {

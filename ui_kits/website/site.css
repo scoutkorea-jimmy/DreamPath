@@ -1405,6 +1405,10 @@ body {
 }
 .team-profile-bio { font-size: 15px; line-height: 1.7; color: var(--fg-secondary); margin: 0; white-space: pre-line; }
 .team-profile-bio-empty { color: var(--fg-muted); font-style: italic; }
+.team-profile-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.team-profile-links a { font-size: 14px; color: var(--brand-text); text-decoration: none; word-break: break-all; }
+.team-profile-links a:hover { text-decoration: underline; }
+.team-profile-bio a { color: var(--brand-text); }
 .team-profile-actions { margin-top: 22px; }
 .team-profile-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 540px) {

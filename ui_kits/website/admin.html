@@ -5454,7 +5454,7 @@
       setBusy(true);
       try {
         const tok = localStorage.getItem('dp_admin_token') || '';
-        const r = await fetch('/api/admin/users?limit=8&q=' + encodeURIComponent(term.trim()), { headers: { authorization: 'Bearer ' + tok } });
+        const r = await fetch('/api/admin/account-search?q=' + encodeURIComponent(term.trim()), { headers: { authorization: 'Bearer ' + tok } });
         const d = await r.json();
         setResults(d.items || []); setOpen(true);
       } catch {} finally { setBusy(false); }
@@ -5566,10 +5566,6 @@
                       <Text label="Name" value={coord.name_en || ''} onChange={v => set(['project_team','coordinator','name_en'], v)} lang="en" />
                       <Text label="Role / title" value={coord.role_en || ''} onChange={v => set(['project_team','coordinator','role_en'], v)} lang="en" />
                     </div>
-                    <div style={{margin:'4px 0 8px',fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>클릭 시 모달 내용</div>
-                    <Area label="① BIO 문구" value={coord.bio_en || coord.bio_ko || ''} onChange={v => set(['project_team','coordinator','bio_en'], v)} lang="en" hint="모달 맨 위 BIO." />
-                    <Area label="② 주요 약력 / Key background" value={coord.career_en || coord.career_ko || ''} onChange={v => set(['project_team','coordinator','career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
-                    <Area label="③ 이번 프로젝트 주요 역할 / Role in this project" value={coord.project_role_en || coord.project_role_ko || ''} onChange={v => set(['project_team','coordinator','project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
                     <ImageUploadField
                       label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
                       value={coord.image || ''}
@@ -5612,39 +5608,50 @@
                 <Text label="Group title (e.g. HQ, GLOBAL TEAM)" value={s.kicker_en || s.kicker_ko || ''} onChange={v => set(['project_team','sections',si,'kicker_en'], v)} lang="en" />
               </div>
               <h4 style={{margin:'8px 0',fontSize:13,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-secondary)'}}>Members</h4>
-              {(s.members || []).map((m, mi) => (
-                <div key={mi} style={{padding:'14px',background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                    <strong style={{fontSize:13,color:'var(--fg-secondary)'}}>Member {mi + 1}</strong>
-                    <button className="icon-btn danger" onClick={() => {
+              {(s.members || []).map((m, mi) => {
+                // Collapsed-by-default accordion keyed by name (native <details>,
+                // so open state is DOM-managed and survives re-render).
+                const mName = m.name_en || m.name || `Member ${mi + 1}`;
+                return (
+                <details key={mi} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+                  <summary style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
+                    <strong style={{fontSize:14,color:'var(--fg-primary)'}}>{mName}</strong>
+                    <button className="icon-btn danger" onClick={(e) => {
+                      e.stopPropagation(); e.preventDefault();
+                      if (!confirm(`Remove ${mName}?`)) return;
                       const next = (s.members || []).filter((_, j) => j !== mi);
                       set(['project_team','sections',si,'members'], next);
                     }}>Remove</button>
+                  </summary>
+                  <div style={{padding:'0 14px 14px'}}>
+                    <ImageUploadField
+                      label="사진 / Photo (1:1 정사각형, JPG·PNG)"
+                      value={m.image || ''}
+                      onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)}
+                      accept="image/png,image/jpeg"
+                      requireSquare={true}
+                      preview="square"
+                      hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데 기준으로 자동 정사각형 크롭됩니다."
+                    />
+                    <div className="grid-2 tight">
+                      <Text label="Name" value={m.name_en || m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
+                      <Text label="Role / title" value={m.role_en || m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
+                    </div>
+                    <div style={{margin:'4px 0 8px',fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>클릭 시 모달 내용</div>
+                    <Area label="BIO 문구 (카드 요약 겸 모달 상단)" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" hint="카드에 보이는 짧은 한 줄 소개 + 모달 맨 위 BIO." />
+                    <Area label="주요 약력 / Key background" value={m.career_en || m.career_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
+                    <Area label="주요 프로젝트 역할 / Role in this project" value={m.project_role_en || m.project_role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
+                    <Area label="주요 링크 / Key links" value={m.links_en || m.links_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'links_en'], v)} lang="en" rows={3} hint="한 줄에 하나씩. 'LinkedIn | https://…' 처럼 '라벨 | URL' 형식 가능(라벨 생략 시 URL 표시)." />
+                    <Text label="연락처 (이메일) / Contact email" value={m.contact_email || ''} onChange={v => set(['project_team','sections',si,'members',mi,'contact_email'], v)} lang="en" hint="모달에 메일 링크로 표시됩니다." />
+                    <AccountLinkField
+                      userId={m.user_id} userLabel={m.user_label}
+                      onLink={u => set(['project_team','sections',si,'members',mi], { ...m, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: m.key || genTeamKey() })}
+                      onUnlink={() => set(['project_team','sections',si,'members',mi], { ...m, user_id: undefined, user_label: undefined })}
+                    />
                   </div>
-                  <div className="grid-2 tight">
-                    <Text label="Name" value={m.name_en || m.name || ''} onChange={v => set(['project_team','sections',si,'members',mi,'name_en'], v)} lang="en" />
-                    <Text label="Role / title" value={m.role_en || m.role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'role_en'], v)} lang="en" />
-                  </div>
-                  <div style={{margin:'4px 0 8px',fontSize:11,letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--fg-muted)',fontWeight:700}}>클릭 시 모달 내용</div>
-                  <Area label="① BIO 문구 (카드 요약 겸 모달 상단)" value={m.bio_en || m.bio_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'bio_en'], v)} lang="en" hint="카드에 보이는 짧은 한 줄 소개 + 모달 맨 위 BIO." />
-                  <Area label="② 주요 약력 / Key background" value={m.career_en || m.career_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'career_en'], v)} lang="en" rows={5} hint="경력·학력 등 주요 약력. 줄바꿈 가능." />
-                  <Area label="③ 이번 프로젝트 주요 역할 / Role in this project" value={m.project_role_en || m.project_role_ko || ''} onChange={v => set(['project_team','sections',si,'members',mi,'project_role_en'], v)} lang="en" rows={4} hint="KoreaDreamPath에서 맡은 주요 역할. 줄바꿈 가능." />
-                  <ImageUploadField
-                    label="Photo / 사진 (1:1 정사각형, JPG·PNG)"
-                    value={m.image || ''}
-                    onChange={v => set(['project_team','sections',si,'members',mi,'image'], v)}
-                    accept="image/png,image/jpeg"
-                    requireSquare={true}
-                    preview="square"
-                    hint="JPG·PNG만 가능합니다. 1:1이 아닌 이미지는 가운데를 기준으로 자동으로 정사각형(1:1)으로 잘립니다. 파일을 올리거나 /assets/… 경로를 붙여넣을 수 있습니다."
-                  />
-                  <AccountLinkField
-                    userId={m.user_id} userLabel={m.user_label}
-                    onLink={u => set(['project_team','sections',si,'members',mi], { ...m, user_id: u.id, user_label: (u.name ? u.name + ' · ' : '') + u.email, key: m.key || genTeamKey() })}
-                    onUnlink={() => set(['project_team','sections',si,'members',mi], { ...m, user_id: undefined, user_label: undefined })}
-                  />
-                </div>
-              ))}
+                </details>
+                );
+              })}
               <button className="btn-add" onClick={() => {
                 const next = [...(s.members || []), { name_en:'', role_en:'', bio_en:'', image:'' }];
                 set(['project_team','sections',si,'members'], next);

@@ -169,7 +169,17 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
   const bio     = pick(member.bio_ko, member.bio_en);                    // ① BIO 문구
   const career  = pick(member.career_ko, member.career_en);             // ② 주요 약력
   const project = pick(member.project_role_ko, member.project_role_en); // ③ 이번 프로젝트 주요 역할
-  const hasAny = bio || career || project;
+  // 주요 링크: one per line, "Label | URL" or bare URL.
+  const links = (pick(member.links_ko, member.links_en) || '')
+    .split('\n').map(s => s.trim()).filter(Boolean)
+    .map(line => {
+      const bar = line.indexOf('|');
+      if (bar !== -1) return { label: line.slice(0, bar).trim(), url: line.slice(bar + 1).trim() };
+      return { label: line, url: line };
+    })
+    .filter(l => l.url);
+  const contactEmail = member.contact_email || '';
+  const hasAny = bio || career || project || links.length || contactEmail;
   return (
     <div className="tm-overlay team-profile-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="tm-modal team-profile-modal" onClick={e => e.stopPropagation()}>
@@ -201,6 +211,24 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
           <div className="team-profile-section">
             <div className="team-profile-label">{isKo ? '이번 프로젝트 주요 역할' : 'Role in this project'}</div>
             <p className="team-profile-bio">{project}</p>
+          </div>
+        )}
+        {links.length > 0 && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">{isKo ? '주요 링크' : 'Key links'}</div>
+            <ul className="team-profile-links">
+              {links.map((l, i) => (
+                <li key={i}>
+                  <a href={l.url} target="_blank" rel="noopener noreferrer">{l.label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {contactEmail && (
+          <div className="team-profile-section">
+            <div className="team-profile-label">{isKo ? '연락처' : 'Contact'}</div>
+            <p className="team-profile-bio"><a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
           </div>
         )}
         {!hasAny && <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
@@ -252,11 +280,7 @@ function Team({ go, lang, c }) {
       <section className="section-tight team-coord-section">
         <div className="container-narrow">
           <div className="team-coord-band">
-            <div className="team-coord-photo team-page-card-click" role="button" tabIndex={0}
-              onClick={() => setProfile(coordinator)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProfile(coordinator); } }}
-              aria-label={(coordName || '') + (isKo ? ' 약력 보기' : ' — view bio')}
-              style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none', cursor:'pointer'}}>
+            <div className="team-coord-photo" style={{backgroundImage: coordinator.image ? `url(${coordinator.image})` : 'none'}}>
               {!coordinator.image && (coordName || '?').charAt(0)}
             </div>
             <div className="team-coord-copy">

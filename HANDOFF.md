@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.078.04`
+- **버전**: `v01.078.05`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.078.05 — **Project Team 편집기: 섹션·멤버 순서 이동 + 멤버 펼치기/접기 버튼**: 섹션 헤더 ↑/↓(moveSection), 멤버 아코디언 summary ↑/↓(moveMember)로 순서 조정(끝단 disabled). 멤버 summary에 chevron(▶, `[open]` 90° 회전) 명시적 펼치기/접기 버튼 추가 — 이름 클릭 토글도 유지. 이동·삭제 버튼은 stopPropagation으로 `<details>` 토글과 분리. site.css `.tm-chevron` + summary 마커 제거.
   - +01.078.04 — **Project Team 멤버 편집기 정비 + 모달 링크/연락처 + 계정검색 회귀 수정**: 멤버 편집을 이름 기준 아코디언(native `<details>`, 기본 접힘)으로, 입력 순서 사진→이름·직함→BIO→주요 약력→주요 프로젝트 역할→**주요 링크(links_en)**→**연락처(contact_email)**. 공개 멤버 모달에 링크(새 탭)·연락처(mailto) 섹션 추가. **회귀 수정**: AccountLinkField(메시지 받을 계정 검색)가 `/api/admin/users`(v01.077 step-up 게이트) 호출로 비-게이트 Project Team 탭에서 403 → 검색 불가였음. 경량 `GET /api/admin/account-search`(isAdmin만, step-up 불필요, id/name/email/role) 신설로 복구.
   - +01.078.03 — **코디네이터 세부약력 제거**: 코디네이터는 약력 프로필이 아니라 메시지 CTA 용도이므로, v01.078.01에서 추가했던 코디네이터 BIO/약력/역할 입력 3칸 + 사진 클릭 모달을 되돌림(멤버 카드 모달은 유지).
   - +01.078.02 — **/team "Have a question?" 코디네이터 사진 항상 컬러**: `.team-coord-photo`의 grayscale-until-hover → `filter:none`. 운영자 요청.

@@ -682,24 +682,50 @@
   // that node level, language-independent). Used by every hero editor.
   function HeroBgFields({ path, node, set }) {
     node = node || {};
-    const POS = [
-      ['center','중앙 (기본)'], ['top','상단'], ['bottom','하단'], ['left','좌측'], ['right','우측'],
-      ['left top','좌상단'], ['right top','우상단'], ['left bottom','좌하단'], ['right bottom','우하단'],
-    ];
+    // Parse bg_position into X/Y percentages for the sliders. Supports both the
+    // new "X% Y%" format and the legacy keyword presets.
+    const parsePos = (s) => {
+      const m = String(s || '').match(/(-?\d+)%\s+(-?\d+)%/);
+      if (m) return [Math.max(0, Math.min(100, +m[1])), Math.max(0, Math.min(100, +m[2]))];
+      const KW = { center:[50,50], top:[50,0], bottom:[50,100], left:[0,50], right:[100,50],
+        'left top':[0,0], 'right top':[100,0], 'left bottom':[0,100], 'right bottom':[100,100] };
+      return KW[String(s || '').trim()] || [50, 50];
+    };
+    const [px, py] = parsePos(node.bg_position);
+    const setPos = (x, y) => set([...path, 'bg_position'], x + '% ' + y + '%');
+    const sliderStyle = { width: '100%' };
     return (
       <div style={{border:'1px dashed var(--border-subtle)',borderRadius:10,padding:'12px 14px',margin:'12px 0'}}>
         <div style={{fontSize:11,fontWeight:700,color:'var(--fg-muted)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>히어로 배경 (선택)</div>
         <ImageUploadField label="배경 이미지" value={node.bg_image || ''} onChange={v => set([...path,'bg_image'], v)}
           preview="banner" accept="image/png,image/jpeg,image/webp"
           hint="이미지를 올리면 색 대신 이미지가 배경이 됩니다(어두운 오버레이 + 흰 글씨, 모바일·PC 자동 cover). 비우면 아래 색 또는 기본 색." />
-        <div className="grid-2 tight">
-          <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />
-          <div className="field">
-            <label>이미지 위치 (초점)</label>
-            <select value={node.bg_position || 'center'} onChange={e => set([...path,'bg_position'], e.target.value)}>
-              {POS.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <span className="hint">이미지가 잘릴 때 어느 부분을 보여줄지 정합니다.</span>
+        <Color label="배경색 (이미지 없을 때)" value={node.bg_color || ''} onChange={v => set([...path,'bg_color'], v)} />
+        <div className="field">
+          <label>이미지 위치 조정 (가로 {px}% · 세로 {py}%)</label>
+          {/* Live preview — reflects the sliders so the operator sees the crop. */}
+          {node.bg_image ? (
+            <div style={{height:96,borderRadius:8,border:'1px solid var(--border-subtle)',marginBottom:10,
+              backgroundImage:`linear-gradient(rgba(17,9,38,0.45),rgba(17,9,38,0.45)), url("${node.bg_image}")`,
+              backgroundSize:'cover', backgroundRepeat:'no-repeat', backgroundPosition: px + '% ' + py + '%',
+              display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:12, fontWeight:700}}>
+              미리보기
+            </div>
+          ) : (
+            <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:8}}>이미지를 올리면 슬라이더로 위치를 맞출 수 있습니다.</div>
+          )}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+            <span style={{fontSize:12,color:'var(--fg-secondary)',width:64,flex:'0 0 auto'}}>가로 ↔</span>
+            <input type="range" min={0} max={100} value={px} style={sliderStyle}
+              onChange={e => setPos(+e.target.value, py)} aria-label="가로 위치" />
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:12,color:'var(--fg-secondary)',width:64,flex:'0 0 auto'}}>세로 ↕</span>
+            <input type="range" min={0} max={100} value={py} style={sliderStyle}
+              onChange={e => setPos(px, +e.target.value)} aria-label="세로 위치" />
+          </div>
+          <div style={{marginTop:8}}>
+            <button type="button" className="icon-btn" onClick={() => setPos(50, 50)}>가운데로 초기화</button>
           </div>
         </div>
       </div>

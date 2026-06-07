@@ -1292,8 +1292,7 @@
             <div className="grid-2 tight">
               <Text label="Number" value={s.n} onChange={v => set(['stats',i,'n'], v)} />
               <div/>
-              <Text label="Label (KO)" value={s.ko} onChange={v => set(['stats',i,'ko'], v)} lang="ko" />
-              <Text label="Label (EN)" value={s.en} onChange={v => set(['stats',i,'en'], v)} lang="en" />
+              <Text label="Label" value={s.en} onChange={v => set(['stats',i,'en'], v)} lang="en" />
             </div>
           </div>
         ))}
@@ -3830,10 +3829,8 @@
           <div className="card">
             <h3>내용 작성</h3>
             <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
-            <Text label="제목 (한국어)" value={subjectKo} onChange={setSubjectKo} lang="ko" />
-            <Text label="제목 (English)" value={subjectEn} onChange={setSubjectEn} lang="en" />
-            <Area label="본문 (한국어)" value={bodyKo} onChange={setBodyKo} lang="ko" rows={8} />
-            <Area label="본문 (English)" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
+            <Text label="제목" value={subjectEn} onChange={setSubjectEn} lang="en" />
+            <Area label="본문" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
             {result && (
               <div role="status" style={{marginTop:14,padding:'10px 14px',borderRadius:8,
                 background: result.ok ? 'var(--state-success-bg)' : 'var(--state-danger-bg)',
@@ -4213,8 +4210,7 @@
             </div>
             <div className="grid-3 tight">
               <Text label="Value (slug)" value={cat.value || ''} onChange={v => set(['inquiry_categories',i,'value'], v)} hint="Stored on the inquiry row. Lowercase, no spaces." />
-              <Text label="Label (KO)" value={cat.label_ko || ''} onChange={v => set(['inquiry_categories',i,'label_ko'], v)} lang="ko" />
-              <Text label="Label (EN)" value={cat.label_en || ''} onChange={v => set(['inquiry_categories',i,'label_en'], v)} lang="en" />
+              <Text label="Label" value={cat.label_en || ''} onChange={v => set(['inquiry_categories',i,'label_en'], v)} lang="en" />
             </div>
           </div>
         ))}
@@ -4527,10 +4523,8 @@
               </div>
               <p className="desc" style={{margin:'0 0 12px'}}>Variables available: <code>{k.vars}</code></p>
               <div className="grid-2 tight">
-                <Text label="Subject (KO)" value={t.subject_ko || ''} onChange={v => set(['email_templates','items',k.id,'subject_ko'], v)} lang="ko" />
-                <Text label="Subject (EN)" value={t.subject_en || ''} onChange={v => set(['email_templates','items',k.id,'subject_en'], v)} lang="en" />
-                <Area label="Body (KO)" value={t.body_ko || ''} onChange={v => set(['email_templates','items',k.id,'body_ko'], v)} lang="ko" rows={8} />
-                <Area label="Body (EN)" value={t.body_en || ''} onChange={v => set(['email_templates','items',k.id,'body_en'], v)} lang="en" rows={8} />
+                <Text label="Subject" value={t.subject_en || ''} onChange={v => set(['email_templates','items',k.id,'subject_en'], v)} lang="en" />
+                <Area label="Body" value={t.body_en || ''} onChange={v => set(['email_templates','items',k.id,'body_en'], v)} lang="en" rows={8} />
               </div>
               <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
                 <button type="button" className="icon-btn" onClick={() => sendTest(k.id)} disabled={testing === k.id || !testTo}>

@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.088.19`
+- **버전**: `v01.089.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.089.00 — **장학(Scholarships) 페이지를 외부 장학금 소개 게시판으로 전환**: 기존 "우리가 운영하는 장학" 프레이밍(placeholder 1개 카드)을 폐기하고, 우리가 운영·지급하지 않는 **외부 장학금을 소개만** 하는 게시판(board)으로 재구성. `Scholarships.jsx` 전면 재작성 — 상단 면책 배너(`scholarships.intro.en`) + 카테고리 필터 칩(category 자동 수집) + 세로 게시판 목록(카테고리 배지·마감 칩·제목·주관기관·지원내용/대상 메타·요약 + '자세히' 인플레이스 아코디언 + 외부 공식사이트 'Learn more' 새 탭 링크). 스키마 교체: `scholarships`를 `{intro.en, items[{id,category,title,provider,amount,deadline,region,summary,details,link,posted}]}`로(EN 전용, `title_ko/_en`→`title`). page_heros.scholarships 카피 reframe("Scholarships to explore."). admin: `scholarships` 탭이 히어로만 편집하던 것(`ScholarshipsHeroTab`)을 **풀 게시판 에디터** `ScholarshipsTab`로 교체(히어로 + 면책문구 Area + 항목 아코디언 추가/삭제/↑↓ + 11필드). site.css `.schol-*` 신규(토큰만). 시드 3건(GKS·대학 장학·POSCO Asia Fellowship, '공식사이트 확인' 면책). live `dp_content_v1` KV의 옛 `scholarships`/`page_heros.scholarships` 직접 교체(배열은 KV가 default override → 필수).
   - +01.088.19 — **프로그램 카드 아이콘 정렬 수정**: `.prog-icon` 인셋 28px→20px — 칩(하단)·장식 원(우상단)·미디어 패딩(20px)과 동일 기준선으로 좌상단 정렬(아이콘만 28px라 8px 어긋나던 문제). 홈·프로그램 카드 공통.
   - +01.088.18 — **아이콘 전체 점검(무효 lucide 이름 치환 + createIcons 하드닝 shim)**: lucide 0.461 유효셋(1540) 대조 → 무효 5종 치환(check-circle-2→circle-check-big, help-circle→circle-help, alert-triangle→triangle-alert, alert-circle→circle-alert, bar-chart-3→chart-column; 코드+content-store 기본값). index.html·admin.html에 `createIcons` 1회 래핑 shim: 별칭 매핑 + 미지의 이름은 `circle` 폴백 → 빈 아이콘 영구 방지("없는 아이콘 생성"), KV 옛값·미래 오타도 런타임 커버. CSP unsafe-inline로 인라인 shim 동작.
   - +01.088.17 — **공개 사이트 아이콘 사라짐 수정**: 공개 사이트가 `lucide.createIcons()`를 route 변경 시 1회만 호출 → FAQ 탭/아코디언/플로터가 내부 state로 재렌더되면 새 `<i data-lucide>`가 미처리되어 빈 사각형/원으로 노출(유효 아이콘 plus도 빔). App.jsx에 deps 없는 `useEffect(()=>lucide.createIcons())` 추가(매 렌더 재생성, 관리자 셸과 동일). 멱등·DOM전용이라 루프 없음, svg 치환 노드는 skip.

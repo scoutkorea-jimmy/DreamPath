@@ -24,9 +24,10 @@ const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_TO_PATH).map(([v, p]
 
 function viewFromLocation() {
   const path = window.location.pathname;
-  if (path.startsWith('/program/')) return 'program';
-  if (path.startsWith('/news/'))    return 'newsdetail';
-  if (path.startsWith('/stories/')) return 'storydetail';
+  if (path.startsWith('/program/'))     return 'program';
+  if (path.startsWith('/scholarship/')) return 'scholarshipdetail';
+  if (path.startsWith('/news/'))        return 'newsdetail';
+  if (path.startsWith('/stories/'))     return 'storydetail';
   if (path === '/' || path === '') return 'home';
   return PATH_TO_VIEW[path] || PATH_TO_VIEW[path.replace(/\/$/, '')] || 'err404';
 }
@@ -48,6 +49,7 @@ function App() {
   // direct page load + on browser back/forward.
   const [newsId, setNewsId]   = useStateR(() => detailIdFromPath('/news/'));
   const [storyId, setStoryId] = useStateR(() => detailIdFromPath('/stories/'));
+  const [scholarshipId, setScholarshipId] = useStateR(() => detailIdFromPath('/scholarship/'));
   const [lang, setLang] = useStateR('en');
   const [authOpen, setAuthOpen] = useStateR(false);
   const [authMode, setAuthMode] = useStateR('login');
@@ -107,7 +109,9 @@ function App() {
   useEffectR(() => {
     if (!content || !content.og) return;
     const og = content.og;
-    const pageKey = view === 'program' ? 'programs' : view;  // /program/:id reuses Programs OG
+    const pageKey = view === 'program' ? 'programs'           // /program/:id reuses Programs OG
+                  : view === 'scholarshipdetail' ? 'scholarships'  // /scholarship/:id reuses Scholarships OG
+                  : view;
     const page = (og.pages && og.pages[pageKey]) || {};
     const def = og.default || {};
     const pickLang = (k) => (lang === 'ko' ? page[k + '_ko'] || def[k + '_ko'] : page[k + '_en'] || def[k + '_en']) || '';
@@ -150,10 +154,12 @@ function App() {
     if (v === 'program' && arg) setProgramId(arg);
     if (v === 'newsdetail'  && arg) setNewsId(arg);
     if (v === 'storydetail' && arg) setStoryId(arg);
+    if (v === 'scholarshipdetail' && arg) setScholarshipId(arg);
     setView(v);
     // Push a real URL so back-button + sharing work
     const newPath =
       v === 'program'     && arg ? '/program/'   + encodeURIComponent(arg) :
+      v === 'scholarshipdetail' && arg ? '/scholarship/' + encodeURIComponent(arg) :
       v === 'newsdetail'  && arg ? '/news/'      + encodeURIComponent(arg) :
       v === 'storydetail' && arg ? '/stories/'   + encodeURIComponent(arg) :
       (VIEW_TO_PATH[v] || '/');
@@ -179,6 +185,9 @@ function App() {
       if (v === 'program') {
         const id = detailIdFromPath('/program/');
         if (id) setProgramId(id);
+      } else if (v === 'scholarshipdetail') {
+        const id = detailIdFromPath('/scholarship/');
+        if (id) setScholarshipId(id);
       } else if (v === 'newsdetail') {
         const id = detailIdFromPath('/news/');
         if (id) setNewsId(id);
@@ -232,6 +241,7 @@ function App() {
     case 'contact':      content_view = safe(window.Contact, { lang, c: content }); break;
     case 'team':         content_view = safe(window.Team, baseProps); break;
     case 'scholarships': content_view = safe(window.Scholarships, baseProps); break;
+    case 'scholarshipdetail': content_view = safe(window.ScholarshipDetail, { go, lang, c: content, scholarshipId }); break;
     case 'member':       content_view = safe(window.Member, baseProps); break;
     case 'receipt':      content_view = safe(window.Receipt, { lang, c: content }); break;
     case 'verify':       content_view = safe(window.VerifyEmailView, baseProps); break;

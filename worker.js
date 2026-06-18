@@ -635,6 +635,7 @@ export default {
     }
     if (SPA_PATHS.has(url.pathname)
         || url.pathname.startsWith('/program/')
+        || url.pathname.startsWith('/scholarship/')
         || url.pathname.startsWith('/news/')
         || url.pathname.startsWith('/stories/')) {
       return withSecurityHeaders(await serveSpaShell(request, env));
@@ -1652,6 +1653,15 @@ async function sitemapXml(env, url) {
       .map(n => ({ path: '/news/' + encodeURIComponent(n.id), priority: 0.6, change: 'monthly', lastmod: normDate(n.date) }));
   } catch {}
 
+  // Dynamic: each scholarship post → /scholarship/:id (D1 scholarship_posts)
+  let scholarshipPaths = [];
+  try {
+    const { results } = await env.DB.prepare('SELECT id, date FROM scholarship_posts ORDER BY date DESC LIMIT 300').all();
+    scholarshipPaths = (results || [])
+      .filter(s => s && s.id)
+      .map(s => ({ path: '/scholarship/' + encodeURIComponent(s.id), priority: 0.6, change: 'monthly', lastmod: normDate(s.date) }));
+  } catch {}
+
   // Dynamic: each story → /stories/:id (stories live in c.stories[])
   let storyPaths = [];
   try {
@@ -1666,7 +1676,7 @@ async function sitemapXml(env, url) {
     }
   } catch {}
 
-  const all = [...STATIC, ...programPaths, ...newsPaths, ...storyPaths];
+  const all = [...STATIC, ...programPaths, ...newsPaths, ...scholarshipPaths, ...storyPaths];
 
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -3625,6 +3635,34 @@ async function handleApi(request, env, url, ctx) {
     if (!user) return json({ error: 'unauthorized' }, 401);
     if (method === 'PUT')    return updateNews(request, env, user, newsM[1]);
     if (method === 'DELETE') return deleteNews(env, user, newsM[1]);
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+
+  // Scholarship board — public list/read; admin-only create/update/delete.
+  if (path === '/api/scholarships') {
+    if (method === 'GET') return listScholarships(env);
+    if (method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      if (!userIsAdmin(user)) return json({ error: 'forbidden' }, 403);
+      return createScholarship(request, env, user);
+    }
+    return json({ error: 'method_not_allowed' }, 405);
+  }
+  const scholM = path.match(/^\/api\/scholarships\/([A-Za-z0-9_-]+)$/);
+  if (scholM) {
+    if (method === 'GET') {
+      const row = await env.DB.prepare(
+        `SELECT ${SCHOLARSHIP_COLS} FROM scholarship_posts WHERE id = ?`
+      ).bind(scholM[1]).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      return cors(json(row));
+    }
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: 'unauthorized' }, 401);
+    if (!userIsAdmin(user)) return json({ error: 'forbidden' }, 403);
+    if (method === 'PUT')    return updateScholarship(request, env, user, scholM[1]);
+    if (method === 'DELETE') return deleteScholarship(env, user, scholM[1]);
     return json({ error: 'method_not_allowed' }, 405);
   }
 
@@ -5935,6 +5973,74 @@ async function deleteNews(env, user, id) {
   if (!existing) return json({ error: 'not_found' }, 404);
   if (user.role !== 'admin' && existing.author_id !== user.id) return json({ error: 'forbidden' }, 403);
   await env.DB.prepare('DELETE FROM news_posts WHERE id = ?').bind(id).run();
+  return json({ ok: true });
+}
+
+// ── Scholarship board (admin-posted) ─────────────────────────────────────────
+// The /scholarships page is a board the operator fills in themselves. Reads are
+// public; writes are admin-only (routes gate with userIsAdmin before calling
+// these). Fields are operator-authored and rendered as React text nodes on the
+// public page, so we store them as-is — no HTML body, no sanitizer needed.
+const SCHOLARSHIP_COLS =
+  'id, title, organizer, category, summary, period, details, apply_url, image, info_json, date, created_at, updated_at';
+
+// info_json holds a JSON array of {label, value} rows (장학자격 / 범위 / 대상 …).
+// Normalize whatever the client sends into a clean, bounded array before
+// storing so a malformed payload can't bloat the row or break detail render.
+function normScholarshipInfo(info) {
+  if (!Array.isArray(info)) return '[]';
+  const rows = info
+    .filter(r => r && typeof r === 'object')
+    .map(r => ({ label: String(r.label || '').slice(0, 120), value: String(r.value || '').slice(0, 2000) }))
+    .filter(r => r.label || r.value)
+    .slice(0, 30);
+  return JSON.stringify(rows);
+}
+
+async function listScholarships(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT ${SCHOLARSHIP_COLS} FROM scholarship_posts ORDER BY date DESC, created_at DESC LIMIT 300`
+  ).all();
+  return json({ items: results || [] });
+}
+
+async function createScholarship(request, env, user) {
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const id = 'SCH-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO scholarship_posts
+       (id, title, organizer, category, summary, period, details, apply_url, image, info_json, date, author_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, str(body.title), str(body.organizer), str(body.category), str(body.summary),
+         str(body.period), str(body.details), str(body.apply_url), str(body.image),
+         normScholarshipInfo(body.info), str(body.date), user.id, now, now).run();
+  const row = await env.DB.prepare(`SELECT ${SCHOLARSHIP_COLS} FROM scholarship_posts WHERE id = ?`).bind(id).first();
+  return json(row);
+}
+
+async function updateScholarship(request, env, user, id) {
+  const existing = await env.DB.prepare('SELECT id FROM scholarship_posts WHERE id = ?').bind(id).first();
+  if (!existing) return json({ error: 'not_found' }, 404);
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE scholarship_posts
+       SET title=?, organizer=?, category=?, summary=?, period=?, details=?, apply_url=?, image=?, info_json=?, date=?, updated_at=?
+     WHERE id=?`
+  ).bind(str(body.title), str(body.organizer), str(body.category), str(body.summary),
+         str(body.period), str(body.details), str(body.apply_url), str(body.image),
+         normScholarshipInfo(body.info), str(body.date), now, id).run();
+  const row = await env.DB.prepare(`SELECT ${SCHOLARSHIP_COLS} FROM scholarship_posts WHERE id = ?`).bind(id).first();
+  return json(row);
+}
+
+async function deleteScholarship(env, user, id) {
+  const existing = await env.DB.prepare('SELECT id FROM scholarship_posts WHERE id = ?').bind(id).first();
+  if (!existing) return json({ error: 'not_found' }, 404);
+  await env.DB.prepare('DELETE FROM scholarship_posts WHERE id = ?').bind(id).run();
   return json({ ok: true });
 }
 

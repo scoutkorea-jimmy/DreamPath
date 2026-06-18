@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.089.00`
+- **버전**: `v01.091.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0038** 모두 적용됨 (remote D1 검증 완료). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
+- **마이그레이션 상태**: 0001 ~ **0040** 모두 적용됨 (remote D1 검증 완료). 0040 = scholarship_posts.image / info_json (장학 상세 페이지). 0039 = scholarship_posts (관리자 게시 장학 게시판). 0038 = users.totp_secret_enc / totp_confirmed_at (계정단위 admin 2FA). 0037 = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -21,7 +21,8 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
-  - +01.089.00 — **장학(Scholarships) 페이지를 외부 장학금 소개 게시판으로 전환**: 기존 "우리가 운영하는 장학" 프레이밍(placeholder 1개 카드)을 폐기하고, 우리가 운영·지급하지 않는 **외부 장학금을 소개만** 하는 게시판(board)으로 재구성. `Scholarships.jsx` 전면 재작성 — 상단 면책 배너(`scholarships.intro.en`) + 카테고리 필터 칩(category 자동 수집) + 세로 게시판 목록(카테고리 배지·마감 칩·제목·주관기관·지원내용/대상 메타·요약 + '자세히' 인플레이스 아코디언 + 외부 공식사이트 'Learn more' 새 탭 링크). 스키마 교체: `scholarships`를 `{intro.en, items[{id,category,title,provider,amount,deadline,region,summary,details,link,posted}]}`로(EN 전용, `title_ko/_en`→`title`). page_heros.scholarships 카피 reframe("Scholarships to explore."). admin: `scholarships` 탭이 히어로만 편집하던 것(`ScholarshipsHeroTab`)을 **풀 게시판 에디터** `ScholarshipsTab`로 교체(히어로 + 면책문구 Area + 항목 아코디언 추가/삭제/↑↓ + 11필드). site.css `.schol-*` 신규(토큰만). 시드 3건(GKS·대학 장학·POSCO Asia Fellowship, '공식사이트 확인' 면책). live `dp_content_v1` KV의 옛 `scholarships`/`page_heros.scholarships` 직접 교체(배열은 KV가 default override → 필수).
+  - +01.091.00 — **장학 게시판 상세 페이지(내부) + 이미지 + 유연한 세부 정보**: 운영자 지시 — Apply(실제 신청)는 외부지만, 목록에서 항목을 누르면 외부로 바로 튀지 말고 **우리 사이트 안의 상세 페이지**(`/scholarship/:id`)에서 정보를 보게 하고, 이미지·장학자격·범위 등 다양한 정보를 담을 수 있어야 함. 마이그레이션 0040으로 `scholarship_posts`에 `image`(R2 업로드 URL) + `info_json`(`[{label,value}]` 유연 행, 장학자격/범위/대상/선발인원 등) 추가. worker: `/api/scholarships/:id` GET이 새 컬럼 포함, create/update가 `normScholarshipInfo`로 info 정규화(≤30행·라벨120·값2000자), SPA 라우팅에 `/scholarship/` 추가, sitemap에 상세 URL 추가. App.jsx에 `scholarshipdetail` 뷰(viewFromLocation/go/popstate/뷰스위치/OG pageKey). `Scholarships.jsx`: 보드 행 클릭→상세 이동(인플레이스 아코디언·외부 Apply 버튼 제거, '자세히 보기' CTA + 선택적 좌측 썸네일), 신규 `window.ScholarshipDetail`(이미지·요약 lead·info 정의리스트·본문 pre-line·외부 '신청하러 가기' + 목록으로). 에디터 모달에 이미지 업로드(`/api/admin/upload-image`, authFetch 세션 어드민) + 세부 정보 행 추가/삭제(+빠른 추가 칩). site.css `.schol-thumb/-titlebtn/-detail-*/-info*` 추가(토큰만). 시드 3건에 info_json(Eligibility/Coverage/Who can apply) 채움. **쓰기는 admin 전용**(서버 `userIsAdmin` 게이트).
+  - +01.090.00 — **장학 게시판을 D1 기반 관리자 직접 게시로 전환(외부 링크 → 우리가 정보 게시)**: 운영자 지시 — 외부 학교 사이트로 링크만 거는 게 아니라 **우리가 정보를 직접 올리고** 방문자가 보게 함. News 패턴 차용: 마이그레이션 0039 `scholarship_posts`(title=장학금명칭/organizer=주최기관/category/summary=내용/period=접수기간/details=주요내용/apply_url=신청링크/date) + `/api/scholarships` (GET 공개 목록·단건, POST/PUT/DELETE admin 전용 `userIsAdmin`). `Scholarships.jsx`가 `/api/scholarships` fetch + 공개 페이지에서 관리자 로그인 시 인라인 등록/수정/삭제(모달 `ScholarshipEditor`). admin `scholarships` 탭은 KV 항목 에디터 → News식 deep-link 탭(히어로+안내문+/scholarships 열기)으로 교체. content-store `scholarships`를 `{intro.en}`만 남기고 items 제거(데이터는 D1). 카테고리 Government/University/Private·Foundation 유지. (이후 .091에서 상세 페이지로 확장.)
   - +01.088.19 — **프로그램 카드 아이콘 정렬 수정**: `.prog-icon` 인셋 28px→20px — 칩(하단)·장식 원(우상단)·미디어 패딩(20px)과 동일 기준선으로 좌상단 정렬(아이콘만 28px라 8px 어긋나던 문제). 홈·프로그램 카드 공통.
   - +01.088.18 — **아이콘 전체 점검(무효 lucide 이름 치환 + createIcons 하드닝 shim)**: lucide 0.461 유효셋(1540) 대조 → 무효 5종 치환(check-circle-2→circle-check-big, help-circle→circle-help, alert-triangle→triangle-alert, alert-circle→circle-alert, bar-chart-3→chart-column; 코드+content-store 기본값). index.html·admin.html에 `createIcons` 1회 래핑 shim: 별칭 매핑 + 미지의 이름은 `circle` 폴백 → 빈 아이콘 영구 방지("없는 아이콘 생성"), KV 옛값·미래 오타도 런타임 커버. CSP unsafe-inline로 인라인 shim 동작.
   - +01.088.17 — **공개 사이트 아이콘 사라짐 수정**: 공개 사이트가 `lucide.createIcons()`를 route 변경 시 1회만 호출 → FAQ 탭/아코디언/플로터가 내부 state로 재렌더되면 새 `<i data-lucide>`가 미처리되어 빈 사각형/원으로 노출(유효 아이콘 plus도 빔). App.jsx에 deps 없는 `useEffect(()=>lucide.createIcons())` 추가(매 렌더 재생성, 관리자 셸과 동일). 멱등·DOM전용이라 루프 없음, svg 치환 노드는 skip.

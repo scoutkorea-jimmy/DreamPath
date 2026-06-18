@@ -823,50 +823,15 @@
         en: { kicker: 'Want to join us?', title: 'Join the project team', sub: "We're looking for collaborators in education, operations, design, and engineering.", button: 'Reach out', email: 'info@koreadreampath.com' },
       },
     },
-    // ─── Scholarships page — EXTERNAL scholarship board (informational) ──
-    // Reframed 2026-06-18: this page no longer advertises scholarships that
-    // KoreaDreamPath runs. It is a curated *board* of external scholarship
-    // opportunities, listed for reference only. `intro` carries the standing
-    // disclaimer; `items[]` are board posts (EN-only, public front is EN).
+    // ─── Scholarships page — admin-posted scholarship board ─────────────
+    // v01.090: the board posts live in D1 (scholarship_posts via
+    // /api/scholarships), created/edited on the public /scholarships page by
+    // admins. This KV block only holds the optional intro note shown above the
+    // board (the hero lives in page_heros.scholarships). EN-only (public front).
     scholarships: {
       intro: {
-        en: "A curated guide to external scholarship opportunities for international students who want to study in Korea. KoreaDreamPath shares these listings for your reference only — we do not administer, award, or guarantee any of them. Always confirm eligibility, amounts, and deadlines on each provider's official website.",
+        en: 'Scholarship opportunities for international students, curated by KoreaDreamPath. Open each listing for the details and the official application link.',
       },
-      items: [
-        { id: 'gks',
-          category: 'Government',
-          title: 'Global Korea Scholarship (GKS)',
-          provider: 'NIIED · Korean Government',
-          amount: 'Full tuition + monthly stipend + airfare',
-          deadline: 'Typically Feb–Mar (annual)',
-          region: 'International students worldwide',
-          summary: "Korea's flagship government scholarship covering full tuition, a monthly living allowance, settlement and return airfare, and a year of Korean-language training for undergraduate and graduate study.",
-          details: 'Administered by NIIED through Korean embassies (embassy track) and partner universities (university track). Covers tuition, a monthly stipend, medical insurance, and round-trip airfare. Applicants are usually nominated by a Korean embassy or a designated university; check the official Study in Korea portal for the current cycle, eligible countries, and required documents.',
-          link: 'https://www.studyinkorea.go.kr',
-          posted: '2026-06-18' },
-        { id: 'univ-merit',
-          category: 'University',
-          title: 'University Merit & Need-Based Scholarships',
-          provider: 'Individual Korean universities',
-          amount: '30%–100% tuition reduction',
-          deadline: 'Varies by admission cycle',
-          region: 'Admitted / enrolled international students',
-          summary: 'Most Korean universities offer their own merit- and need-based tuition reductions for international students, often tied to GPA, TOPIK level, or first-semester performance.',
-          details: 'Awards, criteria, and renewal rules differ at every school and sometimes by department. They are usually applied automatically at admission or via a separate scholarship form. Contact the international admissions office of each university you apply to for exact amounts and conditions.',
-          link: '',
-          posted: '2026-06-18' },
-        { id: 'posco-asia',
-          category: 'Private / Foundation',
-          title: 'POSCO TJ Park Foundation — Asia Fellowship',
-          provider: 'POSCO TJ Park Foundation',
-          amount: 'Monthly stipend',
-          deadline: 'Annual (check foundation site)',
-          region: 'Students from selected Asian countries',
-          summary: 'A private foundation fellowship supporting Asian students who study in Korea, providing a monthly stipend and access to an alumni and leadership network.',
-          details: 'Eligibility is generally limited to nationals of specific Asian countries enrolled at partner universities in Korea. Selection considers academic record, financial need, and leadership potential. Confirm the current application window and partner-school list on the foundation website.',
-          link: 'http://www.postf.org',
-          posted: '2026-06-18' },
-      ],
     },
     // ─── Page heros (Partners / Stories / News / Contact / Programs) ────
     page_heros: {

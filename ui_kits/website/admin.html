@@ -6049,59 +6049,37 @@
   function ApplyHeroTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply" label="지원 폼 히어로 (헤더)" />; }
   function ApplyDoneTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply_done" label="지원 완료 히어로 (헤더)" />; }
   function MyPageHeroTab({ c, set }) { return (<><PageHeroText c={c} set={set} pageKey="member" label="회원 로그인 안내 히어로 (헤더)" /><PageHeroText c={c} set={set} pageKey="mypage" label="마이페이지 히어로 (헤더)" /></>); }
-  // Scholarships = a BOARD (게시판) of EXTERNAL scholarships we merely list,
-  // not ones we run. Editor = hero + standing disclaimer + a reorderable list
-  // of board entries (title/category/provider/amount/deadline/region/summary/
-  // details/link). Data lives in c.scholarships (intro.en + items[]).
-  function ScholarshipsTab({ c, set, addItem, removeItem }) {
+  // Scholarships = a BOARD (게시판) the operator posts to. Like News, the posts
+  // live in D1 (scholarship_posts via /api/scholarships) and are created/edited/
+  // deleted on the public /scholarships page while signed in as an admin. This
+  // console tab only edits the page header + the optional intro note; the
+  // post-management itself is a deep-link to the live page.
+  function ScholarshipsTab({ c, set }) {
     const s = c.scholarships || {};
-    const items = Array.isArray(s.items) ? s.items : [];
-    const move = (from, to) => {
-      if (to < 0 || to >= items.length) return;
-      const arr = [...items]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x);
-      set(['scholarships', 'items'], arr);
-    };
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="scholarships" label="장학 페이지 히어로 (헤더)" />
         <details className="card admin-fold">
-          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>안내문 / 면책 문구 (상단 배너)</h3></summary>
+          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>안내문 (상단 배너 · 선택)</h3></summary>
           <div style={{marginTop:12}}>
-            <Area label="Intro / disclaimer (영어)" value={(s.intro && s.intro.en) || ''} onChange={v => set(['scholarships','intro','en'], v)} lang="en" rows={4}
-              hint="이 페이지는 외부 장학금을 '소개'만 합니다. KoreaDreamPath가 운영·지급하지 않는다는 면책 문구를 유지하세요. 비우면 배너가 숨겨집니다." />
+            <Area label="Intro note (영어)" value={(s.intro && s.intro.en) || ''} onChange={v => set(['scholarships','intro','en'], v)} lang="en" rows={3}
+              hint="장학 게시판 상단에 표시되는 안내 문구입니다. 비우면 배너가 숨겨집니다." />
           </div>
         </details>
         <details className="card admin-fold">
-          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>장학금 목록 (게시판) <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{items.length}개 · 제목을 눌러 펼치기/접기</span></h3></summary>
-          {items.map((it, i) => {
-            const name = it.title || `Scholarship ${i+1}`;
-            return (
-            <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
-              <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
-                <span className="tm-chevron" aria-hidden="true">▶</span>
-                {it.category ? <span className="pill" style={{flex:'0 0 auto',background:'var(--bg-muted)',color:'var(--fg-secondary)',fontSize:11}}>{it.category}</span> : null}
-                <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name}</strong>
-                <button type="button" className="icon-btn" disabled={i === 0} title="위로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); move(i, i-1); }}>↑</button>
-                <button type="button" className="icon-btn" disabled={i === items.length-1} title="아래로" onClick={(e) => { e.stopPropagation(); e.preventDefault(); move(i, i+1); }}>↓</button>
-                <button type="button" className="icon-btn danger" onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (!confirm(`Remove ${name}?`)) return; removeItem(['scholarships','items'], i); }}>Delete</button>
-              </summary>
-              <div style={{padding:'0 14px 14px'}}>
-                <div className="grid-2 tight">
-                  <Text label="Title (장학금 이름)" value={it.title} onChange={v => set(['scholarships','items',i,'title'], v)} lang="en" />
-                  <Text label="Category (분류)" value={it.category} onChange={v => set(['scholarships','items',i,'category'], v)} lang="en" hint="필터 칩 기준. 예: Government · University · Private / Foundation" />
-                  <Text label="Provider (주관 기관)" value={it.provider} onChange={v => set(['scholarships','items',i,'provider'], v)} lang="en" />
-                  <Text label="Amount (지원 내용)" value={it.amount} onChange={v => set(['scholarships','items',i,'amount'], v)} lang="en" hint="예: Full tuition + monthly stipend" />
-                  <Text label="Deadline (마감)" value={it.deadline} onChange={v => set(['scholarships','items',i,'deadline'], v)} lang="en" hint="예: Typically Feb–Mar (annual)" />
-                  <Text label="Region / eligibility (대상)" value={it.region} onChange={v => set(['scholarships','items',i,'region'], v)} lang="en" />
-                </div>
-                <Area label="Summary (한 줄 요약)" value={it.summary} onChange={v => set(['scholarships','items',i,'summary'], v)} lang="en" rows={2} />
-                <Area label="Details (자세히 — 펼침 내용, 선택)" value={it.details} onChange={v => set(['scholarships','items',i,'details'], v)} lang="en" rows={4} hint="줄바꿈 그대로 표시됩니다. 비우면 '자세히' 버튼이 숨겨집니다." />
-                <Text label="Link (공식 사이트 URL — 새 탭)" value={it.link} onChange={v => set(['scholarships','items',i,'link'], v)} hint="예: https://www.studyinkorea.go.kr · 비우면 'Learn more' 버튼이 숨겨집니다." />
-              </div>
-            </details>
-            );
-          })}
-          <button className="btn-add" onClick={() => addItem(['scholarships','items'], { id: 's' + Date.now(), category: 'Government', title: 'New scholarship', provider: '', amount: '', deadline: '', region: '', summary: '', details: '', link: '', posted: '' })}>+ Add scholarship</button>
+          <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>장학 정보 관리 (게시판)</h3></summary>
+          <div style={{marginTop:12}}>
+            <p style={{margin:'0 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
+              장학 정보는 D1 데이터베이스에 저장됩니다. 등록·수정·삭제는 공개 /scholarships 페이지에서{' '}
+              관리자로 로그인한 상태로 직접 진행합니다. 목록에서 항목을 누르면 우리 사이트 안의{' '}
+              상세 페이지(/scholarship/:id)로 이동합니다. 필드: 장학금 명칭 · 주최기관 · 분류
+              (Government / University / Private · Foundation) · 접수기간 · 대표 이미지 · 내용 ·
+              세부 정보(장학자격·범위 등 자유 항목) · 주요내용 · 신청 링크. (헤더·안내문은 위에서 편집)
+            </p>
+            <a className="btn btn-primary btn-sm" href="/scholarships" target="_blank" rel="noopener">
+              /scholarships 페이지 열기 ↗
+            </a>
+          </div>
         </details>
       </>
     );

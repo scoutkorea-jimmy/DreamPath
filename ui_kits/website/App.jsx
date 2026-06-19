@@ -232,7 +232,7 @@ function App() {
     case 'about':        content_view = safe(window.About, { lang, c: content }); break;
     case 'programs':     content_view = safe(window.Programs, baseProps); break;
     case 'program':      content_view = safe(window.ProgramDetail, { ...baseProps, programId }); break;
-    case 'apply':        content_view = safe(window.Apply, { lang, c: content }); break;
+    case 'apply':        content_view = safe(window.Apply, { go, lang, c: content }); break;
     case 'partners':     content_view = safe(window.Partners, { lang, c: content }); break;
     case 'stories':      content_view = safe(window.Stories, { go, lang, c: content }); break;
     case 'storydetail':  content_view = safe(window.StoryDetail, { go, lang, c: content, storyId }); break;

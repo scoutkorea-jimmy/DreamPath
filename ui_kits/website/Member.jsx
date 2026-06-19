@@ -422,23 +422,37 @@ function MemberNotifications({ isKo, onChange }) {
   );
 }
 
+// 신청 파이프라인 단계 정의 (v01.092, 설계서 §1). 진행 트래커 + 단계별 액션에 사용.
+const PIPELINE_STAGES = [
+  { key: 'submitted',         ko: '신청 접수',     en: 'Submitted' },
+  { key: 'screen_passed',     ko: '1차 통과',      en: 'Screening passed' },
+  { key: 'cufs_no_submitted', ko: '접수번호 제출', en: 'CUFS reference' },
+  { key: 'cufs_admitted',     ko: '합격 확인',     en: 'Admission verified' },
+  { key: 'docs_submitted',    ko: '서류 제출',     en: 'Documents submitted' },
+  { key: 'docs_verified',     ko: '서류 검증',     en: 'Documents verified' },
+  { key: 'paid',              ko: '결제 완료',     en: 'Paid' },
+  { key: 'enrolled',          ko: '등록 확정',     en: 'Enrolled' },
+];
+function stageIndex(status) {
+  const i = PIPELINE_STAGES.findIndex(s => s.key === status);
+  return i;
+}
+
 function MemberApplications({ isKo, c }) {
   const [items, setItems] = useStateM([]);
   const [loading, setLoading] = useStateM(true);
   const [err, setErr] = useStateM('');
-  const programs = (c && c.programs) || [];
 
-  useEffectM(() => {
-    (async () => {
-      try {
-        const res = await window.DreamPathAuth.authFetch('/api/me/applications');
-        if (!res.ok) throw new Error('http_' + res.status);
-        const data = await res.json();
-        setItems(data.items || []);
-      } catch (e) { setErr(e.message); }
-      setLoading(false);
-    })();
-  }, []);
+  async function load() {
+    try {
+      const res = await window.DreamPathAuth.authFetch('/api/me/applications');
+      if (!res.ok) throw new Error('http_' + res.status);
+      const data = await res.json();
+      setItems(data.items || []);
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  }
+  useEffectM(() => { load(); }, []);
 
   if (loading) return <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
   if (err) return <div role="alert" style={{padding:24,color:'var(--state-danger)'}}>{err}</div>;
@@ -449,43 +463,387 @@ function MemberApplications({ isKo, c }) {
   );
 
   return (
-    <div style={{display:'grid',gap:14}}>
-      {items.map(a => {
-        const p = programs.find(x => x.id === a.program);
-        const dt = a.submitted_at ? new Date(a.submitted_at).toLocaleString(isKo ? 'ko-KR' : 'en-US') : '—';
-        return (
-          <div key={a.id} className="member-card" style={{padding:24}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:16}}>
-              <div>
-                <div className="sec-kicker" style={{margin:0}}>{a.id}</div>
-                <h3 style={{margin:'4px 0 8px'}}>{p ? (isKo ? p.title_ko : p.title_en) : (a.program || '—')}</h3>
-                <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
-                  {dt} · {isKo ? '트랙' : 'Track'}: {a.track || '—'}
-                </div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{padding:'4px 10px',borderRadius:999,
-                  background: a.status === 'paid' ? 'var(--state-success-bg)' : 'var(--state-info-bg)',
-                  color:      a.status === 'paid' ? 'var(--state-success)'    : 'var(--state-info)',
-                  fontSize:12,fontWeight:700,display:'inline-block'}}>
-                  {a.status === 'paid' ? (isKo ? '결제 완료' : 'PAID') : (a.status || '').toUpperCase()}
-                </div>
-                {a.amount > 0 && <div style={{fontSize:18,fontWeight:700,marginTop:8}}>${a.amount}.00</div>}
-              </div>
-            </div>
-            {a.status === 'paid' && a.receipt_token && (
-              <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border-hair)',display:'flex',gap:8}}>
-                <a className="btn btn-secondary btn-sm" href={`/receipt?id=${encodeURIComponent(a.id)}&token=${encodeURIComponent(a.receipt_token)}`} target="_blank" rel="noopener">
-                  {isKo ? '영수증 보기 / 인쇄' : 'View / print receipt'}
-                </a>
-              </div>
-            )}
-            <ApplicationFiles appId={a.id} isKo={isKo} />
-          </div>
-        );
-      })}
+    <div style={{display:'grid',gap:18}}>
+      {items.map(a => <ApplicationPipeline key={a.id} app={a} c={c} isKo={isKo} onChange={load} />)}
     </div>
   );
+}
+
+// 신청 한 건의 단계별 진행 화면. 상단에 고유번호 + 진행 트래커, 하단에
+// 현재 status에 맞는 액션 패널을 렌더한다.
+function ApplicationPipeline({ app, c, isKo, onChange }) {
+  const programs = (c && c.programs) || [];
+  const p = programs.find(x => x.id === app.program);
+  const progName = p ? (isKo ? p.title_ko : p.title_en) : (app.program || '—');
+  const dt = app.submitted_at ? new Date(app.submitted_at).toLocaleString(isKo ? 'ko-KR' : 'en-US') : '—';
+  const curIdx = stageIndex(app.status);
+  const isRejected = app.status === 'screen_rejected';
+  const isCancelled = app.status === 'cancelled';
+
+  return (
+    <div className="member-card" style={{padding:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
+        <div>
+          {app.candidate_no && (
+            <div style={{fontSize:12,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--fg-muted)'}}>
+              {isKo ? '고유번호' : 'ID'} <strong style={{fontFamily:'var(--font-mono)',color:'var(--brand-text)',fontSize:14}}>{app.candidate_no}</strong>
+            </div>
+          )}
+          <h3 style={{margin:'4px 0 4px'}}>{progName}</h3>
+          <div style={{fontSize:13,color:'var(--fg-secondary)'}}>{dt}</div>
+        </div>
+        <StatusBadge status={app.status} isKo={isKo} />
+      </div>
+
+      {/* 진행 트래커 — 탈락/취소가 아닐 때만 */}
+      {!isRejected && !isCancelled && (
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,margin:'16px 0',paddingTop:14,borderTop:'1px solid var(--border-hair)'}}>
+          {PIPELINE_STAGES.map((s, i) => {
+            const done = curIdx >= 0 && i < curIdx;
+            const active = i === curIdx;
+            return (
+              <span key={s.key} style={{
+                fontSize:11,padding:'3px 9px',borderRadius:999,whiteSpace:'nowrap',
+                fontWeight: active ? 700 : 500,
+                background: active ? 'var(--brand-text)' : done ? 'var(--state-success-bg)' : 'var(--bg-muted)',
+                color: active ? 'var(--fg-on-fill)' : done ? 'var(--state-success)' : 'var(--fg-muted)',
+              }}>{done ? '✓ ' : ''}{isKo ? s.ko : s.en}</span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 단계별 액션 패널 */}
+      <div style={{marginTop:8}}>
+        {app.status === 'submitted'         && <StageInfo isKo={isKo} tone="info" ko="제출이 완료되었습니다. 1차 서류 심사 결과를 기다려 주세요 (영업일 기준 7일 이내)." en="Submitted. Please wait for the first screening result (within 7 business days)." />}
+        {app.status === 'screen_rejected'   && <StageRejected isKo={isKo} note={app.screen_note} />}
+        {app.status === 'screen_passed'     && <CufsGuidePanel app={app} isKo={isKo} onChange={onChange} />}
+        {app.status === 'cufs_no_submitted' && <AdmissionPanel app={app} isKo={isKo} onChange={onChange} />}
+        {app.status === 'cufs_admitted'     && <DocumentsPanel app={app} isKo={isKo} onChange={onChange} />}
+        {app.status === 'docs_submitted'    && <StageInfo isKo={isKo} tone="info" ko="서류를 제출했습니다. 관리자 검증 후 결제 단계가 열립니다." en="Documents submitted. The payment step opens after admin verification." />}
+        {app.status === 'docs_verified'     && <PaymentPanel app={app} program={p} isKo={isKo} onChange={onChange} />}
+        {app.status === 'paid'              && <StagePaid app={app} isKo={isKo} />}
+        {app.status === 'enrolled'          && <StageEnrolled app={app} isKo={isKo} />}
+        {app.status === 'cancelled'         && <StageInfo isKo={isKo} tone="muted" ko="이 신청은 취소되었습니다." en="This application was cancelled." />}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status, isKo }) {
+  const map = {
+    submitted:         { ko: '심사 대기',   en: 'IN REVIEW',  tone: 'info' },
+    screen_passed:     { ko: '1차 통과',    en: 'PASSED',     tone: 'info' },
+    screen_rejected:   { ko: '미선정',      en: 'NOT SELECTED', tone: 'danger' },
+    cufs_no_submitted: { ko: '검증 대기',   en: 'VERIFYING',  tone: 'info' },
+    cufs_admitted:     { ko: '서류 단계',   en: 'DOCUMENTS',  tone: 'info' },
+    docs_submitted:    { ko: '검증 대기',   en: 'VERIFYING',  tone: 'info' },
+    docs_verified:     { ko: '결제 가능',   en: 'PAYMENT OPEN', tone: 'warning' },
+    paid:              { ko: '결제 완료',   en: 'PAID',       tone: 'success' },
+    enrolled:          { ko: '등록 확정',   en: 'ENROLLED',   tone: 'success' },
+    cancelled:         { ko: '취소됨',      en: 'CANCELLED',  tone: 'muted' },
+  };
+  const m = map[status] || { ko: status, en: (status || '').toUpperCase(), tone: 'info' };
+  const bg = { info:'var(--state-info-bg)', success:'var(--state-success-bg)', danger:'var(--state-danger-bg)', warning:'var(--state-warning-bg, #fff7ed)', muted:'var(--bg-muted)' }[m.tone];
+  const fg = { info:'var(--state-info)', success:'var(--state-success)', danger:'var(--state-danger)', warning:'var(--state-warning, #b45309)', muted:'var(--fg-muted)' }[m.tone];
+  return <div style={{padding:'4px 12px',borderRadius:999,background:bg,color:fg,fontSize:12,fontWeight:700,whiteSpace:'nowrap'}}>{isKo ? m.ko : m.en}</div>;
+}
+
+function StageInfo({ isKo, ko, en, tone }) {
+  const bg = tone === 'muted' ? 'var(--bg-muted)' : 'var(--state-info-bg)';
+  const fg = tone === 'muted' ? 'var(--fg-secondary)' : 'var(--state-info)';
+  return <div style={{padding:'14px 16px',background:bg,color:fg,borderRadius:10,fontSize:14,lineHeight:1.6}}>{isKo ? ko : en}</div>;
+}
+
+function StageRejected({ isKo, note }) {
+  return (
+    <div style={{padding:'14px 16px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:10,fontSize:14,lineHeight:1.6}}>
+      <strong>{isKo ? '이번 심사에서는 선정되지 않았습니다.' : 'Not selected in this screening.'}</strong>
+      {note && <div style={{marginTop:8,whiteSpace:'pre-wrap',color:'var(--fg-secondary)'}}>{note}</div>}
+    </div>
+  );
+}
+
+// screen_passed → CUFS 입시 안내 + 접수번호 입력 (POST /cufs-reg-no).
+function CufsGuidePanel({ app, isKo, onChange }) {
+  const [regNo, setRegNo] = useStateM('');
+  const [busy, setBusy] = useStateM(false);
+  const [err, setErr] = useStateM('');
+  async function submitReg() {
+    if (!regNo.trim()) { setErr(isKo ? '접수번호를 입력하세요.' : 'Enter your CUFS reference number.'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/cufs-reg-no', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cufs_reg_no: regNo.trim() }),
+      });
+      if (!r.ok) throw new Error('http_' + r.status);
+      onChange && onChange();
+    } catch (e) { setErr(isKo ? '제출에 실패했습니다. 다시 시도해 주세요.' : 'Submission failed. Please try again.'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
+      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '다음 단계: CUFS 입시 진행' : 'Next: CUFS admission'}</h4>
+      <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 12px'}}>
+        {isKo ? '아래 링크에서 CUFS(사이버한국외국어대학교) 입시 절차를 진행하신 뒤, 발급받은 접수번호를 입력해 주세요.'
+              : 'Complete the CUFS admission process via the link below, then enter the reference number you receive.'}
+      </p>
+      <a className="btn btn-primary btn-sm" href="https://go.cufs.ac.kr/ent/ent/ent_step0.jsp?regEntType=new" target="_blank" rel="noopener">
+        {isKo ? 'CUFS 입시 진행하기' : 'Go to CUFS admission'} ↗
+      </a>
+      {/* 결제 주체 경고 */}
+      <div style={{marginTop:14,padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:10,fontSize:13,lineHeight:1.6}}>
+        <strong>{isKo ? '⚠️ 결제 주체를 꼭 구분하세요' : '⚠️ Know who collects each payment'}</strong>
+        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — CUFS 입시 사이트에서 결제 (정상)' : 'Application fee — pay on the CUFS site (normal)'}</div>
+        <div>🚫 {isKo ? '등록금 — CUFS에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never at CUFS. Pay here (member page) after admission'}</div>
+      </div>
+      <div className="field" style={{marginTop:14}}>
+        <label>{isKo ? 'CUFS 접수번호' : 'CUFS reference number'}</label>
+        <input value={regNo} onChange={e => setRegNo(e.target.value)} placeholder={isKo ? 'CUFS에서 발급받은 번호' : 'Number issued by CUFS'} />
+      </div>
+      {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:8}}>{err}</div>}
+      <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={submitReg}>
+        {busy ? (isKo ? '제출 중…' : 'Submitting…') : (isKo ? '접수번호 제출' : 'Submit reference number')}
+      </button>
+    </div>
+  );
+}
+
+// cufs_no_submitted → 합격증(admission_certificate) 업로드 + 제출(POST /admission).
+function AdmissionPanel({ app, isKo, onChange }) {
+  const [busy, setBusy] = useStateM(false);
+  const [submitting, setSubmitting] = useStateM(false);
+  const [uploaded, setUploaded] = useStateM(null);
+  const [err, setErr] = useStateM('');
+
+  // 기존 업로드 여부 확인.
+  useEffectM(() => {
+    (async () => {
+      try {
+        const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/files');
+        if (!r.ok) return;
+        const d = await r.json();
+        const f = (d.items || []).find(x => x.kind === 'admission_certificate');
+        if (f) setUploaded(f);
+      } catch {}
+    })();
+  }, [app.id]);
+
+  async function onPick(e) {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    setBusy(true); setErr('');
+    try {
+      const meta = await uploadMemberFile(f, 'admission_certificate', app.id, null);
+      setUploaded({ filename: meta.filename, size: meta.size, kind: 'admission_certificate' });
+    } catch (ex) { setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed')); }
+    finally { setBusy(false); }
+  }
+  async function confirm() {
+    setSubmitting(true); setErr('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/admission', { method: 'POST' });
+      if (!r.ok) throw new Error('http');
+      onChange && onChange();
+    } catch (e) { setErr(isKo ? '제출에 실패했습니다.' : 'Submission failed.'); }
+    finally { setSubmitting(false); }
+  }
+  return (
+    <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
+      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '합격증 업로드' : 'Upload admission certificate'}</h4>
+      <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 12px'}}>
+        {isKo ? 'CUFS 합격 발표 후, 합격증(또는 합격 확인 화면 캡처)을 업로드하고 제출해 주세요. 관리자가 접수번호와 대조해 확인합니다.'
+              : 'After CUFS announces results, upload your admission certificate (or a screenshot) and submit. An admin will verify it against your reference number.'}
+      </p>
+      <label className="btn btn-secondary btn-sm" style={{cursor:'pointer'}}>
+        {uploaded ? (isKo ? '다시 선택' : 'Choose again') : (isKo ? '파일 선택' : 'Choose file')}
+        <input type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={onPick} disabled={busy} />
+      </label>
+      {busy && <span className="hint" style={{marginLeft:10}}>{isKo ? '업로드 중…' : 'Uploading…'}</span>}
+      {uploaded && !busy && <span className="hint" style={{marginLeft:10,color:'var(--state-success)'}}>✓ {uploaded.filename}</span>}
+      {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginTop:8}}>{err}</div>}
+      <div style={{marginTop:14}}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!uploaded || submitting} onClick={confirm}>
+          {submitting ? (isKo ? '제출 중…' : 'Submitting…') : (isKo ? '합격증 제출 완료' : 'Submit admission')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// cufs_admitted → 학력 증빙 서류 3종 업로드 + 제출(POST /documents).
+function DocumentsPanel({ app, isKo, onChange }) {
+  const [submitting, setSubmitting] = useStateM(false);
+  const [err, setErr] = useStateM('');
+  async function confirm() {
+    setSubmitting(true); setErr('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/documents', { method: 'POST' });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (d.error === 'missing_documents') { setErr(isKo ? '서류 3종을 모두 업로드해야 제출할 수 있습니다.' : 'Upload all three documents before submitting.'); }
+        else throw new Error('http');
+        setSubmitting(false); return;
+      }
+      onChange && onChange();
+    } catch (e) { setErr(isKo ? '제출에 실패했습니다.' : 'Submission failed.'); }
+    finally { setSubmitting(false); }
+  }
+  return (
+    <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
+      <h4 style={{margin:'0 0 6px',fontSize:16}}>{isKo ? '학력 증빙 서류 3종 제출' : 'Submit 3 academic documents'}</h4>
+      <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 4px'}}>
+        {isKo ? '아래 3종을 모두 업로드한 뒤 제출하세요. 관리자 검증을 통과하면 등록금 결제 단계가 열립니다.'
+              : 'Upload all three below, then submit. After admin verification the tuition payment step opens.'}
+      </p>
+      <ApplicationFiles appId={app.id} isKo={isKo} />
+      {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginTop:8}}>{err}</div>}
+      <div style={{marginTop:12}}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={submitting} onClick={confirm}>
+          {submitting ? (isKo ? '제출 중…' : 'Submitting…') : (isKo ? '서류 제출 완료' : 'Submit documents')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// docs_verified → 결제 동의 3종 + 카드 + 결제(POST /pay). 금액은 program.tuition.
+function PaymentPanel({ app, program, isKo, onChange }) {
+  const tuition = program && Number.isFinite(parseInt(program.tuition, 10)) ? parseInt(program.tuition, 10) : null;
+  const [consents, setConsents] = useStateM({ consent_cufs_refund: false, consent_kdp_refund: false, consent_pg_pii: false });
+  const [card, setCard] = useStateM('');
+  const [exp, setExp] = useStateM('');
+  const [cvc, setCvc] = useStateM('');
+  const [busy, setBusy] = useStateM(false);
+  const [err, setErr] = useStateM('');
+  const allConsented = consents.consent_cufs_refund && consents.consent_kdp_refund && consents.consent_pg_pii;
+  const last4 = card.replace(/\D/g, '').slice(-4);
+  const canPay = allConsented && last4.length === 4 && exp && cvc && tuition && tuition > 0;
+
+  const CONSENT_ROWS = [
+    { k: 'consent_cufs_refund', ko: 'CUFS 환불 규정에 동의합니다.', en: 'I agree to the CUFS refund policy.' },
+    { k: 'consent_kdp_refund',  ko: 'KoreaDreamPath 환불 규정에 동의합니다.', en: 'I agree to the KoreaDreamPath refund policy.' },
+    { k: 'consent_pg_pii',      ko: '결제를 위한 PG사 개인정보 제공에 동의합니다.', en: 'I agree to share personal data with the payment provider.' },
+  ];
+
+  async function pay() {
+    setBusy(true); setErr('');
+    try {
+      const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/pay', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ consents, card_last4: last4, lang: isKo ? 'ko' : 'en' }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (d.error === 'tuition_not_set') setErr(isKo ? '등록금이 설정되지 않았습니다. 관리자에게 문의해 주세요.' : 'Tuition is not set. Please contact the team.');
+        else if (d.error === 'consent_required') setErr(isKo ? '결제 동의 3종에 모두 동의해야 합니다.' : 'All three consents are required.');
+        else setErr(isKo ? '결제에 실패했습니다. 다시 시도해 주세요.' : 'Payment failed. Please try again.');
+        setBusy(false); return;
+      }
+      onChange && onChange();
+    } catch (e) { setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'A network error occurred.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
+      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '등록금 결제' : 'Tuition payment'}</h4>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'var(--bg-elevated)',borderRadius:10,marginBottom:14}}>
+        <span style={{fontSize:13,color:'var(--fg-secondary)'}}>{isKo ? '결제 금액' : 'Amount due'}</span>
+        <strong style={{fontSize:20}}>{tuition != null ? `US $${tuition}.00` : (isKo ? '미설정' : 'N/A')}</strong>
+      </div>
+
+      {CONSENT_ROWS.map(row => (
+        <label key={row.k} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 0',fontSize:14,cursor:'pointer'}}>
+          <input type="checkbox" checked={consents[row.k]} onChange={e => setConsents(s => ({ ...s, [row.k]: e.target.checked }))} style={{marginTop:3}} />
+          <span>{isKo ? row.ko : row.en}</span>
+        </label>
+      ))}
+
+      <div className="field" style={{marginTop:10}}>
+        <label>{isKo ? '카드 번호' : 'Card number'}</label>
+        <input inputMode="numeric" maxLength="19" placeholder="0000 0000 0000 0000"
+          value={card}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g,'').slice(0,16);
+            setCard(digits.replace(/(.{4})/g,'$1 ').trim());
+          }} />
+      </div>
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '만료일 (MM/YY)' : 'Expiry (MM/YY)'}</label>
+          <input inputMode="numeric" maxLength="5" placeholder="MM/YY" value={exp}
+            onChange={(e) => { const d = e.target.value.replace(/\D/g,'').slice(0,4); setExp(d.length > 2 ? `${d.slice(0,2)}/${d.slice(2)}` : d); }} />
+        </div>
+        <div className="field">
+          <label>CVC</label>
+          <input inputMode="numeric" maxLength="4" placeholder="123" value={cvc}
+            onChange={(e) => setCvc(e.target.value.replace(/\D/g,'').slice(0,4))} />
+        </div>
+      </div>
+      <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10}}>
+        {isKo ? '이 프로토타입은 실제 결제를 처리하지 않습니다. 카드 번호 마지막 4자리만 저장됩니다.'
+              : 'This prototype does not process real payments. Only the last 4 digits are stored.'}
+      </div>
+      {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:8}}>{err}</div>}
+      <button type="button" className="btn btn-primary" disabled={!canPay || busy} onClick={pay}>
+        {busy ? (isKo ? '결제 중…' : 'Processing…') : (isKo ? `US $${tuition || 0} 결제하기` : `Pay US $${tuition || 0}`)}
+      </button>
+    </div>
+  );
+}
+
+function StagePaid({ app, isKo }) {
+  return (
+    <div>
+      <StageInfo isKo={isKo} tone="success" ko="등록금 결제가 완료되었습니다. 최종 등록 확정을 기다려 주세요." en="Payment complete. Awaiting final enrollment confirmation." />
+      {app.receipt_token && (
+        <div style={{marginTop:12}}>
+          <a className="btn btn-secondary btn-sm" href={`/receipt?id=${encodeURIComponent(app.id)}&token=${encodeURIComponent(app.receipt_token)}`} target="_blank" rel="noopener">
+            {isKo ? '영수증 보기 / 인쇄' : 'View / print receipt'}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageEnrolled({ app, isKo }) {
+  return (
+    <div>
+      <div style={{padding:'14px 16px',background:'var(--state-success-bg)',color:'var(--state-success)',borderRadius:10,fontSize:15,fontWeight:600}}>
+        🎉 {isKo ? '등록이 최종 확정되었습니다. 환영합니다!' : 'Your enrollment is confirmed. Welcome aboard!'}
+      </div>
+      {app.receipt_token && (
+        <div style={{marginTop:12}}>
+          <a className="btn btn-secondary btn-sm" href={`/receipt?id=${encodeURIComponent(app.id)}&token=${encodeURIComponent(app.receipt_token)}`} target="_blank" rel="noopener">
+            {isKo ? '영수증 보기 / 인쇄' : 'View / print receipt'}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 마이페이지 공용 단일 파일 업로더 — base64로 /api/applications/upload 호출.
+async function uploadMemberFile(file, kind, appId, recommenderIdx) {
+  const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
+  if (file.type && !allowed.includes(file.type)) throw new Error('PDF / 이미지만 가능합니다.');
+  if (file.size > 10 * 1024 * 1024) throw new Error('최대 10MB.');
+  const b64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { const u = String(r.result || ''); const i = u.indexOf(','); res(i >= 0 ? u.slice(i+1) : u); };
+    r.onerror = () => rej(new Error('read_failed'));
+    r.readAsDataURL(file);
+  });
+  const r = await window.DreamPathAuth.authFetch('/api/applications/upload', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind, recommender_idx: recommenderIdx == null ? null : recommenderIdx, application_id: appId, filename: file.name, mime: file.type || 'application/pdf', content_base64: b64 }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || ('http_' + r.status)); }
+  return await r.json();
 }
 
 // File panel inside each MemberApplications row. Lists every file attached

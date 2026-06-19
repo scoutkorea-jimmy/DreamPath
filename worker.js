@@ -1865,6 +1865,7 @@ async function handleApi(request, env, url, ctx) {
       'transcript_graduation',
       'transcript_recognition',
       'transcript_translation',
+      'admission_certificate',   // v01.092 — CUFS 합격증 (cufs_no_submitted 단계)
       'recommendation',
       'portfolio',
       'id_doc',
@@ -3428,10 +3429,287 @@ async function handleApi(request, env, url, ctx) {
   if (path === '/api/me/applications' && method === 'GET') {
     const user = await currentUser(request, env);
     if (!user) return json({ error: 'unauthorized' }, 401);
+    // v01.092: 파이프라인 단계 표시에 필요한 컬럼을 함께 반환.
+    // candidate_no(고유번호), 단계별 타임스탬프, 동의 플래그, screen_note.
     const { results } = await env.DB.prepare(
-      'SELECT id, submitted_at, status, amount, currency, track, program, paid_at, receipt_token FROM applications WHERE user_id = ? ORDER BY submitted_at DESC'
+      'SELECT id, candidate_no, submitted_at, status, amount, currency, program, paid_at, receipt_token, ' +
+      '       screen_note, screen_decided_at, cufs_admit_verified_at, docs_submitted_at, docs_verified_at, enrolled_at, ' +
+      '       consent_cufs_refund_at, consent_kdp_refund_at, consent_pg_pii_at ' +
+      'FROM applications WHERE user_id = ? ORDER BY submitted_at DESC'
     ).bind(user.id).all();
     return json({ items: results || [] });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // 신청 파이프라인 단계 전이 엔드포인트 (v01.092, 설계서 §7.2)
+  // 모든 전이는 assertStatus 가드(불일치=409) + 관리자 전이는 audit 기록.
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ── (관리자) 1차 스크리닝: submitted → screen_passed / screen_rejected ────
+  {
+    const mScreen = path.match(/^\/api\/admin\/applications\/([A-Za-z0-9_-]+)\/screen$/);
+    if (mScreen && method === 'POST') {
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+      const id = mScreen[1];
+      const body = await request.json().catch(() => ({}));
+      const decision = body.decision === 'pass' ? 'screen_passed'
+                     : body.decision === 'reject' ? 'screen_rejected' : null;
+      if (!decision) return json({ error: 'invalid_decision' }, 400);
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['submitted']);
+      if (guard) return guard;
+      const actor = await currentUser(request, env);
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'UPDATE applications SET status = ?, screen_decided_at = ?, screen_decided_by = ?, screen_note = ? WHERE id = ?'
+      ).bind(decision, now, actor ? actor.id : null, str(body.note), id).run();
+      auditTransition(env, request, ctx, { id, from: 'submitted', to: decision, action: 'app_screen', extra: { note: str(body.note) } });
+      // 통과 시 CUFS 입시 안내 메일 / 탈락 시 결과 메일(best-effort).
+      try {
+        await decryptApplicationRow(env, row);
+        await sendEmail(env, {
+          to: String(row.email || ''),
+          slug: decision === 'screen_passed' ? 'screen_passed' : 'screen_rejected',
+          lang: row.lang === 'en' ? 'en' : 'ko',
+          vars: { name: row.name || '', candidate_no: row.candidate_no || id, note: str(body.note) || '' },
+        });
+      } catch {}
+      return json({ ok: true, status: decision });
+    }
+  }
+
+  // ── (학생) CUFS 접수번호 입력: screen_passed → cufs_no_submitted ──────────
+  {
+    const mReg = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/cufs-reg-no$/);
+    if (mReg && method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const id = mReg[1];
+      const body = await request.json().catch(() => ({}));
+      const regNo = str(body.cufs_reg_no);
+      if (!nonEmpty(regNo)) return json({ error: 'missing_reg_no' }, 400);
+      const row = await env.DB.prepare('SELECT id, user_id, status FROM applications WHERE id = ?').bind(id).first();
+      if (!row || row.user_id !== user.id) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['screen_passed']);
+      if (guard) return guard;
+      // 접수번호는 PII — 암호화 컬럼에 저장, 평문은 키 없을 때만.
+      const enc = await encryptPii(env, regNo);
+      await env.DB.prepare(
+        'UPDATE applications SET cufs_reg_no = ?, cufs_reg_no_enc = ?, status = ? WHERE id = ?'
+      ).bind(enc ? null : regNo, enc, 'cufs_no_submitted', id).run();
+      return json({ ok: true, status: 'cufs_no_submitted' });
+    }
+  }
+
+  // ── (학생) 합격증 업로드 확인: cufs_no_submitted (status 유지, 검증 대기) ──
+  // 파일 자체는 POST /api/applications/upload (kind=admission_certificate)로
+  // 이미 올라가 있다. 이 엔드포인트는 "제출 완료" 신호 + 파일 존재 확인용.
+  {
+    const mAdm = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/admission$/);
+    if (mAdm && method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const id = mAdm[1];
+      const row = await env.DB.prepare('SELECT id, user_id, status FROM applications WHERE id = ?').bind(id).first();
+      if (!row || row.user_id !== user.id) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['cufs_no_submitted']);
+      if (guard) return guard;
+      const f = await env.DB.prepare(
+        "SELECT id FROM application_files WHERE application_id = ? AND kind = 'admission_certificate' LIMIT 1"
+      ).bind(id).first();
+      if (!f) return json({ error: 'no_admission_file' }, 400);
+      return json({ ok: true, status: 'cufs_no_submitted', awaiting: 'verify-admission' });
+    }
+  }
+
+  // ── (관리자) 합격증 검증: cufs_no_submitted → cufs_admitted ───────────────
+  {
+    const mVA = path.match(/^\/api\/admin\/applications\/([A-Za-z0-9_-]+)\/verify-admission$/);
+    if (mVA && method === 'POST') {
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+      const id = mVA[1];
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['cufs_no_submitted']);
+      if (guard) return guard;
+      const actor = await currentUser(request, env);
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'UPDATE applications SET status = ?, cufs_admit_verified_at = ?, cufs_admit_verified_by = ? WHERE id = ?'
+      ).bind('cufs_admitted', now, actor ? actor.id : null, id).run();
+      auditTransition(env, request, ctx, { id, from: 'cufs_no_submitted', to: 'cufs_admitted', action: 'app_verify_admission' });
+      try {
+        await decryptApplicationRow(env, row);
+        await sendEmail(env, { to: String(row.email || ''), slug: 'admission_verified',
+          lang: row.lang === 'en' ? 'en' : 'ko', vars: { name: row.name || '', candidate_no: row.candidate_no || id } });
+      } catch {}
+      return json({ ok: true, status: 'cufs_admitted' });
+    }
+  }
+
+  // ── (학생) 서류 3종 제출 완료: cufs_admitted → docs_submitted ─────────────
+  // 파일은 /upload (kind=transcript_*)로 업로드. 3종 모두 있어야 전이.
+  {
+    const mDocs = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/documents$/);
+    if (mDocs && method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const id = mDocs[1];
+      const row = await env.DB.prepare('SELECT id, user_id, status FROM applications WHERE id = ?').bind(id).first();
+      if (!row || row.user_id !== user.id) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['cufs_admitted']);
+      if (guard) return guard;
+      const need = ['transcript_graduation', 'transcript_recognition', 'transcript_translation'];
+      const { results } = await env.DB.prepare(
+        'SELECT DISTINCT kind FROM application_files WHERE application_id = ?'
+      ).bind(id).all();
+      const have = new Set((results || []).map(r => r.kind));
+      const missing = need.filter(k => !have.has(k));
+      if (missing.length) return json({ error: 'missing_documents', missing }, 400);
+      const now = new Date().toISOString();
+      await env.DB.prepare('UPDATE applications SET status = ?, docs_submitted_at = ? WHERE id = ?')
+        .bind('docs_submitted', now, id).run();
+      return json({ ok: true, status: 'docs_submitted' });
+    }
+  }
+
+  // ── (관리자) 서류 검증(=결제 오픈): docs_submitted → docs_verified ────────
+  {
+    const mVD = path.match(/^\/api\/admin\/applications\/([A-Za-z0-9_-]+)\/verify-documents$/);
+    if (mVD && method === 'POST') {
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+      const id = mVD[1];
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['docs_submitted']);
+      if (guard) return guard;
+      const actor = await currentUser(request, env);
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'UPDATE applications SET status = ?, docs_verified_at = ?, docs_verified_by = ? WHERE id = ?'
+      ).bind('docs_verified', now, actor ? actor.id : null, id).run();
+      auditTransition(env, request, ctx, { id, from: 'docs_submitted', to: 'docs_verified', action: 'app_verify_documents' });
+      try {
+        await decryptApplicationRow(env, row);
+        const tuition = await computeTuition(env, row.program);
+        await sendEmail(env, { to: String(row.email || ''), slug: 'docs_verified',
+          lang: row.lang === 'en' ? 'en' : 'ko',
+          vars: { name: row.name || '', candidate_no: row.candidate_no || id, amount: tuition != null ? tuition : '' } });
+      } catch {}
+      return json({ ok: true, status: 'docs_verified' });
+    }
+  }
+
+  // ── (학생) 등록금 결제(데모): docs_verified → paid ────────────────────────
+  // 게이트: status==docs_verified + 결제 동의 3종 + card_last4 + amount==tuition.
+  {
+    const mPay = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/pay$/);
+    if (mPay && method === 'POST') {
+      const user = await currentUser(request, env);
+      if (!user) return json({ error: 'unauthorized' }, 401);
+      const id = mPay[1];
+      const body = await request.json().catch(() => ({}));
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row || row.user_id !== user.id) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['docs_verified']);
+      if (guard) return guard;
+      // 결제 동의 3종 — 모두 true여야 진행.
+      const consents = body.consents || {};
+      const need3 = ['consent_cufs_refund', 'consent_kdp_refund', 'consent_pg_pii'];
+      const missingConsent = need3.filter(k => consents[k] !== true);
+      if (missingConsent.length) return json({ error: 'consent_required', missing: missingConsent }, 400);
+      // 카드 마지막 4자리.
+      const card_last4 = String(body.card_last4 || '').replace(/\D/g, '').slice(-4);
+      if (card_last4.length !== 4) return json({ error: 'card_last4' }, 400);
+      // 등록금 — KV programs[].tuition 단일 출처. 미설정이면 결제 차단.
+      const tuition = await computeTuition(env, row.program);
+      if (tuition == null) return json({ error: 'program_not_found' }, 400);
+      if (tuition <= 0) return json({ error: 'tuition_not_set' }, 409);
+      // PG 추상화 — 데모 구현. 실제 청구/외부호출 없음.
+      const charge = await chargePayment(env, {
+        amount: tuition, currency: 'USD', card_last4,
+        candidate_no: row.candidate_no, application_id: id,
+      });
+      if (!charge.ok) return json({ error: 'payment_failed' }, 502);
+      const now = new Date().toISOString();
+      const receipt_token = randomHex(16);
+      // 동의 버전 스냅샷.
+      const versions = {};
+      need3.forEach(k => { versions[k] = String((consents[k + '_version']) || '1.0'); });
+      await env.DB.prepare(
+        'UPDATE applications SET status = ?, amount = ?, currency = ?, payment_method = ?, card_last4 = ?, ' +
+        'paid_at = ?, receipt_token = ?, provider_txn_id = ?, ' +
+        'consent_cufs_refund_at = ?, consent_kdp_refund_at = ?, consent_pg_pii_at = ?, consent_versions_json = ? WHERE id = ?'
+      ).bind('paid', tuition, 'USD', 'card', card_last4, now, receipt_token, charge.provider_txn_id,
+             now, now, now, JSON.stringify(versions), id).run();
+      // 결제 동의 3종을 consents 테이블에도 기록(GDPR 추적).
+      try {
+        const ip = request.headers.get('cf-connecting-ip') || '';
+        const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+        const stmt = env.DB.prepare(
+          'INSERT INTO consents (ts, user_id, application_id, email, consent_type, version, granted, ip, user_agent, lang) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)'
+        );
+        await env.DB.batch(need3.map(k => stmt.bind(now, user.id, id, user.email, k, versions[k], ip, ua, str(body.lang))));
+      } catch {}
+      // 결제 확인 메일(best-effort).
+      try {
+        await decryptApplicationRow(env, row);
+        await sendEmail(env, { to: String(row.email || ''), slug: 'payment_received',
+          lang: body.lang === 'en' ? 'en' : 'ko',
+          vars: { name: row.name || '', candidate_no: row.candidate_no || id, amount: tuition } });
+      } catch {}
+      return json({ ok: true, status: 'paid', amount: tuition, currency: 'USD',
+        receipt_url: `/receipt?id=${encodeURIComponent(id)}&token=${receipt_token}` });
+    }
+  }
+
+  // ── (관리자) 등록 확정: paid → enrolled ───────────────────────────────────
+  {
+    const mEnroll = path.match(/^\/api\/admin\/applications\/([A-Za-z0-9_-]+)\/enroll$/);
+    if (mEnroll && method === 'POST') {
+      if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+      const id = mEnroll[1];
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      const guard = assertStatus(row, ['paid']);
+      if (guard) return guard;
+      const actor = await currentUser(request, env);
+      const now = new Date().toISOString();
+      await env.DB.prepare('UPDATE applications SET status = ?, enrolled_at = ?, enrolled_by = ? WHERE id = ?')
+        .bind('enrolled', now, actor ? actor.id : null, id).run();
+      auditTransition(env, request, ctx, { id, from: 'paid', to: 'enrolled', action: 'app_enroll' });
+      try {
+        await decryptApplicationRow(env, row);
+        await sendEmail(env, { to: String(row.email || ''), slug: 'enrolled',
+          lang: row.lang === 'en' ? 'en' : 'ko', vars: { name: row.name || '', candidate_no: row.candidate_no || id } });
+      } catch {}
+      return json({ ok: true, status: 'enrolled' });
+    }
+  }
+
+  // ── (관리자/학생) 취소: 진행 중 단계 → cancelled ──────────────────────────
+  {
+    const mCancel = path.match(/^\/api\/(me|admin)\/applications\/([A-Za-z0-9_-]+)\/cancel$/);
+    if (mCancel && method === 'POST') {
+      const scope = mCancel[1];
+      const id = mCancel[2];
+      const row = await env.DB.prepare('SELECT * FROM applications WHERE id = ?').bind(id).first();
+      if (!row) return json({ error: 'not_found' }, 404);
+      if (scope === 'me') {
+        const user = await currentUser(request, env);
+        if (!user || row.user_id !== user.id) return json({ error: 'not_found' }, 404);
+      } else {
+        if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+      }
+      const t = canTransition(row.status, 'cancelled');
+      if (t.noop) return json({ ok: true, status: 'cancelled' });
+      if (t.conflict) return json({ error: 'conflict', detail: `cannot cancel from ${row.status}` }, 409);
+      await env.DB.prepare('UPDATE applications SET status = ? WHERE id = ?').bind('cancelled', id).run();
+      if (scope === 'admin') auditTransition(env, request, ctx, { id, from: row.status, to: 'cancelled', action: 'app_cancel' });
+      return json({ ok: true, status: 'cancelled' });
+    }
   }
 
   // ── Apply form draft (server-side persistence) ───────────────────────────
@@ -3593,11 +3871,11 @@ async function handleApi(request, env, url, ctx) {
 
     return json({
       id: row.id,
+      candidate_no: row.candidate_no || null,
       issuer: { name: 'KoreaDreamPath', email: 'info@koreadreampath.com' },
       paid_at: row.paid_at,
       currency: row.currency || 'USD',
       amount: row.amount,
-      track: row.track,
       program: row.program,
       payer: { name: row.name, email: row.email, country: row.country },
       payment: { method: row.payment_method || 'card', card_last4: row.card_last4 || null },
@@ -6130,24 +6408,85 @@ async function requireRole(request, env, pageId, action) {
   return null;
 }
 
+// ── Applications — 상태머신 파이프라인 (v01.092, 설계서 §1) ──────────────────
+// status는 서버 권위. 클라이언트가 보내는 단계 표시는 신뢰하지 않고, 모든
+// 전이는 아래 허용표(APP_TRANSITIONS)로만 판정한다. 불일치 = 409.
+const APP_STATUSES = [
+  'draft', 'submitted', 'screen_passed', 'screen_rejected',
+  'cufs_no_submitted', 'cufs_admitted', 'docs_submitted', 'docs_verified',
+  'paid', 'enrolled', 'cancelled',
+];
+
+// from → [허용되는 to]. 정상 전이는 단방향. cancelled는 terminal 직전 어디서든 가능.
+const APP_TRANSITIONS = {
+  submitted:         ['screen_passed', 'screen_rejected', 'cancelled'],
+  screen_passed:     ['cufs_no_submitted', 'cancelled'],
+  cufs_no_submitted: ['cufs_admitted', 'cancelled'],
+  cufs_admitted:     ['docs_submitted', 'cancelled'],
+  docs_submitted:    ['docs_verified', 'cancelled'],
+  docs_verified:     ['paid', 'cancelled'],
+  paid:              ['enrolled', 'cancelled'],
+};
+
+// 전이 핸들러 공통 가드. 현재 status가 expected[] 중 하나가 아니면 409 Response를
+// 반환(= 호출부에서 그대로 return). 통과하면 null.
+function assertStatus(row, expected) {
+  const cur = row && row.status;
+  if (!expected.includes(cur)) {
+    return json({ error: 'conflict', detail: `expected status ${expected.join('|')}, got ${cur}` }, 409);
+  }
+  return null;
+}
+
+// 멱등 전이 검사. 이미 목표 status면 { noop:true }, 허용 전이면 { ok:true },
+// 그 외엔 { conflict:true }. 호출부가 409 / 200(no-op) / 진행을 구분하게 한다.
+function canTransition(fromStatus, toStatus) {
+  if (fromStatus === toStatus) return { noop: true };
+  const allowed = APP_TRANSITIONS[fromStatus] || [];
+  if (allowed.includes(toStatus)) return { ok: true };
+  return { conflict: true };
+}
+
+// 학생 고유번호 발급 — DP{YY}-{5자리 시퀀스}. 연도별 카운터를 원자적으로
+// 증가(D1 RETURNING)시켜 동시성 안전하게 1회만 발급한다. 발급 후 불변.
+async function issueCandidateNo(env, submittedAtIso) {
+  const yy = (submittedAtIso || new Date().toISOString()).slice(2, 4); // 'YYYY-..' → 'YY'
+  // 원자적 증가 + 증가 후 값 회수.
+  const row = await env.DB.prepare(
+    'INSERT INTO candidate_counters (year, seq) VALUES (?, 1) ' +
+    'ON CONFLICT(year) DO UPDATE SET seq = seq + 1 RETURNING seq'
+  ).bind(yy).first();
+  const seq = (row && row.seq) || 1;
+  return `DP${yy}-${String(seq).padStart(5, '0')}`;
+}
+
+// 관리자 상태 전이 1건을 admin_audit에 기록(전·후 status 포함). 기존
+// writeAdminAudit 위에 얇게 감싼 헬퍼 — ctx.waitUntil로 호출.
+function auditTransition(env, request, ctx, { id, from, to, action, extra }) {
+  const detail = { from, to, ...(extra || {}) };
+  if (ctx && ctx.waitUntil) {
+    ctx.waitUntil(writeAdminAudit(env, request, {
+      action: action || 'application_transition',
+      target_type: 'application', target_id: id, detail,
+    }));
+  }
+}
+
 // ── Applications ───────────────────────────────────────────────────────────
+// v01.092: 1차 신청서(draft→submitted)에서 수집하는 필드만. 결제·트랙 관련
+// (track/partial_tier/payment_method/card_last4)은 제거됐고, 결제 단계(/pay)에서
+// 별도로 채워진다. phone(지원자 전화번호)과 program(프로그램 선택)이 1차로 이동.
 const APP_FIELDS = [
-  // Step 1
-  'name','email','birthdate','admission_referrer_code',
-  // Step 2
+  // 개인정보
+  'name','email','birthdate','phone','admission_referrer_code',
+  // 학력
   'country','prior_school','prior_major','prior_gpa','transcript_note',
-  // Step 3 — essays + recommender list (JSON)
+  // 에세이 + 추천인(JSON)
   'essay_title','essay_body','essay_title_2','essay_body_2',
   'essays_json',          // v01.031 — full essays array (admin-editable count)
   'recommenders_json',
-  // Legacy single-recommender columns (kept for backward compat)
-  'nso','recommender_name','recommender_email','recommender_role','recommender_letter',
-  'scout_member_country','scout_training_level','recommendation_letter_filename',
-  // Step 4
-  'track','partial_tier','program','payment_method','card_last4',
-  // PCI: card_exp / card_cvc are *intentionally* NOT in this list. They are
-  // collected only for the (future) gateway round-trip and must never land
-  // in our DB. Only card_last4 is persisted.
+  // 프로그램 선택(등록금 자동 연계의 기준)
+  'program',
   'lang'
 ];
 
@@ -6156,18 +6495,25 @@ async function submitApplication(request, env) {
   try { body = await request.json(); }
   catch { return json({ error: 'invalid_json' }, 400); }
 
-  const errors = validateApplication(body);
+  // v01.092: 1차 신청 검증(서류·트랙·카드 제거).
+  const errors = validateApplicationStage1(body);
   if (errors.length) return json({ error: 'validation', fields: errors }, 400);
 
   const id = 'DP-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
   const submitted_at = new Date().toISOString();
-  const status = body.track === 'general' ? 'submitted' : 'paid';
-  const amount = computeAmount(body.track, body.partial_tier);
-  const receipt_token = randomHex(16);
-  const paid_at = status === 'paid' ? submitted_at : null;
+  // 신 파이프라인: 1차 제출은 항상 submitted. 결제는 docs_verified 이후 별도 단계.
+  const status = 'submitted';
+  const amount = 0;            // 등록금은 /pay 단계에서 program.tuition으로 확정
+  const receipt_token = null;  // 영수증 토큰은 결제 성공 시 발급
+  const paid_at = null;
 
   const user = await currentUser(request, env); // optional — anonymous OK
   const user_id = user ? user.id : null;
+
+  // 학생 고유번호(candidate_no) — submitted 진입 시 1회 발급, 이후 불변.
+  let candidate_no = null;
+  try { candidate_no = await issueCandidateNo(env, submitted_at); }
+  catch { candidate_no = null; }   // 발급 실패해도 제출은 진행(번호는 후속 보정 가능)
 
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
@@ -6195,7 +6541,10 @@ async function submitApplication(request, env) {
   const recEmailN  = body.recommender_email ? normalizeEmail(body.recommender_email) : '';
   const recLetter  = str(body.recommender_letter);
   const recJson    = str(body.recommenders_json);
+  const phoneRaw   = str(body.phone);   // v01.092 — 지원자 전화번호(PII)
 
+  const phoneEnc      = phoneRaw ? await encryptPii(env, phoneRaw) : null;
+  const phonePlain    = phoneEnc ? null : phoneRaw;
   const nameEnc       = await encryptPii(env, nameRaw);
   const emailEnc      = await encryptPii(env, emailNorm);
   const emailH        = await computePiiHmac(env, emailNorm, 'email-hmac');
@@ -6229,6 +6578,7 @@ async function submitApplication(request, env) {
     name: namePlain,
     email: emailPlain,
     birthdate: birthdatePlain,
+    phone: phonePlain,
     essay_body: essayBodyPlain,
     essay_body_2: essayBody2Plain,
     essays_json: essaysJsonPlain,
@@ -6240,8 +6590,9 @@ async function submitApplication(request, env) {
 
   const cols = [
     'id','submitted_at','status','amount','ip','user_agent','user_id','receipt_token','paid_at','currency',
+    'candidate_no',
     ...APP_FIELDS,
-    'birthdate_enc',
+    'birthdate_enc','phone_enc',
     'name_enc','email_enc','email_h',
     'essay_body_enc','essay_body_2_enc','essays_json_enc',
     'recommender_name_enc','recommender_email_enc','recommender_email_h',
@@ -6249,8 +6600,9 @@ async function submitApplication(request, env) {
   ];
   const values = [
     id, submitted_at, status, amount, ip, ua, user_id, receipt_token, paid_at, 'USD',
+    candidate_no,
     ...APP_FIELDS.map(k => (k in PII_OVERRIDES) ? PII_OVERRIDES[k] : str(body[k])),
-    birthdateEnc,
+    birthdateEnc, phoneEnc,
     nameEnc, emailEnc, emailH,
     essayBodyEnc, essayBody2Enc, essaysJsonEnc,
     recNameEnc, recEmailEnc, recEmailH,
@@ -6291,17 +6643,16 @@ async function submitApplication(request, env) {
   }
 
   // Best-effort confirmation email. Non-blocking — swallow failures so the
-  // submitter still sees the success screen.
+  // submitter still sees the success screen. candidate_no를 함께 표기.
   try {
     await sendEmail(env, {
       to: String(body.email || ''), slug: 'apply_received',
       lang: body.lang === 'en' ? 'en' : 'ko',
-      vars: { name: body.name || '', application_id: id },
+      vars: { name: body.name || '', application_id: id, candidate_no: candidate_no || id },
     });
   } catch {}
 
-  return json({ id, submitted_at, status, amount, receipt_token,
-                receipt_url: status === 'paid' ? `/receipt?id=${encodeURIComponent(id)}&token=${receipt_token}` : null });
+  return json({ id, candidate_no, submitted_at, status });
 }
 
 // v01.066 (Phase 2): inverse of submitApplication()'s encryption block.
@@ -6312,6 +6663,8 @@ async function submitApplication(request, env) {
 async function decryptApplicationRow(env, row) {
   if (!row) return row;
   if (row.birthdate_enc)             { const d = await decryptPii(env, row.birthdate_enc);             if (d != null) row.birthdate = d; }
+  if (row.phone_enc)                 { const d = await decryptPii(env, row.phone_enc);                 if (d != null) row.phone = d; }
+  if (row.cufs_reg_no_enc)           { const d = await decryptPii(env, row.cufs_reg_no_enc);           if (d != null) row.cufs_reg_no = d; }
   if (row.name_enc)                  { const d = await decryptPii(env, row.name_enc);                  if (d != null) row.name = d; }
   if (row.email_enc)                 { const d = await decryptPii(env, row.email_enc);                 if (d != null) row.email = d; }
   if (row.essay_body_enc)            { const d = await decryptPii(env, row.essay_body_enc);            if (d != null) row.essay_body = d; }
@@ -6321,7 +6674,7 @@ async function decryptApplicationRow(env, row) {
   if (row.recommender_email_enc)    { const d = await decryptPii(env, row.recommender_email_enc);     if (d != null) row.recommender_email = d; }
   if (row.recommender_letter_enc)    { const d = await decryptPii(env, row.recommender_letter_enc);    if (d != null) row.recommender_letter = d; }
   if (row.recommenders_json_enc)     { const d = await decryptPii(env, row.recommenders_json_enc);     if (d != null) row.recommenders_json = d; }
-  delete row.birthdate_enc;
+  delete row.birthdate_enc;       delete row.phone_enc;            delete row.cufs_reg_no_enc;
   delete row.name_enc;            delete row.email_enc;            delete row.email_h;
   delete row.essay_body_enc;      delete row.essay_body_2_enc;     delete row.essays_json_enc;
   delete row.recommender_name_enc;
@@ -6364,21 +6717,26 @@ async function listApplications(env, url) {
   return json({ items, count: items.length });
 }
 
-function validateApplication(b) {
+// v01.092: 1차 신청 검증. 개인정보 + 자기소개서 + 추천인 3명 + 프로그램만.
+// 서류·트랙·카드 검증은 제거(각각 docs/payment 단계로 분리). 동의 2종은
+// 클라이언트가 recordConsent로 별도 기록하고, 게이트는 consent_personal/
+// third_party 플래그로 본다(여기서는 신청 본문 필수값만).
+function validateApplicationStage1(b) {
   const e = [];
   if (!b || typeof b !== 'object') { e.push('body'); return e; }
-  // Step 1
-  if (!nonEmpty(b.name)) e.push('name');
-  if (!isEmail(b.email)) e.push('email');
-  // Step 2
+  if (!nonEmpty(b.name))    e.push('name');
+  if (!isEmail(b.email))    e.push('email');
   if (!nonEmpty(b.country)) e.push('country');
-  if (!nonEmpty(b.prior_school)) e.push('prior_school');
-  // Step 3
+  // 지원자 전화번호 — 국제번호(+국가코드) 형식.
+  if (!nonEmpty(b.phone) || !/^\+/.test(String(b.phone).trim())) e.push('phone');
+  // 프로그램 선택 필수(등록금 자동 연계 기준).
+  if (!nonEmpty(b.program)) e.push('program');
+  // 에세이 — 처음 2문항(레거시 컬럼)이 최소 기준. 본문 ≥50자.
   if (!nonEmpty(b.essay_title)) e.push('essay_title');
   if (!nonEmpty(b.essay_body) || String(b.essay_body).length < 50) e.push('essay_body');
   if (!nonEmpty(b.essay_title_2)) e.push('essay_title_2');
   if (!nonEmpty(b.essay_body_2) || String(b.essay_body_2).length < 50) e.push('essay_body_2');
-  // Recommenders: minimum 3, each with name + email + intl phone + member country + training level
+  // 추천인: 최소 3명, 각 name + email + 국제전화 + 소속기관 + 훈련수준.
   let recs = [];
   if (typeof b.recommenders_json === 'string' && b.recommenders_json.trim()) {
     try { recs = JSON.parse(b.recommenders_json); } catch { e.push('recommenders_json'); }
@@ -6398,18 +6756,40 @@ function validateApplication(b) {
       if (!nonEmpty(r.training_level))              e.push('recommender_' + i + '_training_level');
     });
   }
-  // Step 4
-  if (!nonEmpty(b.track) || !['full','partial','general'].includes(b.track)) e.push('track');
-  if (b.track && b.track !== 'general') {
-    if (!b.card_last4 || String(b.card_last4).length !== 4) e.push('card_last4');
-  }
   return e;
 }
 
-function computeAmount(track, tier) {
-  if (track === 'full') return 10;
-  if (track === 'partial') return tier === '70' ? 7 : tier === '50' ? 5 : 3;
-  return 0;
+// v01.092: 등록금 자동 연계 — 프로그램별 등록금은 KV(dp_content_v1.programs[])의
+// tuition 필드가 단일 출처다. 서버는 신청 행의 program id로 KV를 조회해 금액을
+// 결정(클라가 보낸 금액 불신, 설계서 §0 규칙 1). 통화는 USD 단일 고정.
+async function computeTuition(env, programId) {
+  if (!programId) return null;
+  try {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    const list = (c && Array.isArray(c.programs)) ? c.programs : [];
+    const p = list.find(x => x && x.id === programId);
+    if (!p) return null;
+    const t = parseInt(p.tuition, 10);
+    return Number.isFinite(t) && t > 0 ? t : 0;
+  } catch { return null; }
+}
+
+// v01.092: 결제 PG 추상화 (설계서 §5).
+//   PaymentProvider.createCharge({ amount, currency, card_last4, candidate_no,
+//     application_id }) -> { ok, provider_txn_id, raw }
+// 데모 구현(DemoPaymentProvider)은 입력만 검증하고 즉시 ok:true + 가짜 거래
+// 식별자를 반환한다(실제 청구·외부호출 없음). 실 PG 연동 시 이 함수 내부만
+// 교체하면 호출부(/pay 핸들러)는 수정 불필요.
+// NOTE: PG-level split 정산(CUFS tuition → CUFS merchant, KDP fee → KDP
+//       merchant)은 본 인터페이스 밖. 시스템은 단일 amount만 다룬다.
+async function chargePayment(env, { amount, currency, card_last4, candidate_no, application_id }) {
+  // 실 PG 자리: env.PAYMENT_PROVIDER === 'live' 등으로 분기 후 SDK 호출.
+  // 현재는 데모만.
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: 'invalid_amount' };
+  if (!/^\d{4}$/.test(String(card_last4 || ''))) return { ok: false, reason: 'invalid_card' };
+  return { ok: true, provider_txn_id: 'demo_' + randomHex(10), raw: { demo: true } };
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────

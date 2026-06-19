@@ -1,11 +1,10 @@
-// Helper used by both Apply state init and the Step2 list controls.
+// Helper used by both Apply state init and the recommender list controls.
 function blankRecommender() {
   return { name: '', email: '', phone: '', member_country: '', training_level: '', letter_file: null };
 }
 
 // Default essay prompts when c.essay_questions is empty / not yet edited
 // by the operator. Each entry is admin-editable from the content store.
-// min_chars / max_chars apply to the body; the title is short-form.
 function defaultEssayQuestions() {
   return [
     { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, DreamPath를 통해 이루고 싶은 것에 대해 작성하세요.',
@@ -19,10 +18,10 @@ function defaultEssayQuestions() {
   ];
 }
 
-// Upload a single file to /api/applications/upload → returns { id, filename,
-// size, mime, r2_key } on success. Caps + MIME whitelisted server-side; this
-// helper just shuttles the bytes as base64. Used by the Apply form's
-// transcript + per-recommender PDF pickers.
+// Upload one recommendation-letter PDF to /api/applications/upload →
+// returns { upload_token, filename, size, mime }. Document uploads (학력
+// 증빙·합격증)은 1차 신청에서 제거되어 마이페이지의 합격 후 단계로
+// 이동했다(v01.092). 추천서 PDF만 여기 남는다.
 async function uploadApplyFile(file, kind, recommenderIdx, applicationId) {
   if (!file) return null;
   const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
@@ -60,12 +59,14 @@ async function uploadApplyFile(file, kind, recommenderIdx, applicationId) {
   return await res.json();
 }
 
-// Apply.jsx — 5-step application:
-//   1) Consent
-//   2) Personal + admission referrer
-//   3) Basic info + academic + 3 separate document uploads
-//   4) Essays (admin-editable prompts) + scout recommenders
-//   5) Track + payment (program list filtered to status='open')
+// Apply.jsx — 1차 신청서 (v01.092, 설계서 §3.2). 신 파이프라인의 첫 단계만
+// 담당한다: draft → submitted. 서류 3종·트랙·결제는 합격 이후 단계(마이
+// 페이지)로 분리됐다.
+//   Step 0) 개인정보 동의 2종
+//   Step 1) 개인정보 · 추천코드 · 프로그램 선택
+//   Step 2) 학력 정보 (서류 업로드 없음)
+//   Step 3) 에세이 · 추천인 3명
+// 제출 성공 → 학생 고유번호(candidate_no) 발급 + 스크리닝 대기.
 const { useState: useStateA, useEffect: useEffectA } = React;
 
 const APPLY_DRAFT_KEY = 'dp_apply_draft_v1';
@@ -91,24 +92,18 @@ async function fetchServerDraft() {
   try {
     const r = await window.DreamPathAuth.authFetch('/api/me/apply-draft');
     if (!r.ok) return null;
-    return await r.json();   // { exists, form?, step?, updated_at?, expires_at?, ttl_hours }
+    return await r.json();
   } catch { return null; }
 }
 async function pushServerDraft(form, step) {
   try {
-    // PCI: never persist card_exp / card_cvc anywhere on the server,
-    // not even in a draft. card_last4 is the only card field we may
-    // keep. The user re-enters expiry + CVC on each session.
-    const safe = { ...form };
-    delete safe.card_exp;
-    delete safe.card_cvc;
     const r = await window.DreamPathAuth.authFetch('/api/me/apply-draft', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ form: safe, step }),
+      body: JSON.stringify({ form, step }),
     });
     if (!r.ok) return null;
-    return await r.json();   // { ok, updated_at, size_bytes, expires_at, ttl_hours }
+    return await r.json();
   } catch { return null; }
 }
 async function deleteServerDraft() {
@@ -116,7 +111,7 @@ async function deleteServerDraft() {
   catch {}
 }
 
-function Apply({ lang, c }) {
+function Apply({ lang, c, go }) {
   const isKo = lang === 'ko';
   const { user } = (window.useAuth ? window.useAuth() : { user: null });
   const _restored = loadApplyDraft();
@@ -125,8 +120,6 @@ function Apply({ lang, c }) {
     ? c.essay_questions
     : defaultEssayQuestions();
 
-  // Build initial essays[] sized to the current question count, padding /
-  // trimming any restored draft so we never crash on length mismatch.
   function essaysInitial(restored) {
     const src = (restored && Array.isArray(restored.essays)) ? restored.essays : [];
     return essayQuestions.map((_, i) => src[i] || { title: '', body: '' });
@@ -137,26 +130,18 @@ function Apply({ lang, c }) {
   const [form, setForm] = useStateA(_restored?.form || {
     consent_personal: false,
     consent_third_party: false,
-    name: '', email: '', birthdate: '',
+    name: '', email: '', birthdate: '', phone: '',
     admission_referrer_code: '',
+    program: '',
     country: '',
     prior_school: '', prior_major: '', prior_gpa: '',
     transcript_note: '',
-    // Three separate document slots (each is { id, filename, size, mime } when uploaded)
-    transcript_graduation: null,    // 졸업(예정)증명서
-    transcript_recognition: null,   // 아포스티유 / 학력인정확인서 / 영사확인 중 택1
-    transcript_translation: null,   // 한글번역공증본 (KO/EN 외 서류)
-    // Essays now driven by admin-editable c.essay_questions (default = 2 questions)
     essays: essaysInitial(_restored?.form),
     recommenders: [
       blankRecommender(),
       blankRecommender(),
       blankRecommender(),
     ],
-    track: '', partial_tier: '70',
-    program: '',
-    payment_method: 'card', card_last4: '',
-    card_exp: '', card_cvc: '',
   });
 
   // Re-sync essays array length whenever the admin changes the question count.
@@ -170,9 +155,7 @@ function Apply({ lang, c }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [essayQuestions.length]);
 
-  // Auto-save draft to sessionStorage on every form / step change. This is the
-  // "바로바로 자동 저장" behavior — each keystroke triggers a re-render → effect
-  // → save. The 임시저장 button just confirms it visually with a toast.
+  // Auto-save draft to sessionStorage on every form / step change.
   useEffectA(() => { saveApplyDraft(form, step); }, [form, step]);
   const [draftToast, setDraftToast] = useStateA(!!_restored);
   useEffectA(() => {
@@ -187,17 +170,15 @@ function Apply({ lang, c }) {
     return () => clearTimeout(t);
   }, [savedToast]);
 
-  // Server-side draft state: expiry timestamp + last-saved indicator.
-  // expires_at is an ISO string; the client renders it as a friendly
-  // "남은 시간" badge so the user knows their work is safe.
   const [serverDraft, setServerDraft] = useStateA({ expires_at: null, updated_at: null, hydrated: false });
   const [serverSaving, setServerSaving] = useStateA(false);
+  const [submitted, setSubmitted] = useStateA(false);
+  const [appId, setAppId] = useStateA('');
+  const [candidateNo, setCandidateNo] = useStateA('');
+  const [submitting, setSubmitting] = useStateA(false);
+  const [submitError, setSubmitError] = useStateA('');
 
-  // On first mount (or whenever the user's logged-in identity becomes
-  // available), pull the server draft. Server copy wins over a stale
-  // sessionStorage copy because it's the cross-device source of truth.
-  // We mirror the server draft into sessionStorage so subsequent keystroke
-  // edits continue to debounce-up to the server cleanly.
+  // Pull the server draft on first mount (logged-in users) — cross-device resume.
   useEffectA(() => {
     if (!user) { setServerDraft({ expires_at: null, updated_at: null, hydrated: true }); return; }
     let alive = true;
@@ -218,11 +199,7 @@ function Apply({ lang, c }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user && user.id]);
 
-  // Debounced server-side persistence: any time the form/step changes and
-  // the user is logged in, schedule a PUT 1.5s after they stop typing.
-  // Cancellation on unmount + on each new edit keeps it to one PUT per
-  // burst. The submit screen sets `submitted=true` which gates the effect
-  // so we don't race against the post-submit DELETE.
+  // Debounced server-side persistence.
   useEffectA(() => {
     if (!user || submitted || !serverDraft.hydrated) return;
     setServerSaving(true);
@@ -235,49 +212,27 @@ function Apply({ lang, c }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, step, user && user.id, submitted, serverDraft.hydrated]);
 
-  const [submitted, setSubmitted] = useStateA(false);
-  const [appId, setAppId] = useStateA('');
-  const [receiptUrl, setReceiptUrl] = useStateA('');
-  const [submitting, setSubmitting] = useStateA(false);
-  const [submitError, setSubmitError] = useStateA('');
-
   const steps = isKo
-    ? ['개인정보 동의', '개인정보 · 추천코드', '기본 정보 · 학력 · 서류', '에세이 · 추천인', '트랙 · 결제']
-    : ['Consent', 'Personal · Referrer', 'Basic · Academic · Documents', 'Essays · Recommenders', 'Track · Payment'];
+    ? ['개인정보 동의', '개인정보 · 프로그램', '학력 정보', '에세이 · 추천인']
+    : ['Consent', 'Personal · Program', 'Academic', 'Essays · Recommenders'];
 
-  // Default the program to the first currently-open one as soon as content
-  // loads, but only if the user hasn't already picked one in their draft.
+  // Programs currently accepting applications.
   const openPrograms = ((c && c.programs) || []).filter(p =>
     String(p.status || '').toLowerCase() === 'open' || p.status === undefined
   );
-  useEffectA(() => {
-    if (!form.program && openPrograms.length > 0) {
-      setForm(f => ({ ...f, program: openPrograms[0].id }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openPrograms.length]);
 
-  // Permissive next/back — the user explicitly asked for the ability to move
-  // forward even when required fields are blank. Validation still runs on the
-  // final submit so half-filled applications don't slip through.
+  // Permissive next/back — validation runs only on the final submit.
   const next = () => setStep(Math.min(step + 1, steps.length));
   const back = () => setStep(Math.max(step - 1, 0));
   const upd = k => e => setForm({ ...form, [k]: e.target.value });
 
-  const trackPrice = (t, tier) => {
-    if (t === 'full') return 10;
-    if (t === 'partial') return tier === '70' ? 7 : tier === '50' ? 5 : 3;
-    if (t === 'general') return 0;
-    return 0;
-  };
-  const amount = trackPrice(form.track, form.partial_tier);
-
-  // Hard validation — only enforced on the final Submit, not on Next.
+  // Hard validation — only enforced on the final Submit.
   function validateForSubmit() {
     if (!form.consent_personal || !form.consent_third_party) return isKo ? '개인정보 동의가 필요합니다.' : 'Consent is required.';
     if (!form.name || !form.email) return isKo ? '이름과 이메일을 입력하세요.' : 'Name and email are required.';
-    if (!form.country || !form.prior_school) return isKo ? '국가와 최종 학교를 입력하세요.' : 'Country and most recent school are required.';
-    // Essays — each must meet its own min_chars and not exceed max_chars
+    if (!/^\+/.test((form.phone || '').trim())) return isKo ? '전화번호를 국제번호(+국가코드) 형식으로 입력하세요.' : 'Enter your phone in international format (+country code).';
+    if (!form.country) return isKo ? '국가를 선택하세요.' : 'Country is required.';
+    if (!form.program) return isKo ? '지원할 프로그램을 선택하세요.' : 'Pick a program.';
     for (let i = 0; i < essayQuestions.length; i++) {
       const q = essayQuestions[i];
       const e = (form.essays && form.essays[i]) || { title: '', body: '' };
@@ -296,13 +251,6 @@ function Apply({ lang, c }) {
         return isKo ? '추천인 정보를 모두 입력하세요.' : 'Fill in every recommender field.';
       }
     }
-    if (!form.track) return isKo ? '트랙을 선택하세요.' : 'Pick a track.';
-    if (form.track !== 'general') {
-      if (form.card_last4.length !== 4) return isKo ? '카드 번호를 입력하세요.' : 'Enter a card number.';
-      if (!form.card_exp) return isKo ? '만료일(MM/YY)을 입력하세요.' : 'Enter expiry (MM/YY).';
-      if (!form.card_cvc) return isKo ? 'CVC를 입력하세요.' : 'Enter CVC.';
-    }
-    if (!form.program) return isKo ? '프로그램을 선택하세요.' : 'Pick a program.';
     return '';
   }
 
@@ -334,21 +282,14 @@ function Apply({ lang, c }) {
       const headers = { 'content-type': 'application/json' };
       const tk = window.DreamPathAuth && window.DreamPathAuth.token;
       if (tk) headers['authorization'] = 'Bearer ' + tk;
-      // Pre-uploaded files are linked by upload_token only — the server
-      // looks the row up by token, never by row id (sec hotfix 2026-05-19).
-      // Never send the row id; we don't even keep it client-side anymore.
+      // Recommendation-letter PDFs are linked by upload_token. (Academic
+      // documents moved to the post-admission stage on the member page.)
       const file_tokens = [];
-      ['transcript_graduation', 'transcript_recognition', 'transcript_translation'].forEach(k => {
-        const f = form[k];
-        if (f && f.upload_token) file_tokens.push(f.upload_token);
-      });
       (form.recommenders || []).forEach(r => {
         if (r && r.letter_file && r.letter_file.upload_token) {
           file_tokens.push(r.letter_file.upload_token);
         }
       });
-      // Map first 2 essays to legacy columns for backward compat. Full list
-      // also goes in essays_json for any future questions beyond the first 2.
       const e0 = form.essays[0] || { title: '', body: '' };
       const e1 = form.essays[1] || { title: '', body: '' };
       const payload = {
@@ -362,9 +303,6 @@ function Apply({ lang, c }) {
       };
       delete payload.recommenders;
       delete payload.essays;
-      delete payload.transcript_graduation;
-      delete payload.transcript_recognition;
-      delete payload.transcript_translation;
       const res = await fetch('/api/applications', {
         method: 'POST',
         headers,
@@ -381,13 +319,12 @@ function Apply({ lang, c }) {
       }
       const data = await res.json();
       setAppId(data.id);
-      setReceiptUrl(data.receipt_url || '');
+      setCandidateNo(data.candidate_no || '');
       setSubmitted(true);
-      setStep(5);
+      setStep(steps.length);
       clearApplyDraft();
-      // Drop the server-side copy too so a follow-up visit doesn't restore
-      // the just-submitted draft. Worker also DELETEs on submit as a backstop.
       if (user) deleteServerDraft();
+      // Record the two first-stage consents (privacy + third-party=CUFS).
       const privacyDoc = c && c.legal && c.legal.privacy_apply;
       const thirdDoc   = c && c.legal && c.legal.third_party;
       if (window.recordConsent) {
@@ -403,7 +340,6 @@ function Apply({ lang, c }) {
     }
   }
 
-  // Editable hero copy (admin → 페이지 헤더) with fallback to the originals.
   const phApply = ((c && c.page_heros && c.page_heros.apply && c.page_heros.apply[lang]) || {});
   const phDone  = ((c && c.page_heros && c.page_heros.apply_done && c.page_heros.apply_done[lang]) || {});
   const hbApply = window.useHeroBg((c && c.page_heros && c.page_heros.apply) || {});
@@ -416,11 +352,11 @@ function Apply({ lang, c }) {
           <div className="inner">
             <div className="sec-kicker">{phDone.kicker || (isKo ? '신청 완료' : 'APPLICATION COMPLETE')}</div>
             <h1 className={isKo ? '' : 'en'}>
-              {phDone.title_l1 || (isKo ? '지원이 접수되었습니다.' : 'Your application is in.')}
+              {phDone.title_l1 || (isKo ? '1차 신청이 접수되었습니다.' : 'Your application is in.')}
             </h1>
             <p>{isKo
-              ? `지원 ID: ${appId} · 이메일로 확인 메일이 발송됩니다.`
-              : `Application ID: ${appId} · a confirmation email is on its way.`}</p>
+              ? '서류 검토(1차 스크리닝)가 끝나면 결과를 안내드립니다.'
+              : "We'll let you know once the first screening is complete."}</p>
           </div>
         </div>
         <section className="section">
@@ -432,26 +368,22 @@ function Apply({ lang, c }) {
               <h3 style={{fontFamily:isKo?'var(--font-kr)':'var(--font-en)',fontSize:28,fontWeight:700,margin:'0 0 12px'}}>
                 {isKo ? '감사합니다, ' : 'Thanks, '}{form.name}.
               </h3>
-              <p style={{color:'var(--fg-secondary)',fontSize:16,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
+              {candidateNo && (
+                <div style={{display:'inline-block',padding:'14px 22px',background:'var(--bg-muted)',borderRadius:12,margin:'0 auto 16px'}}>
+                  <div style={{fontSize:12,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4}}>{isKo ? '학생 고유번호' : 'Applicant ID'}</div>
+                  <div style={{fontSize:24,fontWeight:800,fontFamily:'var(--font-mono)',color:'var(--brand-text)'}}>{candidateNo}</div>
+                </div>
+              )}
+              <p style={{color:'var(--fg-secondary)',fontSize:16,lineHeight:1.6,maxWidth:560,margin:'0 auto 8px'}}>
                 {isKo
-                  ? '소속 NSO 확인 및 서류 검토 후 영업일 기준 7일 이내에 연락드립니다.'
-                  : "After NSO verification and document review, we'll get back to you within 7 business days."}
+                  ? '이 고유번호는 이후 모든 절차(접수번호 · 합격증 · 서류 · 결제)에서 본인 확인에 사용됩니다. 진행 상황은 마이페이지에서 확인하실 수 있습니다.'
+                  : 'This ID identifies you throughout the next steps (CUFS reference, admission, documents, payment). Track progress on your member page.'}
               </p>
-              {amount > 0 && (
-                <div style={{display:'inline-block',padding:'12px 20px',background:'var(--bg-muted)',borderRadius:12,fontSize:14,color:'var(--fg-secondary)'}}>
-                  {isKo ? '결제 완료: ' : 'Payment received: '}<strong>US ${amount}.00</strong>
-                </div>
-              )}
-              {receiptUrl && (
-                <div style={{marginTop:24}}>
-                  <a className="btn btn-primary" href={receiptUrl} target="_blank" rel="noopener">
-                    {isKo ? '영수증 보기 / 인쇄' : 'View / print receipt'} →
-                  </a>
-                  <p style={{marginTop:12,fontSize:13,color:'var(--fg-muted)'}}>
-                    {isKo ? '영수증 링크는 결제 확인 이메일에도 포함됩니다.' : 'The receipt link is also included in your confirmation email.'}
-                  </p>
-                </div>
-              )}
+              <div style={{marginTop:20}}>
+                <button className="btn btn-primary" onClick={() => go && go('member')}>
+                  {isKo ? '마이페이지에서 진행 상황 보기' : 'View progress on my page'} →
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -465,11 +397,11 @@ function Apply({ lang, c }) {
         <div className="inner">
           <div className="sec-kicker">{phApply.kicker || (isKo ? '지원하기' : 'HOW TO APPLY')}</div>
           <h1 className={isKo ? '' : 'en'}>
-            {phApply.title_l1 || (isKo ? '5단계. 온라인으로 완료.' : 'Five steps. All online.')}{phApply.title_l2 ? <><br/>{phApply.title_l2}</> : null}
+            {phApply.title_l1 || (isKo ? '1차 신청. 온라인으로 완료.' : 'Apply online.')}{phApply.title_l2 ? <><br/>{phApply.title_l2}</> : null}
           </h1>
           <p>{phApply.sub || (isKo
-            ? '동의 · 개인정보 · 서류 · 에세이 · 결제. 약 20분 소요됩니다.'
-            : 'Consent · personal · documents · essay · payment. About 20 minutes.')}</p>
+            ? '동의 · 개인정보 · 학력 · 에세이. 약 15분 소요됩니다. 합격 후 단계(서류 · 결제)는 마이페이지에서 진행됩니다.'
+            : 'Consent · personal · academic · essays. About 15 minutes. Post-admission steps happen on your member page.')}</p>
         </div>
       </div>
 
@@ -489,11 +421,6 @@ function Apply({ lang, c }) {
               </button>
             </div>
           )}
-          {/* Persistent 72-hour TTL notice — always visible while the form is
-              open so the user knows their saved draft has a real expiry.
-              Logged-in users see the live expires_at countdown; logged-out
-              users see a softer message + the prompt to log in for cross-
-              device persistence. */}
           <div role="status" style={{
             display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,
             padding:'10px 14px',marginBottom:14,
@@ -506,7 +433,7 @@ function Apply({ lang, c }) {
                     ? '입력하시는 즉시 서버에 자동 저장되어 다른 기기에서도 이어서 작성할 수 있습니다. 임시저장본은 마지막 수정 후 72시간 동안만 보관됩니다.'
                     : 'Your work auto-saves to the server as you type, so you can resume on any device. Drafts are kept for 72 hours after the last edit.')
                 : (isKo
-                    ? '입력 내용은 이 브라우저에만 임시 저장됩니다. 다른 기기에서도 이어쓰려면 로그인 후 작성해주세요. (서버 임시저장본은 마지막 수정 후 72시간 동안 유지됩니다.)'
+                    ? '입력 내용은 이 브라우저에만 임시 저장됩니다. 다른 기기에서도 이어쓰려면 로그인 후 작성해주세요.'
                     : 'Your work is buffered in this browser only. Log in to keep a 72-hour, cross-device server copy.')}
             </span>
             {user && serverDraft.expires_at && (
@@ -541,10 +468,9 @@ function Apply({ lang, c }) {
             </h2>
 
             {step === 0 && <ConsentStep form={form} setForm={setForm} isKo={isKo} c={c} openDoc={d => setDocOpen(d)} />}
-            {step === 1 && <Step0 form={form} setForm={setForm} upd={upd} isKo={isKo} lang={lang} />}
-            {step === 2 && <Step1 form={form} setForm={setForm} upd={upd} isKo={isKo} />}
-            {step === 3 && <Step2 form={form} setForm={setForm} upd={upd} isKo={isKo} lang={lang} essayQuestions={essayQuestions} />}
-            {step === 4 && <Step3 form={form} setForm={setForm} upd={upd} isKo={isKo} c={c} amount={amount} openPrograms={openPrograms} />}
+            {step === 1 && <StepPersonal form={form} setForm={setForm} upd={upd} isKo={isKo} lang={lang} openPrograms={openPrograms} />}
+            {step === 2 && <StepAcademic form={form} setForm={setForm} upd={upd} isKo={isKo} />}
+            {step === 3 && <StepEssaysRecommenders form={form} setForm={setForm} upd={upd} isKo={isKo} lang={lang} essayQuestions={essayQuestions} />}
 
             <div className="form-actions" style={{flexWrap:'wrap',gap:8}}>
               {step > 0 && <button type="button" className="btn btn-secondary" onClick={back}>← {isKo ? '이전' : 'Back'}</button>}
@@ -552,18 +478,16 @@ function Apply({ lang, c }) {
                 title={isKo ? '입력한 내용을 저장하고 언제든 돌아올 수 있습니다.' : 'Save what you have so far and come back any time.'}>
                 {isKo ? '임시저장' : 'Save draft'}
               </button>
-              {step < 4 && (
+              {step < steps.length - 1 && (
                 <button type="button" className="btn btn-primary" onClick={next}>
                   {isKo ? '다음' : 'Next'} →
                 </button>
               )}
-              {step === 4 && (
+              {step === steps.length - 1 && (
                 <button type="button" className="btn btn-primary" disabled={submitting} onClick={submit}>
                   {submitting
                     ? (isKo ? '제출 중…' : 'Submitting…')
-                    : (form.track === 'general'
-                      ? (isKo ? '제출하기' : 'Submit application')
-                      : (isKo ? `$${amount} 결제하고 제출` : `Pay $${amount} and submit`))} →
+                    : (isKo ? '1차 신청 제출' : 'Submit application')} →
                 </button>
               )}
             </div>
@@ -608,19 +532,20 @@ function ConsentStep({ form, setForm, isKo, c, openDoc }) {
 
       <p className="hint" style={{marginTop:14}}>
         {isKo
-          ? '동의하신 내역은 IP, 브라우저 정보, 시각과 함께 GDPR Art. 7에 따라 기록됩니다.'
-          : 'Your consent is recorded with IP, user agent, and timestamp per GDPR Art. 7.'}
+          ? '제3자 제공 동의는 입학 절차를 위해 CUFS(사이버한국외국어대학교)에 정보를 제공하는 데 대한 동의입니다. 동의 내역은 IP, 브라우저 정보, 시각과 함께 GDPR Art. 7에 따라 기록됩니다.'
+          : 'The third-party consent covers sharing your information with CUFS for the admission process. Your consent is recorded with IP, user agent, and timestamp per GDPR Art. 7.'}
       </p>
     </>
   );
 }
 
-function Step0({ form, setForm, upd, isKo, lang }) {
+// Step 1 — 개인정보 · 추천코드 · 프로그램 선택.
+function StepPersonal({ form, setForm, upd, isKo, lang, openPrograms }) {
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '본인 정보와, 받으신 입학 추천인 코드(있을 경우)를 입력합니다.'
-        : 'Your personal info and the admission referrer code you received (if any).'}</p>
+        ? '본인 정보와 지원할 프로그램을 입력합니다. 받으신 입학 추천인 코드가 있다면 함께 입력해 주세요.'
+        : 'Your personal info and the program you are applying to. Add a referrer code if you received one.'}</p>
       <div className="form-row">
         <div className="field">
           <label>{isKo ? '이름 *' : 'Full name *'}</label>
@@ -640,6 +565,33 @@ function Step0({ form, setForm, upd, isKo, lang }) {
           <label>{isKo ? '생년월일' : 'Date of birth'}</label>
           <input type="date" value={form.birthdate} onChange={upd('birthdate')} />
         </div>
+        {window.PhoneField
+          ? <window.PhoneField label={isKo ? '전화번호 *' : 'Phone *'} value={form.phone} onChange={(v) => setForm(f => ({ ...f, phone: v }))} required lang={lang} hint={isKo ? '국가코드 선택 + 번호 입력' : 'Pick country code + enter number'} />
+          : (
+            <div className="field">
+              <label>{isKo ? '전화번호 (국제번호) *' : 'Phone (international) *'}</label>
+              <input type="tel" value={form.phone} onChange={upd('phone')} placeholder="+82 10 1234 5678" />
+            </div>
+          )}
+      </div>
+      <div className="form-row">
+        <div className="field">
+          <label>{isKo ? '지원 프로그램 *' : 'Program *'}</label>
+          {openPrograms.length === 0
+            ? (
+              <div style={{padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:8,fontSize:14}}>
+                {isKo ? '현재 모집 중인 프로그램이 없습니다. 잠시 후 다시 확인해주세요.' : 'No programs are currently open. Please check back soon.'}
+              </div>
+            )
+            : (
+              <select value={form.program} onChange={upd('program')}>
+                <option value="">{isKo ? '선택하세요' : 'Select…'}</option>
+                {openPrograms.map(p => (
+                  <option key={p.id} value={p.id}>{isKo ? p.title_ko : p.title_en}</option>
+                ))}
+              </select>
+            )}
+        </div>
         <div className="field">
           <label>{isKo ? '입학 추천인 코드 (선택)' : 'Admission referrer code (optional)'}</label>
           <input value={form.admission_referrer_code} onChange={upd('admission_referrer_code')}
@@ -651,12 +603,13 @@ function Step0({ form, setForm, upd, isKo, lang }) {
   );
 }
 
-function Step1({ form, setForm, upd, isKo }) {
+// Step 2 — 학력 정보 (서류 업로드는 합격 후 단계로 이동, v01.092).
+function StepAcademic({ form, setForm, upd, isKo }) {
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '국가, 학력 정보, 그리고 세 가지 학력 증빙 서류를 업로드합니다. 각 서류는 별도로 업로드하며, 마이페이지에서 언제든 교체할 수 있습니다.'
-        : 'Country, academic background, and three separate academic documents. Each uploads independently and can be replaced any time from your member page.'}</p>
+        ? '국가와 학력 정보를 입력합니다. 학력 증빙 서류는 1차 통과 및 CUFS 합격 이후 마이페이지에서 제출하게 됩니다.'
+        : 'Country and academic background. Supporting documents are submitted on your member page after you pass screening and are admitted to CUFS.'}</p>
       <div className="form-row">
         <div className="field">
           <label>{isKo ? '국가 *' : 'Country *'}</label>
@@ -668,7 +621,7 @@ function Step1({ form, setForm, upd, isKo }) {
           </select>
         </div>
         <div className="field">
-          <label>{isKo ? '최종 학교 *' : 'Most recent school *'}</label>
+          <label>{isKo ? '최종 학교' : 'Most recent school'}</label>
           <input value={form.prior_school} onChange={upd('prior_school')} />
         </div>
       </div>
@@ -683,80 +636,16 @@ function Step1({ form, setForm, upd, isKo }) {
         </div>
       </div>
       <div className="field">
-        <label>{isKo ? '학력 증명서 메모 (선택)' : 'Transcript note (optional)'}</label>
+        <label>{isKo ? '학력 관련 메모 (선택)' : 'Academic note (optional)'}</label>
         <textarea rows="3" value={form.transcript_note} onChange={upd('transcript_note')}
-          placeholder={isKo ? '서류와 관련해 알려주실 내용이 있다면 적어주세요.' : 'Anything reviewers should know about your documents.'} />
+          placeholder={isKo ? '학력과 관련해 알려주실 내용이 있다면 적어주세요.' : 'Anything reviewers should know about your background.'} />
       </div>
-
-      <h4 className="apply-sub">{isKo ? '학력 증빙 서류 (3종)' : 'Academic documents (3 types)'}</h4>
-      <p className="hint" style={{marginBottom:12}}>{isKo
-        ? '각 서류는 PDF · PNG · JPEG · WebP, 최대 10MB까지 업로드할 수 있습니다.'
-        : 'Each document accepts PDF · PNG · JPEG · WebP, up to 10 MB.'}</p>
-
-      <DocumentUpload
-        slotKey="transcript_graduation"
-        kind="transcript_graduation"
-        title_ko="1. 졸업(예정)증명서 1부"
-        title_en="1. Certificate of Graduation (or Expected Graduation) — 1 copy"
-        form={form} setForm={setForm} isKo={isKo}
-      />
-      <DocumentUpload
-        slotKey="transcript_recognition"
-        kind="transcript_recognition"
-        title_ko="2. 아포스티유 확인 · 학력인정확인서 · 영사확인 중 택1 (1부)"
-        title_en="2. Apostille, Academic Recognition Confirmation, or Consular Confirmation — choose one (1 copy)"
-        form={form} setForm={setForm} isKo={isKo}
-      />
-      <DocumentUpload
-        slotKey="transcript_translation"
-        kind="transcript_translation"
-        title_ko="3. 한글번역공증본 (국문·영문 외 서류에 한함)"
-        title_en="3. Notarized Korean translation (only for documents not in Korean or English)"
-        form={form} setForm={setForm} isKo={isKo}
-      />
     </>
   );
 }
 
-// One labelled file slot inside Step1. Each picker calls /api/applications/upload
-// independently and stores the resulting file metadata at form[slotKey].
-function DocumentUpload({ slotKey, kind, title_ko, title_en, form, setForm, isKo }) {
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState('');
-  const file = form[slotKey];
-  async function onPick(e) {
-    const f = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if (!f) return;
-    setBusy(true); setErr('');
-    try {
-      const meta = await uploadApplyFile(f, kind, null);
-      setForm({ ...form, [slotKey]: meta });
-    } catch (ex) { setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed')); }
-    finally { setBusy(false); }
-  }
-  function clearFile() { setForm({ ...form, [slotKey]: null }); }
-  return (
-    <div className="field" style={{padding:'14px 16px',background:'var(--bg-muted)',borderRadius:10,marginBottom:12}}>
-      <label style={{fontWeight:600}}>{isKo ? title_ko : title_en}</label>
-      <input type="file" accept="application/pdf,image/*" onChange={onPick} disabled={busy} style={{padding:'8px 0'}} />
-      {busy && <span className="hint">{isKo ? '업로드 중…' : 'Uploading…'}</span>}
-      {!busy && file && (
-        <div style={{display:'flex',gap:10,alignItems:'center',marginTop:6}}>
-          <span className="hint" style={{color:'var(--state-success)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-            ✓ {file.filename} ({Math.round(file.size/1024)} KB)
-          </span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={clearFile} style={{color:'var(--state-danger)'}}>
-            {isKo ? '제거' : 'Remove'}
-          </button>
-        </div>
-      )}
-      {err && <span className="hint" style={{color:'var(--state-danger)'}}>{err}</span>}
-    </div>
-  );
-}
-
-function Step2({ form, setForm, upd, isKo, lang, essayQuestions }) {
+// Step 3 — 에세이 + 추천인 3명.
+function StepEssaysRecommenders({ form, setForm, upd, isKo, lang, essayQuestions }) {
   function setEssay(i, patch) {
     const list = [...(form.essays || [])];
     list[i] = { ...(list[i] || { title: '', body: '' }), ...patch };
@@ -922,141 +811,6 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function Step3({ form, setForm, upd, isKo, c, amount, openPrograms }) {
-  const TRACKS = [
-    { id: 'full',    name_ko: '전체 장학',     name_en: 'Full scholarship',
-      desc_ko: '100% 장학 지원. 지원 완료 시 $10 처리비.', desc_en: '100% scholarship. $10 processing fee on submission.',
-      price: 10, badge_ko: '지원자 심사', badge_en: 'competitive' },
-    { id: 'partial', name_ko: '부분 장학',     name_en: 'Partial scholarship',
-      desc_ko: '70% / 50% / 30% 중 선택. 처리비는 티어에 따라 다릅니다.', desc_en: 'Choose 70% / 50% / 30%. Processing fee varies.',
-      price: null, badge_ko: '추천 트랙', badge_en: 'recommended' },
-    { id: 'general', name_ko: '일반 등록',     name_en: 'Standard registration',
-      desc_ko: '장학 없이 일반 등록. 처리비 없음.', desc_en: 'Regular registration without scholarship. No fee.',
-      price: 0, badge_ko: null, badge_en: null },
-  ];
-  const PARTIALS = [
-    { tier: '70', pct: '70%', price: 7 },
-    { tier: '50', pct: '50%', price: 5 },
-    { tier: '30', pct: '30%', price: 3 },
-  ];
-  return (
-    <>
-      <p className="apply-desc">{isKo
-        ? '지원할 프로그램과 장학 트랙을 선택하세요. 선택에 따라 결제 금액이 결정됩니다.'
-        : 'Pick your program and scholarship track. Payment depends on your choice.'}</p>
-
-      <div className="field">
-        <label>{isKo ? '지원 프로그램 (현재 모집 중)' : 'Program (currently open)'}</label>
-        {openPrograms.length === 0
-          ? (
-            <div style={{padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:8,fontSize:14}}>
-              {isKo ? '현재 모집 중인 프로그램이 없습니다. 잠시 후 다시 확인해주세요.' : 'No programs are currently open. Please check back soon.'}
-            </div>
-          )
-          : (
-            <select value={form.program} onChange={upd('program')}>
-              <option value="">{isKo ? '선택하세요' : 'Select…'}</option>
-              {openPrograms.map(p => (
-                <option key={p.id} value={p.id}>{isKo ? p.title_ko : p.title_en}</option>
-              ))}
-            </select>
-          )}
-      </div>
-
-      <h4 className="apply-sub">{isKo ? '트랙 선택 *' : 'Choose a track *'}</h4>
-      <div className="track-grid">
-        {TRACKS.map(t => (
-          <label key={t.id} className={'track-card' + (form.track === t.id ? ' on' : '')}>
-            <input type="radio" name="track" value={t.id}
-              checked={form.track === t.id} onChange={() => setForm({ ...form, track: t.id })} />
-            <div className="track-head">
-              <span className="track-name">{isKo ? t.name_ko : t.name_en}</span>
-              {t.badge_ko && <span className="track-badge">{isKo ? t.badge_ko : t.badge_en}</span>}
-            </div>
-            <p className="track-desc">{isKo ? t.desc_ko : t.desc_en}</p>
-            <div className="track-price">
-              {t.id === 'partial' ? (isKo ? '$3 ~ $7' : '$3 – $7')
-                : t.price === 0 ? (isKo ? '무료' : 'Free')
-                : `$${t.price}`}
-            </div>
-          </label>
-        ))}
-      </div>
-
-      {form.track === 'partial' && (
-        <>
-          <h4 className="apply-sub">{isKo ? '장학 비율 선택' : 'Pick scholarship tier'}</h4>
-          <div className="tier-row">
-            {PARTIALS.map(t => (
-              <label key={t.tier} className={'tier-chip' + (form.partial_tier === t.tier ? ' on' : '')}>
-                <input type="radio" name="tier" value={t.tier}
-                  checked={form.partial_tier === t.tier} onChange={() => setForm({ ...form, partial_tier: t.tier })} />
-                <span className="tier-pct">{t.pct}</span>
-                <span className="tier-fee">${t.price}</span>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
-
-      {form.track && form.track !== 'general' && (
-        <>
-          <h4 className="apply-sub">{isKo ? '결제' : 'Payment'}</h4>
-          <div className="pay-summary">
-            <div>
-              <div className="pay-label">{isKo ? '결제 금액' : 'Amount due'}</div>
-              <div className="pay-amount">US ${amount}.00</div>
-            </div>
-            <div className="pay-lock"><i data-lucide="lock" width="14" height="14" strokeWidth="2"></i> Secured</div>
-          </div>
-          <div className="field">
-            <label>{isKo ? '카드 번호' : 'Card number'}</label>
-            <input inputMode="numeric" maxLength="19" placeholder="0000 0000 0000 0000"
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g,'').slice(0,16);
-                setForm({ ...form, card_last4: digits.slice(-4) });
-                e.target.value = digits.replace(/(.{4})/g,'$1 ').trim();
-              }} />
-          </div>
-          <div className="form-row">
-            <div className="field">
-              <label>{isKo ? '만료일 (MM/YY)' : 'Expiry (MM/YY)'}</label>
-              <input
-                inputMode="numeric"
-                maxLength="5"
-                placeholder="MM/YY"
-                value={form.card_exp || ''}
-                onChange={(e) => {
-                  // Auto-format MM/YY: keep digits, insert slash after 2.
-                  const digits = e.target.value.replace(/\D/g,'').slice(0,4);
-                  const formatted = digits.length > 2 ? `${digits.slice(0,2)}/${digits.slice(2)}` : digits;
-                  setForm({ ...form, card_exp: formatted });
-                }}
-              />
-            </div>
-            <div className="field">
-              <label>{isKo ? 'CVC' : 'CVC'}</label>
-              <input
-                inputMode="numeric"
-                maxLength="4"
-                placeholder="123"
-                value={form.card_cvc || ''}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g,'').slice(0,4);
-                  setForm({ ...form, card_cvc: digits });
-                }}
-              />
-            </div>
-          </div>
-          <div className="pay-note">{isKo
-            ? '이 프로토타입은 실제로 결제를 처리하지 않습니다. 카드 번호 마지막 4자리만 저장됩니다.'
-            : 'This prototype does not process real payments. Only the last 4 digits are recorded.'}</div>
-        </>
-      )}
-    </>
   );
 }
 

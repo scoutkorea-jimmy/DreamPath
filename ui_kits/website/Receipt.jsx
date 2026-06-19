@@ -71,7 +71,7 @@ function Receipt({ lang, c }) {
           </div>
           <div className="receipt-meta">
             <div className="receipt-label">{isKo ? '영수증 / RECEIPT' : 'OFFICIAL RECEIPT'}</div>
-            <div className="receipt-id">#{data.id}</div>
+            {data.candidate_no && <div className="receipt-id">{data.candidate_no}</div>}
             <div className="receipt-date">{dateStr}</div>
           </div>
         </header>
@@ -98,7 +98,7 @@ function Receipt({ lang, c }) {
               <tr>
                 <td>
                   <div><strong>{data.program || '—'}</strong></div>
-                  <div style={{color:'var(--fg-muted)',fontSize:13}}>{isKo ? '트랙' : 'Track'}: {data.track || '—'}</div>
+                  <div style={{color:'var(--fg-muted)',fontSize:13}}>{isKo ? '등록금' : 'Tuition'}{data.candidate_no ? ` · ${data.candidate_no}` : ''}</div>
                 </td>
                 <td style={{textAlign:'right'}}>{symbol}{amount}.00 {currency !== 'USD' && currency}</td>
               </tr>
@@ -157,6 +157,7 @@ function ReceiptTemplate({ tpl, data, isKo }) {
   // share the same lookup.
   const VALUE = {
     id: data.id,
+    candidate_no: data.candidate_no,
     date: data.paid_at ? new Date(data.paid_at).toLocaleString(isKo ? 'ko-KR' : 'en-US') : '',
     name: data.payer?.name,
     email: data.payer?.email,

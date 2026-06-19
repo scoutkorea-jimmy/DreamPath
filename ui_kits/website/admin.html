@@ -1711,6 +1711,9 @@
             <Text label="Meta chips (comma-separated)" value={(program.meta || []).join(', ')} onChange={v => set(['programs',index,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN / KO" />
             <Text label="Level" value={program.level} onChange={v => set(['programs',index,'level'], v)} hint="Beginner · Intermediate · All" />
             <Text label="Status" value={program.status} onChange={v => set(['programs',index,'status'], v)} hint="open · closed · opens Fall …" />
+            <Text label="Tuition (USD, 등록금)" value={program.tuition == null ? '' : String(program.tuition)}
+              onChange={v => set(['programs',index,'tuition'], parseInt(String(v).replace(/[^0-9]/g,''),10) || 0)}
+              hint="결제 단계에서 자동 표기·청구. 숫자만(달러). 0이면 결제 차단." />
             <IconField label="Icon" value={program.icon} onChange={v => set(['programs',index,'icon'], v)} />
             <Color label="Primary color" value={program.color} onChange={v => set(['programs',index,'color'], v)} />
             <Color label="Accent color" value={program.accent} onChange={v => set(['programs',index,'accent'], v)} />
@@ -7513,14 +7516,30 @@
   }
 
   // ---- Applications (submitted forms) — server-backed via D1 -------------
+  // v01.092 — 신청 파이프라인 단계 메타(라벨/색). 칸반 필터 + 배지 공용.
+  const APP_STAGE_META = {
+    submitted:         { label: '심사 대기',  color: '#1F5FBD' },
+    screen_passed:     { label: '1차 통과',   color: '#1F5FBD' },
+    screen_rejected:   { label: '미선정',     color: '#B91C1C' },
+    cufs_no_submitted: { label: '합격증 검증 대기', color: '#B45309' },
+    cufs_admitted:     { label: '서류 단계',  color: '#6B2DBE' },
+    docs_submitted:    { label: '서류 검증 대기', color: '#B45309' },
+    docs_verified:     { label: '결제 대기',  color: '#6B2DBE' },
+    paid:              { label: '등록 확정 대기', color: '#B45309' },
+    enrolled:          { label: '등록 완료',  color: '#248737' },
+    cancelled:         { label: '취소됨',     color: '#6B7280' },
+  };
+  const APP_STAGE_ORDER = ['submitted','screen_passed','cufs_no_submitted','cufs_admitted','docs_submitted','docs_verified','paid','enrolled','screen_rejected','cancelled'];
+
   function ApplicationsTab() {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [selected, setSelected] = useState(null);
     const [filter, setFilter] = useState('all');
+    const [query, setQuery] = useState('');
     const [picked, setPicked] = useState(() => new Set());     // ids checked for bulk
-    const STATUS_OPTIONS = ['new','review','accepted','waitlist','rejected','paid'];
+    const [acting, setActing] = useState(false);
 
     async function load() {
       setLoading(true);
@@ -7536,11 +7555,7 @@
           return;
         }
         const data = await res.json();
-        // Map snake_case DB rows to the camelCase fields the existing UI expects
-        const items = (data.items || []).map(a => ({
-          ...a,
-          submittedAt: a.submitted_at,
-        }));
+        const items = (data.items || []).map(a => ({ ...a, submittedAt: a.submitted_at }));
         setApps(items);
       } catch (e) {
         setLoadError('Network error: ' + e.message);
@@ -7550,15 +7565,25 @@
     }
     useEffect(() => { load(); }, []);
 
-    const trackLabel = t => t === 'full' ? 'Full scholarship' : t === 'partial' ? 'Partial scholarship' : t === 'general' ? 'Standard' : '—';
-    const trackColor = t => t === 'full' ? '#1E1654' : t === 'partial' ? '#6B2DBE' : t === 'general' ? '#6B7280' : '#999';
+    const stageMeta = s => APP_STAGE_META[s] || { label: s || '—', color: '#6B7280' };
 
-    const filtered = filter === 'all' ? apps : apps.filter(a => a.track === filter);
+    // 검색(고유번호 / 이메일 / 이름) + 단계 필터.
+    const q = query.trim().toLowerCase();
+    const searched = !q ? apps : apps.filter(a =>
+      String(a.candidate_no || '').toLowerCase().includes(q) ||
+      String(a.email || '').toLowerCase().includes(q) ||
+      String(a.name || '').toLowerCase().includes(q) ||
+      String(a.id || '').toLowerCase().includes(q));
+    const filtered = filter === 'all' ? searched : searched.filter(a => (a.status || 'submitted') === filter);
+
+    // 관리자가 처리해야 할 "대기" 단계 — 칸반 상단 강조용.
+    const ACTION_NEEDED = ['submitted','cufs_no_submitted','docs_submitted','paid'];
 
     function refresh() { load(); setSelected(null); setPicked(new Set()); }
     function togglePick(id) { setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
     function pickAllVisible() { setPicked(new Set(filtered.map(a => a.id))); }
     function clearPicks() { setPicked(new Set()); }
+
     async function bulkAction(op, status) {
       if (!picked.size) return;
       if (op === 'delete' && !confirm(`Delete ${picked.size} applications? This cannot be undone.`)) return;
@@ -7579,18 +7604,37 @@
       try {
         const token = localStorage.getItem('dp_admin_token') || '';
         const res = await fetch('/api/applications/' + encodeURIComponent(id), {
-          method: 'DELETE',
-          headers: { 'authorization': 'Bearer ' + token },
+          method: 'DELETE', headers: { 'authorization': 'Bearer ' + token },
         });
         if (!res.ok) { alert('Delete failed: HTTP ' + res.status); return; }
         setApps(prev => prev.filter(a => a.id !== id));
         setSelected(null);
-      } catch (e) {
-        alert('Delete failed: ' + e.message);
-      }
+      } catch (e) { alert('Delete failed: ' + e.message); }
     }
+
+    // 파이프라인 단계 전이 호출. action = screen|verify-admission|verify-documents|enroll|cancel.
+    async function transition(id, action, body) {
+      setActing(true);
+      const token = localStorage.getItem('dp_admin_token') || '';
+      try {
+        const res = await fetch('/api/admin/applications/' + encodeURIComponent(id) + '/' + action, {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          body: JSON.stringify(body || {}),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(d.error === 'conflict' ? ('단계가 맞지 않습니다: ' + (d.detail || '')) : ('실패: ' + (d.error || res.status)));
+          return;
+        }
+        // 모달 + 목록 갱신.
+        setSelected(s => s ? { ...s, status: d.status } : s);
+        await load();
+      } catch (e) { alert('실패: ' + e.message); }
+      finally { setActing(false); }
+    }
+
     function exportCSV() {
-      const cols = ['id','submittedAt','status','track','partial_tier','amount','program','name','email','country','nso','recommender_name','recommender_email','essay_title'];
+      const cols = ['candidate_no','id','submittedAt','status','amount','program','name','email','country','phone','cufs_reg_no'];
       const esc = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
       const rows = [cols.join(',')].concat(apps.map(a => cols.map(k => esc(a[k])).join(',')));
       const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
@@ -7600,12 +7644,15 @@
       URL.revokeObjectURL(url);
     }
 
+    // 단계별 카운트(필터 칩).
+    const countFor = s => apps.filter(a => (a.status || 'submitted') === s).length;
+
     return (
       <>
         <div className="card">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginBottom:16}}>
             <div>
-              <h3 style={{margin:0}}>Submitted applications</h3>
+              <h3 style={{margin:0}}>신청 파이프라인 · Applications</h3>
               <p className="desc" style={{margin:'4px 0 0'}}>
                 {loading ? 'Loading…' : (apps.length + ' total · stored in Cloudflare D1')}
               </p>
@@ -7617,39 +7664,44 @@
             </div>
           </div>
 
-          {/* Bulk action bar — visible only with at least one row picked. */}
+          {/* 검색 — 고유번호 / 이메일 / 이름 */}
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="검색: 고유번호 · 이메일 · 이름 (search by candidate_no / email / name)"
+            style={{width:'100%',padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,marginBottom:14,fontSize:13}} />
+
+          {/* Bulk action bar */}
           {picked.size > 0 && (
             <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'var(--state-info-bg)',color:'var(--state-info)',borderRadius:10,marginBottom:14,flexWrap:'wrap'}}>
               <strong>{picked.size} selected</strong>
               <span style={{flex:1}} />
-              <select onChange={e => { if (e.target.value) bulkAction('status', e.target.value); e.target.value = ''; }} defaultValue=""
-                style={{padding:'6px 10px',border:'1px solid currentColor',background:'transparent',color:'inherit',borderRadius:6,fontSize:13}}>
-                <option value="">Set status…</option>
-                {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
               <button type="button" className="icon-btn" onClick={clearPicks}>Clear</button>
               <button type="button" className="icon-btn danger" onClick={() => bulkAction('delete')}>Delete selected</button>
             </div>
           )}
+
+          {/* 단계 필터 칩 (칸반 요약) */}
           <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-            {[
-              {k:'all', l:'All'},
-              {k:'full', l:'Full scholarship'},
-              {k:'partial', l:'Partial scholarship'},
-              {k:'general', l:'Standard'}
-            ].map(f => (
-              <button key={f.k} type="button"
-                onClick={() => setFilter(f.k)}
-                className="icon-btn"
-                style={filter === f.k ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
-                {f.l} {f.k !== 'all' && `(${apps.filter(a => a.track === f.k).length})`}
-              </button>
-            ))}
+            <button type="button" onClick={() => setFilter('all')} className="icon-btn"
+              style={filter === 'all' ? {background:'var(--midnight-purple)',color:'#fff',borderColor:'var(--midnight-purple)'} : {}}>
+              전체 ({apps.length})
+            </button>
+            {APP_STAGE_ORDER.map(s => {
+              const n = countFor(s);
+              if (n === 0 && filter !== s) return null;
+              const m = stageMeta(s);
+              const need = ACTION_NEEDED.includes(s);
+              return (
+                <button key={s} type="button" onClick={() => setFilter(s)} className="icon-btn"
+                  style={filter === s ? {background:m.color,color:'#fff',borderColor:m.color} : (need ? {borderColor:m.color,color:m.color} : {})}>
+                  {need ? '● ' : ''}{m.label} ({n})
+                </button>
+              );
+            })}
           </div>
 
           {filtered.length === 0 ? (
             <div style={{padding:'40px 20px',textAlign:'center',color:'var(--fg-muted)',background:'var(--bg-muted)',borderRadius:12,fontSize:14}}>
-              No applications yet. Submit one from <a href="/apply" target="_blank" rel="noopener">the Apply page</a>.
+              해당 조건의 신청이 없습니다.
             </div>
           ) : (
             <div style={{overflowX:'auto'}}>
@@ -7662,25 +7714,26 @@
                         onChange={e => e.target.checked ? pickAllVisible() : clearPicks()}
                         aria-label="Select all visible" />
                     </th>
-                    <th>ID</th><th>Submitted</th><th>Name</th><th>Country</th>
-                    <th>Program</th><th>Track</th><th>Status</th><th>Paid</th><th></th>
+                    <th>고유번호</th><th>Submitted</th><th>Name</th><th>Country</th>
+                    <th>Program</th><th>단계 / Status</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(a => (
-                    <tr key={a.id} style={picked.has(a.id) ? {background:'var(--state-info-bg)'} : {}}>
-                      <td><input type="checkbox" checked={picked.has(a.id)} onChange={() => togglePick(a.id)} aria-label={`Select ${a.id}`} /></td>
-                      <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{a.id}</td>
-                      <td>{new Date(a.submittedAt).toLocaleString()}</td>
-                      <td><strong>{a.name}</strong><div style={{fontSize:12,color:'var(--fg-muted)'}}>{a.email}</div></td>
-                      <td>{a.country}</td>
-                      <td style={{fontSize:13}}>{a.program}</td>
-                      <td><span className="pill" style={{background:trackColor(a.track)+'22',color:trackColor(a.track)}}>{trackLabel(a.track)}{a.track==='partial'?` · ${a.partial_tier}%`:''}</span></td>
-                      <td><span className="pill" style={{background:'var(--bg-muted)',color:'var(--fg-secondary)'}}>{a.status || 'new'}</span></td>
-                      <td style={{fontFamily:'var(--font-en)',fontWeight:700}}>{a.amount > 0 ? `$${a.amount}` : '—'}</td>
-                      <td><button className="icon-btn" onClick={() => setSelected(a)}>View</button></td>
-                    </tr>
-                  ))}
+                  {filtered.map(a => {
+                    const m = stageMeta(a.status || 'submitted');
+                    return (
+                      <tr key={a.id} style={picked.has(a.id) ? {background:'var(--state-info-bg)'} : {}}>
+                        <td><input type="checkbox" checked={picked.has(a.id)} onChange={() => togglePick(a.id)} aria-label={`Select ${a.id}`} /></td>
+                        <td style={{fontFamily:'var(--font-mono)',fontSize:13,fontWeight:700}}>{a.candidate_no || '—'}</td>
+                        <td>{new Date(a.submittedAt).toLocaleString()}</td>
+                        <td><strong>{a.name}</strong><div style={{fontSize:12,color:'var(--fg-muted)'}}>{a.email}</div></td>
+                        <td>{a.country}</td>
+                        <td style={{fontSize:13}}>{a.program}</td>
+                        <td><span className="pill" style={{background:m.color+'22',color:m.color}}>{m.label}</span></td>
+                        <td><button className="icon-btn" onClick={() => setSelected(a)}>View</button></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -7693,53 +7746,43 @@
             <div className="app-modal-inner">
               <div className="app-modal-head">
                 <div>
-                  <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4,fontFamily:'var(--font-mono)'}}>{selected.id}</div>
+                  <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--fg-muted)',marginBottom:4,fontFamily:'var(--font-mono)'}}>
+                    {selected.candidate_no || selected.id}
+                  </div>
                   <h3 id="app-modal-title" style={{margin:0,fontSize:22}}>{selected.name}</h3>
-                  <div style={{color:'var(--fg-secondary)',fontSize:13,marginTop:2}}>{selected.email} · {selected.country}</div>
+                  <div style={{color:'var(--fg-secondary)',fontSize:13,marginTop:2}}>{selected.email} · {selected.country}{selected.phone ? ' · ' + selected.phone : ''}</div>
                 </div>
                 <button className="icon-btn" onClick={() => setSelected(null)}>Close</button>
               </div>
 
               <div className="app-modal-body">
+                {/* 단계 전이 액션 패널 */}
+                <AppStageActions app={selected} stageMeta={stageMeta} acting={acting} transition={transition} />
+
+                <h4 className="app-sec">진행 정보</h4>
+                <Row k="현재 단계"><span className="pill" style={{background:stageMeta(selected.status).color+'22',color:stageMeta(selected.status).color}}>{stageMeta(selected.status).label}</span></Row>
                 <Row k="Submitted">{new Date(selected.submittedAt).toLocaleString()}</Row>
-                <Row k="Track">
-                  <span className="pill" style={{background:trackColor(selected.track)+'22',color:trackColor(selected.track)}}>
-                    {trackLabel(selected.track)}{selected.track==='partial'?` · ${selected.partial_tier}%`:''}
-                  </span>
-                  {selected.amount > 0 && <span style={{marginLeft:10,fontFamily:'var(--font-en)',fontWeight:700}}>${selected.amount}.00 paid</span>}
-                </Row>
                 <Row k="Program">{selected.program}</Row>
+                {selected.cufs_reg_no && <Row k="CUFS 접수번호">{selected.cufs_reg_no}</Row>}
+                {selected.screen_note && <Row k="스크리닝 메모">{selected.screen_note}</Row>}
+                {selected.amount > 0 && <Row k="결제">${selected.amount}.00 {selected.card_last4 ? '· •••• ' + selected.card_last4 : ''}</Row>}
 
                 <h4 className="app-sec">Basic info</h4>
                 <Row k="Date of birth">{selected.birthdate || '—'}</Row>
+                <Row k="Phone">{selected.phone || '—'}</Row>
                 <h4 className="app-sec">Academic</h4>
                 <Row k="School">{selected.prior_school || '—'}</Row>
                 <Row k="Major">{selected.prior_major || '—'}</Row>
                 <Row k="GPA">{selected.prior_gpa || '—'}</Row>
-                <Row k="Transcript note">{selected.transcript_note || '—'}</Row>
+                <Row k="Note">{selected.transcript_note || '—'}</Row>
 
                 <h4 className="app-sec">Essay</h4>
                 <Row k="Title">{selected.essay_title || '—'}</Row>
                 <div className="essay-box">{selected.essay_body || '—'}</div>
+                {selected.essay_title_2 && (<><Row k="Title 2">{selected.essay_title_2}</Row><div className="essay-box">{selected.essay_body_2 || '—'}</div></>)}
 
-                <h4 className="app-sec">Recommender</h4>
-                <Row k="Partner org">{selected.nso || '—'}</Row>
-                <Row k="Recommender">{selected.recommender_name}{selected.recommender_role ? ` · ${selected.recommender_role}` : ''}</Row>
-                <Row k="Email">{selected.recommender_email || '—'}</Row>
-                {selected.recommender_letter && (
-                  <>
-                    <Row k="Letter">&nbsp;</Row>
-                    <div className="essay-box">{selected.recommender_letter}</div>
-                  </>
-                )}
-
-                {selected.card_last4 && (
-                  <>
-                    <h4 className="app-sec">Payment</h4>
-                    <Row k="Method">Card</Row>
-                    <Row k="Last 4">•••• {selected.card_last4}</Row>
-                  </>
-                )}
+                <h4 className="app-sec">Recommenders</h4>
+                <RecommendersView json={selected.recommenders_json} />
 
                 <h4 className="app-sec">Attached files</h4>
                 <AppFilesPanel applicationId={selected.id} />
@@ -7752,6 +7795,54 @@
           </div>
         )}
       </>
+    );
+  }
+
+  // 모달 상단의 단계 전이 버튼 묶음. 현재 status에 맞는 액션만 보여준다.
+  function AppStageActions({ app, stageMeta, acting, transition }) {
+    const s = app.status;
+    const TERMINAL = ['enrolled','screen_rejected','cancelled'];
+    if (TERMINAL.includes(s)) {
+      return <div style={{padding:'10px 14px',background:'var(--bg-muted)',borderRadius:10,marginBottom:12,fontSize:13,color:'var(--fg-secondary)'}}>완료/종료된 신청입니다 — 추가 단계 없음.</div>;
+    }
+    const btn = (label, color, fn) => (
+      <button type="button" className="btn btn-primary btn-sm" disabled={acting}
+        style={color ? {background:color,borderColor:color} : {}} onClick={fn}>{label}</button>
+    );
+    return (
+      <div style={{padding:'14px 16px',background:'var(--state-info-bg)',borderRadius:10,marginBottom:14,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+        <strong style={{fontSize:13,color:'var(--state-info)',marginRight:6}}>다음 처리:</strong>
+        {s === 'submitted' && (<>
+          {btn('1차 통과 →', '#248737', () => transition(app.id, 'screen', { decision: 'pass' }))}
+          {btn('탈락', '#B91C1C', () => { const note = prompt('탈락 사유(선택, 학생에게 메일로 전달):') || ''; transition(app.id, 'screen', { decision: 'reject', note }); })}
+        </>)}
+        {s === 'screen_passed' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 CUFS 접수번호 입력 대기 중.</span>}
+        {s === 'cufs_no_submitted' && btn('합격증 검증 → 합격 확인', '#6B2DBE', () => { if (confirm('합격증을 접수번호와 대조하셨나요? 확인 시 다음 단계로 진행됩니다.')) transition(app.id, 'verify-admission'); })}
+        {s === 'cufs_admitted' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 서류 3종 제출 대기 중.</span>}
+        {s === 'docs_submitted' && btn('서류 검증 → 결제 오픈', '#6B2DBE', () => { if (confirm('첨부 서류를 모두 검토하셨나요? 확인 시 학생에게 결제 단계가 열립니다.')) transition(app.id, 'verify-documents'); })}
+        {s === 'docs_verified' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 등록금 결제 대기 중.</span>}
+        {s === 'paid' && btn('등록 확정', '#248737', () => { if (confirm('최종 등록을 확정합니다.')) transition(app.id, 'enroll'); })}
+        <span style={{flex:1}} />
+        <button type="button" className="icon-btn danger" disabled={acting}
+          onClick={() => { if (confirm('이 신청을 취소 처리할까요?')) transition(app.id, 'cancel'); }}>취소 처리</button>
+      </div>
+    );
+  }
+
+  // 추천인 JSON을 읽어 목록으로 렌더(복호화된 recommenders_json).
+  function RecommendersView({ json }) {
+    let list = [];
+    try { list = json ? JSON.parse(json) : []; } catch {}
+    if (!Array.isArray(list) || !list.length) return <div style={{color:'var(--fg-muted)',fontSize:13}}>—</div>;
+    return (
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {list.map((r, i) => (
+          <div key={i} style={{padding:'8px 12px',background:'var(--bg-muted)',borderRadius:8,fontSize:13}}>
+            <strong>{r.name || '—'}</strong> · {r.member_country || '—'} · {r.training_level || '—'}
+            <div style={{color:'var(--fg-muted)'}}>{r.email || ''} {r.phone ? '· ' + r.phone : ''}</div>
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -7786,7 +7877,15 @@
     return (
       <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:4}}>
         {items.map(f => {
-          const kindLabel = { transcript: '학력증명서', recommendation: `추천서 #${(f.recommender_idx ?? 0) + 1}`, portfolio: '포트폴리오', id_doc: '신분증' }[f.kind] || f.kind;
+          const kindLabel = {
+            transcript: '학력증명서',
+            transcript_graduation: '졸업(예정)증명서',
+            transcript_recognition: '학력인정/아포스티유/영사확인',
+            transcript_translation: '한글번역공증본',
+            admission_certificate: 'CUFS 합격증',
+            recommendation: `추천서 #${(f.recommender_idx ?? 0) + 1}`,
+            portfolio: '포트폴리오', id_doc: '신분증',
+          }[f.kind] || f.kind;
           return (
             <button key={f.id} type="button" onClick={() => download(f)}
               style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8,cursor:'pointer',font:'inherit',color:'inherit',textAlign:'left'}}>

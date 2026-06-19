@@ -7837,13 +7837,13 @@
   function RecommendersView({ json }) {
     let list = [];
     try { list = json ? JSON.parse(json) : []; } catch {}
-    if (!Array.isArray(list) || !list.length) return <div style={{color:'var(--fg-muted)',fontSize:13}}>—</div>;
+    if (!Array.isArray(list) || !list.length) return <div style={{color:'var(--fg-muted)',fontSize:13}}>없음 (선택 항목)</div>;
     return (
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {list.map((r, i) => (
           <div key={i} style={{padding:'8px 12px',background:'var(--bg-muted)',borderRadius:8,fontSize:13}}>
-            <strong>{r.name || '—'}</strong> · {r.member_country || '—'} · {r.training_level || '—'}
-            <div style={{color:'var(--fg-muted)'}}>{r.email || ''} {r.phone ? '· ' + r.phone : ''}</div>
+            <strong>{r.name || '—'}</strong>{(r.affiliation || r.member_country) ? ' · ' + (r.affiliation || r.member_country) : ''}
+            <div style={{color:'var(--fg-muted)'}}>{r.email || ''}{r.phone ? ' · ' + r.phone : ''}</div>
           </div>
         ))}
       </div>

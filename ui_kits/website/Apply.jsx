@@ -1,7 +1,9 @@
 // Helper used by both Apply state init and the recommender list controls.
 function blankRecommender() {
-  return { name: '', email: '', phone: '', member_country: '', training_level: '', letter_file: null };
+  // v01.092.03 — 추천인은 선택(권장). 전화번호·훈련수준 제거, 소속(affiliation)만.
+  return { name: '', email: '', affiliation: '', letter_file: null };
 }
+const MAX_RECOMMENDERS = 5;
 
 // Default essay prompts when c.essay_questions is empty / not yet edited
 // by the operator. Each entry is admin-editable from the content store.
@@ -134,11 +136,7 @@ function Apply({ lang, c, go }) {
     prior_school: '', prior_major: '', prior_gpa: '',
     transcript_note: '',
     essays: essaysInitial(_restored?.form),
-    recommenders: [
-      blankRecommender(),
-      blankRecommender(),
-      blankRecommender(),
-    ],
+    recommenders: [],   // 선택(권장) — 처음엔 0명, 최대 5명까지 추가
   });
 
   // Re-sync essays array length whenever the admin changes the question count.
@@ -240,12 +238,14 @@ function Apply({ lang, c, go }) {
       if (len < min) return (isKo ? `에세이 ${i+1}은 최소 ${min}자 이상이어야 합니다.` : `Essay ${i+1} needs at least ${min} characters.`);
       if (len > max) return (isKo ? `에세이 ${i+1}은 최대 ${max}자까지 가능합니다.` : `Essay ${i+1} can be at most ${max} characters.`);
     }
+    // 추천인은 선택(권장). 단, 내용이 입력된 칸은 이름 + 유효 이메일이 필요.
     const recs = form.recommenders || [];
-    if (recs.length < 3) return isKo ? '추천인은 최소 3명입니다.' : 'At least 3 recommenders required.';
+    if (recs.length > MAX_RECOMMENDERS) return isKo ? `추천인은 최대 ${MAX_RECOMMENDERS}명까지입니다.` : `At most ${MAX_RECOMMENDERS} recommenders.`;
     for (const r of recs) {
-      if (!r.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email || '') ||
-          !/^\+/.test((r.phone || '').trim()) || !r.member_country || !r.training_level) {
-        return isKo ? '추천인 정보를 모두 입력하세요.' : 'Fill in every recommender field.';
+      const filled = (r.name || '').trim() || (r.email || '').trim() || (r.affiliation || '').trim() || r.letter_file;
+      if (!filled) continue; // 완전히 빈 칸은 무시
+      if (!r.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email || '')) {
+        return isKo ? '추천인은 이름과 이메일을 입력해 주세요(또는 해당 칸을 삭제).' : 'Each recommender needs a name and a valid email (or remove the card).';
       }
     }
     return '';
@@ -279,10 +279,13 @@ function Apply({ lang, c, go }) {
       const headers = { 'content-type': 'application/json' };
       const tk = window.DreamPathAuth && window.DreamPathAuth.token;
       if (tk) headers['authorization'] = 'Bearer ' + tk;
+      // 추천인은 선택 — 완전히 빈 칸은 제외하고 전송.
+      const recs = (form.recommenders || []).filter(r =>
+        (r.name || '').trim() || (r.email || '').trim() || (r.affiliation || '').trim() || r.letter_file);
       // Recommendation-letter PDFs are linked by upload_token. (Academic
       // documents moved to the post-admission stage on the member page.)
       const file_tokens = [];
-      (form.recommenders || []).forEach(r => {
+      recs.forEach(r => {
         if (r && r.letter_file && r.letter_file.upload_token) {
           file_tokens.push(r.letter_file.upload_token);
         }
@@ -294,7 +297,7 @@ function Apply({ lang, c, go }) {
         essay_title:   e0.title, essay_body:   e0.body,
         essay_title_2: e1.title, essay_body_2: e1.body,
         essays_json: JSON.stringify(form.essays || []),
-        recommenders_json: JSON.stringify(form.recommenders || []),
+        recommenders_json: JSON.stringify(recs),
         file_tokens,
         lang,
       };
@@ -698,10 +701,10 @@ function StepEssaysRecommenders({ form, setForm, upd, isKo, lang, essayQuestions
         );
       })}
 
-      <h4 className="apply-sub">{isKo ? '추천인 (최소 3명)' : 'Recommenders (minimum 3)'}</h4>
+      <h4 className="apply-sub">{isKo ? '추천인 (선택 · 권장)' : 'Recommenders (optional · recommended)'}</h4>
       <p className="hint" style={{marginBottom:12}}>{isKo
-        ? '추천인 정보(이름, 이메일, 전화번호 — 국제번호 형식 +국가코드, 소속 청년 교육 파트너 기관, 활동 경력)를 최소 3명 입력해주세요. 추천서는 각 추천인별로 PDF 업로드 가능합니다.'
-        : 'Provide at least 3 recommenders with name, email, international phone (+country code), affiliated youth-education partner organization, and activity background. PDF letter is optional per recommender.'}</p>
+        ? `추천인 정보는 필수가 아니지만, 입력하시면 심사에 도움이 됩니다. 추천인을 추가해 이름·이메일·소속을 입력하세요(추천서 PDF는 선택). 최대 ${MAX_RECOMMENDERS}명까지 추가할 수 있습니다.`
+        : `Recommenders are optional but recommended — they help your review. Add a recommender with name, email, and affiliation (PDF letter optional). Up to ${MAX_RECOMMENDERS}.`}</p>
 
       {(form.recommenders || []).map((r, i) => (
         <RecommenderCard key={i} index={i} rec={r} isKo={isKo} lang={lang}
@@ -710,17 +713,22 @@ function StepEssaysRecommenders({ form, setForm, upd, isKo, lang, essayQuestions
             list[i] = next;
             setForm({ ...form, recommenders: list });
           }}
-          onRemove={form.recommenders.length > 3 ? () => {
+          onRemove={() => {
             const list = (form.recommenders || []).filter((_, j) => j !== i);
             setForm({ ...form, recommenders: list });
-          } : null}
+          }}
         />
       ))}
 
-      <button type="button" className="btn btn-secondary btn-sm"
-        onClick={() => setForm({ ...form, recommenders: [...(form.recommenders || []), blankRecommender()] })}>
-        + {isKo ? '추천인 추가' : 'Add recommender'}
-      </button>
+      {(form.recommenders || []).length < MAX_RECOMMENDERS && (
+        <button type="button" className="btn btn-secondary btn-sm"
+          onClick={() => setForm({ ...form, recommenders: [...(form.recommenders || []), blankRecommender()] })}>
+          + {isKo ? '추천인 추가' : 'Add recommender'}
+        </button>
+      )}
+      {(form.recommenders || []).length >= MAX_RECOMMENDERS && (
+        <p className="hint" style={{color:'var(--fg-muted)'}}>{isKo ? `추천인은 최대 ${MAX_RECOMMENDERS}명까지입니다.` : `Maximum ${MAX_RECOMMENDERS} recommenders.`}</p>
+      )}
     </>
   );
 }
@@ -755,57 +763,33 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
       </div>
       <div className="form-row">
         <div className="field">
-          <label>{isKo ? '이름 *' : 'Name *'}</label>
+          <label>{isKo ? '이름' : 'Name'}</label>
           <input value={rec.name} onChange={e => set('name', e.target.value)} />
         </div>
         <div className="field">
-          <label>{isKo ? '소속 청년 교육 파트너 기관 *' : 'Affiliated youth-education partner *'}</label>
-          <input value={rec.member_country} onChange={e => set('member_country', e.target.value)}
-            placeholder={isKo ? '예: Youth Leaders of Kenya' : 'e.g. Youth Leaders of Kenya'} />
+          <label>{isKo ? '소속' : 'Affiliation'}</label>
+          <input value={rec.affiliation} onChange={e => set('affiliation', e.target.value)}
+            placeholder={isKo ? '예: ○○ 학교 / ○○ 기관' : 'e.g. school or organization'} />
         </div>
       </div>
       {window.EmailField
-        ? <window.EmailField label={isKo ? '이메일 *' : 'Email *'} value={rec.email} onChange={(v) => set('email', v)} required lang={lang} />
+        ? <window.EmailField label={isKo ? '이메일' : 'Email'} value={rec.email} onChange={(v) => set('email', v)} lang={lang} />
         : (
           <div className="form-row">
             <div className="field">
-              <label>{isKo ? '이메일 *' : 'Email *'}</label>
-              <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="mentor@youth.org" />
+              <label>{isKo ? '이메일' : 'Email'}</label>
+              <input type="email" value={rec.email} onChange={e => set('email', e.target.value)} placeholder="mentor@example.com" />
             </div>
           </div>
         )}
-      {window.PhoneField
-        ? <window.PhoneField label={isKo ? '전화번호 *' : 'Phone *'} value={rec.phone} onChange={(v) => set('phone', v)} required lang={lang} hint={isKo ? '국가코드 선택 + 번호 입력' : 'Pick country code + enter number'} />
-        : (
-          <div className="form-row">
-            <div className="field">
-              <label>{isKo ? '전화번호 (국제번호) *' : 'Phone (international) *'}</label>
-              <input type="tel" value={rec.phone} onChange={e => set('phone', e.target.value)} placeholder="+82 10 1234 5678" />
-            </div>
-          </div>
+      <div className="field">
+        <label>{isKo ? '추천서 (PDF, 선택)' : 'Recommendation letter (PDF, optional)'}</label>
+        <input type="file" accept="application/pdf,image/*" onChange={onPdf} disabled={busy} style={{padding:'8px 0'}} />
+        {busy && <span className="hint">{isKo ? '업로드 중…' : 'Uploading…'}</span>}
+        {!busy && rec.letter_file && (
+          <span className="hint" style={{color:'var(--state-success)'}}>✓ {rec.letter_file.filename} ({Math.round(rec.letter_file.size/1024)} KB)</span>
         )}
-      <div className="form-row">
-        <div className="field">
-          <label>{isKo ? '훈련 수준 *' : 'Training level *'}</label>
-          <select value={rec.training_level} onChange={e => set('training_level', e.target.value)}>
-            <option value="">{isKo ? '선택' : 'Select…'}</option>
-            <option>Wood Badge</option>
-            <option>ALT (Assistant Leader Trainer)</option>
-            <option>LT (Leader Trainer)</option>
-            <option>Adult Leader</option>
-            <option>Section Leader</option>
-            <option>Other</option>
-          </select>
-        </div>
-        <div className="field">
-          <label>{isKo ? '추천서 (PDF, 선택)' : 'Recommendation letter (PDF, optional)'}</label>
-          <input type="file" accept="application/pdf,image/*" onChange={onPdf} disabled={busy} style={{padding:'8px 0'}} />
-          {busy && <span className="hint">{isKo ? '업로드 중…' : 'Uploading…'}</span>}
-          {!busy && rec.letter_file && (
-            <span className="hint" style={{color:'var(--state-success)'}}>✓ {rec.letter_file.filename} ({Math.round(rec.letter_file.size/1024)} KB)</span>
-          )}
-          {err && <span className="hint" style={{color:'var(--state-danger)'}}>{err}</span>}
-        </div>
+        {err && <span className="hint" style={{color:'var(--state-danger)'}}>{err}</span>}
       </div>
     </div>
   );

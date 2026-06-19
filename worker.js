@@ -6746,24 +6746,20 @@ function validateApplicationStage1(b) {
       if (!nonEmpty(es.body) || String(es.body).length < 50) e.push('essay_' + i + '_body');
     });
   }
-  // 추천인: 최소 3명, 각 name + email + 국제전화 + 소속기관 + 훈련수준.
+  // 추천인: 선택(권장). 최대 5명. 입력된 칸은 이름 + 유효 이메일만 필수
+  // (전화번호·훈련수준·소속은 선택). v01.092.03.
   let recs = [];
   if (typeof b.recommenders_json === 'string' && b.recommenders_json.trim()) {
     try { recs = JSON.parse(b.recommenders_json); } catch { e.push('recommenders_json'); }
   } else if (Array.isArray(b.recommenders)) {
     recs = b.recommenders;
   }
-  if (!Array.isArray(recs) || recs.length < 3) {
-    e.push('recommenders_min_3');
-  } else {
+  if (Array.isArray(recs)) {
+    if (recs.length > 5) e.push('recommenders_max_5');
     recs.forEach((r, i) => {
-      if (!r || typeof r !== 'object') { e.push('recommender_' + i); return; }
-      if (!nonEmpty(r.name))                        e.push('recommender_' + i + '_name');
-      if (!isEmail(r.email))                        e.push('recommender_' + i + '_email');
-      if (!nonEmpty(r.phone) || !/^\+/.test(String(r.phone).trim()))
-                                                    e.push('recommender_' + i + '_phone');
-      if (!nonEmpty(r.member_country))              e.push('recommender_' + i + '_member_country');
-      if (!nonEmpty(r.training_level))              e.push('recommender_' + i + '_training_level');
+      if (!r || typeof r !== 'object') return;
+      if (!nonEmpty(r.name)) e.push('recommender_' + i + '_name');
+      if (!isEmail(r.email)) e.push('recommender_' + i + '_email');
     });
   }
   return e;

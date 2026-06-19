@@ -2106,7 +2106,7 @@
         </p>
         {list.length === 0 && (
           <div style={{padding:'14px 16px',background:'rgba(180,83,9,0.10)',border:'1px solid rgba(180,83,9,0.20)',borderRadius:8,marginBottom:12,color:'var(--state-warning, #b45309)'}}>
-            현재 등록된 에세이 문항이 없습니다. 기본값(2개)이 임시로 적용됩니다. + Add essay question 으로 운영자 정의 문항을 추가하세요.
+            현재 등록된 에세이 문항이 없습니다. 기본값(1개)이 임시로 적용됩니다. + Add essay question 으로 운영자 정의 문항을 추가하세요.
           </div>
         )}
         {list.map((q, i) => (
@@ -2132,6 +2132,10 @@
               </div>
             </div>
             <div className="grid-2 tight">
+              <Area label="문항 (KO)" value={q.prompt_ko || ''} onChange={v => set(['essay_questions',i,'prompt_ko'], v)} rows={3} />
+              <Text label="입력 예시 (KO)" value={q.placeholder_ko || ''} onChange={v => set(['essay_questions',i,'placeholder_ko'], v)} />
+            </div>
+            <div className="grid-2 tight" style={{marginTop:8}}>
               <Area label="Prompt (EN)" value={q.prompt_en || ''} onChange={v => set(['essay_questions',i,'prompt_en'], v)} lang="en" rows={3} />
               <Text label="Placeholder (EN)" value={q.placeholder_en || ''} onChange={v => set(['essay_questions',i,'placeholder_en'], v)} lang="en" />
             </div>

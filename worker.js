@@ -6731,11 +6731,21 @@ function validateApplicationStage1(b) {
   if (!nonEmpty(b.phone) || !/^\+/.test(String(b.phone).trim())) e.push('phone');
   // 프로그램 선택 필수(등록금 자동 연계 기준).
   if (!nonEmpty(b.program)) e.push('program');
-  // 에세이 — 처음 2문항(레거시 컬럼)이 최소 기준. 본문 ≥50자.
-  if (!nonEmpty(b.essay_title)) e.push('essay_title');
-  if (!nonEmpty(b.essay_body) || String(b.essay_body).length < 50) e.push('essay_body');
-  if (!nonEmpty(b.essay_title_2)) e.push('essay_title_2');
-  if (!nonEmpty(b.essay_body_2) || String(b.essay_body_2).length < 50) e.push('essay_body_2');
+  // 에세이 — 문항 수는 관리자가 정하므로(c.essay_questions) 하드코딩하지 않고
+  // 제출된 essays_json 배열을 동적으로 검증. 최소 1문항, 각 문항 제목 + 본문(≥50자).
+  let essays = [];
+  if (typeof b.essays_json === 'string' && b.essays_json.trim()) {
+    try { essays = JSON.parse(b.essays_json); } catch { e.push('essays_json'); }
+  }
+  if (!Array.isArray(essays) || essays.length < 1) {
+    e.push('essays_min_1');
+  } else {
+    essays.forEach((es, i) => {
+      if (!es || typeof es !== 'object') { e.push('essay_' + i); return; }
+      if (!nonEmpty(es.title)) e.push('essay_' + i + '_title');
+      if (!nonEmpty(es.body) || String(es.body).length < 50) e.push('essay_' + i + '_body');
+    });
+  }
   // 추천인: 최소 3명, 각 name + email + 국제전화 + 소속기관 + 훈련수준.
   let recs = [];
   if (typeof b.recommenders_json === 'string' && b.recommenders_json.trim()) {

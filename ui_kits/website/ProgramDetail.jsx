@@ -34,7 +34,6 @@ function ProgramDetail({ go, lang, programId, c }) {
     { label: isKo ? 'Duration' : 'Duration', value: (details && details.duration) || p.meta[0] },
     { label: isKo ? 'Format' : 'Format', value: (details && details.format) || p.meta[1] },
     { label: isKo ? 'Courses' : 'Courses', value: courses.length || countListItems(curriculum) || '3+' },
-    { label: isKo ? 'Outcomes' : 'Outcomes', value: countListItems(outcomes) || '5+' },
   ];
   const sections = [
     {
@@ -51,14 +50,6 @@ function ProgramDetail({ go, lang, programId, c }) {
       title: isKo ? '커리큘럼' : 'Curriculum',
       html: curriculum,
       tone: 'curriculum',
-    },
-    {
-      key: 'outcomes',
-      eyebrow: isKo ? 'What you gain' : 'What you gain',
-      title: d.learn_h || (isKo ? '배우는 내용' : 'What you will learn'),
-      html: outcomes,
-      fallbackList: Array.isArray(d.learn_items) ? d.learn_items : [],
-      tone: 'outcomes',
     },
     {
       key: 'prereq',

@@ -129,11 +129,14 @@
       <label className="auth-field dp-phone-field">
         <span>{label}</span>
         <div style={{display:'flex',gap:8}}>
+          {/* 국가코드는 고정 좁은 폭(긴 라벨로 넓어지지 않게 maxWidth 고정) →
+              번호 입력칸이 나머지를 모두 차지하도록(flex:1). 닫힌 select는 긴
+              국가명이 잘려도 핵심인 dial code(+82)는 보인다. v01.092.01 */}
           <select
             value={dial}
             onChange={e => setDial(e.target.value)}
             aria-label={isKo ? '국가 번호' : 'Country code'}
-            style={{flex:'0 0 auto',minWidth:120}}
+            style={{flex:'0 0 116px',width:116,maxWidth:116,minWidth:0}}
           >
             {COUNTRY_CODES.map(cc => (
               <option key={cc.c + cc.d} value={cc.d}>{cc.d} {isKo ? cc.ko : cc.en}</option>

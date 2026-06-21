@@ -7,6 +7,10 @@ function ProgramDetail({ go, lang, programId, c }) {
   const p = list.find(x => x.id === programId) || list[0];
   const d = ((c && c.program_detail && c.program_detail[lang]) || {});
   const iconName = p.icon || 'sparkles';
+  // Shared CUFS micro-degree intro video, shown on every program detail page
+  // between Overview and Curriculum. Single source of truth — change the id
+  // here to swap the video across all programs. (v01.092.05)
+  const introVideoId = '_AwgacO988A';
 
   const [details, setDetails] = useStatePD(null);
   const [facultyOpen, setFacultyOpen] = useStatePD(null);
@@ -43,6 +47,13 @@ function ProgramDetail({ go, lang, programId, c }) {
       html: overview,
       fallback: d.overview_body,
       tone: 'intro',
+    },
+    {
+      key: 'video',
+      eyebrow: isKo ? 'Watch' : 'Watch',
+      title: isKo ? '소개 영상' : 'Program Introduction',
+      tone: 'video',
+      video: introVideoId,
     },
     {
       key: 'curriculum',
@@ -282,6 +293,24 @@ function ProgramDetail({ go, lang, programId, c }) {
           </section>
 
           {sections.map((section) => {
+            if (section.key === 'video') {
+              if (!section.video) return null;
+              return (
+                <section key={section.key} className={'pd-section-card pd-tone-' + section.tone}>
+                  <div className="pd-section-eyebrow">{section.eyebrow}</div>
+                  <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
+                  <div className="pd-video">
+                    <iframe
+                      src={'https://www.youtube-nocookie.com/embed/' + section.video}
+                      title={section.title}
+                      loading="lazy"
+                      allow="encrypted-media; picture-in-picture; web-share"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </section>
+              );
+            }
             const showHtml = hasHtml(section.html);
             const showList = !showHtml && Array.isArray(section.fallbackList) && section.fallbackList.length > 0;
             const showText = !showHtml && !showList && section.fallback;

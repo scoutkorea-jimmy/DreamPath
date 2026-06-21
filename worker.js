@@ -1583,6 +1583,10 @@ const CSP = [
   // same-origin — can embed the public SPA. Cross-origin clickjacking is
   // still blocked because only same-origin frames are allowed.
   "frame-ancestors 'self'",
+  // Program detail pages embed a shared YouTube intro video between the
+  // Overview and Curriculum sections. frame-src would otherwise fall back
+  // to default-src 'self' and block the YouTube iframe. (v01.092.05)
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",

@@ -1267,6 +1267,18 @@ body {
 }
 .pd-cost-details p:first-child { margin-top: 0; }
 .pd-cost-details strong { color: var(--forest-green); }
+.pd-cost-note {
+  margin: 18px auto 0;
+  max-width: 640px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ocean-blue) 8%, var(--bg-elevated));
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: center;
+}
 @media (max-width: 760px) {
   .pd-cost { padding: 28px 18px; }
   .pd-cost-breakdown { grid-template-columns: 1fr; }

@@ -51,7 +51,7 @@ function ProgramDetail({ go, lang, programId, c }) {
     {
       key: 'video',
       eyebrow: isKo ? 'Watch' : 'Watch',
-      title: isKo ? '소개 영상' : 'Program Introduction',
+      title: isKo ? 'CUFS 소개' : 'CUFS Introduction',
       tone: 'video',
       video: introVideoId,
     },
@@ -236,6 +236,9 @@ function ProgramDetail({ go, lang, programId, c }) {
       { html: 'Pay in your local currency through your Dream Path partner.' },
       { html: '<strong>Scholarship:</strong> criteria vary by country — based on academic performance, coursework &amp; assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.' },
     ],
+    note: isKo
+      ? '위 금액은 1년 전체 프로그램 비용입니다. 학기별 등록금은 최대 프로그램 가격 범위 내에서 수강 신청한 과목에 따라 부과됩니다.'
+      : 'The total above is the cost for the full 1-year program. Each semester, tuition is charged according to the courses you register for, within the maximum of the program price.',
   };
 
   // Optional hero background image (per program) — overrides the color gradient
@@ -469,6 +472,9 @@ function ProgramDetail({ go, lang, programId, c }) {
                 <p key={i} dangerouslySetInnerHTML={{__html: line.html}} />
               ))}
             </div>
+            {costSection.note && (
+              <div className="pd-cost-note">{costSection.note}</div>
+            )}
           </section>
         </div>
 

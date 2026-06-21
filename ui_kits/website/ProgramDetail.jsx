@@ -35,13 +35,14 @@ function ProgramDetail({ go, lang, programId, c }) {
   const hasHtml = (s) => s && s.replace(/<[^>]+>/g, '').trim().length > 0;
   const countListItems = (s) => ((s || '').match(/<li\b/gi) || []).length;
   const stats = [
-    { label: isKo ? 'Duration' : 'Duration', value: (details && details.duration) || p.meta[0] },
-    { label: isKo ? 'Format' : 'Format', value: (details && details.format) || p.meta[1] },
-    { label: isKo ? 'Courses' : 'Courses', value: courses.length || countListItems(curriculum) || '3+' },
+    { icon: 'clock', label: isKo ? 'Duration' : 'Duration', value: (details && details.duration) || p.meta[0] },
+    { icon: 'monitor', label: isKo ? 'Format' : 'Format', value: (details && details.format) || p.meta[1] },
+    { icon: 'layers', label: isKo ? 'Courses' : 'Courses', value: courses.length || countListItems(curriculum) || '3+' },
   ];
   const sections = [
     {
       key: 'overview',
+      icon: 'compass',
       eyebrow: isKo ? 'Why this track' : 'Why this track',
       title: d.overview_h,
       html: overview,
@@ -50,6 +51,7 @@ function ProgramDetail({ go, lang, programId, c }) {
     },
     {
       key: 'video',
+      icon: 'play',
       eyebrow: isKo ? 'Watch' : 'Watch',
       title: isKo ? 'CUFS 소개' : 'CUFS Introduction',
       tone: 'video',
@@ -57,6 +59,7 @@ function ProgramDetail({ go, lang, programId, c }) {
     },
     {
       key: 'curriculum',
+      icon: 'book-open',
       eyebrow: isKo ? 'Course map' : 'Course map',
       title: isKo ? '커리큘럼' : 'Curriculum',
       html: curriculum,
@@ -64,6 +67,7 @@ function ProgramDetail({ go, lang, programId, c }) {
     },
     {
       key: 'prereq',
+      icon: 'user-check',
       eyebrow: isKo ? 'Who should apply' : 'Who should apply',
       title: d.eligibility_h,
       html: prerequisites,
@@ -76,32 +80,32 @@ function ProgramDetail({ go, lang, programId, c }) {
     sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
     cards: [
       {
-        icon: '🏛️',
+        icon: 'landmark',
         title: 'Government Accredited',
         body: 'Fully accredited by the Korean Ministry of Education. Part of the HUFS system, established in 1954.',
       },
       {
-        icon: '🤖',
+        icon: 'bot',
         title: 'AI-Powered Learning',
         body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into real coursework. Winner of the Korea AI Innovation Award.',
       },
       {
-        icon: '📊',
+        icon: 'chart-column',
         title: 'Proven Track Record',
         body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
       },
       {
-        icon: '👨‍🏫',
+        icon: 'users',
         title: 'World-Class Faculty',
         body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
       },
       {
-        icon: '🌐',
+        icon: 'globe',
         title: '10 Faculties',
         body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
       },
       {
-        icon: '🇰🇷',
+        icon: 'briefcase',
         title: 'K-Career Magnet',
         body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
       },
@@ -111,32 +115,32 @@ function ProgramDetail({ go, lang, programId, c }) {
     sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
     cards: [
       {
-        icon: '🏛️',
+        icon: 'landmark',
         title: 'Government Accredited',
         body: 'Fully accredited by the Korean Ministry of Education. Part of the prestigious HUFS system, established in 1954.',
       },
       {
-        icon: '🤖',
+        icon: 'bot',
         title: 'AI-Powered Learning',
         body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into the learning experience. Winner of the Korea AI Innovation Award.',
       },
       {
-        icon: '📊',
+        icon: 'chart-column',
         title: 'Proven Track Record',
         body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
       },
       {
-        icon: '👨‍🏫',
+        icon: 'users',
         title: 'World-Class Faculty',
         body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
       },
       {
-        icon: '🌐',
+        icon: 'globe',
         title: '10 Faculties',
         body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
       },
       {
-        icon: '🇰🇷',
+        icon: 'briefcase',
         title: 'K-Career Magnet',
         body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
       },
@@ -146,25 +150,25 @@ function ProgramDetail({ go, lang, programId, c }) {
     title: 'What Makes Dream Path Different',
     cards: [
       {
-        icon: '🆓',
+        icon: 'gift',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
         body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
-        icon: '🏠',
+        icon: 'home',
         title: 'DOME — Your Local Learning Hub',
         body: '5% of tuition goes back to your country to help build a physical learning center. DOME stands for Dream · Opportunity · Meeting · Education. More students means faster DOME growth.',
         tag: 'Community Investment',
       },
       {
-        icon: '🏆',
+        icon: 'award',
         title: 'Scholarship Available',
         body: 'Scholarship criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.',
         tag: 'Merit-Based',
       },
       {
-        icon: '🌍',
+        icon: 'handshake',
         title: 'Global Partner Network',
         body: 'Dream Path works with trusted local education partners in each country. Your local coordinator is your guide, mentor, and support — helping you every step of the way.',
         tag: 'Local Support in Your Country',
@@ -174,25 +178,25 @@ function ProgramDetail({ go, lang, programId, c }) {
     title: 'What Makes Dream Path Different',
     cards: [
       {
-        icon: '🆓',
+        icon: 'gift',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
         body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
-        icon: '🏠',
+        icon: 'home',
         title: 'DOME — Your Local Learning Hub',
         body: '5% of tuition goes back to your country to help build a physical learning center. DOME stands for Dream · Opportunity · Meeting · Education. More students means faster DOME growth.',
         tag: 'Community Investment',
       },
       {
-        icon: '🏆',
+        icon: 'award',
         title: 'Scholarship Available',
         body: 'Scholarship criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.',
         tag: 'Merit-Based',
       },
       {
-        icon: '🌍',
+        icon: 'handshake',
         title: 'Global Partner Network',
         body: 'Dream Path works with trusted local education partners in each country. Your local coordinator is your guide, mentor, and support — helping you every step of the way.',
         tag: 'Local Support in Your Country',
@@ -300,8 +304,11 @@ function ProgramDetail({ go, lang, programId, c }) {
           <section className="pd-stat-strip" aria-label="Program snapshot">
             {stats.map((stat) => (
               <div key={stat.label} className="pd-stat-card">
-                <div className="pd-stat-label">{stat.label}</div>
-                <div className="pd-stat-value">{stat.value}</div>
+                <span className="pd-stat-icon" aria-hidden="true"><i data-lucide={stat.icon} width="20" height="20"></i></span>
+                <div className="pd-stat-text">
+                  <div className="pd-stat-label">{stat.label}</div>
+                  <div className="pd-stat-value">{stat.value}</div>
+                </div>
               </div>
             ))}
           </section>
@@ -311,8 +318,13 @@ function ProgramDetail({ go, lang, programId, c }) {
               if (!section.video) return null;
               return (
                 <section key={section.key} className={'pd-section-card pd-tone-' + section.tone}>
-                  <div className="pd-section-eyebrow">{section.eyebrow}</div>
-                  <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
+                  <div className="pd-section-head">
+                    <span className="pd-section-icon" aria-hidden="true"><i data-lucide={section.icon} width="20" height="20"></i></span>
+                    <div className="pd-section-headtext">
+                      <div className="pd-section-eyebrow">{section.eyebrow}</div>
+                      <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
+                    </div>
+                  </div>
                   <div className="pd-video">
                     <iframe
                       src={'https://www.youtube-nocookie.com/embed/' + section.video}
@@ -331,8 +343,13 @@ function ProgramDetail({ go, lang, programId, c }) {
             if (!showHtml && !showList && !showText) return null;
             return (
               <section key={section.key} className={'pd-section-card pd-tone-' + section.tone}>
-                <div className="pd-section-eyebrow">{section.eyebrow}</div>
-                <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
+                <div className="pd-section-head">
+                  <span className="pd-section-icon" aria-hidden="true"><i data-lucide={section.icon} width="20" height="20"></i></span>
+                  <div className="pd-section-headtext">
+                    <div className="pd-section-eyebrow">{section.eyebrow}</div>
+                    <h3 className={isKo ? '' : 'en'}>{section.title}</h3>
+                  </div>
+                </div>
                 {section.key === 'curriculum' && courses.length > 0 ? (
                   <div className="pd-course-grid">
                     {courses.map((course, i) => (
@@ -382,8 +399,13 @@ function ProgramDetail({ go, lang, programId, c }) {
 
           {(details && (details.instructor_name || hasHtml(instructorBio))) && (
             <section className="pd-section-card pd-tone-instructor">
-              <div className="pd-section-eyebrow">{isKo ? 'Faculty' : 'Faculty'}</div>
-              <h3 className={isKo ? '' : 'en'}>{isKo ? '강사' : 'Instructor'}</h3>
+              <div className="pd-section-head">
+                <span className="pd-section-icon" aria-hidden="true"><i data-lucide="presentation" width="20" height="20"></i></span>
+                <div className="pd-section-headtext">
+                  <div className="pd-section-eyebrow">{isKo ? 'Faculty' : 'Faculty'}</div>
+                  <h3 className={isKo ? '' : 'en'}>{isKo ? '강사' : 'Instructor'}</h3>
+                </div>
+              </div>
               {details.instructor_name && (
                 <p className="pd-instructor-line">
                   <strong>{details.instructor_name}</strong>
@@ -403,7 +425,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             <div className="pd-why-cufs-grid">
               {whyCUFS.cards.map((card) => (
                 <article key={card.title} className="pd-why-cufs-card">
-                  <div className="pd-why-cufs-icon" aria-hidden="true">{card.icon}</div>
+                  <div className="pd-why-cufs-icon" aria-hidden="true"><i data-lucide={card.icon} width="24" height="24"></i></div>
                   <h4>{card.title}</h4>
                   <p>{card.body}</p>
                 </article>
@@ -419,7 +441,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             <div className="pd-different-grid">
               {dreamPathDifferent.cards.map((card) => (
                 <article key={card.title} className="pd-different-card">
-                  <div className="pd-different-icon" aria-hidden="true">{card.icon}</div>
+                  <div className="pd-different-icon" aria-hidden="true"><i data-lucide={card.icon} width="24" height="24"></i></div>
                   <h4>{card.title}</h4>
                   <p>{card.body}</p>
                   <div className="pd-different-tag">{card.tag}</div>
@@ -550,7 +572,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             <div className="row"><span className="k">{isKo ? '수료증' : 'Certification'}</span><span className="v">{details.certification}</span></div>
           )}
           <div className="row"><span className="k">{d.label_level}</span><span className="v">{p.level}</span></div>
-          <div className="row"><span className="k">{d.label_status}</span><span className="v" style={{color:'var(--forest-green)'}}>{p.status}</span></div>
+          <div className="row"><span className="k">{d.label_status}</span><span className="v" style={{color:'var(--state-success)'}}>{p.status}</span></div>
           {details && details.cost_full != null && (
             <div className="row"><span className="k">{isKo ? '비용' : 'Cost'}</span><span className="v">${details.cost_full} {details.cost_currency || 'USD'}</span></div>
           )}

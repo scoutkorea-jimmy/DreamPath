@@ -93,7 +93,7 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '👨‍🏫',
         title: 'World-Class Faculty',
-        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-6907-6703.',
+        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
       },
       {
         icon: '🌐',
@@ -128,7 +128,7 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: '👨‍🏫',
         title: 'World-Class Faculty',
-        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-6907-6703.',
+        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
       },
       {
         icon: '🌐',

@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.092.06`
+- **버전**: `v01.092.07`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.092.07 — **해외 헬프데스크 번호 정정**: 프로그램 상세 'Why CUFS' → 'World-Class Faculty' 카드의 24/7 help desk 번호를 `+82-6907-6703` → `+82-2-6907-6703`(지역번호 2 누락)으로 정정. ProgramDetail.jsx whyCUFS body ko/en 2곳. 운영자 정정.
   - +01.092.06 — **영상 제목 'CUFS Introduction' + Cost 등록금 안내 노트**: 프로그램 상세 영상 섹션 제목을 'Program Introduction' → 'CUFS Introduction'(ko: CUFS 소개)으로 변경. Cost 섹션 하단에 안내 노트(`.pd-cost-note`, ko/en) 추가 — 표시 금액은 1년 전체 프로그램 비용이며, 학기별 등록금은 최대 프로그램 가격 범위 내에서 수강 신청한 과목에 따라 부과됨. ProgramDetail.jsx(video title + costSection.note) + site.css(.pd-cost-note 토큰). 운영자 요청.
   - +01.092.05 — **프로그램 상세 소개 영상 임베드**: 모든 CUFS 마이크로 디그리 상세 페이지의 Overview와 Curriculum 사이에 공유 YouTube 소개 영상(`_AwgacO988A`)을 16:9 반응형 카드로 추가. ProgramDetail.jsx `introVideoId` 단일 출처 상수 + sections 배열 `key:'video'` 블록(overview 다음/curriculum 앞) + 전용 렌더 분기(`youtube-nocookie.com/embed` iframe, loading=lazy, allowFullScreen). site.css `.pd-video`(aspect-ratio 16/9 래퍼) + `.pd-tone-video` 장식 토큰. worker.js CSP `frame-src`에 youtube.com / youtube-nocookie.com 추가(없으면 default-src 'self' 폴백으로 iframe 차단). 영상은 코드 상수 하드코딩(KV 스키마/마이그레이션 없음) — 교체 시 `introVideoId` 한 곳만 수정. 운영자 요청.
   - +01.092.00 — **신청 시스템 개편: 단일 5단계 → CUFS 입학 파이프라인 상태머신**: 설계서 v0.1(DreamPath×CUFS) 기준. 신청을 서버 권위 status 상태머신으로 전환 — `submitted→screen_passed→cufs_no_submitted→cufs_admitted→docs_submitted→docs_verified→paid→enrolled`(+screen_rejected/cancelled), 모든 전이 `assertStatus`(409) 가드 + 관리자 전이 audit. 학생 고유번호 **candidate_no**(`DP{YY}-{5자리}`, submitted 시 1회·불변, candidate_counters 원자 증가). **1차 신청서(Apply.jsx) 축소**: 서류·트랙·결제 제거, 전화번호+프로그램 선택 추가(4단계). **마이페이지(Member.jsx)** 단계별 진행 화면: CUFS 입시 안내(결제 주체 경고)+접수번호 입력 / 합격증 업로드 / 학력서류 3종 / 결제 동의 3종(CUFS·KDP 환불+PG). **관리자(admin.html)** 신청 탭: 단계 칸반 필터 + 고유번호/이메일 검색 + 단계별 액션(통과·탈락/합격증 검증/서류 검증/등록 확정/취소). **등록금 자동 연계**: KV `programs[].tuition`(USD) 단일 출처, 결제 시 worker `computeTuition` 재조회(클라 금액 불신), 0이면 결제 차단. **결제 PG 추상화**(DemoPaymentProvider, 실 PG 무수정 스왑). 단계별 안내 메일 6종 + 영수증 candidate_no. DB: 0037_apply_pipeline(파이프라인 컬럼+candidate_counters+레거시 초기화). worker: 9개 전이 API + submitApplication 재정의 + validateApplicationStage1. **운영 결정(2026-06-19)**: 레거시 신청 전부 초기화, 결제 USD 단일. **Caveat**: 프로그램 tuition 임시 $500 — 관리자 프로그램 탭에서 실제 금액 입력 필요. track/partial_tier 컬럼 미사용으로 남김(후속 정리).

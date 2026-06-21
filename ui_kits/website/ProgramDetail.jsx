@@ -200,45 +200,56 @@ function ProgramDetail({ go, lang, programId, c }) {
     ],
   };
   const costSection = {
-    title: 'How Much Does It Actually Cost?',
-    offlineLabel: 'Study in Korea in person (1 year)',
-    offlineRows: [
-      { icon: '🎓', label: 'Tuition', amount: '$5,000 – $10,000' },
-      { icon: '✈️', label: 'Round-trip flight', amount: '$800 – $1,500' },
-      { icon: '🏠', label: 'Housing (12 months)', amount: '$4,000 – $8,000' },
-      { icon: '📋', label: 'Visa & insurance', amount: '$200 – $500' },
-      { icon: '🍚', label: 'Food & living', amount: '$3,000 – $6,000' },
-    ],
-    offlineTotal: '$15,000 – $30,000',
-    onlineLabel: 'Dream Path Micro-Degree (online)',
-    onlineRows: [
-      { icon: '🎓', label: 'Tuition (12 credits × $60)', amount: '$720' },
-      { icon: '📋', label: 'Application fee', amount: '$22' },
-      { icon: '✈️', label: 'Flight', amount: '$0', zero: true },
-      { icon: '🏠', label: 'Housing', amount: '$0', zero: true },
-      { icon: '🍚', label: 'Food & living', amount: '$0', zero: true },
-    ],
-    onlineTotal: '$742',
+    title: 'How much does it actually cost?',
+    sub: 'An honest side-by-side of studying in Korea in person versus earning the same micro-degree online with Dream Path.',
+    offline: {
+      icon: 'building-2',
+      label: 'Study in Korea, in person',
+      note: '1-year estimate',
+      rows: [
+        { icon: 'graduation-cap', label: 'Tuition', amount: '$5,000 – $10,000' },
+        { icon: 'plane', label: 'Round-trip flight', amount: '$800 – $1,500' },
+        { icon: 'home', label: 'Housing (12 months)', amount: '$4,000 – $8,000' },
+        { icon: 'file-text', label: 'Visa & insurance', amount: '$200 – $500' },
+        { icon: 'utensils', label: 'Food & living', amount: '$3,000 – $6,000' },
+      ],
+      total: '$15,000 – $30,000',
+    },
+    online: {
+      icon: 'laptop',
+      label: 'Dream Path micro-degree',
+      note: '100% online',
+      badge: 'Best value',
+      rows: [
+        { icon: 'graduation-cap', label: 'Tuition · 12 credits × $60', amount: '$720' },
+        { icon: 'receipt', label: 'Application fee', amount: '$22' },
+        { icon: 'plane', label: 'Flight', free: 'Not needed' },
+        { icon: 'home', label: 'Housing', free: 'Not needed' },
+        { icon: 'utensils', label: 'Food & living', free: 'Stay home' },
+      ],
+      total: '$742',
+    },
     savingsLabel: 'You save',
     savingsAmount: '$14,258 – $29,258',
     savingsPct: 'Up to 97% less than studying in Korea',
-    barNote: 'Cost comparison (average $22,500 vs $742)',
-    zeroItems: [
-      '✈️ No Flight',
-      '🏠 No Housing',
-      '📋 No Visa',
-      '🍚 No Living Expenses',
-      '🏡 Study from Home',
+    barTitle: 'Cost comparison · 1-year average',
+    barOffline: { label: 'In Korea, in person', amount: '~ $22,500' },
+    barOnline: { label: 'Dream Path, online', amount: '$742' },
+    barNote: 'That is roughly $21,758 saved on the average year.',
+    chips: ['No flight', 'No housing', 'No visa', 'No living costs', 'Study from home'],
+    facts: [
+      { big: '$60', label: 'per credit', sub: '≈ ₩83,000' },
+      { big: '$720', label: 'full micro-degree', sub: '≈ 12 credits' },
+      { big: '$22', label: 'application fee', sub: 'one-time · ₩30,000' },
     ],
-    details: [
-      { html: '<strong>$60 per credit</strong> (about ₩83,000) · Full micro-degree ≈ 12 credits ≈ <strong>$720 total</strong>' },
-      { html: 'Application fee: <strong>$22</strong> (₩30,000, one-time) · Admission fee: <strong>waived</strong> for part-time students' },
-      { html: 'Pay in your local currency through your Dream Path partner.' },
-      { html: '<strong>Scholarship:</strong> criteria vary by country — based on academic performance, coursework &amp; assignments, recommendations, and other factors. Please contact your local Dream Path country office for details.' },
-    ],
-    note: isKo
+    payNote: 'Pay in your local currency through your Dream Path partner.',
+    scholarship: {
+      title: 'Scholarships',
+      body: 'Criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Contact your local Dream Path country office for details.',
+    },
+    semesterNote: isKo
       ? '위 금액은 1년 전체 프로그램 비용입니다. 학기별 등록금은 최대 프로그램 가격 범위 내에서 수강 신청한 과목에 따라 부과됩니다.'
-      : 'The total above is the cost for the full 1-year program. Each semester, tuition is charged according to the courses you register for, within the maximum of the program price.',
+      : 'The total above covers the full 1-year program. Each semester, tuition is charged according to the courses you register for, within the maximum of the program price.',
   };
 
   // Optional hero background image (per program) — overrides the color gradient
@@ -421,60 +432,104 @@ function ProgramDetail({ go, lang, programId, c }) {
             <div className="pd-cost-head">
               <div className="pd-section-eyebrow">Pricing</div>
               <h3 className={isKo ? '' : 'en'}>{costSection.title}</h3>
+              <p className="pd-cost-sub">{costSection.sub}</p>
             </div>
             <div className="pd-cost-breakdown">
               <div className="pd-cost-col is-offline">
-                <h4>✗ {costSection.offlineLabel}</h4>
-                {costSection.offlineRows.map((row) => (
+                <div className="pd-cost-col-head">
+                  <span className="pd-cost-col-icon" aria-hidden="true"><i data-lucide={costSection.offline.icon} width="20" height="20"></i></span>
+                  <div>
+                    <div className="pd-cost-col-title">{costSection.offline.label}</div>
+                    <div className="pd-cost-col-note">{costSection.offline.note}</div>
+                  </div>
+                </div>
+                {costSection.offline.rows.map((row) => (
                   <div key={row.label} className="pd-cost-row">
-                    <span className="pd-cost-row-label"><span aria-hidden="true">{row.icon}</span> {row.label}</span>
+                    <span className="pd-cost-row-label"><i data-lucide={row.icon} width="18" height="18" aria-hidden="true"></i> {row.label}</span>
                     <span className="pd-cost-row-amt">{row.amount}</span>
                   </div>
                 ))}
                 <div className="pd-cost-col-total">
                   <span>Total</span>
-                  <span>{costSection.offlineTotal}</span>
+                  <span className="pd-cost-col-total-amt">{costSection.offline.total}</span>
                 </div>
               </div>
               <div className="pd-cost-col is-online">
-                <h4>✓ {costSection.onlineLabel}</h4>
-                {costSection.onlineRows.map((row) => (
+                <div className="pd-cost-badge"><i data-lucide="check" width="13" height="13" aria-hidden="true"></i> {costSection.online.badge}</div>
+                <div className="pd-cost-col-head">
+                  <span className="pd-cost-col-icon" aria-hidden="true"><i data-lucide={costSection.online.icon} width="20" height="20"></i></span>
+                  <div>
+                    <div className="pd-cost-col-title">{costSection.online.label}</div>
+                    <div className="pd-cost-col-note">{costSection.online.note}</div>
+                  </div>
+                </div>
+                {costSection.online.rows.map((row) => (
                   <div key={row.label} className="pd-cost-row">
-                    <span className="pd-cost-row-label"><span aria-hidden="true">{row.icon}</span> {row.label}</span>
-                    <span className={'pd-cost-row-amt' + (row.zero ? ' is-zero' : '')}>{row.amount}</span>
+                    <span className={'pd-cost-row-label' + (row.free ? ' is-muted' : '')}><i data-lucide={row.icon} width="18" height="18" aria-hidden="true"></i> {row.label}</span>
+                    {row.free
+                      ? <span className="pd-cost-row-free"><i data-lucide="check" width="14" height="14" aria-hidden="true"></i> {row.free}</span>
+                      : <span className="pd-cost-row-amt">{row.amount}</span>}
                   </div>
                 ))}
                 <div className="pd-cost-col-total">
                   <span>Total</span>
-                  <span>{costSection.onlineTotal}</span>
+                  <span className="pd-cost-col-total-amt">{costSection.online.total}</span>
                 </div>
               </div>
             </div>
             <div className="pd-savings-banner">
-              <div className="pd-savings-label">{costSection.savingsLabel}</div>
+              <div className="pd-savings-label"><i data-lucide="trending-down" width="16" height="16" aria-hidden="true"></i> {costSection.savingsLabel}</div>
               <div className="pd-savings-amount">{costSection.savingsAmount}</div>
-              <div className="pd-savings-pct">{costSection.savingsPct}</div>
+              <div className="pd-savings-pct"><i data-lucide="sparkles" width="15" height="15" aria-hidden="true"></i> {costSection.savingsPct}</div>
             </div>
             <div className="pd-savings-bar-wrap">
-              <div className="pd-savings-bar-note">{costSection.barNote}</div>
-              <div className="pd-savings-bar" role="img" aria-label={costSection.savingsPct}>
-                <div className="pd-savings-bar-dp" style={{width: '3.3%'}}>$742</div>
-                <div className="pd-savings-bar-save" style={{width: '96.7%'}}>You save $21,758</div>
+              <div className="pd-savings-bar-note">{costSection.barTitle}</div>
+              <div className="pd-cost-bar">
+                <div className="pd-cost-bar-head">
+                  <span>{costSection.barOffline.label}</span>
+                  <span className="pd-cost-bar-amt is-offline">{costSection.barOffline.amount}</span>
+                </div>
+                <div className="pd-cost-bar-track" role="img" aria-label={costSection.barOffline.label + ' ' + costSection.barOffline.amount}>
+                  <div className="pd-cost-bar-fill is-offline" style={{width: '100%'}}></div>
+                </div>
               </div>
+              <div className="pd-cost-bar">
+                <div className="pd-cost-bar-head">
+                  <span>{costSection.barOnline.label}</span>
+                  <span className="pd-cost-bar-amt is-online">{costSection.barOnline.amount}</span>
+                </div>
+                <div className="pd-cost-bar-track" role="img" aria-label={costSection.barOnline.label + ' ' + costSection.barOnline.amount}>
+                  <div className="pd-cost-bar-fill is-online" style={{width: '3.3%'}}></div>
+                </div>
+              </div>
+              <div className="pd-cost-bar-foot"><i data-lucide="arrow-down" width="16" height="16" aria-hidden="true"></i> {costSection.barNote}</div>
             </div>
             <div className="pd-zero-list">
-              {costSection.zeroItems.map((item) => (
-                <span key={item} className="pd-zero-chip">{item}</span>
+              {costSection.chips.map((item) => (
+                <span key={item} className="pd-zero-chip"><i data-lucide="check" width="14" height="14" aria-hidden="true"></i> {item}</span>
               ))}
             </div>
-            <div className="pd-cost-details">
-              {costSection.details.map((line, i) => (
-                <p key={i} dangerouslySetInnerHTML={{__html: line.html}} />
+            <div className="pd-cost-facts">
+              {costSection.facts.map((f) => (
+                <div key={f.big} className="pd-cost-fact">
+                  <div className="pd-cost-fact-big">{f.big}</div>
+                  <div className="pd-cost-fact-label">{f.label}</div>
+                  <div className="pd-cost-fact-sub">{f.sub}</div>
+                </div>
               ))}
             </div>
-            {costSection.note && (
-              <div className="pd-cost-note">{costSection.note}</div>
-            )}
+            <p className="pd-cost-pay">{costSection.payNote}</p>
+            <div className="pd-cost-callout is-info">
+              <span className="pd-cost-callout-icon" aria-hidden="true"><i data-lucide="award" width="22" height="22"></i></span>
+              <div>
+                <div className="pd-cost-callout-title">{costSection.scholarship.title}</div>
+                <p>{costSection.scholarship.body}</p>
+              </div>
+            </div>
+            <div className="pd-cost-callout is-muted">
+              <span className="pd-cost-callout-icon" aria-hidden="true"><i data-lucide="info" width="22" height="22"></i></span>
+              <p>{costSection.semesterNote}</p>
+            </div>
           </section>
         </div>
 

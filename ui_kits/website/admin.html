@@ -4595,6 +4595,11 @@
             <Text label="From email" value={et.from_email || ''} onChange={v => set(['email_templates','from_email'], v)} />
           </div>
           <div className="field" style={{marginTop:14}}>
+            <label>Forward inbound to (optional)</label>
+            <input type="email" value={et.forward_to || ''} onChange={e => set(['email_templates','forward_to'], e.target.value)} placeholder="you@gmail.com" />
+            <span className="hint">When set, every inbound email (info@, partner@, …) is also forwarded here, on top of the admin 메일함. The address <strong>must be verified</strong> in Cloudflare → Email → Routing → Destination addresses, or forwarding fails (logged, never bounced).</span>
+          </div>
+          <div className="field" style={{marginTop:14}}>
             <label>Test recipient (for the buttons below)</label>
             <input type="email" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="you@example.com" />
             <span className="hint">Sends a real email using the current template + Resend. Variables are filled with placeholder values.</span>

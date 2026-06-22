@@ -730,12 +730,36 @@ export default {
           }
         }
       }
+      // v01.092.10 — also forward inbound to a real human inbox when the
+      // operator has set one (email_templates.forward_to in admin). The mail
+      // is already persisted to D1 above; this is a best-effort convenience so
+      // the team also sees external mail in their normal inbox. A failed
+      // forward (e.g. the destination is not yet verified in Cloudflare →
+      // Email → Routing → Destination addresses) is logged, NEVER bounced —
+      // the sender already received a 250 and the copy is safe in D1.
+      let fwdNote = '';
+      try {
+        const fwdMeta = await loadEmailMeta(env);
+        const fwdTo = String(fwdMeta.forward_to || '').trim();
+        if (fwdTo && typeof message.forward === 'function') {
+          await message.forward(fwdTo);
+          fwdNote = ' fwd=' + fwdTo;
+        }
+      } catch (fe) {
+        fwdNote = ' fwd_err=' + (fe && fe.message || fe);
+        ctx.waitUntil(logError(env, {
+          level: 'warn', source: 'email_worker',
+          message: 'inbound forward to configured address failed: ' + (fe && fe.message || fe) +
+                   ' — verify the destination in Cloudflare → Email → Routing → Destination addresses',
+          path: 'email/' + (message.to || 'unknown'), method: 'EMAIL', status: 0,
+        }));
+      }
       // Always emit a parse summary so we can spot silent failures from the
       // admin → 오류 로그 tab without needing wrangler tail.
       ctx.waitUntil(logError(env, {
         level: attErrors.length ? 'warn' : 'info', source: 'email_worker',
         message: `inbound stored id=${emailId} from=${fromAddr} to=${message.to} att_detected=${attachments.length} att_stored=${stored}` +
-                 (attErrors.length ? ' errors=' + attErrors.join(' | ') : ''),
+                 (attErrors.length ? ' errors=' + attErrors.join(' | ') : '') + fwdNote,
         path: 'email/' + (message.to || 'unknown'), method: 'EMAIL', status: 200,
       }));
     } catch (err) {
@@ -5532,16 +5556,33 @@ function textToHtml(text) {
   return '<div style="font-family:-apple-system,Segoe UI,sans-serif;color:#15131A;max-width:600px;margin:0 auto;padding:24px">' + paragraphs + '</div>';
 }
 async function sendEmail(env, { to, slug, lang, vars }) {
+  // v01.092.10 — every non-sent outcome is recorded to error_logs (source
+  // 'email_send'). Historically all 13 call sites discarded this function's
+  // return value, so a broken Resend key / unverified domain / quota could
+  // fail EVERY transactional email with zero diagnostic trail. That silent
+  // failure mode was the root cause investigated in the 2026-06-22 "info@
+  // mail not working" report — now any failure surfaces in admin → 오류 로그.
+  const maskTo = String(to || '').replace(/^[^@]+/, m => (m[0] || '') + '***');
+  const logFail = (reason, err) => logError(env, {
+    level: (reason === 'no_template' || reason === 'no_key') ? 'warn' : 'error',
+    source: 'email_send',
+    message: 'transactional send failed: slug=' + (slug || '?') + ' to=' + maskTo +
+             ' reason=' + reason + (err ? ' err=' + String(err).slice(0, 300) : ''),
+    path: 'resend/' + (slug || '?'), method: 'EMAIL',
+    status: reason.indexOf('http_') === 0 ? (Number(reason.slice(5)) || 0) : 0,
+  });
   const tpl  = await loadEmailTemplate(env, slug);
   const meta = await loadEmailMeta(env);
-  if (!tpl) return { sent: false, reason: 'no_template' };
+  if (!tpl) { await logFail('no_template'); return { sent: false, reason: 'no_template' }; }
   const useKo = (lang === 'ko') || !tpl.subject_en;
   const subject = renderTpl(useKo ? (tpl.subject_ko || tpl.subject_en) : (tpl.subject_en || tpl.subject_ko), vars);
   const text    = renderTpl(useKo ? (tpl.body_ko || tpl.body_en)       : (tpl.body_en || tpl.body_ko), vars);
   const html    = textToHtml(text);
   const fromName  = meta.from_name  || 'KoreaDreamPath';
   const fromEmail = meta.from_email || 'info@koreadreampath.com';
-  if (!env.RESEND_API_KEY) return { sent: false, reason: 'no_key', preview: { subject, text } };
+  // no_key is the expected dev-mode path (token returned for manual verify);
+  // still logged as warn so a missing prod secret can't hide.
+  if (!env.RESEND_API_KEY) { await logFail('no_key'); return { sent: false, reason: 'no_key', preview: { subject, text } }; }
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -5559,10 +5600,12 @@ async function sendEmail(env, { to, slug, lang, vars }) {
     });
     if (!r.ok) {
       const errText = await r.text().catch(() => '');
+      await logFail('http_' + r.status, errText);
       return { sent: false, reason: 'http_' + r.status, err: errText.slice(0, 500) };
     }
     return { sent: true };
   } catch (e) {
+    await logFail('exception', e && e.message || e);
     return { sent: false, reason: 'exception', err: String(e.message || e) };
   }
 }

@@ -545,6 +545,12 @@
     email_templates: {
       from_name:  'KoreaDreamPath',
       from_email: 'info@koreadreampath.com',
+      // Optional: when set, every inbound email (info@, partner@, …) is also
+      // forwarded to this real inbox by the email() worker, in addition to
+      // being stored in the admin 메일함. The address must be verified in
+      // Cloudflare → Email → Routing → Destination addresses first, otherwise
+      // forwarding fails (logged, never bounced).
+      forward_to: '',
       // Per-template content. Keys are stable slugs so worker code can
       // resolve them by name without relying on array order.
       items: {

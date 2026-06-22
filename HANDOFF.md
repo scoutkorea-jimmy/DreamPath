@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.092.09`
+- **버전**: `v01.092.10`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -21,6 +21,7 @@
 ### 버전 정책 (CLAUDE.md §1 재확인)
 - `AA.bbb.cc` → AA(메이저, 운영자만) · bbb(마이너, 새 기능) · cc(패치, 버그 수정 / 카피)
 - **이번 세션 누적**: v01.027.00 → **v01.046.00** (마이너 +19)
+  - +01.092.10 — **메일 인프라 진단 + 발송 가시성 / 수신 forward**: 운영자 보고 "외부에서 info@로 메일을 못 보낸다" 진단. **결론: info@ 수신은 정상** — Cloudflare MX 3대 모두 `RCPT TO <info@>` 250 OK, 5/5~6/22 외부 발신자(Gmail·naver·kakao·nts.go.kr·stibee) 연속 수신 기록 확인. 외부 "못 보냄"은 info@ 자체가 아니라 오타·미라우팅 레거시 별칭(hello@/team@/partners@)·첨부 용량·발신자측 문제 가능성 → 반송 원문 확보가 다음 단계. **진짜 사각지대는 발송**: `sendEmail()` 13개 호출부가 반환값을 버려 Resend 실패가 무로그였음. (1) `sendEmail()`에 logFail 추가 — 모든 실패를 `error_logs`(source `email_send`)에 기록, (2) `email()`에 `email_templates.forward_to` 설정 시 `message.forward()`로 개인함 동시 전달(try/catch, 반송 금지), (3) content-store 기본값 + admin "Forward inbound to" 필드. worker.js+content-store.js+admin.html. **운영자 후속**: Cloudflare catch-all 규칙 + forward Destination verify + Resend 도메인 Verified 재확인.
   - +01.092.09 — **프로그램 상세 전 섹션 Pricing 톤 통일 리디자인**: v01.092.08 Pricing 톤(흰 카드+lucide 아이콘 칩+은은한 테두리/그림자+muted 패널+eyebrow)에 맞춰 상세 페이지 나머지를 일괄 정리. 스탯 스트립(4→3열+아이콘 칩), 본문 섹션 카드(개요/영상/커리큘럼/지원자격/강사: 좌측 액센트 바·회전 장식 제거+아이콘 칩 헤더+톤별 `--pd-accent`), 커리큘럼 번호 배지·과목 카드·학기 칩·교수 아바타 플랫 틴트화, Why CUFS(다크 패널→muted 패널+흰 카드+아이콘 칩), Dream Path Different(노란 테두리→muted 패널+흰 카드+옐로 틴트 칩+pill 태그), 사이드바(하드코딩 rgba→토큰, status state-success). 이모지→lucide 전부 전환, 시맨틱 토큰만(raw hex 없음). ProgramDetail.jsx + site.css, worker 무변경. 운영자 요청.
   - +01.092.08 — **Pricing 섹션 비교 카드형 리디자인**: CUFS 마이크로 디그리 상세의 비용(Pricing) 섹션을 운영자 제공 'Pricing Comparison' 레퍼런스대로 전면 교체. 2열 비교 카드(현장 유학 vs Dream Path 온라인, 아이콘 헤더+Best value 배지+행별 lucide 아이콘+온라인 'Not needed/Stay home' 라벨+카드별 Total), 절감 패널($14,258–$29,258·97%↓), 막대 비교 2종+절감 합계, 혜택 칩 5종, 사실 스트립 3종($60/credit·$720·$22), 현지통화 납부 안내, 장학(info)·학기 등록금(muted) 콜아웃. ProgramDetail.jsx costSection 재구성 + .pd-cost 렌더 재작성, site.css .pd-cost* 전면 교체(시맨틱 토큰만, lucide 아이콘). worker 무변경. 운영자 요청.
   - +01.092.07 — **해외 헬프데스크 번호 정정**: 프로그램 상세 'Why CUFS' → 'World-Class Faculty' 카드의 24/7 help desk 번호를 `+82-6907-6703` → `+82-2-6907-6703`(지역번호 2 누락)으로 정정. ProgramDetail.jsx whyCUFS body ko/en 2곳. 운영자 정정.

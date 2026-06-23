@@ -653,6 +653,22 @@
       ko: '🚧 개발중입니다 · 정식 오픈은 6월 중순 예정',
       en: '🚧 Under development · Official launch mid-June',
     },
+    // ─── Site-entry notice gate (blocking modal on every visit) ──────────
+    // Full-screen disclaimer shown on every page load until the visitor
+    // checks the acknowledgement box and clicks Enter. Temporary launch
+    // gate — the operator flips enabled:false (admin → 콘텐츠) once the site
+    // is officially public, with no redeploy needed.
+    entry_gate: {
+      enabled: true,
+      title_ko: '홈페이지 정식 공개 안내',
+      title_en: 'Preview Notice',
+      body_ko: '본 홈페이지는 6월 말 정식 공개 운영 예정입니다. 현재 제공되는 정보는 최종 확정 정보가 아니며 일부 변경될 수 있으니 참고 부탁드립니다.',
+      body_en: 'This website is scheduled to officially launch at the end of June. The information currently provided is not final and may be subject to change. Please keep this in mind.',
+      check_ko: '위 안내 내용을 확인했습니다.',
+      check_en: 'I have read and understood the notice above.',
+      button_ko: '확인하고 입장하기',
+      button_en: 'Acknowledge & enter',
+    },
     // ─── Homepage banner ads (popup modal) ──────────────────────────────
     // Up to 3 image banners shown in a modal on the first homepage load of a
     // session. Image-only (uploaded to R2 → URL). Each item: image (URL),

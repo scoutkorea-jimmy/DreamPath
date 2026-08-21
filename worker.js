@@ -708,11 +708,18 @@ export default {
       const subjectPlain  = subjectEnc  ? null : subjectRaw;
       const bodyTextPlain = bodyTextEnc ? null : bodyTextRaw;
       const bodyHtmlPlain = bodyHtmlEnc ? null : safeHtml;
+      // v01.095.02: 수신 주소를 소문자로 정규화해 저장한다. Cloudflare 는
+      // 발신자가 친 대로의 대소문자(`Partner@…`)를 그대로 넘기는데, 그러면
+      // 같은 함이 DB 에서 두 주소로 갈린다 — 실제로 Partner@ 5통이 partner@
+      // 탭에서 안 보였다(v01.094.01 에서 조회를 LOWER 로 바꿔 드러났다).
+      // 메일 주소의 도메인은 대소문자를 구분하지 않고, 우리 라우팅은
+      // 로컬파트도 구분하지 않는다 — 저장 시점에 한 가지 형태로 못박는다.
+      const toAddrNorm = String(message.to || '').trim().toLowerCase();
       const ins = await env.DB.prepare(
         'INSERT INTO inbound_emails (ts, to_addr, from_addr, from_name, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, raw_size, message_id, in_reply_to, sanitized_at) ' +
         'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
-        ts, message.to, fromAddr, fromName,
+        ts, toAddrNorm, fromAddr, fromName,
         subjectPlain, subjectEnc,
         bodyTextPlain, bodyTextEnc,
         bodyHtmlPlain, bodyHtmlEnc,

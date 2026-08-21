@@ -550,15 +550,59 @@ async function serveSpaShell(request, env) {
   const resp = await env.ASSETS.fetch(rewriteRequest(request, SITE_INDEX));
   try {
     const content = await readContentFromKv(env);
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, '') || '/';
+    const origin = url.origin;
+
     const v = (content && content.site_verifications) || {};
-    const tags = VERIFICATION_META
+    const verifyTags = VERIFICATION_META
       .filter(([k]) => v[k] && String(v[k]).trim())
       .map(([k, name]) => `<meta name="${escapeAttr(name)}" content="${escapeAttr(String(v[k]).trim())}">`)
       .join('');
-    if (!tags) return resp;
-    return new HTMLRewriter()
-      .on('head', { element(el) { el.append(tags, { html: true }); } })
-      .transform(resp);
+
+    const route = seoRouteMeta(content, path);
+    const noindex = SEO_NOINDEX.has(path);
+    // 제목은 홈만 브랜드 단독, 하위는 "페이지 — 브랜드". 전 페이지가 같은
+    // 제목이면 검색 결과에서 서로를 잡아먹는다.
+    const baseTitle = seoText(route.title, 70) || SEO_SITE;
+    const fullTitle = route.key === 'home' ? baseTitle + ' | ' + SEO_SITE
+      : baseTitle === SEO_SITE ? SEO_SITE            // 이름을 두 번 붙이지 않는다
+      : baseTitle + ' — ' + SEO_SITE;
+    const desc = seoText(route.description, 300);
+    const canonical = origin + (path === '/' ? '/' : path);
+
+    // 색인 대상 페이지에만 구조화 데이터·대체 본문을 싣는다. 로그인/에러
+    // 페이지에 브랜드 JSON-LD 를 다는 것은 노이즈다.
+    const head = [
+      verifyTags,
+      noindex ? '<meta name="robots" content="noindex,nofollow">'
+              : '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">',
+      '<meta name="twitter:card" content="summary_large_image">',
+      '<meta property="og:site_name" content="' + escapeAttr(SEO_SITE) + '">',
+      '<meta property="og:locale" content="en_US">',
+      noindex ? '' : '<script type="application/ld+json">' +
+        seoJsonLd(seoJsonLdGraph(content, url, route)) + '</script>',
+    ].filter(Boolean).join('');
+
+    let rw = new HTMLRewriter()
+      .on('title', { element(el) { el.setInnerContent(fullTitle); } })
+      .on('meta[name="description"]', { element(el) { if (desc) el.setAttribute('content', desc); } })
+      .on('link[rel="canonical"]', { element(el) { el.setAttribute('href', canonical); } })
+      .on('meta[property="og:title"]', { element(el) { el.setAttribute('content', fullTitle); } })
+      .on('meta[property="og:description"]', { element(el) { if (desc) el.setAttribute('content', desc); } })
+      .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', canonical); } })
+      .on('head', { element(el) { el.append(head, { html: true }); } });
+    if (!noindex) {
+      rw = rw.on('body', { element(el) { el.prepend(seoNoscriptBody(content, url, route), { html: true }); } });
+    }
+    const out = rw.transform(resp);
+    // 셸이 KV 콘텐츠(제목·설명·JSON-LD·대체 본문)를 품게 됐으므로 정적 자산과
+    // 같은 캐시 정책을 쓰면 안 된다. 관리자에서 콘텐츠를 고쳐도 엣지가 옛
+    // HTML 을 계속 내보낸다 — 실제로 배포 직후 cf-cache-status: HIT 로 이전
+    // 버전이 서빙됐다. 엣지 60초 + 브라우저 재검증으로 절충한다.
+    const outHeaders = new Headers(out.headers);
+    outHeaders.set('cache-control', 'public, max-age=0, s-maxage=60, must-revalidate');
+    return new Response(out.body, { status: out.status, statusText: out.statusText, headers: outHeaders });
   } catch {
     // SEO injection must never break page serving — fall back to the raw shell.
     return resp;
@@ -641,6 +685,13 @@ export default {
     // SEO endpoints
     if (url.pathname === '/sitemap.xml')  return withSecurityHeaders(headStrip(await sitemapXml(env, url)));
     if (url.pathname === '/robots.txt')   return withSecurityHeaders(headStrip(await robotsTxt(url)));
+    // AEO: 답변 엔진이 브랜드를 정확히 요약하도록 사실만 담은 요약 문서.
+    if (url.pathname === '/llms.txt') {
+      const c = await readContentFromKv(env);
+      return withSecurityHeaders(headStrip(new Response(seoLlmsTxt(c, url), {
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=1800' },
+      })));
+    }
 
     // Public uploaded images (R2). Admin uploads land under the `public/` R2
     // prefix (unencrypted, since browsers fetch them directly) and are served
@@ -1670,6 +1721,268 @@ function withSecurityHeaders(resp) {
   return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
 }
 
+// ── SEO / AEO (v01.096) ──────────────────────────────────────────────────
+// 이 사이트는 브라우저에서 Babel 이 JSX 를 컴파일해 그리는 SPA 다. 즉
+// **원본 HTML 의 본문은 비어 있다** (측정: 텍스트 89자). 구글은 JS 를 실행해
+// 주지만, 답변 엔진 크롤러(GPTBot · ClaudeBot · PerplexityBot 등) 대부분은
+// 실행하지 않는다 → 우리 브랜드에 대해 인용할 사실이 하나도 없었다.
+//
+// 빌드 스텝을 도입하지 않고(하드 룰) 이를 메우는 세 경로:
+//   1) **JSON-LD** — 기계가 읽으라고 만든 형식. 가장 확실하고 위험 없음.
+//   2) **<noscript> 본문** — JS 없는 클라이언트가 읽는 실제 문장.
+//   3) **/llms.txt** — 답변 엔진용 요약 문서.
+// 셋 다 화면에 보이는 내용과 같은 사실만 담는다(클로킹 아님).
+const SEO_SITE   = 'KoreaDreamPath';
+const SEO_IMAGE  = '/assets/logo-dreampath.png';
+const SEO_EMAIL  = 'info@koreadreampath.com';
+
+// 텍스트 정리 — 태그 제거 + 개행 접기 + 길이 제한. 메타 설명은 검색 결과에서
+// 어차피 잘리므로 넉넉히 자른다.
+function seoText(v, max = 300) {
+  return String(v == null ? '' : v)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+// JSON-LD 안에 사용자 콘텐츠를 넣을 때 </script> 로 스크립트를 닫아버리는 것을
+// 막는다. JSON.stringify 만으로는 부족하다.
+function seoJsonLd(obj) {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+const seoEn = (node, key, fb = '') => seoText((node && (node.en || node)) ? ((node.en || node)[key] || fb) : fb, 600);
+
+// 경로 → 이 페이지가 무엇인지. 상세 페이지(:id)는 D1/KV 조회 없이 섹션 수준의
+// 사실만 쓴다 — 틀린 제목을 붙이느니 정확한 섹션 설명이 낫다.
+function seoRouteMeta(c, path) {
+  const hero = (c.hero && c.hero.en) || {};
+  const ps   = (c.programs_section && c.programs_section.en) || {};
+  const ab   = (c.about && c.about.hero && c.about.hero.en) || {};
+  const ph   = (k) => ((c.page_heros && c.page_heros[k] && c.page_heros[k].en) || {});
+  const tag  = seoText((c.brand && c.brand.footer_tagline_en) || '', 300);
+  const heroTitle = seoText([hero.title_l1, hero.title_l2].filter(Boolean).join(' '), 120);
+
+  const pageOf = (k, fallbackTitle) => {
+    const p = ph(k);
+    return {
+      title: seoText([p.title_l1, p.title_l2].filter(Boolean).join(' '), 90) || fallbackTitle,
+      description: seoText(p.sub, 300) || tag,
+    };
+  };
+
+  if (path === '/')            return { key: 'home',     title: heroTitle || SEO_SITE, description: seoText(hero.sub, 300) || tag };
+  if (path === '/about')       return { key: 'about',    title: seoText([ab.title_l1, ab.title_l2].filter(Boolean).join(' '), 90) || 'About', description: seoText(ab.sub, 300) || tag };
+  if (path === '/programs')    return { key: 'programs', title: seoText(ps.title, 90) || 'Programs', description: seoText(ps.sub, 300) || tag };
+  if (path.startsWith('/program/')) return { key: 'program', title: 'Micro-degree program', description: seoText(ps.sub, 300) || tag };
+  if (path === '/apply')       return Object.assign({ key: 'apply' },       pageOf('apply', 'Apply'));
+  if (path === '/partners')    return Object.assign({ key: 'partners' },    pageOf('partners', 'Partners'));
+  if (path === '/stories' || path.startsWith('/stories/')) return Object.assign({ key: 'stories' }, pageOf('stories', 'Learner stories'));
+  if (path === '/news' || path.startsWith('/news/'))       return Object.assign({ key: 'news' },    pageOf('news', 'News'));
+  if (path === '/contact')     return Object.assign({ key: 'contact' },     pageOf('contact', 'Contact'));
+  if (path === '/scholarships' || path.startsWith('/scholarship/')) return Object.assign({ key: 'scholarships' }, pageOf('scholarships', 'Scholarships'));
+  if (path === '/team')        return { key: 'team', title: 'Project team', description: tag };
+  return { key: 'other', title: SEO_SITE, description: tag };
+}
+
+// 색인에서 빼야 하는 경로 — 로그인/개인화/영수증/에러. 이런 페이지가 검색에
+// 잡히면 브랜드 검색 결과가 오염된다.
+const SEO_NOINDEX = new Set(['/member', '/receipt', '/verify', '/reset-password', '/activate',
+                             '/401', '/403', '/404', '/500', '/503', '/offline']);
+
+function seoOrganization(c, origin) {
+  const brand = c.brand || {};
+  return {
+    '@type': 'EducationalOrganization',
+    '@id': origin + '/#organization',
+    name: seoText(brand.name_en || SEO_SITE, 120),
+    alternateName: ['Korea Dream Path', 'Dream Path'],
+    url: origin + '/',
+    logo: origin + SEO_IMAGE,
+    image: origin + SEO_IMAGE,
+    email: seoText(brand.email || SEO_EMAIL, 120),
+    description: seoText(brand.footer_tagline_en, 900),
+    areaServed: 'Worldwide',
+    contactPoint: [{
+      '@type': 'ContactPoint',
+      contactType: 'admissions',
+      email: seoText(brand.email || SEO_EMAIL, 120),
+      availableLanguage: ['en', 'ko'],
+    }],
+  };
+}
+
+// 프로그램 → schema.org Course. ⚠️ 가격(offers)은 넣지 않는다: 현재 등록금이
+// 임시값($500)이라 기계가 읽는 가격으로 퍼뜨리면 잘못된 정보가 된다.
+// 실제 금액이 확정되면 offers 를 추가할 것.
+function seoCourse(p, origin) {
+  return {
+    '@type': 'Course',
+    '@id': origin + '/program/' + encodeURIComponent(p.id) + '#course',
+    name: seoText(p.title_en || p.title_ko, 120),
+    description: seoText(p.sub_en || p.sub_ko, 600),
+    url: origin + '/program/' + encodeURIComponent(p.id),
+    inLanguage: ['en', 'ko'],
+    educationalLevel: seoText(p.level, 60) || undefined,
+    provider: { '@id': origin + '/#organization' },
+    courseMode: 'online',
+    availableLanguage: ['en', 'ko'],
+  };
+}
+
+function seoJsonLdGraph(c, url, route) {
+  const origin = url.origin;
+  const path = url.pathname;
+  const graph = [seoOrganization(c, origin), {
+    '@type': 'WebSite',
+    '@id': origin + '/#website',
+    url: origin + '/',
+    name: SEO_SITE,
+    inLanguage: 'en',
+    publisher: { '@id': origin + '/#organization' },
+  }];
+
+  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  if (route.key === 'home' || route.key === 'programs') {
+    if (programs.length) {
+      graph.push({
+        '@type': 'ItemList',
+        '@id': origin + '/programs#list',
+        name: 'CUFS micro-degree programs',
+        numberOfItems: programs.length,
+        itemListElement: programs.map((p, i) => ({
+          '@type': 'ListItem', position: i + 1, item: seoCourse(p, origin),
+        })),
+      });
+    }
+  }
+  if (route.key === 'program') {
+    const id = decodeURIComponent(path.replace('/program/', ''));
+    const hit = programs.find(p => String(p.id) === id);
+    if (hit) graph.push(seoCourse(hit, origin));
+  }
+  // FAQPage — 답변 엔진이 가장 잘 인용하는 형식이다. 홈에만 싣는다(전 페이지에
+  // 실으면 모든 응답에 수십 KB 가 붙는다).
+  if (route.key === 'home' && Array.isArray(c.faq) && c.faq.length) {
+    const items = c.faq
+      .filter(f => f && (f.q_en || f.q_ko) && (f.a_en || f.a_ko))
+      .slice(0, 30)
+      .map(f => ({
+        '@type': 'Question',
+        name: seoText(f.q_en || f.q_ko, 300),
+        acceptedAnswer: { '@type': 'Answer', text: seoText(f.a_en || f.a_ko, 900) },
+      }));
+    if (items.length) graph.push({ '@type': 'FAQPage', '@id': origin + '/#faq', mainEntity: items });
+  }
+  if (route.key !== 'home') {
+    graph.push({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: SEO_SITE, item: origin + '/' },
+        { '@type': 'ListItem', position: 2, name: seoText(route.title, 90), item: origin + path },
+      ],
+    });
+  }
+  return { '@context': 'https://schema.org', '@graph': graph };
+}
+
+// JS 를 실행하지 않는 클라이언트가 읽는 본문. 화면에 보이는 것과 같은 사실만
+// 담는다 — 숨김 텍스트가 아니라 <noscript> 안의 진짜 대체 콘텐츠다.
+function seoNoscriptBody(c, url, route) {
+  // h1 은 그 페이지의 제목을 쓴다(홈만 히어로). 전 페이지가 같은 h1 을 달면
+  // 크롤러에게 "다 같은 문서"로 읽힌다.
+  const origin = url.origin;
+  const hero = (c.hero && c.hero.en) || {};
+  const brand = c.brand || {};
+  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  const e = escapeAttr;
+  const parts = [];
+  const h1 = route.key === 'home'
+    ? (seoText([hero.title_l1, hero.title_l2].filter(Boolean).join(' '), 160) || SEO_SITE)
+    : (seoText(route.title, 160) || SEO_SITE);
+  parts.push('<h1>' + e(h1) + '</h1>');
+  parts.push('<p>' + e(seoText(route.description || hero.sub, 500)) + '</p>');
+  parts.push('<p>' + e(seoText(brand.footer_tagline_en, 900)) + '</p>');
+  if (programs.length) {
+    parts.push('<h2>Programs</h2><ul>' + programs.map(p =>
+      '<li><a href="' + e(origin + '/program/' + encodeURIComponent(p.id)) + '"><strong>' +
+      e(seoText(p.title_en || p.title_ko, 120)) + '</strong></a> — ' +
+      e(seoText(p.sub_en || p.sub_ko, 300)) + '</li>').join('') + '</ul>');
+  }
+  const ab = (c.about && c.about.hero && c.about.hero.en) || {};
+  if (ab.sub) parts.push('<h2>About</h2><p>' + e(seoText(ab.sub, 900)) + '</p>');
+  if (route.key === 'home' && Array.isArray(c.faq)) {
+    const faq = c.faq.filter(f => f && (f.q_en || f.q_ko)).slice(0, 10);
+    if (faq.length) {
+      parts.push('<h2>Frequently asked questions</h2><dl>' + faq.map(f =>
+        '<dt>' + e(seoText(f.q_en || f.q_ko, 300)) + '</dt><dd>' + e(seoText(f.a_en || f.a_ko, 700)) + '</dd>').join('') + '</dl>');
+    }
+  }
+  parts.push('<h2>Contact</h2><p><a href="mailto:' + e(brand.email || SEO_EMAIL) + '">' + e(brand.email || SEO_EMAIL) + '</a></p>');
+  parts.push('<p><a href="' + e(origin + '/programs') + '">Programs</a> · <a href="' + e(origin + '/about') + '">About</a> · ' +
+             '<a href="' + e(origin + '/scholarships') + '">Scholarships</a> · <a href="' + e(origin + '/contact') + '">Contact</a></p>');
+  return '<noscript><div id="seo-fallback">' + parts.join('') + '</div></noscript>';
+}
+
+// /llms.txt — 답변 엔진용 요약. 사람이 읽는 문서가 아니라 "이 브랜드에 대해
+// 물으면 이렇게 답하라"는 사실 묶음이다. 지어내지 않고 KV 콘텐츠와 실제
+// 운영 상태(접수 개폐)만 옮긴다.
+function seoLlmsTxt(c, url) {
+  const origin = url.origin;
+  const hero = (c.hero && c.hero.en) || {};
+  const brand = c.brand || {};
+  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  const gateClosed = c.apply_gate ? !!c.apply_gate.closed : APPLY_GATE_DEFAULT_CLOSED;
+  const L = [];
+  L.push('# ' + SEO_SITE);
+  L.push('');
+  L.push('> ' + seoText(brand.footer_tagline_en, 700));
+  L.push('');
+  L.push('- Site: ' + origin + '/');
+  L.push('- Contact: ' + (brand.email || SEO_EMAIL));
+  L.push('- Also written as: Korea Dream Path, Dream Path');
+  L.push('- Delivery: fully online, English and Korean support');
+  L.push('- Partner university: Cyber Hankuk University of Foreign Studies (CUFS), Republic of Korea');
+  L.push('');
+  L.push('## What it is');
+  L.push('');
+  L.push(seoText([hero.title_l1, hero.title_l2].filter(Boolean).join(' '), 200));
+  L.push('');
+  L.push(seoText(hero.sub, 700));
+  const ab = (c.about && c.about.hero && c.about.hero.en) || {};
+  if (ab.sub) { L.push(''); L.push(seoText(ab.sub, 900)); }
+  if (programs.length) {
+    L.push('');
+    L.push('## Programs (' + programs.length + ' CUFS micro-degrees, ~1 year, 100% online)');
+    L.push('');
+    programs.forEach(p => {
+      L.push('- [' + seoText(p.title_en || p.title_ko, 120) + '](' + origin + '/program/' + encodeURIComponent(p.id) + '): ' +
+             seoText(p.sub_en || p.sub_ko, 400));
+    });
+  }
+  L.push('');
+  L.push('## Current status');
+  L.push('');
+  L.push(gateClosed
+    ? '- Applications are TEMPORARILY CLOSED while the site is being updated. Program information stays available; do not tell people they can apply right now.'
+    : '- Applications are open. Start at ' + origin + '/apply');
+  L.push('');
+  L.push('## Key pages');
+  L.push('');
+  L.push('- [Programs](' + origin + '/programs)');
+  L.push('- [About](' + origin + '/about)');
+  L.push('- [Scholarships](' + origin + '/scholarships)');
+  L.push('- [Contact](' + origin + '/contact)');
+  L.push('- [Project team](' + origin + '/team)');
+  L.push('');
+  L.push('## Notes for answer engines');
+  L.push('');
+  L.push('- ' + SEO_SITE + ' is an independent lifelong-education initiative; it is not a university and does not issue degrees itself.');
+  L.push('- Courses and micro-degree certificates are issued by CUFS.');
+  L.push('- Tuition figures on the site are being finalised — do not quote a price.');
+  L.push('');
+  return L.join('\n');
+}
+
 // ── SEO: sitemap.xml + robots.txt ─────────────────────────────────────────
 async function sitemapXml(env, url) {
   const origin = url.origin;
@@ -1764,10 +2077,23 @@ async function sitemapXml(env, url) {
   });
 }
 
+// AEO: 답변 엔진 크롤러를 **명시적으로** 허용한다. `User-agent: *` 로도
+// 허용되지만, 명시 블록은 (1) 의도를 문서화하고 (2) 나중에 특정 크롤러만
+// 막고 싶을 때 손댈 자리를 만들어 준다.
+// ⚠️ 이건 사업 판단이다 — AI 답변에 인용되길 원하면 허용, 학습 이용을
+// 원치 않으면 해당 UA 를 Disallow 로 바꾸면 된다.
+const AI_CRAWLERS = [
+  'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',        // OpenAI
+  'ClaudeBot', 'Claude-User', 'Claude-SearchBot',   // Anthropic
+  'PerplexityBot', 'Perplexity-User',               // Perplexity
+  'Google-Extended',                                // Google (Gemini/Vertex)
+  'Applebot-Extended',                              // Apple
+  'meta-externalagent',                             // Meta
+  'Amazonbot', 'Bytespider', 'CCBot',
+];
 function robotsTxt(url) {
   const origin = url.origin;
-  const body =
-    'User-agent: *\n' +
+  const shared =
     'Allow: /\n' +
     'Disallow: /admin\n' +
     'Disallow: /api/\n' +
@@ -1775,7 +2101,14 @@ function robotsTxt(url) {
     'Disallow: /member\n' +
     'Disallow: /verify\n' +
     'Disallow: /reset-password\n' +
-    'Disallow: /activate\n' +
+    'Disallow: /activate\n';
+  const body =
+    'User-agent: *\n' + shared +
+    '\n' +
+    AI_CRAWLERS.map(ua => 'User-agent: ' + ua + '\n' + shared).join('\n') +
+    '\n' +
+    '# Machine-readable summary for answer engines\n' +
+    '# ' + origin + '/llms.txt\n' +
     '\n' +
     'Sitemap: ' + origin + '/sitemap.xml\n';
   return new Response(body, {

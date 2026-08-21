@@ -4,6 +4,25 @@
 > 루트 `HANDOFF.md` 와 관리자 위키(`wiki:versions`)에 있다. 여기는
 > **"무엇을 왜 어떻게 했고, 무엇으로 확인했나"** 를 빠르게 훑는 용도다.
 
+## 2026-08-22 · v01.096.00 — SEO / AEO 계층 (크롤러가 읽을 것이 없던 문제)
+- **왜**: 브라우저에서 Babel 이 JSX 를 컴파일하는 SPA 라 **원본 HTML 본문이 89자**였다.
+  구글은 JS 를 실행하지만 답변 엔진 크롤러(GPTBot·ClaudeBot·PerplexityBot)는 대부분 실행하지
+  않는다 → 우리 브랜드에 대해 **인용할 사실이 하나도 없었다**. 게다가 모든 라우트의
+  canonical 이 홈을 가리켜 하위 페이지가 "홈의 중복"으로 선언되고 있었다.
+- **어떻게** (빌드 스텝 없이, HTMLRewriter 로 셸을 가공):
+  ① 라우트별 title/description/canonical/OG + robots(색인 대상만),
+  ② **JSON-LD** — EducationalOrganization · WebSite · ItemList(Course 5) · Course · FAQPage(28) · BreadcrumbList,
+  ③ **`<noscript>` 대체 본문** — 히어로·프로그램·소개·FAQ·연락처(화면과 같은 사실),
+  ④ **`/llms.txt`** — 답변 엔진용 요약(접수 개폐 상태를 실시간 반영),
+  ⑤ robots.txt 에 AI 크롤러 13종 명시 + llms.txt 안내.
+- **확인**: 5개 라우트에서 JSON-LD 파싱 성공 + 타입 확인, noscript 텍스트 89자 → 1,400~5,000자,
+  `/member` noindex, `/about` 고유 canonical·h1, `/llms.txt` 200.
+- **판단**: Course 에 **가격(offers)을 넣지 않았다** — 등록금이 임시값($500)이라 기계 판독
+  가격으로 퍼뜨리면 잘못된 정보가 된다. 실제 금액 확정 후 추가할 것.
+- **덤으로 잡은 것**: 셸이 KV 콘텐츠를 품게 되면서 엣지 캐시(cf-cache-status HIT)가
+  낡은 HTML 을 서빙하는 것을 발견 → `s-maxage=60`. 그리고 schema.org 설명으로 나가는
+  `brand.footer_tagline_en` 이 레거시 "DreamPath Initiative" 로 시작해 KoreaDreamPath 로 교정.
+
 ## 2026-08-22 · v01.095.02 — 수신 주소 대소문자 정규화 (실데이터 검증에서 발견)
 - **왜**: D1 접근이 복구돼 v01.094.01 카운터 수정을 실데이터로 검증하다가,
   `inbound_emails` 에 **`Partner@koreadreampath.com` 5통과 `partner@koreadreampath.com` 7통이

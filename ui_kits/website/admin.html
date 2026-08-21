@@ -3271,12 +3271,40 @@
       if (!selected || selected._loaded) return;
       const cfg = viewToApi(view);
       if (!cfg) return;
+      // Reading an inbound mail stamps read_at server-side, so remember
+      // whether this row was unread BEFORE the fetch answers.
+      const wasUnread = cfg.side === 'inbox' && !selected.read_at;
       const url = '/api/admin/' + (cfg.side === 'inbox' ? 'inbox' : 'sent') + '/' + selected.id;
       fetch(url, { headers: authHeaders() })
         .then(r => r.ok ? r.json() : null)
-        .then(d => d && setSelected({ ...d, _loaded: true }))
+        .then(d => {
+          if (!d) return;
+          setSelected({ ...d, _loaded: true });
+          if (wasUnread && d.read_at) markReadLocally(d.id);
+        })
         .catch(() => {});
     }, [selected]);
+
+    // The server just stamped read_at, but the list rows and the folder
+    // counters came from an earlier fetch — without this the mail you are
+    // reading keeps its unread dot and stays in the unread count.
+    function markReadLocally(id) {
+      setItems(list => list.map(m => (m.id === id && !m.read_at)
+        ? { ...m, read_at: new Date().toISOString() }
+        : m));
+      setCounts(c => (c && c.unread > 0) ? { ...c, unread: c.unread - 1 } : c);
+    }
+
+    // The sidebar unread badges live in the shell, which polls every 60s and
+    // otherwise only refreshes on tab change — so acting on mail inside this
+    // tab left the badge stale. Any list refresh here is a read/trash/spam
+    // signal; tell the shell to re-count. (Skipped on mount: the shell
+    // already fetches when the tab opens.)
+    const mountedRef = useRef(false);
+    useEffect(() => {
+      if (!mountedRef.current) { mountedRef.current = true; return; }
+      window.dispatchEvent(new CustomEvent('dp-mail-counters-changed'));
+    }, [tick, items]);
 
     // Sanitize the body once per message instead of on every re-render — the
     // DOMParser walk is cheap but marketing mail runs to hundreds of nodes.
@@ -8432,7 +8460,14 @@
       }
       refresh();
       const id = setInterval(refresh, 60000);
-      return () => { cancelled = true; clearInterval(id); };
+      // MailboxTab fires this whenever it reads / trashes / un-spams a mail,
+      // so the badge follows the operator's action instead of the poll clock.
+      window.addEventListener('dp-mail-counters-changed', refresh);
+      return () => {
+        cancelled = true;
+        clearInterval(id);
+        window.removeEventListener('dp-mail-counters-changed', refresh);
+      };
     }, [tab]);  // refresh when tab changes (cheap signal that user just acted on a mail)
     const [adminLang, setAdminLang] = useState(() => localStorage.getItem('dp_admin_lang') || 'ko');
     const t = I18N[adminLang] || I18N.en;
@@ -8724,10 +8759,23 @@
               const open = active || expandedGroups.has(g);
               // Anomaly badge — only shown when the group has a real signal
               // worth surfacing in the sidebar (default: nothing, keeps the
-              // sidebar quiet). Currently wired: Mail (total unread).
-              const groupBadge = g === 'Mail' && anomalies.mailUnreadTotal > 0
-                ? anomalies.mailUnreadTotal
-                : null;
+              // sidebar quiet). Currently wired: Mail (unread).
+              //
+              // v01.094.01: count only the accounts that actually have a
+              // sub-tab, and look them up case-insensitively (the API keys are
+              // lowercased; c.inboxes addresses are typed by hand). The raw
+              // API total also includes catch-all mail addressed to accounts
+              // with no tab — folding that in made the group badge disagree
+              // with the sub-badges underneath it and pointed at mail the
+              // operator has no way to open.
+              const unreadFor = (addr) => anomalies.mailUnread[String(addr || '').toLowerCase()] || 0;
+              const managedUnread = g === 'Mail'
+                ? childTabs.reduce((n, tt) => n + unreadFor(tt.account), 0)
+                : 0;
+              const strayUnread = g === 'Mail'
+                ? Math.max(0, (anomalies.mailUnreadTotal || 0) - managedUnread)
+                : 0;
+              const groupBadge = managedUnread > 0 ? managedUnread : null;
               return (
                 <div className="grp" key={g}>
                   <div className={'group-row' + (active ? ' active' : '')}>
@@ -8738,6 +8786,12 @@
                       <i data-lucide={icon} className="gicon" />
                       <span className="glabel">{t.group[g] || g}</span>
                       {groupBadge != null && <span className="gcount alert">{groupBadge}</span>}
+                      {strayUnread > 0 && (
+                        <span className="gcount"
+                          title={'관리 대상이 아닌 주소로 온 안 읽은 메일 ' + strayUnread + '건 (열 수 있는 탭 없음). 사이트 설정 → 메일 주소에 추가하면 탭이 생깁니다.'}>
+                          +{strayUnread}
+                        </span>
+                      )}
                     </button>
                     {!active && childTabs.length > 1 && (
                       <button type="button"
@@ -8753,8 +8807,8 @@
                   {open && childTabs.length > 1 && (
                     <div className="subnav" role="group" aria-label={`${t.group[g] || g} sub-tabs`}>
                       {childTabs.map(tt => {
-                        const subBadge = tt.account && anomalies.mailUnread[tt.account] > 0
-                          ? anomalies.mailUnread[tt.account]
+                        const subBadge = tt.account && unreadFor(tt.account) > 0
+                          ? unreadFor(tt.account)
                           : null;
                         const label = tt.label || t.tab[tt.id] || tt.id;
                         return (

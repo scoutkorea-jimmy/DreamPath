@@ -2086,17 +2086,21 @@ async function handleApi(request, env, url, ctx) {
   // Returns { by_account: { 'info@...': N, ... }, total: N }.
   if (path === '/api/admin/mail/unread-by-account' && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    // v01.094.01: group on LOWER(to_addr). Grouping on the raw column and
+    // lowercasing the key afterwards made two case variants of one address
+    // overwrite each other — the sidebar sub-badge then disagreed with the
+    // group total for reasons nothing in the UI could explain.
     const { results } = await env.DB.prepare(
-      "SELECT to_addr, COUNT(*) AS n FROM inbound_emails " +
+      "SELECT LOWER(to_addr) AS to_addr, COUNT(*) AS n FROM inbound_emails " +
       "WHERE read_at IS NULL AND trashed_at IS NULL AND spam = 0 " +
-      "GROUP BY to_addr"
+      "GROUP BY LOWER(to_addr)"
     ).all();
     const by_account = {};
     let total = 0;
     for (const r of results || []) {
       const k = String(r.to_addr || '').toLowerCase();
       const n = Number(r.n || 0);
-      by_account[k] = n;
+      by_account[k] = (by_account[k] || 0) + n;
       total += n;
     }
     return json({ by_account, total });
@@ -2112,7 +2116,7 @@ async function handleApi(request, env, url, ctx) {
     const onlyUnread = url.searchParams.get('unread') === '1';
     const mode   = url.searchParams.get('mode') || 'inbox';
     const where = []; const binds = [];
-    if (to) { where.push('to_addr = ?'); binds.push(to.toLowerCase()); }
+    if (to) { where.push('LOWER(to_addr) = ?'); binds.push(to.toLowerCase()); }
     if (q)  { where.push('(LOWER(subject) LIKE ? OR LOWER(from_addr) LIKE ? OR LOWER(from_name) LIKE ? OR LOWER(body_text) LIKE ?)'); const pat = '%' + q + '%'; binds.push(pat, pat, pat, pat); }
     if (onlyUnread) where.push('read_at IS NULL');
     if (mode === 'trash')   where.push('trashed_at IS NOT NULL');
@@ -2145,7 +2149,14 @@ async function handleApi(request, env, url, ctx) {
       delete r.body_html;
       decResults.push(r);
     }
-    // Sidebar counters — single shot so the UI doesn't fan out.
+    // Folder counters — single shot so the UI doesn't fan out.
+    // v01.094.01: these must follow the SAME account scope as the list. They
+    // used to count every managed address at once, so a per-account tab that
+    // listed 6 mails showed "받은편지함 21" (the all-mailbox total) next to it.
+    // Search / unread filters deliberately do NOT apply — a folder badge
+    // counts the folder, not the current query.
+    const countScope = to ? ' WHERE LOWER(to_addr) = ?' : '';
+    const countBinds = to ? [to.toLowerCase()] : [];
     const countsRow = await env.DB.prepare(
       "SELECT " +
       "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND spam = 0 THEN 1 ELSE 0 END), 0) AS inbox," +
@@ -2153,8 +2164,8 @@ async function handleApi(request, env, url, ctx) {
       "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND starred = 1 THEN 1 ELSE 0 END), 0) AS starred," +
       "  COALESCE(SUM(CASE WHEN trashed_at IS NULL AND spam = 1 THEN 1 ELSE 0 END), 0) AS spam," +
       "  COALESCE(SUM(CASE WHEN trashed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS trash " +
-      "FROM inbound_emails"
-    ).first();
+      "FROM inbound_emails" + countScope
+    ).bind(...countBinds).first();
     return json({ items: decResults, total: total?.n || 0, limit, offset, counts: countsRow || {} });
   }
   const inboxItemM = path.match(/^\/api\/admin\/inbox\/(\d+)$/);

@@ -386,6 +386,38 @@
     .app-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--scouting-purple); margin: 20px 0 8px; padding-top: 12px; border-top: 1px solid var(--border-hair); }
     .essay-box { background: var(--bg-muted); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--fg-primary); line-height: 1.6; white-space: pre-wrap; margin: 8px 0 4px; }
 
+    /* Mailbox: list / reader split + inline mail body (v01.094).
+       The list is capped so the reader keeps the rest of a wide display. */
+    .mail-grid { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 16px; align-items: flex-start; }
+    /* Sanitized email HTML rendered inline (see sanitizeMailHtml). Every rule
+       is scoped to .mail-body so mail markup can't restyle the admin, and
+       Korean text wraps on word boundaries per the house rule. */
+    .mail-body { font-size: 14px; line-height: 1.75; color: var(--fg-primary); word-break: keep-all; overflow-wrap: break-word; overflow-x: auto; }
+    .mail-body.mail-body-plain { white-space: pre-wrap; font-family: var(--font-sans); }
+    .mail-body p { margin: 0 0 10px; }
+    .mail-body h1, .mail-body h2, .mail-body h3, .mail-body h4, .mail-body h5, .mail-body h6 { line-height: 1.35; margin: 20px 0 8px; color: var(--fg-primary); }
+    .mail-body h1 { font-size: 22px; } .mail-body h2 { font-size: 19px; } .mail-body h3 { font-size: 16px; }
+    .mail-body h4, .mail-body h5, .mail-body h6 { font-size: 14px; }
+    .mail-body a { color: var(--brand-text); text-decoration: underline; overflow-wrap: anywhere; }
+    .mail-body img { max-width: 100%; height: auto; }
+    .mail-body ul, .mail-body ol { margin: 0 0 10px; padding-left: 22px; }
+    .mail-body li { margin: 2px 0; }
+    .mail-body table { border-collapse: collapse; max-width: 100%; }
+    .mail-body td, .mail-body th { padding: 4px 8px; vertical-align: top; text-align: left; }
+    .mail-body blockquote { margin: 10px 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--border-default); color: var(--fg-secondary); }
+    .mail-body code { font-family: var(--font-mono); font-size: 12.5px; background: var(--bg-muted); border-radius: 5px; padding: 1px 5px; }
+    .mail-body pre { font-family: var(--font-mono); font-size: 12.5px; background: var(--bg-muted); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+    .mail-body pre code { background: none; padding: 0; }
+    .mail-body hr { border: 0; border-top: 1px solid var(--border-hair); margin: 16px 0; }
+    /* Fullscreen reader overlay. Capped measure so a 4K panel gives a bigger
+       mail, not a 2000px-wide line of text. */
+    .mail-full { position: fixed; inset: 0; z-index: 2100; background: var(--bg-muted); overflow-y: auto; padding: 24px 24px 80px; }
+    .mail-full-inner { max-width: 1180px; margin: 0 auto; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 16px; padding: 30px 40px 48px; }
+    .mail-full-inner .mail-body { font-size: 15px; }
+    /* Pinned close button — a long marketing mail scrolls the reader toolbar
+       off the top, and Esc alone isn't discoverable. */
+    .mail-full-close { position: fixed; top: 20px; right: 26px; z-index: 2110; background: var(--bg-elevated); box-shadow: 0 6px 24px rgba(0,0,0,0.22); }
+
     /* Responsive: removed — admin is desktop-only. Min-width on body keeps layout intact. */
   </style>
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -3072,6 +3104,89 @@
   // single managed inbox (one tab per account in the sidebar). When omitted,
   // it falls back to the legacy "all inboxes" mode (left in for safety; the
   // sidebar no longer renders this case).
+  // ── Mail body sanitizer (v01.094) ───────────────────────────────────────
+  // Inbound HTML is allowlisted server-side at ingest and again when a single
+  // mail is read (worker.js sanitizeHtml). This is the third pass, in the
+  // browser, because the body is now rendered inline in the admin document
+  // instead of inside a sandboxed iframe: two independent parsers with the
+  // same allowlist means a serialization quirk in one can't hand live markup
+  // to the other. Keep these lists in sync with SANITIZE_* in worker.js.
+  const MAIL_ALLOWED_TAGS = new Set([
+    'p', 'br', 'hr', 'div', 'span',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'strong', 'em', 'u', 's', 'b', 'i',
+    'ul', 'ol', 'li',
+    'a', 'blockquote', 'code', 'pre', 'img',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th',
+    'details', 'summary',
+  ]);
+  // Removed with their content (executable / framing / form surface).
+  // Everything else off the allowlist is unwrapped, keeping its text.
+  const MAIL_DROP_TAGS = new Set([
+    'script', 'style', 'iframe', 'object', 'embed', 'form',
+    'input', 'button', 'select', 'option', 'textarea', 'link', 'meta',
+    'svg', 'math', 'base', 'frame', 'frameset', 'applet', 'template',
+  ]);
+  const MAIL_ATTRS_BY_TAG = {
+    a:   ['href', 'title'],
+    img: ['src', 'alt', 'title', 'width', 'height'],
+    td:  ['colspan', 'rowspan'],
+    th:  ['colspan', 'rowspan'],
+  };
+  function mailUrlOk(value) {
+    const v = String(value || '').trim().toLowerCase();
+    if (!v) return false;
+    if (v.startsWith('#') || v.startsWith('/') || v.startsWith('./') || v.startsWith('../')) return true;
+    if (v.startsWith('http://') || v.startsWith('https://')) return true;
+    if (v.startsWith('mailto:') || v.startsWith('tel:')) return true;
+    // data: images only — data:text/html would be a script vector.
+    if (v.startsWith('data:image/')) return true;
+    return false;
+  }
+  function sanitizeMailHtml(html) {
+    try {
+      // DOMParser builds an inert document: no script runs, no image or font
+      // is fetched while we walk it.
+      const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+      const walk = (node) => {
+        for (const el of Array.from(node.childNodes)) {
+          if (el.nodeType === 8) { el.remove(); continue; }   // comment
+          if (el.nodeType !== 1) continue;                    // text stays
+          const tag = el.tagName.toLowerCase();
+          if (MAIL_DROP_TAGS.has(tag)) { el.remove(); continue; }
+          walk(el);   // clean the subtree before deciding this element's fate
+          if (!MAIL_ALLOWED_TAGS.has(tag)) { el.replaceWith(...Array.from(el.childNodes)); continue; }
+          const allowed = MAIL_ATTRS_BY_TAG[tag] || [];
+          for (const a of Array.from(el.attributes)) {
+            const name = a.name.toLowerCase();
+            if (!allowed.includes(name)) { el.removeAttribute(a.name); continue; }
+            if ((name === 'href' || name === 'src') && !mailUrlOk(a.value)) el.removeAttribute(a.name);
+          }
+          // Links leave the admin in a new tab and carry no referrer or
+          // ranking signal; images never phone home with the admin URL.
+          if (tag === 'a' && el.getAttribute('href')) {
+            el.setAttribute('target', '_blank');
+            el.setAttribute('rel', 'noopener noreferrer nofollow');
+          }
+          if (tag === 'img') {
+            // An <img> whose src was just stripped (data:text/html, javascript:)
+            // would render as a broken-image glyph in the middle of the mail —
+            // drop the element instead of leaving the artefact.
+            if (!el.getAttribute('src')) { el.remove(); continue; }
+            el.setAttribute('loading', 'lazy');
+            el.setAttribute('referrerpolicy', 'no-referrer');
+          }
+        }
+      };
+      walk(doc.body);
+      return doc.body.innerHTML;
+    } catch {
+      // Fail closed — an unparseable body shows the plain-text fallback
+      // rather than raw markup.
+      return '';
+    }
+  }
+
   function MailboxTab({ c, account }) {
     const inboxes = (c && Array.isArray(c.inboxes)) ? c.inboxes.filter(b => b && b.address && b.enabled !== false) : [];
     const lockedAccount = account || null;             // when set, hide free-form filter + lock From
@@ -3085,6 +3200,9 @@
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [selected, setSelected] = useState(null);
     const [tick, setTick] = useState(0);
+    // Fullscreen reading mode. The two-pane grid gives the body column ~700px
+    // on a 4K panel, which is a lot of wasted glass for a long mail.
+    const [full, setFull] = useState(false);
     // Bulk-select state — Set of message ids checked in the current list.
     // Cleared whenever the visible list changes (view / filter / search /
     // unreadOnly / refresh) so stale selections don't survive a context flip.
@@ -3159,6 +3277,27 @@
         .then(d => d && setSelected({ ...d, _loaded: true }))
         .catch(() => {});
     }, [selected]);
+
+    // Sanitize the body once per message instead of on every re-render — the
+    // DOMParser walk is cheap but marketing mail runs to hundreds of nodes.
+    const safeBody = useMemo(
+      () => (selected && selected.body_html ? sanitizeMailHtml(selected.body_html) : ''),
+      [selected && selected.id, selected && selected.body_html]
+    );
+
+    // Esc closes the fullscreen reader, and page scroll is locked while it's
+    // open so the admin canvas doesn't scroll away underneath the overlay.
+    useEffect(() => {
+      if (!full) return;
+      const onKey = e => { if (e.key === 'Escape') setFull(false); };
+      window.addEventListener('keydown', onKey);
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    }, [full]);
+    // Trashing a mail or switching folders clears `selected` — don't leave an
+    // empty overlay standing.
+    useEffect(() => { if (!selected) setFull(false); }, [selected]);
 
     async function patch(id, body) {
       const r = await fetch('/api/admin/inbox/' + id, {
@@ -3426,6 +3565,108 @@
 
     const sideOfView = (viewToApi(view) || {}).side || 'inbox';
 
+    // The reading pane, rendered in two places — inline in the two-pane grid
+    // and (isFull) inside the fullscreen overlay — so the markup lives once.
+    const renderReader = (isFull) => (
+                <>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
+                        {sideOfView === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
+                      </div>
+                      <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
+                      <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
+                        <strong>{sideOfView === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
+                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{sideOfView === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
+                        {' · '}
+                        <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
+                      </div>
+                      {sideOfView !== 'inbox' && selected.cc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>
+                          <strong>CC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.cc}</code>
+                        </div>
+                      )}
+                      {sideOfView !== 'inbox' && selected.bcc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
+                          <strong>BCC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.bcc}</code>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                      <button type="button" className="icon-btn" onClick={() => setFull(f => !f)}
+                        title={isFull ? '전체화면 닫기 (Esc)' : '전체화면으로 보기'}>
+                        {isFull ? '⤡ 창 모드' : '⛶ 전체화면'}
+                      </button>
+                      {sideOfView === 'inbox' && !selected.trashed_at && (
+                        <>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { starred: !selected.starred })} title="별표">
+                            {selected.starred ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}
+                          </button>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { spam: !selected.spam })}>
+                            {selected.spam ? '스팸 해제' : '스팸으로'}
+                          </button>
+                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { read: !selected.read_at })}>
+                            {selected.read_at ? '안 읽음으로' : '읽음 처리'}
+                          </button>
+                          <button type="button" className="btn-add" onClick={() => startReply(selected)} style={{padding:'6px 14px'}}>↩ 답장</button>
+                        </>
+                      )}
+                      {selected.trashed_at && (
+                        <>
+                          <button type="button" className="icon-btn" onClick={() => restore(selected.id, sideOfView)}>복구</button>
+                          <button type="button" className="icon-btn danger" onClick={() => purge(selected.id, sideOfView)}>영구 삭제</button>
+                        </>
+                      )}
+                      {!selected.trashed_at && (
+                        <button type="button" className="icon-btn danger" onClick={() => trash(selected.id, sideOfView)}>휴지통으로</button>
+                      )}
+                    </div>
+                  </div>
+                  {selected.attachments && selected.attachments.length > 0 && (
+                    <div style={{padding:'10px 14px',background:'var(--bg-muted)',borderRadius:10,marginBottom:14}}>
+                      <div style={{fontSize:11,color:'var(--fg-muted)',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:8}}>
+                        첨부파일 ({selected.attachments.length})
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                        {selected.attachments.map(a => (
+                          <button key={a.id} type="button" onClick={() => downloadAttachment(a)}
+                            style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8,cursor:'pointer',font:'inherit',color:'inherit',textAlign:'left'}}>
+                            <i data-lucide="paperclip" width="14" height="14" style={{color:'var(--fg-muted)'}} />
+                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>{a.filename}</span>
+                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{a.mime}</span>
+                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{(a.size / 1024).toFixed(0)} KB</span>
+                            <span style={{color:'var(--brand-text)'}}>↓</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Prefer rich HTML when present (always true for outbound
+                      sent via the new compose flow); fall back to plain text
+                      for inbound messages that only carried text/plain.
+
+                      v01.094: this used to be <iframe sandbox="" srcdoc={...}>.
+                      Chrome painted its "이 콘텐츠는 차단되어 있습니다" frame
+                      placeholder over it, so the operator saw no mail at all —
+                      and nothing inside a blocked frame is recoverable from
+                      here. The markup is now rendered inline, after a third
+                      sanitize pass (sanitizeMailHtml above; the worker already
+                      allowlists at ingest and again on read). Inline can't be
+                      frame-blocked, follows the admin theme, and grows to the
+                      body's natural height. */}
+                  {safeBody
+                    ? <div className="mail-body" dangerouslySetInnerHTML={{ __html: safeBody }} />
+                    : selected.body_text
+                      ? <div className="mail-body mail-body-plain">{selected.body_text}</div>
+                      : <div style={{color:'var(--fg-muted)',fontStyle:'italic'}}>(본문 없음)</div>}
+                  {selected.error && (
+                    <div role="alert" style={{marginTop:14,padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13}}>
+                      <strong>발송 실패:</strong> {selected.error}
+                    </div>
+                  )}
+                </>
+    );
+
     return (
       <>
         {/* Folder tabs + actions. The "받은 / 보낸" split is the primary
@@ -3526,8 +3767,8 @@
             </div>
           )}
 
-          <div className="grid-2" style={{alignItems:'flex-start',gap:16}}>
-            <div className="card" style={{padding:0,maxHeight:'70vh',overflowY:'auto'}}>
+          <div className="mail-grid">
+            <div className="card" style={{padding:0,maxHeight:'calc(100vh - 300px)',overflowY:'auto'}}>
               {/* Select-all header — only when there's at least one row */}
               {items.length > 0 && (
                 <div style={{padding:'8px 16px',borderBottom:'1px solid var(--border-default)',background:'var(--bg-muted)',display:'flex',alignItems:'center',gap:8,position:'sticky',top:0,zIndex:2}}>
@@ -3592,103 +3833,22 @@
                   })}
             </div>
 
-            <div className="card" style={{minHeight:'70vh'}}>
-              {!selected ? (
-                <div style={{textAlign:'center',color:'var(--fg-muted)',padding:'80px 20px'}}>왼쪽에서 메일을 선택하세요.</div>
-              ) : (
-                <>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
-                        {sideOfView === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
-                      </div>
-                      <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
-                      <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
-                        <strong>{sideOfView === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
-                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{sideOfView === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
-                        {' · '}
-                        <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
-                      </div>
-                      {sideOfView !== 'inbox' && selected.cc && (
-                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>
-                          <strong>CC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.cc}</code>
-                        </div>
-                      )}
-                      {sideOfView !== 'inbox' && selected.bcc && (
-                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
-                          <strong>BCC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.bcc}</code>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                      {sideOfView === 'inbox' && !selected.trashed_at && (
-                        <>
-                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { starred: !selected.starred })} title="별표">
-                            {selected.starred ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}
-                          </button>
-                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { spam: !selected.spam })}>
-                            {selected.spam ? '스팸 해제' : '스팸으로'}
-                          </button>
-                          <button type="button" className="icon-btn" onClick={() => patch(selected.id, { read: !selected.read_at })}>
-                            {selected.read_at ? '안 읽음으로' : '읽음 처리'}
-                          </button>
-                          <button type="button" className="btn-add" onClick={() => startReply(selected)} style={{padding:'6px 14px'}}>↩ 답장</button>
-                        </>
-                      )}
-                      {selected.trashed_at && (
-                        <>
-                          <button type="button" className="icon-btn" onClick={() => restore(selected.id, sideOfView)}>복구</button>
-                          <button type="button" className="icon-btn danger" onClick={() => purge(selected.id, sideOfView)}>영구 삭제</button>
-                        </>
-                      )}
-                      {!selected.trashed_at && (
-                        <button type="button" className="icon-btn danger" onClick={() => trash(selected.id, sideOfView)}>휴지통으로</button>
-                      )}
-                    </div>
-                  </div>
-                  {selected.attachments && selected.attachments.length > 0 && (
-                    <div style={{padding:'10px 14px',background:'var(--bg-muted)',borderRadius:10,marginBottom:14}}>
-                      <div style={{fontSize:11,color:'var(--fg-muted)',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:8}}>
-                        첨부파일 ({selected.attachments.length})
-                      </div>
-                      <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                        {selected.attachments.map(a => (
-                          <button key={a.id} type="button" onClick={() => downloadAttachment(a)}
-                            style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8,cursor:'pointer',font:'inherit',color:'inherit',textAlign:'left'}}>
-                            <i data-lucide="paperclip" width="14" height="14" style={{color:'var(--fg-muted)'}} />
-                            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13}}>{a.filename}</span>
-                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{a.mime}</span>
-                            <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>{(a.size / 1024).toFixed(0)} KB</span>
-                            <span style={{color:'var(--brand-text)'}}>↓</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {/* Prefer rich HTML when present (always true for outbound
-                      sent via the new compose flow); fall back to plain text
-                      for inbound messages that only carried text/plain.
-                      In dark mode we prepend a small style block so the
-                      sandboxed iframe doesn't render a glaring white slab
-                      against the dark admin canvas. */}
-                  {selected.body_html
-                    ? <iframe sandbox="" title="Email body"
-                        srcDoc={(document.documentElement.getAttribute('data-theme') === 'dark'
-                          ? '<style>:root{color-scheme:dark}html,body{background:#15131C;color:#F2F0F7}a{color:#C7A5FF}blockquote{border-left:3px solid #3A3842;padding-left:12px;color:#B8B5C2}code,pre{background:#1F1D29;color:#F2F0F7}img{max-width:100%}</style>'
-                          : '<style>html,body{background:#fff;color:#15131A}img{max-width:100%}</style>') + selected.body_html}
-                        style={{width:'100%',minHeight:400,border:'1px solid var(--border-hair)',borderRadius:8,background:'var(--bg-elevated)'}} />
-                    : selected.body_text
-                      ? <div style={{whiteSpace:'pre-wrap',lineHeight:1.7,fontSize:14,color:'var(--fg-primary)',fontFamily:'var(--font-sans)'}}>{selected.body_text}</div>
-                      : <div style={{color:'var(--fg-muted)',fontStyle:'italic'}}>(본문 없음)</div>}
-                  {selected.error && (
-                    <div role="alert" style={{marginTop:14,padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:8,fontSize:13}}>
-                      <strong>발송 실패:</strong> {selected.error}
-                    </div>
-                  )}
-                </>
-              )}
+            <div className="card" style={{minHeight:'calc(100vh - 300px)'}}>
+              {!selected
+                ? <div style={{textAlign:'center',color:'var(--fg-muted)',padding:'80px 20px'}}>왼쪽에서 메일을 선택하세요.</div>
+                : renderReader(false)}
             </div>
           </div>
+
+          {/* Fullscreen reader (v01.094). The two-pane grid leaves the body
+              column narrow on a 4K display; this blows the selected mail up
+              to the full viewport. Esc or the toolbar button closes it. */}
+          {full && selected && (
+            <div className="mail-full" role="dialog" aria-modal="true" aria-label="메일 전체화면 보기">
+              <button type="button" className="icon-btn mail-full-close" onClick={() => setFull(false)} title="닫기 (Esc)">✕ 닫기</button>
+              <div className="mail-full-inner">{renderReader(true)}</div>
+            </div>
+          )}
           </>
         )}
 

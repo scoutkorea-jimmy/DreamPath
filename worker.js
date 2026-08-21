@@ -2171,6 +2171,11 @@ async function handleApi(request, env, url, ctx) {
       }
       // v01.067 (Phase 3): decrypt subject + body_text + body_html.
       await decryptEmailRow(env, row);
+      // v01.094: re-sanitize on read. Ingest already allowlists the body
+      // (sanitized_at), but legacy rows predate that pass and the admin now
+      // renders this HTML inline instead of inside a sandboxed iframe — so
+      // the read path must not depend on how old the row is.
+      if (row.body_html) row.body_html = await sanitizeHtml(String(row.body_html));
       // v01.067 + v01.065 P0-3: read-audit one row per single inbound view.
       // The mailbox is one of the highest-PII surfaces — single-record
       // reads are high-signal forensic events.
@@ -2316,6 +2321,9 @@ async function handleApi(request, env, url, ctx) {
     if (!row) return json({ error: 'not_found' }, 404);
     // v01.067 (Phase 3): decrypt subject + body.
     await decryptEmailRow(env, row);
+    // v01.094: same read-time allowlist pass as the inbound reader — the
+    // admin renders sent bodies inline too.
+    if (row.body_html) row.body_html = await sanitizeHtml(String(row.body_html));
     const { results: atts } = await env.DB.prepare(
       'SELECT id, filename, mime, size FROM email_attachments WHERE side = ? AND email_id = ? ORDER BY id ASC'
     ).bind('outbound', sentId).all();

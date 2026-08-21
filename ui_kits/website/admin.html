@@ -5383,7 +5383,32 @@
   // ---- Top notice banner --------------------------------------------------
   function NoticeTab({ c, set }) {
     const n = c.notice || {};
+    const eg = (c && c.entry_gate) || {};
+    const egOn = eg.enabled === true;   // 기본값 false (content-store 기본과 일치)
     return (
+      <>
+      {/* 진입 안내 게이트 — 접속 시마다 뜨는 전체화면 고지 모달. 2026-08-22
+          운영자 요청으로 꺼둔 상태이며, 여기서 다시 켤 수 있다. */}
+      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>진입 안내 게이트 (전체화면 고지) <span style={{fontSize:12,fontWeight:700,marginLeft:8,padding:'2px 10px',borderRadius:999,background: egOn ? 'var(--state-warning-bg)' : 'var(--bg-muted)',color: egOn ? 'var(--state-warning)' : 'var(--fg-muted)'}}>{egOn ? '표시 중' : '꺼짐'}</span></h3></summary>
+        <p style={{fontSize:13,color:'var(--fg-muted)',margin:'4px 0 14px',lineHeight:1.7}}>
+          켜면 방문자가 <strong>접속할 때마다</strong> 전체화면 안내 모달을 보고, 동의 체크 후에만 사이트로 들어갑니다.
+          정보가 확정되지 않은 기간에만 쓰는 임시 게이트입니다.
+        </p>
+        <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,fontSize:14,fontWeight:600}}>
+          <input type="checkbox" checked={egOn} onChange={e => set(['entry_gate','enabled'], e.target.checked)} />
+          진입 안내 게이트 표시
+        </label>
+        <div className="grid-2 tight">
+          <Text label="제목 (KO)" value={eg.title_ko} onChange={v => set(['entry_gate','title_ko'], v)} lang="ko" />
+          <Text label="제목 (EN)" value={eg.title_en} onChange={v => set(['entry_gate','title_en'], v)} lang="en" />
+          <Area label="본문 (KO)" value={eg.body_ko} onChange={v => set(['entry_gate','body_ko'], v)} rows={4} lang="ko" />
+          <Area label="본문 (EN)" value={eg.body_en} onChange={v => set(['entry_gate','body_en'], v)} rows={4} lang="en" />
+          <Text label="체크 라벨 (KO)" value={eg.check_ko} onChange={v => set(['entry_gate','check_ko'], v)} lang="ko" />
+          <Text label="체크 라벨 (EN)" value={eg.check_en} onChange={v => set(['entry_gate','check_en'], v)} lang="en" />
+          <Text label="입장 버튼 (KO)" value={eg.button_ko} onChange={v => set(['entry_gate','button_ko'], v)} lang="ko" />
+          <Text label="입장 버튼 (EN)" value={eg.button_en} onChange={v => set(['entry_gate','button_en'], v)} lang="en" />
+        </div>
+      </details>
       <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top notice banner</h3></summary>
         <p className="desc">A diagonal-stripe banner shown at the very top of every page on the public site. Use it for "under development" notices, launch countdowns, or maintenance windows.</p>
         <div className="grid-2 tight">
@@ -5405,6 +5430,7 @@
           <Text label="Message (EN)" value={n.en || ''} onChange={v => set(['notice','en'], v)} lang="en" />
         </div>
       </details>
+      </>
     );
   }
 
@@ -6245,7 +6271,32 @@
       </>
     );
   }
-  function ApplyHeroTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply" label="지원 폼 히어로 (헤더)" />; }
+  function ApplyHeroTab({ c, set }) {
+    const g = (c && c.apply_gate) || {};
+    const closed = g.closed !== false;   // 기본값은 '중단' (content-store 기본과 일치)
+    return (
+      <>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>신청 접수 상태 <span style={{fontSize:12,fontWeight:700,marginLeft:8,padding:'2px 10px',borderRadius:999,background: closed ? 'var(--state-danger-bg)' : 'var(--state-success-bg)',color: closed ? 'var(--state-danger)' : 'var(--state-success)'}}>{closed ? '접수 중단' : '접수 중'}</span></h3></summary>
+          <p style={{fontSize:13,color:'var(--fg-muted)',margin:'4px 0 14px',lineHeight:1.7}}>
+            체크하면 <strong>지원 폼이 안내 화면으로 바뀌고</strong>, 서버도 신청 관련 제출을 모두 거절합니다
+            (신규 지원서 · 지원서 파일 업로드 · 마이페이지의 접수번호/합격증/서류/결제 제출).
+            이미 제출된 신청 내역과 관리자 검토는 영향받지 않습니다.
+          </p>
+          <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,fontSize:14,fontWeight:600}}>
+            <input type="checkbox" checked={closed} onChange={e => set(['apply_gate','closed'], e.target.checked)} />
+            신청 접수 중단 (체크 해제 = 접수 재개)
+          </label>
+          <div className="grid-2 tight">
+            <Text label="안내 제목 (KO)" value={g.title_ko} onChange={v => set(['apply_gate','title_ko'], v)} lang="ko" />
+            <Text label="안내 제목 (EN)" value={g.title_en} onChange={v => set(['apply_gate','title_en'], v)} lang="en" />
+            <Area label="안내 본문 (KO)" value={g.body_ko} onChange={v => set(['apply_gate','body_ko'], v)} rows={4} lang="ko" />
+            <Area label="안내 본문 (EN)" value={g.body_en} onChange={v => set(['apply_gate','body_en'], v)} rows={4} lang="en" />
+          </div>
+        </details>
+        <PageHeroText c={c} set={set} pageKey="apply" label="지원 폼 히어로 (헤더)" />
+      </>
+    );
+  }
   function ApplyDoneTab({ c, set }) { return <PageHeroText c={c} set={set} pageKey="apply_done" label="지원 완료 히어로 (헤더)" />; }
   function MyPageHeroTab({ c, set }) { return (<><PageHeroText c={c} set={set} pageKey="member" label="회원 로그인 안내 히어로 (헤더)" /><PageHeroText c={c} set={set} pageKey="mypage" label="마이페이지 히어로 (헤더)" /></>); }
   // Scholarships = a BOARD (게시판) the operator posts to. Like News, the posts

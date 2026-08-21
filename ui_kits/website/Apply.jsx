@@ -345,6 +345,46 @@ function Apply({ lang, c, go }) {
   const hbApply = window.useHeroBg((c && c.page_heros && c.page_heros.apply) || {});
   const hbDone  = window.useHeroBg((c && c.page_heros && c.page_heros.apply_done) || {});
 
+  // 접수 동결 — c.apply_gate.closed 가 켜져 있으면 폼을 아예 렌더하지 않고
+  // 안내만 보여준다. 이 화면은 안내이지 방어선이 아니다: 같은 플래그로
+  // worker 가 POST /api/applications 를 503 으로 거절한다.
+  const gate = (c && c.apply_gate) || {};
+  if (gate.closed) {
+    const gTitle = (isKo ? gate.title_ko : gate.title_en)
+      || (isKo ? '신청 접수가 일시 중단되었습니다' : 'Applications are temporarily closed');
+    const gBody = (isKo ? gate.body_ko : gate.body_en) || '';
+    return (
+      <div data-screen-label="Apply · Closed">
+        <div className={('phead ' + hbApply.cls).trim()} style={hbApply.style}>
+          <div className="inner">
+            <div className="sec-kicker">{isKo ? '접수 중단' : 'APPLICATIONS CLOSED'}</div>
+            <h1 className={isKo ? '' : 'en'}>{gTitle}</h1>
+          </div>
+        </div>
+        <section className="section">
+          <div className="container-narrow">
+            <div className="apply-card" style={{textAlign:'center'}}>
+              <div style={{width:72,height:72,borderRadius:'50%',background:'var(--state-warning-bg)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+                <i data-lucide="pause" width="34" height="34" strokeWidth="1.75" style={{color:'var(--state-warning)'}}></i>
+              </div>
+              {gBody && (
+                <p style={{color:'var(--fg-secondary)',fontSize:16,lineHeight:1.7,maxWidth:600,margin:'0 auto 24px',whiteSpace:'pre-line',wordBreak:'keep-all'}}>{gBody}</p>
+              )}
+              <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+                <button className="btn btn-primary" type="button" onClick={() => go && go('programs')}>
+                  {isKo ? '프로그램 살펴보기' : 'Browse programs'} →
+                </button>
+                <button className="btn btn-secondary" type="button" onClick={() => go && go('contact')}>
+                  {isKo ? '문의하기' : 'Contact us'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div data-screen-label="Apply · Complete">

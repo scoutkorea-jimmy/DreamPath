@@ -161,8 +161,14 @@ function MemberOverview({ go, isKo, c, unread, setSection }) {
       <div className="member-card">
         <div className="sec-kicker">{isKo ? '01 · 지원' : '01 · APPLY'}</div>
         <h3>{isKo ? '프로그램 지원하기' : 'Apply for a program'}</h3>
-        <p>{isKo ? '관심 있는 프로그램을 선택하고 지원서를 제출하세요.' : 'Pick a program and submit your application.'}</p>
-        <button className="btn btn-primary" onClick={() => go('apply')}>{isKo ? '지원 시작' : 'Start'} →</button>
+        {/* 접수 동결 중에는 "지원 시작"을 눌러 중단 안내를 만나기 전에 여기서 알린다 */}
+        <p>{applyFrozen(c)
+          ? (isKo ? '현재 신청 접수가 일시 중단되어 있습니다. 접수가 다시 열리면 안내드리겠습니다.'
+                  : 'Applications are temporarily closed. We will post an update when intake reopens.')
+          : (isKo ? '관심 있는 프로그램을 선택하고 지원서를 제출하세요.' : 'Pick a program and submit your application.')}</p>
+        <button className="btn btn-primary" onClick={() => go('apply')} disabled={applyFrozen(c)}>
+          {applyFrozen(c) ? (isKo ? '접수 중단' : 'Closed') : (isKo ? '지원 시작' : 'Start')} {applyFrozen(c) ? '' : '→'}
+        </button>
       </div>
       <div className="member-card">
         <div className="sec-kicker">{isKo ? '02 · 커리어' : '02 · CAREER'}</div>
@@ -469,6 +475,21 @@ function MemberApplications({ isKo, c }) {
   );
 }
 
+// 접수 동결(c.apply_gate.closed) 판정 + 서버 거절 문구. worker 가 학생측
+// 제출을 503 applications_closed 로 막으므로, 화면도 같은 말을 해야 한다 —
+// 안 그러면 "제출에 실패했습니다"라는 원인 불명 오류로 보인다.
+function applyFrozen(c) {
+  return !!(c && c.apply_gate && c.apply_gate.closed);
+}
+async function frozenMessage(res, isKo) {
+  if (!res || res.status !== 503) return null;
+  const d = await res.clone().json().catch(() => ({}));
+  if (d.error !== 'applications_closed') return null;
+  return isKo
+    ? '신청 접수가 일시 중단되어 지금은 제출할 수 없습니다. 접수가 다시 열리면 안내드리겠습니다.'
+    : 'Applications are temporarily closed, so this step cannot be submitted right now.';
+}
+
 // 신청 한 건의 단계별 진행 화면. 상단에 고유번호 + 진행 트래커, 하단에
 // 현재 status에 맞는 액션 패널을 렌더한다.
 function ApplicationPipeline({ app, c, isKo, onChange }) {
@@ -510,6 +531,18 @@ function ApplicationPipeline({ app, c, isKo, onChange }) {
               }}>{done ? '✓ ' : ''}{isKo ? s.ko : s.en}</span>
             );
           })}
+        </div>
+      )}
+
+      {/* 접수 동결 안내 — 버튼을 눌러보고 나서야 알게 되지 않도록 위에 둔다 */}
+      {applyFrozen(c) && !isRejected && !isCancelled && (
+        <div role="status" style={{margin:'0 0 12px',padding:'12px 14px',background:'var(--state-warning-bg)',color:'var(--state-warning)',borderRadius:10,fontSize:13,lineHeight:1.6,wordBreak:'keep-all'}}>
+          <strong>{isKo ? '신청 접수 일시 중단' : 'Applications temporarily closed'}</strong>
+          <div style={{marginTop:4}}>
+            {isKo
+              ? '홈페이지 정보를 최신화하는 동안 다음 단계 제출이 잠시 멈춰 있습니다. 이미 제출하신 내용은 그대로 보관됩니다.'
+              : 'Submissions are paused while we update the site. Everything you have already submitted is kept as is.'}
+          </div>
         </div>
       )}
 
@@ -577,6 +610,8 @@ function CufsGuidePanel({ app, isKo, onChange }) {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ cufs_reg_no: regNo.trim() }),
       });
+      const frozen = await frozenMessage(r, isKo);
+      if (frozen) { setErr(frozen); setBusy(false); return; }
       if (!r.ok) throw new Error('http_' + r.status);
       onChange && onChange();
     } catch (e) { setErr(isKo ? '제출에 실패했습니다. 다시 시도해 주세요.' : 'Submission failed. Please try again.'); }
@@ -645,6 +680,8 @@ function AdmissionPanel({ app, isKo, onChange }) {
     setSubmitting(true); setErr('');
     try {
       const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/admission', { method: 'POST' });
+      const frozen = await frozenMessage(r, isKo);
+      if (frozen) { setErr(frozen); setSubmitting(false); return; }
       if (!r.ok) throw new Error('http');
       onChange && onChange();
     } catch (e) { setErr(isKo ? '제출에 실패했습니다.' : 'Submission failed.'); }
@@ -681,6 +718,8 @@ function DocumentsPanel({ app, isKo, onChange }) {
     setSubmitting(true); setErr('');
     try {
       const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/documents', { method: 'POST' });
+      const frozen = await frozenMessage(r, isKo);
+      if (frozen) { setErr(frozen); setSubmitting(false); return; }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
         if (d.error === 'missing_documents') { setErr(isKo ? '서류 3종을 모두 업로드해야 제출할 수 있습니다.' : 'Upload all three documents before submitting.'); }
@@ -735,6 +774,8 @@ function PaymentPanel({ app, program, isKo, onChange }) {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ consents, card_last4: last4, lang: isKo ? 'ko' : 'en' }),
       });
+      const frozen = await frozenMessage(r, isKo);
+      if (frozen) { setErr(frozen); setBusy(false); return; }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
         if (d.error === 'tuition_not_set') setErr(isKo ? '등록금이 설정되지 않았습니다. 관리자에게 문의해 주세요.' : 'Tuition is not set. Please contact the team.');

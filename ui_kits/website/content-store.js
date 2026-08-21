@@ -659,7 +659,11 @@
     // gate — the operator flips enabled:false (admin → 콘텐츠) once the site
     // is officially public, with no redeploy needed.
     entry_gate: {
-      enabled: true,
+      // 2026-08-22: operator turned the notice off for the content-refresh
+      // round. The KV blob carries no entry_gate key, so this default IS the
+      // live value — flip it back here (or via admin → 설정 → 공지) to show
+      // the gate again with fresh copy.
+      enabled: false,
       title_ko: '홈페이지 정식 공개 안내',
       title_en: 'Preview Notice',
       body_ko: '본 홈페이지는 6월 말 정식 공개 운영 예정입니다. 현재 제공되는 정보는 최종 확정 정보가 아니며 일부 변경될 수 있으니 참고 부탁드립니다.',
@@ -668,6 +672,20 @@
       check_en: 'I have read and understood the notice above.',
       button_ko: '확인하고 입장하기',
       button_en: 'Acknowledge & enter',
+    },
+    // ─── Application intake gate (신청 접수 중단 스위치) ──────────────────
+    // closed:true freezes every applicant-side submission — the public Apply
+    // form, the API behind it, and the member-page pipeline steps (접수번호 /
+    // 합격증 / 서류 / 결제). The worker enforces the same flag, so hiding the
+    // form is not the whole story: a replayed POST is refused too.
+    // Flip it in admin → 페이지·콘텐츠 → 지원. Operator turned it on
+    // 2026-08-22 for the site-refresh round.
+    apply_gate: {
+      closed: true,
+      title_ko: '신청 접수가 일시 중단되었습니다',
+      title_en: 'Applications are temporarily closed',
+      body_ko: '홈페이지 정보를 최신화하는 동안 신청 접수를 잠시 멈춰 두었습니다. 접수가 다시 열리면 이 페이지에서 안내드리겠습니다. 프로그램 정보는 그대로 열람하실 수 있습니다.',
+      body_en: 'We have paused applications while we update the site. This page will be updated as soon as intake reopens. Program information remains available to browse.',
     },
     // ─── Homepage banner ads (popup modal) ──────────────────────────────
     // Up to 3 image banners shown in a modal on the first homepage load of a

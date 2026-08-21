@@ -492,6 +492,36 @@ async function readContentFromKv(env) {
   }
 }
 
+// ── Application intake gate ──────────────────────────────────────────────
+// c.apply_gate.closed freezes every applicant-side submission. Hiding the
+// form in the SPA is not enough — the endpoints below are public (or
+// session-authed) and a replayed POST would sail straight through.
+//
+// ⚠️ Mirror of DEFAULT_CONTENT.apply_gate.closed in content-store.js. The
+// SPA merges its defaults over the KV blob; the worker reads the KV blob
+// raw. If these two disagree, the form and the API disagree — the visitor
+// fills in a page that the server then refuses. Move them together.
+const APPLY_GATE_DEFAULT_CLOSED = true;
+async function applyIntakeClosed(env) {
+  try {
+    const c = await readContentFromKv(env);
+    const g = c && c.apply_gate;
+    // Key absent → fall back to the shared default rather than guessing open.
+    if (!g || typeof g.closed === 'undefined') return APPLY_GATE_DEFAULT_CLOSED;
+    return !!g.closed;
+  } catch {
+    // KV unreachable: hold the freeze. Refusing an application the operator
+    // meant to refuse is recoverable; accepting one they meant to block is
+    // not (it mints a candidate_no and mails the applicant).
+    return APPLY_GATE_DEFAULT_CLOSED;
+  }
+}
+const applyClosedResponse = () => json({
+  error: 'applications_closed',
+  message_ko: '현재 신청 접수가 일시 중단되어 있습니다.',
+  message_en: 'Applications are temporarily closed.',
+}, 503);
+
 function escapeAttr(s) {
   return String(s)
     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
@@ -1855,6 +1885,9 @@ async function handleApi(request, env, url, ctx) {
       // matching the existing public Apply form. Authenticated applies are
       // gated by the role's pages.apply.apply permission so the operator can
       // shut off applications for a role without taking the public form down.
+      // Operator-controlled intake freeze — checked before anything is
+      // written, so a frozen round can't mint candidate numbers.
+      if (await applyIntakeClosed(env)) return applyClosedResponse();
       const u = await currentUser(request, env);
       if (u) {
         const allowed = await canRole(env, u.role, 'apply', 'apply');
@@ -1876,6 +1909,9 @@ async function handleApi(request, env, url, ctx) {
   // payload on submit so the file is linked once the row is committed.
   // Cap: 10 MB per file, 20 files / hour per cf-connecting-ip via KV.
   if (path === '/api/applications/upload' && method === 'POST') {
+    // Public + unauthenticated: leaving it open during a freeze would keep an
+    // R2 write path available for a form nobody can submit.
+    if (await applyIntakeClosed(env)) return applyClosedResponse();
     if (!env.ATTACHMENTS) return json({ error: 'r2_not_bound' }, 503);
     const ip = request.headers.get('cf-connecting-ip') || '';
     if (ip) {
@@ -3524,6 +3560,15 @@ async function handleApi(request, env, url, ctx) {
       } catch {}
       return json({ ok: true, status: decision });
     }
+  }
+
+  // Student-side pipeline submissions share the freeze with new intake —
+  // "모든 신청" means the in-flight steps too, not just the front door.
+  // Reads (GET) stay open so an applicant can still see where they stand.
+  if (method === 'POST'
+      && /^\/api\/me\/applications\/[A-Za-z0-9_-]+\/(cufs-reg-no|admission|documents|pay)$/.test(path)
+      && await applyIntakeClosed(env)) {
+    return applyClosedResponse();
   }
 
   // ── (학생) CUFS 접수번호 입력: screen_passed → cufs_no_submitted ──────────

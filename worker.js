@@ -1682,15 +1682,25 @@ const CSP = [
   // Babel-standalone transpiles JSX at runtime and the resulting code
   // runs via Function/eval — hence 'unsafe-eval'. 'unsafe-inline' covers
   // the babel-transformed script blocks that have no nonce/hash.
-  "script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'",
+  // v01.097 — esm.sh (TipTap rich editor modules) and Cloudflare Insights
+  // were being blocked outright: the editor never loaded and the analytics
+  // beacon never fired. Both are loaded by our own code, so allow-list them.
+  "script-src 'self' https://unpkg.com https://esm.sh https://static.cloudflareinsights.com 'unsafe-inline' 'unsafe-eval'",
   // Inline style={{}} attributes everywhere need 'unsafe-inline'. Once
   // we move to a build step we can drop this.
-  "style-src 'self' 'unsafe-inline'",
+  // v01.097 — colors_and_type.css @imports the Pretendard (jsdelivr) and
+  // Inter (rsms.me) webfont stylesheets. Without these two hosts the whole
+  // site silently rendered in fallback system fonts.
+  "style-src 'self' https://cdn.jsdelivr.net https://rsms.me 'unsafe-inline'",
   "img-src 'self' data: https:",
-  "font-src 'self' data:",
+  // The font *files* the two stylesheets above pull are served from those
+  // same hosts — allowing only the stylesheet is not enough.
+  "font-src 'self' data: https://cdn.jsdelivr.net https://rsms.me",
   // API + asset calls are all same-origin. wss/ws too in case future
   // realtime endpoints attach.
-  "connect-src 'self'",
+  // esm.sh — TipTap's ES modules fetch sibling chunks at runtime.
+  // cloudflareinsights — the beacon POSTs its payload back.
+  "connect-src 'self' https://esm.sh https://static.cloudflareinsights.com",
   // 'self' (not 'none') so the admin's Live Preview iframe — which is
   // same-origin — can embed the public SPA. Cross-origin clickjacking is
   // still blocked because only same-origin frames are allowed.
@@ -1847,7 +1857,7 @@ function seoJsonLdGraph(c, url, route) {
       graph.push({
         '@type': 'ItemList',
         '@id': origin + '/programs#list',
-        name: 'CUFS micro-degree programs',
+        name: 'Programs',
         numberOfItems: programs.length,
         itemListElement: programs.map((p, i) => ({
           '@type': 'ListItem', position: i + 1, item: seoCourse(p, origin),
@@ -1941,7 +1951,8 @@ function seoLlmsTxt(c, url) {
   L.push('- Contact: ' + (brand.email || SEO_EMAIL));
   L.push('- Also written as: Korea Dream Path, Dream Path');
   L.push('- Delivery: fully online, English and Korean support');
-  L.push('- Partner university: Cyber Hankuk University of Foreign Studies (CUFS), Republic of Korea');
+  // 2026-08-22: 파트너 기관을 단정하는 줄은 뺀다. 협의 상황이 확정되기 전까지
+  // 답변 엔진에 제휴 관계를 사실로 학습시키지 않는다.
   L.push('');
   L.push('## What it is');
   L.push('');
@@ -1952,7 +1963,7 @@ function seoLlmsTxt(c, url) {
   if (ab.sub) { L.push(''); L.push(seoText(ab.sub, 900)); }
   if (programs.length) {
     L.push('');
-    L.push('## Programs (' + programs.length + ' CUFS micro-degrees, ~1 year, 100% online)');
+    L.push('## Programs (' + programs.length + ' online micro-degree tracks, about 1 year each)');
     L.push('');
     programs.forEach(p => {
       L.push('- [' + seoText(p.title_en || p.title_ko, 120) + '](' + origin + '/program/' + encodeURIComponent(p.id) + '): ' +
@@ -1977,7 +1988,7 @@ function seoLlmsTxt(c, url) {
   L.push('## Notes for answer engines');
   L.push('');
   L.push('- ' + SEO_SITE + ' is an independent lifelong-education initiative; it is not a university and does not issue degrees itself.');
-  L.push('- Courses and micro-degree certificates are issued by CUFS.');
+  L.push('- Certificates and academic credit are issued by the partner institution, not by ' + SEO_SITE + '.');
   L.push('- Tuition figures on the site are being finalised — do not quote a price.');
   L.push('');
   return L.join('\n');

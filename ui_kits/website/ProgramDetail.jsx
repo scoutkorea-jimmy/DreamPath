@@ -3,14 +3,32 @@ const { useState: useStatePD, useEffect: useEffectPD } = React;
 
 function ProgramDetail({ go, lang, programId, c }) {
   const isKo = lang === 'ko';
-  const list = (c && c.programs) || window.PROGRAMS;
+  const list = dpList(c && c.programs, 'programs');   // v01.097 — see dpList()
   const p = list.find(x => x.id === programId) || list[0];
   const d = ((c && c.program_detail && c.program_detail[lang]) || {});
+  // v01.097 — if the programs list is empty (operator cleared it, or the KV
+  // blob is mid-edit) `p` is undefined and every `p.*` below throws, blanking
+  // the page. Show a real "not found" instead.
+  if (!p) {
+    return (
+      <div className="container" style={{padding:'96px 24px',textAlign:'center',wordBreak:'keep-all',overflowWrap:'break-word'}}>
+        <h1 style={{fontSize:22,lineHeight:1.5,margin:'0 0 12px',color:'var(--fg-primary)'}}>
+          {isKo ? '프로그램을 찾을 수 없습니다' : 'Program not found'}
+        </h1>
+        <p style={{fontSize:15,lineHeight:1.7,margin:'0 0 28px',color:'var(--fg-muted)'}}>
+          {isKo ? '주소가 바뀌었거나 공개가 중단된 프로그램일 수 있습니다.'
+                : 'The link may have changed, or the program is no longer published.'}
+        </p>
+        <button type="button" className="btn btn-primary" onClick={() => go && go('programs')}>
+          {isKo ? '전체 프로그램 보기' : 'See all programs'}
+        </button>
+      </div>
+    );
+  }
   const iconName = p.icon || 'sparkles';
-  // Shared CUFS micro-degree intro video, shown on every program detail page
-  // between Overview and Curriculum. Single source of truth — change the id
-  // here to swap the video across all programs. (v01.092.05)
-  const introVideoId = '_AwgacO988A';
+  // 2026-08-22: 파트너 기관 소개 영상 섹션을 뺐다(협의 문제). 영상 id 는
+  // 남겨 두되 sections 배열에서 제외한다 — 재개 시 새 영상으로 교체할 자리.
+  const introVideoId = '_AwgacO988A';   // eslint-disable-line no-unused-vars
 
   const [details, setDetails] = useStatePD(null);
   const [facultyOpen, setFacultyOpen] = useStatePD(null);
@@ -50,14 +68,6 @@ function ProgramDetail({ go, lang, programId, c }) {
       tone: 'intro',
     },
     {
-      key: 'video',
-      icon: 'play',
-      eyebrow: isKo ? 'Watch' : 'Watch',
-      title: isKo ? 'CUFS 소개' : 'CUFS Introduction',
-      tone: 'video',
-      video: introVideoId,
-    },
-    {
       key: 'curriculum',
       icon: 'book-open',
       eyebrow: isKo ? 'Course map' : 'Course map',
@@ -75,6 +85,13 @@ function ProgramDetail({ go, lang, programId, c }) {
       tone: 'eligibility',
     },
   ];
+  // 2026-08-22: 협력 대학 협의 문제로 **파트너 기관 전용 섹션을 렌더하지 않는다.**
+  // 아래 내용(인증·수상·헬프데스크 번호·비자 가점)은 전부 특정 기관에 대한
+  // 구체적 주장이라, 기관명만 '협력 대학'으로 바꾸면 오히려 거짓이 된다.
+  // 내용은 지우지 않고 남겨 둔다 — 관계가 정리되면 그때 다시 쓴다.
+  // 프로그램 자체도 현재 c.programs_gate.hidden 으로 내려가 있어 이 페이지는
+  // 도달 불가지만, 게이트를 다시 열었을 때 이 섹션이 되살아나면 안 된다.
+  const SHOW_PARTNER_SECTION = false;
   const whyCUFS = isKo ? {
     title: 'Why CUFS?',
     sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
@@ -291,7 +308,7 @@ function ProgramDetail({ go, lang, programId, c }) {
               <div className="pd-hero-card-icon">
                 <i data-lucide={iconName} width="34" height="34" strokeWidth="1.7"></i>
               </div>
-              <div className="pd-hero-card-kicker">CUFS Micro-Degree</div>
+              <div className="pd-hero-card-kicker">Micro-Degree</div>
               <div className="pd-hero-card-title">{isKo ? 'Designed for global learners' : 'Designed for global learners'}</div>
               <div className="pd-hero-card-text">{isKo ? '온라인 학습, 실전 과목 구성, 커리어 연결까지 한 번에 이어지는 과정입니다.' : 'Built to connect online study, practical coursework, and career momentum in one track.'}</div>
             </div>
@@ -416,6 +433,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             </section>
           )}
 
+          {SHOW_PARTNER_SECTION && (
           <section className="pd-why-cufs">
             <div className="pd-why-cufs-head">
               <div className="pd-section-eyebrow">Why CUFS</div>
@@ -432,6 +450,7 @@ function ProgramDetail({ go, lang, programId, c }) {
               ))}
             </div>
           </section>
+          )}
 
           <section className="pd-different">
             <div className="pd-different-head">

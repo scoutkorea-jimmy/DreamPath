@@ -12,7 +12,10 @@ function Footer({ go, lang, c }) {
   // saved order) end up in the requested layout without forcing a re-save.
   // Unknown ids land at the end in their original order.
   const PREFERRED_ORDER = ['about', 'programs', 'contact', 'legal'];
-  const rawCols = Array.isArray(f.columns) ? f.columns : [];
+  // 프로그램을 내린 동안에는 푸터의 프로그램 열도 함께 감춘다.
+  const programsHidden = !!(((c && c.programs_gate) || {}).hidden);
+  const rawCols = (Array.isArray(f.columns) ? f.columns : [])
+    .filter(col => !(programsHidden && col && col.id === 'programs'));
   const columns = [...rawCols].sort((a, b) => {
     const ai = PREFERRED_ORDER.indexOf(a && a.id);
     const bi = PREFERRED_ORDER.indexOf(b && b.id);

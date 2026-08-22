@@ -502,6 +502,15 @@ async function readContentFromKv(env) {
 // raw. If these two disagree, the form and the API disagree — the visitor
 // fills in a page that the server then refuses. Move them together.
 const APPLY_GATE_DEFAULT_CLOSED = true;
+// 프로그램 공개 중단 스위치. content-store.js 의 DEFAULT_CONTENT.programs_gate.hidden
+// 과 짝이다 — SPA 는 기본값을 병합하고 워커는 KV 원본을 읽으므로 어긋나면
+// 화면에는 없는 프로그램이 사이트맵·구조화 데이터에는 남는다.
+const PROGRAMS_GATE_DEFAULT_HIDDEN = true;
+function programsHidden(c) {
+  const g = c && c.programs_gate;
+  if (!g || typeof g.hidden === 'undefined') return PROGRAMS_GATE_DEFAULT_HIDDEN;
+  return !!g.hidden;
+}
 async function applyIntakeClosed(env) {
   try {
     const c = await readContentFromKv(env);
@@ -561,7 +570,9 @@ async function serveSpaShell(request, env) {
       .join('');
 
     const route = seoRouteMeta(content, path);
-    const noindex = SEO_NOINDEX.has(path);
+    // 내려둔 프로그램 경로는 색인 대상이 아니다(안내 화면만 뜬다).
+    const noindex = SEO_NOINDEX.has(path)
+      || (programsHidden(content) && (path === '/programs' || path.startsWith('/program/')));
     // 제목은 홈만 브랜드 단독, 하위는 "페이지 — 브랜드". 전 페이지가 같은
     // 제목이면 검색 결과에서 서로를 잡아먹는다.
     const baseTitle = seoText(route.title, 70) || SEO_SITE;
@@ -1851,7 +1862,9 @@ function seoJsonLdGraph(c, url, route) {
     publisher: { '@id': origin + '/#organization' },
   }];
 
-  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  // 내려둔 프로그램은 사이트맵·구조화 데이터·대체 본문 어디에도 싣지 않는다.
+  // 화면에 없는 것을 기계에만 남기면 그게 곧 거짓말이다.
+  const programs = (!programsHidden(c) && Array.isArray(c.programs)) ? c.programs.filter(p => p && p.id) : [];
   if (route.key === 'home' || route.key === 'programs') {
     if (programs.length) {
       graph.push({
@@ -1903,7 +1916,7 @@ function seoNoscriptBody(c, url, route) {
   const origin = url.origin;
   const hero = (c.hero && c.hero.en) || {};
   const brand = c.brand || {};
-  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  const programs = (!programsHidden(c) && Array.isArray(c.programs)) ? c.programs.filter(p => p && p.id) : [];
   const e = escapeAttr;
   const parts = [];
   const h1 = route.key === 'home'
@@ -1940,7 +1953,7 @@ function seoLlmsTxt(c, url) {
   const origin = url.origin;
   const hero = (c.hero && c.hero.en) || {};
   const brand = c.brand || {};
-  const programs = Array.isArray(c.programs) ? c.programs.filter(p => p && p.id) : [];
+  const programs = (!programsHidden(c) && Array.isArray(c.programs)) ? c.programs.filter(p => p && p.id) : [];
   const gateClosed = c.apply_gate ? !!c.apply_gate.closed : APPLY_GATE_DEFAULT_CLOSED;
   const L = [];
   L.push('# ' + SEO_SITE);
@@ -1974,8 +1987,11 @@ function seoLlmsTxt(c, url) {
   L.push('## Current status');
   L.push('');
   L.push(gateClosed
-    ? '- Applications are TEMPORARILY CLOSED while the site is being updated. Program information stays available; do not tell people they can apply right now.'
+    ? '- Applications are TEMPORARILY CLOSED while the site is being updated. Do not tell people they can apply right now.'
     : '- Applications are open. Start at ' + origin + '/apply');
+  if (programsHidden(c)) {
+    L.push('- The program lineup is being reworked and is not published at the moment. Do not describe specific programs, tuition, credentials, or partner institutions.');
+  }
   L.push('');
   L.push('## Key pages');
   L.push('');
@@ -2023,14 +2039,20 @@ async function sitemapXml(env, url) {
     { path: '/apply',        priority: 0.9, change: 'monthly' },
   ];
 
-  // Dynamic: each program detail page from KV content
+  // Dynamic: each program detail page from KV content.
+  // 프로그램을 내려둔 동안에는 상세 URL 도, /programs 목록 URL 도 사이트맵에서
+  // 뺀다 — 안내 화면만 뜨는 주소를 색인해 달라고 제출할 이유가 없다.
   let programPaths = [];
+  let hideProgramList = false;
   try {
     const c = await readContentFromKv(env);
-    const programs = Array.isArray(c.programs) && c.programs.length ? c.programs : CURRENT_PROGRAMS;
-    programPaths = programs
-      .filter(p => p && p.id)
-      .map(p => ({ path: '/program/' + encodeURIComponent(p.id), priority: 0.7, change: 'monthly' }));
+    hideProgramList = programsHidden(c);
+    if (!hideProgramList) {
+      const programs = Array.isArray(c.programs) && c.programs.length ? c.programs : CURRENT_PROGRAMS;
+      programPaths = programs
+        .filter(p => p && p.id)
+        .map(p => ({ path: '/program/' + encodeURIComponent(p.id), priority: 0.7, change: 'monthly' }));
+    }
   } catch {}
 
   // Dynamic: each news post → /news/:id
@@ -2065,7 +2087,8 @@ async function sitemapXml(env, url) {
     }
   } catch {}
 
-  const all = [...STATIC, ...programPaths, ...newsPaths, ...scholarshipPaths, ...storyPaths];
+  const all = [...STATIC.filter(x => !(hideProgramList && x.path === '/programs')),
+               ...programPaths, ...newsPaths, ...scholarshipPaths, ...storyPaths];
 
   const xml =
     '<?xml version="1.0" encoding="UTF-8"?>\n' +

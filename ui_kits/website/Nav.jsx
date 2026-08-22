@@ -67,7 +67,10 @@ function Nav({ view, go, lang, setLang, c }) {
   // Per-program editable labels (category_ko / category_en) take precedence;
   // legacy programs without those fields fall back to the slug or the
   // first segment of the kicker. Slug is the URL key for /programs?cat=.
-  const programs = (c && Array.isArray(c.programs)) ? c.programs : [];
+  // 프로그램 공개 중단이면 상단 메뉴에서도 뺀다. 목록이 비어 있는 드롭다운을
+  // 남기면 방문자가 눌러보고 나서야 알게 된다 (c.programs_gate.hidden).
+  const programsHidden = !!(((c && c.programs_gate) || {}).hidden);
+  const programs = (!programsHidden && c && Array.isArray(c.programs)) ? c.programs : [];
   const categories = (() => {
     const seen = new Set();
     const out = [];
@@ -109,8 +112,14 @@ function Nav({ view, go, lang, setLang, c }) {
       ],
     },
     {
-      label: n.programs, parentViews: ['programs','program','news','stories'],
-      children: [
+      label: n.programs,
+      parentViews: programsHidden ? ['news','stories'] : ['programs','program','news','stories'],
+      // 프로그램을 내린 동안에는 목록·카테고리 항목만 빼고 소식/후기는 남긴다
+      // (그 둘까지 사라지면 메뉴 자체가 없어져 다른 콘텐츠도 못 찾는다).
+      children: programsHidden ? [
+        { view: 'news',    label: isKo ? '프로그램 소식' : 'Program news' },
+        { view: 'stories', label: isKo ? '프로그램 후기' : 'Program reviews' },
+      ] : [
         { view: 'programs', label: isKo ? '전체 프로그램' : 'All programs' },
         ...categories.map(cat => ({
           view: 'programs', opts: { cat: cat.key },

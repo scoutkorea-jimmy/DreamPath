@@ -673,6 +673,19 @@
       button_ko: '확인하고 입장하기',
       button_en: 'Acknowledge & enter',
     },
+    // ─── Programs visibility gate (프로그램 공개 중단 스위치) ─────────────
+    // hidden:true 면 공개 사이트에서 프로그램을 통째로 내린다 — 홈 티저,
+    // /programs 목록, /program/:id 상세, 상단 메뉴, 푸터 열, 사이트맵,
+    // 구조화 데이터까지. **데이터(programs[])는 그대로 둔다** — 다시 켜면
+    // 그날의 목록이 그대로 돌아온다.
+    // 2026-08-22: 협력 대학 협의 문제로 운영자가 내림.
+    programs_gate: {
+      hidden: true,
+      title_ko: '프로그램 정보를 정비하고 있습니다',
+      title_en: 'Program information is being updated',
+      body_ko: '프로그램 구성과 운영 방식을 다시 정리하는 중입니다. 준비가 끝나는 대로 이 페이지에서 안내드리겠습니다.',
+      body_en: 'We are reworking our program lineup and how it is delivered. This page will be updated as soon as it is ready.',
+    },
     // ─── Application intake gate (신청 접수 중단 스위치) ──────────────────
     // closed:true freezes every applicant-side submission — the public Apply
     // form, the API behind it, and the member-page pipeline steps (접수번호 /
@@ -1189,8 +1202,28 @@
     }
   }
 
+  // dpList (v01.097) — safe accessor for the top-level content arrays that
+  // screens iterate over (programs / partners / stories / faq).
+  //
+  // Screens used to write `(c && c.programs) || window.PROGRAMS`. window.PROGRAMS
+  // is defined in no file anywhere, so that fallback silently produced
+  // `undefined` and the next `.map()` / `.find()` threw — blanking the page.
+  // It mattered because deepMerge() passes `null` straight through
+  // (`over !== undefined ? over : base`), so a null array in the KV blob
+  // reached the screen intact.
+  //
+  // Falls back to the shipped DEFAULT_CONTENT, then to an empty array so a
+  // screen renders empty rather than crashing.
+  function dpList(value, key) {
+    if (Array.isArray(value)) return value;
+    const def = DEFAULT_CONTENT[key];
+    return Array.isArray(def) ? def : [];
+  }
+  window.dpList = dpList;
+
   window.DreamPathContent = {
     DEFAULT: DEFAULT_CONTENT,
+    dpList,
     load, save, reset, fetchRemote,
     STORAGE_KEY, TOKEN_KEY,
     API_URL,

@@ -432,7 +432,7 @@ function MemberNotifications({ isKo, onChange }) {
 const PIPELINE_STAGES = [
   { key: 'submitted',         ko: '신청 접수',     en: 'Submitted' },
   { key: 'screen_passed',     ko: '1차 통과',      en: 'Screening passed' },
-  { key: 'cufs_no_submitted', ko: '접수번호 제출', en: 'CUFS reference' },
+  { key: 'cufs_no_submitted', ko: '접수번호 제출', en: 'Admission reference' },
   { key: 'cufs_admitted',     ko: '합격 확인',     en: 'Admission verified' },
   { key: 'docs_submitted',    ko: '서류 제출',     en: 'Documents submitted' },
   { key: 'docs_verified',     ko: '서류 검증',     en: 'Documents verified' },
@@ -597,13 +597,15 @@ function StageRejected({ isKo, note }) {
   );
 }
 
-// screen_passed → CUFS 입시 안내 + 접수번호 입력 (POST /cufs-reg-no).
+// screen_passed → 협력 대학 입학 안내 + 접수번호 입력 (POST /cufs-reg-no).
+// ⚠️ 경로·컬럼 이름의 `cufs` 는 내부 식별자라 그대로 둔다(마이그레이션 비용 대비
+//    이득이 없다). 화면에 보이는 문구만 기관 중립으로 쓴다.
 function CufsGuidePanel({ app, isKo, onChange }) {
   const [regNo, setRegNo] = useStateM('');
   const [busy, setBusy] = useStateM(false);
   const [err, setErr] = useStateM('');
   async function submitReg() {
-    if (!regNo.trim()) { setErr(isKo ? '접수번호를 입력하세요.' : 'Enter your CUFS reference number.'); return; }
+    if (!regNo.trim()) { setErr(isKo ? '접수번호를 입력하세요.' : 'Enter your admission reference number.'); return; }
     setBusy(true); setErr('');
     try {
       const r = await window.DreamPathAuth.authFetch('/api/me/applications/' + encodeURIComponent(app.id) + '/cufs-reg-no', {
@@ -619,23 +621,26 @@ function CufsGuidePanel({ app, isKo, onChange }) {
   }
   return (
     <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
-      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '다음 단계: CUFS 입시 진행' : 'Next: CUFS admission'}</h4>
+      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '다음 단계: 협력 대학 입학 절차' : 'Next: partner university admission'}</h4>
       <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 12px'}}>
-        {isKo ? '아래 링크에서 CUFS(사이버한국외국어대학교) 입시 절차를 진행하신 뒤, 발급받은 접수번호를 입력해 주세요.'
-              : 'Complete the CUFS admission process via the link below, then enter the reference number you receive.'}
+        {isKo ? '협력 대학의 입학 절차를 진행하신 뒤, 발급받은 접수번호를 입력해 주세요. 절차 안내는 담당자가 개별로 드립니다.'
+              : 'Complete the partner university admission process, then enter the reference number you receive. Your coordinator will send the details.'}
       </p>
-      <a className="btn btn-primary btn-sm" href="https://go.cufs.ac.kr/ent/ent/ent_step0.jsp?regEntType=new" target="_blank" rel="noopener">
-        {isKo ? 'CUFS 입시 진행하기' : 'Go to CUFS admission'} ↗
-      </a>
+      {/* 2026-08-22: 협력 대학 협의 문제로 외부 입시 링크를 내렸다. 담당자가
+          개별 안내하는 방식으로 대체 — 링크만 남기면 학생이 잘못 접수한다. */}
+      <div style={{fontSize:13,color:'var(--fg-secondary)',padding:'10px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8}}>
+        {isKo ? '입학 절차 안내는 담당자가 개별로 드립니다. 안내를 받으신 뒤 발급된 접수번호를 아래에 입력해 주세요.'
+              : 'Your coordinator will send the admission steps. Once you have them, enter the reference number below.'}
+      </div>
       {/* 결제 주체 경고 */}
       <div style={{marginTop:14,padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:10,fontSize:13,lineHeight:1.6}}>
         <strong>{isKo ? '⚠️ 결제 주체를 꼭 구분하세요' : '⚠️ Know who collects each payment'}</strong>
-        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — CUFS 입시 사이트에서 결제 (정상)' : 'Application fee — pay on the CUFS site (normal)'}</div>
-        <div>🚫 {isKo ? '등록금 — CUFS에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never at CUFS. Pay here (member page) after admission'}</div>
+        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — 협력 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
+        <div>🚫 {isKo ? '등록금 — 협력 대학에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never to the partner university. Pay here (member page) after admission'}</div>
       </div>
       <div className="field" style={{marginTop:14}}>
-        <label>{isKo ? 'CUFS 접수번호' : 'CUFS reference number'}</label>
-        <input value={regNo} onChange={e => setRegNo(e.target.value)} placeholder={isKo ? 'CUFS에서 발급받은 번호' : 'Number issued by CUFS'} />
+        <label>{isKo ? '입학 접수번호' : 'Admission reference number'}</label>
+        <input value={regNo} onChange={e => setRegNo(e.target.value)} placeholder={isKo ? '협력 대학에서 발급받은 번호' : 'Number issued by the partner university'} />
       </div>
       {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:8}}>{err}</div>}
       <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={submitReg}>
@@ -691,8 +696,8 @@ function AdmissionPanel({ app, isKo, onChange }) {
     <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
       <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '합격증 업로드' : 'Upload admission certificate'}</h4>
       <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 12px'}}>
-        {isKo ? 'CUFS 합격 발표 후, 합격증(또는 합격 확인 화면 캡처)을 업로드하고 제출해 주세요. 관리자가 접수번호와 대조해 확인합니다.'
-              : 'After CUFS announces results, upload your admission certificate (or a screenshot) and submit. An admin will verify it against your reference number.'}
+        {isKo ? '합격 발표 후, 합격증(또는 합격 확인 화면 캡처)을 업로드하고 제출해 주세요. 관리자가 접수번호와 대조해 확인합니다.'
+              : 'After results are announced, upload your admission certificate (or a screenshot) and submit. An admin will verify it against your reference number.'}
       </p>
       <label className="btn btn-secondary btn-sm" style={{cursor:'pointer'}}>
         {uploaded ? (isKo ? '다시 선택' : 'Choose again') : (isKo ? '파일 선택' : 'Choose file')}
@@ -762,7 +767,7 @@ function PaymentPanel({ app, program, isKo, onChange }) {
   const canPay = allConsented && last4.length === 4 && exp && cvc && tuition && tuition > 0;
 
   const CONSENT_ROWS = [
-    { k: 'consent_cufs_refund', ko: 'CUFS 환불 규정에 동의합니다.', en: 'I agree to the CUFS refund policy.' },
+    { k: 'consent_cufs_refund', ko: '협력 대학의 환불 규정에 동의합니다.', en: 'I agree to the partner university refund policy.' },
     { k: 'consent_kdp_refund',  ko: 'KoreaDreamPath 환불 규정에 동의합니다.', en: 'I agree to the KoreaDreamPath refund policy.' },
     { k: 'consent_pg_pii',      ko: '결제를 위한 PG사 개인정보 제공에 동의합니다.', en: 'I agree to share personal data with the payment provider.' },
   ];

@@ -4,33 +4,33 @@
 > 새 기능·새 화면·새 API 를 만들기 전에 **먼저 여기서 이미 있는 것을 찾아라.**
 > 같은 일을 하는 두 번째 구현이 스파게티의 시작이다.
 
-- 생성 시각: `2026-08-22 03:28:15 KST`
-- 기준 커밋: `26b5de7`
-- 사이트 버전: `01.095.00`
+- 생성 시각: `2026-08-22 18:30:14 KST`
+- 기준 커밋: `a3dd736`
+- 사이트 버전: `01.097.00`
 
 ## 화면 (SPA `.jsx`)
 
 | 파일 | 줄 수 | `window.*` 전역 |
 |---|---:|---|
 | `ui_kits/website/About.jsx` | 65 | About |
-| `ui_kits/website/App.jsx` | 286 | useContent |
+| `ui_kits/website/App.jsx` | 378 | DPErrorBoundary, useContent |
 | `ui_kits/website/Apply.jsx` | 838 | Apply |
 | `ui_kits/website/Auth.jsx` | 315 | AuthModal, useAuth |
 | `ui_kits/website/Auth.views.jsx` | 310 | ActivateAccountView, ResetPasswordView, VerifyEmailView |
 | `ui_kits/website/Banners.jsx` | 117 | BannerAdModal |
-| `ui_kits/website/EntryGate.jsx` | 76 | EntryGate |
+| `ui_kits/website/EntryGate.jsx` | 78 | EntryGate |
 | `ui_kits/website/Errors.jsx` | 200 | Error401, Error403, Error404, Error500, Error503, ErrorOffline |
 | `ui_kits/website/Floaters.jsx` | 511 | BackToTop, ChatBot |
-| `ui_kits/website/Footer.jsx` | 104 | Footer |
-| `ui_kits/website/Home.jsx` | 183 | Home, ProgramCard |
+| `ui_kits/website/Footer.jsx` | 107 | Footer |
+| `ui_kits/website/Home.jsx` | 187 | Home, ProgramCard |
 | `ui_kits/website/Legal.jsx` | 116 | ConsentRow, CookieBanner, LegalModal, recordConsent |
-| `ui_kits/website/Member.jsx` | 1342 | Member |
-| `ui_kits/website/Nav.jsx` | 399 | Nav, NavGroup |
+| `ui_kits/website/Member.jsx` | 1347 | Member |
+| `ui_kits/website/Nav.jsx` | 408 | Nav, NavGroup |
 | `ui_kits/website/Pages.jsx` | 589 | Contact, InquiryForm, News, NewsDetail, NewsEditor, Partners, Stories, StoryDetail |
-| `ui_kits/website/ProgramDetail.jsx` | 619 | ProgramDetail |
-| `ui_kits/website/Programs.jsx` | 101 | Programs |
+| `ui_kits/website/ProgramDetail.jsx` | 638 | ProgramDetail |
+| `ui_kits/website/Programs.jsx` | 105 | Programs |
 | `ui_kits/website/Receipt.jsx` | 216 | Receipt, ReceiptTemplate |
-| `ui_kits/website/RichEditor.jsx` | 172 | RichEditor |
+| `ui_kits/website/RichEditor.jsx` | 175 | RichEditor |
 | `ui_kits/website/Scholarships.jsx` | 407 | ScholarshipDetail, Scholarships |
 | `ui_kits/website/Team.jsx` | 392 | Team |
 | `ui_kits/website/VersionWatcher.jsx` | 139 | VersionWatcher |
@@ -133,9 +133,9 @@
 - `/api/version`
 - `/api/wiki/([a-z0-9_-]{1,32})`
 
-## 콘텐츠 스키마 최상위 키 (`content-store.js` → KV `dp_content_v1`) — 35개
+## 콘텐츠 스키마 최상위 키 (`content-store.js` → KV `dp_content_v1`) — 36개
 
-`brand`, `nav`, `hero`, `how`, `programs_section`, `programs`, `partners_section`, `partners`, `stories_section`, `stories`, `news`, `cta_banner`, `faq`, `icons`, `essay_questions`, `errors`, `legal`, `member_roles`, `inboxes`, `site_verifications`, `receipt_template`, `email_templates`, `inquiry_categories`, `notice`, `entry_gate`, `apply_gate`, `banners`, `og`, `about`, `project_team`, `scholarships`, `page_heros`, `partner_cta`, `program_detail`, `footer`
+`brand`, `nav`, `hero`, `how`, `programs_section`, `programs`, `partners_section`, `partners`, `stories_section`, `stories`, `news`, `cta_banner`, `faq`, `icons`, `essay_questions`, `errors`, `legal`, `member_roles`, `inboxes`, `site_verifications`, `receipt_template`, `email_templates`, `inquiry_categories`, `notice`, `entry_gate`, `programs_gate`, `apply_gate`, `banners`, `og`, `about`, `project_team`, `scholarships`, `page_heros`, `partner_cta`, `program_detail`, `footer`
 
 ## 관리자 탭 (`admin.html` TABS) — 50개
 

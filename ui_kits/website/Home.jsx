@@ -98,6 +98,9 @@ function Home({ go, lang, c }) {
       )}
 
       {/* PROGRAMS TEASER */}
+      {/* 프로그램 공개 중단 시 티저 섹션을 통째로 뺀다 — 빈 그리드만 남으면
+          "고장난 화면"으로 보인다 (c.programs_gate.hidden) */}
+      {!((c && c.programs_gate) || {}).hidden && (
       <section className="section" style={{background:'var(--bg-muted)'}} data-screen-label="Programs teaser" aria-labelledby="programs-title">
         <div className="container">
           <p className="sec-kicker">{t.programs.kicker}</p>
@@ -111,6 +114,7 @@ function Home({ go, lang, c }) {
           </div>
         </div>
       </section>
+      )}
 
       {/* CTA BANNER */}
       <section className="section-tight" aria-labelledby="cta-title">
@@ -162,7 +166,7 @@ function ProgramMoreCard({ go, count }) {
       <div className="prog-more-text">
         <p className="prog-kicker">ALL PROGRAMS</p>
         <h3 className="prog-title en">{count ? ('Explore all ' + count + ' micro-degrees') : 'Explore all programs'}</h3>
-        <p className="prog-sub">See the full curriculum, faculty, and how to apply for every CUFS track.</p>
+        <p className="prog-sub">See the full curriculum, faculty, and how to apply for every track.</p>
       </div>
       <span className="prog-more-cta">View all programs
         <i data-lucide="arrow-right" width="20" height="20" strokeWidth="2" aria-hidden="true"></i>

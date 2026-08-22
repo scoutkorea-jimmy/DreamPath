@@ -1531,8 +1531,28 @@
       return { bg:'#E5E7EB', fg:'#374151' };
     };
 
+    const pg = (c && c.programs_gate) || {};
+    const pHidden = pg.hidden !== false;   // 기본값은 '비공개' (content-store 기본과 일치)
     return (
       <>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>프로그램 공개 상태 <span style={{fontSize:12,fontWeight:700,marginLeft:8,padding:'2px 10px',borderRadius:999,background: pHidden ? 'var(--state-danger-bg)' : 'var(--state-success-bg)',color: pHidden ? 'var(--state-danger)' : 'var(--state-success)'}}>{pHidden ? '비공개' : '공개 중'}</span></h3></summary>
+          <p style={{fontSize:13,color:'var(--fg-muted)',margin:'4px 0 14px',lineHeight:1.7}}>
+            체크하면 공개 사이트에서 <strong>프로그램이 통째로 내려갑니다</strong> — 홈 티저, 프로그램 목록·상세, 상단 메뉴,
+            푸터 열, 사이트맵, 검색·AI 노출용 구조화 데이터까지. <strong>아래 프로그램 데이터는 그대로 보존</strong>되며,
+            체크를 풀면 그날의 목록이 그대로 돌아옵니다. 목록·상세 주소는 살아 있고 안내 화면이 대신 뜹니다
+            (이미 퍼진 링크가 404 가 되지 않도록).
+          </p>
+          <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,fontSize:14,fontWeight:600}}>
+            <input type="checkbox" checked={pHidden} onChange={e => set(['programs_gate','hidden'], e.target.checked)} />
+            프로그램 비공개 (체크 해제 = 다시 공개)
+          </label>
+          <div className="grid-2 tight">
+            <Text label="안내 제목 (KO)" value={pg.title_ko} onChange={v => set(['programs_gate','title_ko'], v)} lang="ko" />
+            <Text label="안내 제목 (EN)" value={pg.title_en} onChange={v => set(['programs_gate','title_en'], v)} lang="en" />
+            <Area label="안내 본문 (KO)" value={pg.body_ko} onChange={v => set(['programs_gate','body_ko'], v)} rows={3} lang="ko" />
+            <Area label="안내 본문 (EN)" value={pg.body_en} onChange={v => set(['programs_gate','body_en'], v)} rows={3} lang="en" />
+          </div>
+        </details>
         <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />

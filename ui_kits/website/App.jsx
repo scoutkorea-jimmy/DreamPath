@@ -12,6 +12,62 @@ function useContent() {
 }
 window.useContent = useContent;
 
+// Error boundary (v01.097) — until now the SPA had none. React 18 unmounts
+// the ENTIRE tree when any component throws during render, so a single bad
+// value (a null array out of KV, an undefined field on a half-merged content
+// blob) turned every page into a blank white screen with no way back.
+//
+// Two of these are mounted: one around the routed view only — so a broken
+// page keeps the nav and footer alive and the visitor can click elsewhere —
+// and one around the whole app as a last resort.
+class DPErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { err: null };
+  }
+  static getDerivedStateFromError(err) { return { err: err }; }
+  componentDidCatch(err, info) {
+    try {
+      window.DreamPathErrors && window.DreamPathErrors.report(
+        'React render crash: ' + (err && err.message ? err.message : String(err)),
+        { scope: this.props.scope || 'app', componentStack: String(info && info.componentStack || '').slice(0, 2000) }
+      );
+    } catch (e) {}
+  }
+  componentDidUpdate(prev) {
+    // Reset when the caller signals a new context (e.g. the route changed),
+    // otherwise a one-off bad page would stay stuck on the error card forever.
+    if (this.state.err && prev.resetKey !== this.props.resetKey) this.setState({ err: null });
+  }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const isKo = this.props.lang === 'ko';
+    return (
+      <div className="container" style={{padding:'96px 24px',textAlign:'center',wordBreak:'keep-all',overflowWrap:'break-word'}}>
+        <h1 style={{fontSize:22,lineHeight:1.5,margin:'0 0 12px',color:'var(--fg-primary)'}}>
+          {isKo ? '이 페이지를 표시하지 못했습니다' : "We couldn't display this page"}
+        </h1>
+        <p style={{fontSize:15,lineHeight:1.7,margin:'0 0 28px',color:'var(--fg-muted)',maxWidth:440,marginLeft:'auto',marginRight:'auto'}}>
+          {isKo
+            ? '문제가 자동으로 보고되었습니다. 다른 메뉴는 정상적으로 이용하실 수 있습니다.'
+            : 'The problem has been reported automatically. The rest of the site still works.'}
+        </p>
+        <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
+          <button type="button" className="btn btn-primary"
+            onClick={() => { this.setState({ err: null }); }}>
+            {isKo ? '다시 시도' : 'Try again'}
+          </button>
+          <button type="button" className="btn btn-secondary"
+            onClick={() => { window.location.href = '/'; }}>
+            {isKo ? '홈으로' : 'Go home'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+window.DPErrorBoundary = DPErrorBoundary;
+
 // Friendly URL <-> view-state mapping. Update both when navigating.
 const VIEW_TO_PATH = {
   home: '/', about: '/about', programs: '/programs', apply: '/apply',
@@ -226,12 +282,44 @@ function App() {
   }
 
   const baseProps = { go, lang, c: content };
+
+  // 프로그램 공개 중단 스위치 + 그 자리에 보여줄 안내 화면. 훅이 아니라
+  // 순수 계산이라 아래 switch 위 어디에 있어도 렌더 순서에 영향이 없다.
+  const pGate = (content && content.programs_gate) || {};
+  const programsHidden = !!pGate.hidden;
+  const isKoView = lang === 'ko';
+  const gateNotice = (
+    <div data-screen-label="Programs · Hidden" className="container"
+      style={{padding:'96px 24px',textAlign:'center',maxWidth:640,wordBreak:'keep-all',overflowWrap:'break-word'}}>
+      <div style={{width:64,height:64,borderRadius:'50%',background:'var(--bg-muted)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+        <i data-lucide="hammer" width="28" height="28" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
+      </div>
+      <h1 style={{fontSize:24,lineHeight:1.45,margin:'0 0 12px',color:'var(--fg-primary)'}}>
+        {(isKoView ? pGate.title_ko : pGate.title_en) || (isKoView ? '프로그램 정보를 정비하고 있습니다' : 'Program information is being updated')}
+      </h1>
+      <p style={{fontSize:15,lineHeight:1.75,margin:'0 0 28px',color:'var(--fg-muted)',whiteSpace:'pre-line'}}>
+        {(isKoView ? pGate.body_ko : pGate.body_en) || ''}
+      </p>
+      <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+        <button type="button" className="btn btn-primary" onClick={() => go('scholarships')}>
+          {isKoView ? '장학 정보 보기' : 'See scholarships'} →
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => go('contact')}>
+          {isKoView ? '문의하기' : 'Contact us'}
+        </button>
+      </div>
+    </div>
+  );
+
   let content_view;
   switch (view) {
     case 'home':         content_view = safe(window.Home, baseProps); break;
     case 'about':        content_view = safe(window.About, { lang, c: content }); break;
-    case 'programs':     content_view = safe(window.Programs, baseProps); break;
-    case 'program':      content_view = safe(window.ProgramDetail, { ...baseProps, programId }); break;
+    // 프로그램 공개 중단(c.programs_gate.hidden) — 목록·상세를 안내 화면으로
+    // 대체한다. 라우트는 살려 둔다: 외부에 이미 퍼진 링크가 404 가 되는 것보다
+    // "정비 중" 안내를 만나는 편이 낫다.
+    case 'programs':     content_view = programsHidden ? gateNotice : safe(window.Programs, baseProps); break;
+    case 'program':      content_view = programsHidden ? gateNotice : safe(window.ProgramDetail, { ...baseProps, programId }); break;
     case 'apply':        content_view = safe(window.Apply, { go, lang, c: content }); break;
     case 'partners':     content_view = safe(window.Partners, { lang, c: content }); break;
     case 'stories':      content_view = safe(window.Stories, { go, lang, c: content }); break;
@@ -270,7 +358,9 @@ function App() {
         </div>
       )}
       <window.Nav view={view} go={go} lang={lang} setLang={setLang} c={content} />
-      <main id="main" style={{flex: 1}} tabIndex="-1">{content_view}</main>
+      <main id="main" style={{flex: 1}} tabIndex="-1">
+        <DPErrorBoundary scope={'view:' + view} resetKey={view} lang={lang}>{content_view}</DPErrorBoundary>
+      </main>
       <window.Footer go={go} lang={lang} c={content} />
       <window.AuthModal open={authOpen} onClose={() => setAuthOpen(false)} lang={lang} defaultMode={authMode} />
       {window.CookieBanner && <window.CookieBanner lang={lang} c={content} />}
@@ -283,4 +373,6 @@ function App() {
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// Outer boundary catches crashes in Nav/Footer/modals — the parts that sit
+// outside the routed view and would otherwise still blank the whole page.
+root.render(<DPErrorBoundary scope="root"><App /></DPErrorBoundary>);

@@ -64,7 +64,18 @@
   대시보드에서 D1 권한(계정 멤버십/토큰 스코프) 확인.
 </details>
 
-## 🔴 미해결 · 2026-08-22 · Cloudflare Email Routing 목적지 인증을 코드로 못 함
+## ⚪ 해결됨 · 2026-08-23 · Cloudflare Email Routing 목적지 인증
+> **정정**: 아래 기록의 "운영자가 인증 메일 링크를 클릭하면 된다"는 **틀린 안내**였다.
+> 8/23 확인 결과 **목적지 주소가 애초에 등록조차 안 돼 있었다**(`addresses list` → none).
+> KV 에 `forward_to` 를 넣는 것과 Cloudflare 에 목적지를 등록하는 것은 **별개의 일**이다.
+> `wrangler login` 으로 `email_routing:write` 스코프를 받고 `addresses create` 했더니
+> **계정 소유 주소라 생성과 동시에 자동 인증**됐다 — 운영자가 누를 것도 없었다.
+> **교훈**: 외부 서비스 설정은 *우리 쪽 설정값*과 *그쪽 등록 상태*를 **따로** 확인해야 한다.
+> 우리 KV 만 보고 "저쪽에서 인증만 하면 된다"고 안내한 것이 오진의 원인이다.
+
+<details><summary>당시 기록</summary>
+
+### 🔴 미해결(이었음) · 2026-08-22 · Cloudflare Email Routing 목적지 인증을 코드로 못 함
 - **하려던 것**: 수신 메일 전량 `scoutkorea@kakao.com` 자동 포워드를 끝까지 자동화.
 - **실패**: 설정(KV `email_templates.forward_to`)은 넣었으나, Cloudflare 는 목적지 주소를
   **사람이 인증 메일 링크를 눌러야** 활성화한다. 로컬 wrangler 토큰에는
@@ -73,6 +84,7 @@
   실패는 관리자 → 오류 로그(`email_worker`)에 남는다.
 - **재시도 조건**: 운영자가 kakao 메일함에서 Cloudflare 인증 링크 클릭 → 그 뒤 테스트 메일 1통으로
   forward 성공 확인.
+</details>
 
 ## ⚪ 해결됨 · 2026-08-21 · 메일 본문 차단의 진짜 원인은 특정하지 못함
 - **하려던 것**: 크롬이 메일 본문 iframe 을 차단한 정확한 원인 규명.

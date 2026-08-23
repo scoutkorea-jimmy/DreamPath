@@ -241,11 +241,24 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
 
 ## 8. 브랜딩
 
-- 회사명: **KoreaDreamPath** (한 단어). 워드마크는 `brand.wordmark_mark`("KoreaDream")
-  + `brand.wordmark_accent`("Path", 노랑).
+### 이름은 2단이다 (2026-08-23 운영자 확정)
+
+| 층위 | 표기 | 쓰는 자리 |
+|---|---|---|
+| 법인 · 사이트 · 발신자 | **KoreaDreamPath** (한 단어) | 브랜드명, 워드마크, 메일 발신자, 약관 주체 |
+| **사업(프로그램)명** | **Dream Path** (두 단어) / 한국어 **드림패스** | 본문에서 프로그램·이니셔티브를 가리킬 때 |
+| 법인 정식명 | (주)코리아드림패스 / Korea Dream Path Co., Ltd. | 법적 문서·경력 표기 |
+
+**둘이 섞여 보이는 것은 오류가 아니다.** 히어로가 "Dream Path connects…"라고 하고
+푸터가 "KoreaDreamPath"인 것은 의도된 2단 구조다. 고칠 대상은 **표기 흔들림**뿐:
+
+- ❌ `DreamPath` (Korea 없이 한 단어) → ✅ `Dream Path`
+- ❌ `DreamPath TF` (레거시) → ✅ `KoreaDreamPath 팀`
+- ❌ 한국어 본문의 `DreamPath` → ✅ `드림패스`
+
+- 워드마크는 `brand.wordmark_mark`("KoreaDream") + `brand.wordmark_accent`("Path", 노랑).
 - 대표 메일: `info@koreadreampath.com` (2026-05-04 통합). `hello@` · `partners@` ·
-  `team@` 는 레거시 별칭.
-- 옛 "DreamPath" / "DreamPath TF" 표기는 **레거시** — 보이면 고치고 변경 로그에 남긴다.
+  `team@` 는 별칭 — **2026-08-23 운영자 지시로 현행 유지**.
 
 ---
 

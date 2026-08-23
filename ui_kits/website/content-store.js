@@ -314,8 +314,8 @@
     // refuses input past max_chars and shows a live counter.
     // 현재 기본 1문항. 관리자 → 지원 에세이 문항 탭에서 추가/편집/삭제 가능.
     essay_questions: [
-      { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, 그리고 DreamPath를 통해 이루고 싶은 것에 대해 작성하세요.',
-        prompt_en: 'Learning across borders — write about your background, interests, and what you hope to achieve through DreamPath.',
+      { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, 그리고 드림패스를 통해 이루고 싶은 것에 대해 작성하세요.',
+        prompt_en: 'Learning across borders — write about your background, interests, and what you hope to achieve through Dream Path.',
         placeholder_ko: '본인의 이야기를 자유롭게 작성하세요.',
         placeholder_en: 'Tell us your story.',
         min_chars: 500, max_chars: 1500 },
@@ -840,8 +840,8 @@
               body: 'Youth-education partner organizations across 170+ countries form a global network of young people and mentors already invested in education access. Dream Path turns this existing network into a learner pipeline for Korean higher education — delivered online, through micro-degrees and full online degrees.' },
       },
       team: {
-        ko: { kicker: '팀', title_l1: '교육·재무·실무.', title_l2: '', sub: 'DreamPath TF는 세 영역으로 나뉘어 운영됩니다.' },
-        en: { kicker: 'TEAM', title_l1: 'Education · Finance · Operations.', title_l2: '', sub: 'DreamPath TF is organized across three functional areas.' },
+        ko: { kicker: '팀', title_l1: '교육·재무·실무.', title_l2: '', sub: 'KoreaDreamPath 팀은 세 영역으로 나뉘어 운영됩니다.' },
+        en: { kicker: 'TEAM', title_l1: 'Education · Finance · Operations.', title_l2: '', sub: 'The KoreaDreamPath team is organized across three functional areas.' },
         cards: [
           { role_ko: '교육', role_en: 'EDUCATION',
             name_ko: '프로그램 설계', name_en: 'Program Design',

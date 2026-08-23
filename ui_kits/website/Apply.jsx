@@ -10,8 +10,8 @@ const MAX_RECOMMENDERS = 5;
 function defaultEssayQuestions() {
   // 현재 기본 1문항 (관리자 → 지원 에세이 문항 탭에서 추가/편집 가능).
   return [
-    { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, DreamPath를 통해 이루고 싶은 것에 대해 작성하세요.',
-      prompt_en: 'Learning across borders — write about your background, interests, and what you hope to achieve through DreamPath.',
+    { prompt_ko: '국경 너머의 학습 — 본인의 배경, 관심사, 드림패스를 통해 이루고 싶은 것에 대해 작성하세요.',
+      prompt_en: 'Learning across borders — write about your background, interests, and what you hope to achieve through Dream Path.',
       placeholder_ko: '본인의 이야기를 자유롭게 작성하세요.', placeholder_en: 'Tell us your story.',
       min_chars: 500, max_chars: 1500 },
   ];

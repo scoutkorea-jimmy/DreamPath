@@ -226,7 +226,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
         <button type="button" className="auth-close" onClick={onClose} aria-label={isKo ? '닫기' : 'Close'}>×</button>
         <h2 id="auth-title">{mode === 'signup' ? (isKo ? '회원가입' : 'Sign up') : (isKo ? '로그인' : 'Log in')}</h2>
         <p className="auth-sub">{mode === 'signup'
-          ? (isKo ? 'DreamPath 멤버로 가입하면 지원·커리어 등록·추천을 받을 수 있습니다.' : 'Sign up to apply, manage your career, and get program recommendations.')
+          ? (isKo ? '드림패스 멤버로 가입하면 지원·커리어 등록·추천을 받을 수 있습니다.' : 'Sign up to apply, manage your career, and get program recommendations.')
           : (isKo ? '계정으로 로그인하세요.' : 'Log in to your account.')}</p>
         <form onSubmit={submit}>
           {mode === 'signup' && (

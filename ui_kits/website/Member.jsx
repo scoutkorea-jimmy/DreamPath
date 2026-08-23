@@ -537,10 +537,10 @@ function ApplicationPipeline({ app, c, isKo, onChange }) {
       {/* 접수 동결 안내 — 버튼을 눌러보고 나서야 알게 되지 않도록 위에 둔다 */}
       {applyFrozen(c) && !isRejected && !isCancelled && (
         <div role="status" style={{margin:'0 0 12px',padding:'12px 14px',background:'var(--state-warning-bg)',color:'var(--state-warning)',borderRadius:10,fontSize:13,lineHeight:1.6,wordBreak:'keep-all'}}>
-          <strong>{isKo ? '신청 접수 일시 중단' : 'Applications temporarily closed'}</strong>
+          <strong>{isKo ? '신규 모집 준비 중' : 'Next intake in preparation'}</strong>
           <div style={{marginTop:4}}>
             {isKo
-              ? '홈페이지 정보를 최신화하는 동안 다음 단계 제출이 잠시 멈춰 있습니다. 이미 제출하신 내용은 그대로 보관됩니다.'
+              ? '현재 신규 모집이 열려 있지 않아 다음 단계 제출은 잠시 받지 않고 있습니다. 이미 제출하신 내용은 그대로 보관되며, 진행 일정은 담당자가 개별로 안내드립니다.'
               : 'Submissions are paused while we update the site. Everything you have already submitted is kept as is.'}
           </div>
         </div>

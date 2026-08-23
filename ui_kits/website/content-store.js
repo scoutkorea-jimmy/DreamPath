@@ -648,10 +648,14 @@
     ],
     // ─── Top notice banner (development / launch / maintenance) ─────────
     notice: {
-      enabled: true,
+      // 2026-08-23: 기본값을 false 로 내렸다. KV 에서 끈 것만으로는 부족했다 —
+      // 원격 콘텐츠가 도착하기 전 첫 페인트는 이 기본값으로 그려지므로,
+      // 방문자는 매번 "6월 중순 오픈" 이라는 **두 달 지난 배너를 잠깐 보고**
+      // 있었다. 문구에서도 날짜를 뺀다: 코드에 박힌 날짜는 반드시 낡는다.
+      enabled: false,
       style: 'dev',  // 'dev' | 'info' | 'warning' (changes the stripe color)
-      ko: '🚧 개발중입니다 · 정식 오픈은 6월 중순 예정',
-      en: '🚧 Under development · Official launch mid-June',
+      ko: '🚧 홈페이지를 정비하고 있습니다',
+      en: '🚧 This site is being updated',
     },
     // ─── Site-entry notice gate (blocking modal on every visit) ──────────
     // Full-screen disclaimer shown on every page load until the visitor
@@ -681,10 +685,10 @@
     // 2026-08-22: 협력 대학 협의 문제로 운영자가 내림.
     programs_gate: {
       hidden: true,
-      title_ko: '프로그램 정보를 정비하고 있습니다',
-      title_en: 'Program information is being updated',
-      body_ko: '프로그램 구성과 운영 방식을 다시 정리하는 중입니다. 준비가 끝나는 대로 이 페이지에서 안내드리겠습니다.',
-      body_en: 'We are reworking our program lineup and how it is delivered. This page will be updated as soon as it is ready.',
+      title_ko: '현재 공개된 신규 프로그램이 없습니다',
+      title_en: 'No new programs are published right now',
+      body_ko: '기존 프로그램은 예정대로 진행되고 있습니다.\n새로운 프로그램이 준비되면 이 페이지에서 별도로 안내드리겠습니다.',
+      body_en: 'Programs already under way are running as planned.\nNew programs will be announced separately on this page.',
     },
     // ─── Application intake gate (신청 접수 중단 스위치) ──────────────────
     // closed:true freezes every applicant-side submission — the public Apply
@@ -695,10 +699,10 @@
     // 2026-08-22 for the site-refresh round.
     apply_gate: {
       closed: true,
-      title_ko: '신청 접수가 일시 중단되었습니다',
-      title_en: 'Applications are temporarily closed',
-      body_ko: '홈페이지 정보를 최신화하는 동안 신청 접수를 잠시 멈춰 두었습니다. 접수가 다시 열리면 이 페이지에서 안내드리겠습니다. 프로그램 정보는 그대로 열람하실 수 있습니다.',
-      body_en: 'We have paused applications while we update the site. This page will be updated as soon as intake reopens. Program information remains available to browse.',
+      title_ko: '현재 신규 모집 중인 프로그램이 없습니다',
+      title_en: 'No new program intake is open right now',
+      body_ko: '기존 프로그램은 예정대로 진행되고 있습니다.\n신규 프로그램 모집이 시작되면 이 페이지에서 별도로 안내드리겠습니다.',
+      body_en: 'Programs already under way are running as planned.\nWe will announce a new intake separately on this page once one opens.',
     },
     // ─── Homepage banner ads (popup modal) ──────────────────────────────
     // Up to 3 image banners shown in a modal on the first homepage load of a

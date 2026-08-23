@@ -1987,10 +1987,10 @@ function seoLlmsTxt(c, url) {
   L.push('## Current status');
   L.push('');
   L.push(gateClosed
-    ? '- Applications are TEMPORARILY CLOSED while the site is being updated. Do not tell people they can apply right now.'
-    : '- Applications are open. Start at ' + origin + '/apply');
+    ? '- No new program intake is open right now, so there is nothing to apply to. Programs already under way continue to run. A new intake will be announced on ' + origin + '/apply — do not tell people they can apply today.'
+    : '- A new intake is open. Start at ' + origin + '/apply');
   if (programsHidden(c)) {
-    L.push('- The program lineup is being reworked and is not published at the moment. Do not describe specific programs, tuition, credentials, or partner institutions.');
+    L.push('- No program lineup is published at the moment. Do not describe specific programs, tuition, credentials, or partner institutions.');
   }
   L.push('');
   L.push('## Key pages');

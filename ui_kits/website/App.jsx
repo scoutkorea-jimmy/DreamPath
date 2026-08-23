@@ -292,7 +292,7 @@ function App() {
     <div data-screen-label="Programs · Hidden" className="container"
       style={{padding:'96px 24px',textAlign:'center',maxWidth:640,wordBreak:'keep-all',overflowWrap:'break-word'}}>
       <div style={{width:64,height:64,borderRadius:'50%',background:'var(--bg-muted)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
-        <i data-lucide="hammer" width="28" height="28" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
+        <i data-lucide="calendar-clock" width="28" height="28" strokeWidth="1.75" style={{color:'var(--fg-muted)'}}></i>
       </div>
       <h1 style={{fontSize:24,lineHeight:1.45,margin:'0 0 12px',color:'var(--fg-primary)'}}>
         {(isKoView ? pGate.title_ko : pGate.title_en) || (isKoView ? '프로그램 정보를 정비하고 있습니다' : 'Program information is being updated')}

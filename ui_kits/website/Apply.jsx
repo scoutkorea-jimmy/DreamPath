@@ -357,25 +357,29 @@ function Apply({ lang, c, go }) {
       <div data-screen-label="Apply · Closed">
         <div className={('phead ' + hbApply.cls).trim()} style={hbApply.style}>
           <div className="inner">
-            <div className="sec-kicker">{isKo ? '접수 중단' : 'APPLICATIONS CLOSED'}</div>
+            <div className="sec-kicker">{isKo ? '모집 안내' : 'PROGRAM INTAKE'}</div>
             <h1 className={isKo ? '' : 'en'}>{gTitle}</h1>
           </div>
         </div>
         <section className="section">
           <div className="container-narrow">
             <div className="apply-card" style={{textAlign:'center'}}>
-              <div style={{width:72,height:72,borderRadius:'50%',background:'var(--state-warning-bg)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
-                <i data-lucide="pause" width="34" height="34" strokeWidth="1.75" style={{color:'var(--state-warning)'}}></i>
+              {/* 일시정지 아이콘(⏸)은 "고장나서 멈췄다"는 인상을 준다. 지금 상태는
+                  '멈춤'이 아니라 '다음 모집을 준비 중'이므로 달력 기호로 바꾼다. */}
+              <div style={{width:72,height:72,borderRadius:'50%',background:'var(--state-info-bg)',display:'inline-flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+                <i data-lucide="calendar-clock" width="34" height="34" strokeWidth="1.75" style={{color:'var(--state-info)'}}></i>
               </div>
               {gBody && (
                 <p style={{color:'var(--fg-secondary)',fontSize:16,lineHeight:1.7,maxWidth:600,margin:'0 auto 24px',whiteSpace:'pre-line',wordBreak:'keep-all'}}>{gBody}</p>
               )}
               <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-                <button className="btn btn-primary" type="button" onClick={() => go && go('programs')}>
-                  {isKo ? '프로그램 살펴보기' : 'Browse programs'} →
+                {/* 프로그램이 내려가 있는 동안에는 "프로그램 살펴보기"가 안내 화면으로
+                    이어지는 막다른 길이 된다 — 실제로 갈 데가 있는 곳으로 보낸다. */}
+                <button className="btn btn-primary" type="button" onClick={() => go && go('contact')}>
+                  {isKo ? '문의하기' : 'Contact us'} →
                 </button>
-                <button className="btn btn-secondary" type="button" onClick={() => go && go('contact')}>
-                  {isKo ? '문의하기' : 'Contact us'}
+                <button className="btn btn-secondary" type="button" onClick={() => go && go('scholarships')}>
+                  {isKo ? '장학 정보 보기' : 'See scholarships'}
                 </button>
               </div>
             </div>

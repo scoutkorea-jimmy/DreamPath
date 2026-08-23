@@ -6,13 +6,12 @@ const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const CURRENT_PROGRAMS = [
   {
     id: 'ai-language',
-    kicker: 'MICRO-DEGREE · CUFS',
+    kicker: 'MICRO-DEGREE',
     title_ko: 'AI와 언어교육',
     title_en: 'AI & Language',
     sub_ko: 'AI 기반 영어교육, 언어학, 커뮤니케이션, 빅데이터를 연결하는 1년형 마이크로디그리입니다.',
     sub_en: 'A one-year micro-degree connecting AI-powered language education, linguistics, communication, and big data.',
     meta: ['~1 year', '100% online', 'EN / KO support'],
-    level: 'Intermediate',
     status: 'open',
     color: '#1565C0',
     accent: '#42A5F5',
@@ -20,13 +19,12 @@ const CURRENT_PROGRAMS = [
   },
   {
     id: 'media-content-storytelling',
-    kicker: 'MICRO-DEGREE · CUFS',
+    kicker: 'MICRO-DEGREE',
     title_ko: '미디어 콘텐츠 스토리텔링',
     title_en: 'Media Content Storytelling',
     sub_ko: '역사, 리더십, 커뮤니케이션, 스피치를 통해 글로벌 무대용 스토리텔링 역량을 키웁니다.',
     sub_en: 'Build storytelling power for global stages through history, leadership, communication, and speech.',
     meta: ['~1 year', '100% online', 'EN / KO support'],
-    level: 'All Levels',
     status: 'open',
     color: '#7B1FA2',
     accent: '#CE93D8',
@@ -34,13 +32,12 @@ const CURRENT_PROGRAMS = [
   },
   {
     id: 'youtube-master',
-    kicker: 'MICRO-DEGREE · CUFS',
+    kicker: 'MICRO-DEGREE',
     title_ko: '유튜브 마스터',
     title_en: 'YouTube Master',
     sub_ko: '채널 기획부터 촬영, 편집, 수익화까지 실제 유튜브 채널을 만드는 과정입니다.',
     sub_en: 'Go from channel strategy to shooting, editing, and monetization while building a live YouTube channel.',
     meta: ['~1 year', '100% online', 'EN / KO support'],
-    level: 'Beginner',
     status: 'open',
     color: '#C62828',
     accent: '#EF5350',
@@ -48,13 +45,12 @@ const CURRENT_PROGRAMS = [
   },
   {
     id: 'k-beauty-styling',
-    kicker: 'MICRO-DEGREE · CUFS',
+    kicker: 'MICRO-DEGREE',
     title_ko: '기초 K-뷰티 스타일링',
     title_en: 'Basic K-Beauty Styling',
     sub_ko: '색채, 네일, 피부관리, 메이크업을 한 번에 배우는 K-뷰티 입문 트랙입니다.',
     sub_en: 'An entry-level K-beauty track covering color, nails, skincare, and makeup in one program.',
     meta: ['~1 year', '100% online', 'EN / KO support'],
-    level: 'Beginner',
     status: 'open',
     color: '#AD1457',
     accent: '#F06292',
@@ -62,13 +58,12 @@ const CURRENT_PROGRAMS = [
   },
   {
     id: 'business-korean',
-    kicker: 'MICRO-DEGREE · CUFS',
+    kicker: 'MICRO-DEGREE',
     title_ko: '비즈니스 한국어',
     title_en: 'Business Korean',
     sub_ko: '입문부터 발표·협상까지, 한국 기업 환경에 맞춘 실전 한국어를 집중적으로 익힙니다.',
     sub_en: 'Move from beginner foundations to presentations and negotiations in Korean business contexts.',
     meta: ['~1 year', '100% online', 'EN / KO support'],
-    level: 'Beginner',
     status: 'open',
     color: '#00695C',
     accent: '#4DB6AC',
@@ -78,23 +73,23 @@ const CURRENT_PROGRAMS = [
 const CURRENT_PROGRAM_COPY = {
   programs_section: {
     ko: {
-      title: '5개의 CUFS 마이크로디그리. 모두 온라인.',
+      title: '5개의 마이크로디그리. 모두 온라인.',
       sub: 'AI, 스토리텔링, 유튜브, K-뷰티, 비즈니스 한국어까지 글로벌 학습자를 위한 5개 과정을 확인하세요.',
     },
     en: {
-      title: 'Five CUFS micro-degrees. All online.',
+      title: 'Five micro-degrees. All online.',
       sub: 'Explore five tracks for global learners in AI, storytelling, YouTube, K-beauty, and business Korean.',
     },
   },
   page_heros: {
     programs: {
       ko: {
-        title_l1: '5개의 CUFS 마이크로디그리.',
+        title_l1: '5개의 마이크로디그리.',
         title_l2: '모두 온라인.',
         sub: '글로벌 학습자를 위한 5개 마이크로디그리 중에서 다음 스텝을 선택하세요.',
       },
       en: {
-        title_l1: 'Five CUFS micro-degrees.',
+        title_l1: 'Five micro-degrees.',
         title_l2: 'All online.',
         sub: 'Choose your next step from five micro-degree tracks designed for global learners.',
       },
@@ -103,22 +98,22 @@ const CURRENT_PROGRAM_COPY = {
 };
 const DEFAULT_PROGRAM_DETAILS = {
   'ai-language': {
-    overview_ko: `<p><strong>영어학과 · CUFS</strong></p><p>AI &amp; Language는 AI를 단순한 호기심이 아니라 <strong>전문 도구로 활용하는 법</strong>을 배우는 마이크로디그리입니다. 참고 문서의 원래 기획 의도처럼, 영어교육이 AI로 가장 빠르게 재편되는 현장에서 학습자가 뒤처지지 않도록 설계된 트랙입니다.</p><p>영어교육, 영어학, 커뮤니케이션, 데이터 분석을 함께 익히며 글로벌 현장에서 "AI + Human" 역량을 갖춘 인재로 성장하도록 돕습니다. 영어교육과 언어 데이터를 함께 다루기 때문에 에듀테크, AI 번역, 국제 커뮤니케이션, 데이터 기반 교육 기획까지 연결되는 토대를 만듭니다.</p>`,
-    overview_en: `<p><strong>English Department · CUFS</strong></p><p>AI &amp; Language is a micro-degree built to help learners use AI as a <strong>professional tool</strong>, not just a curiosity. As framed in the original CUFS document, the track responds to the fact that language education is one of the first industries being rewritten by AI.</p><p>It combines English education, linguistics, communication, and data analysis so students can graduate with the kind of "AI + Human" capability that stands out in the global market. Because the program links language learning with data literacy, it creates a strong foundation for EdTech, AI translation, international communication, and analytics-informed education work.</p>`,
+    overview_ko: `<p><strong>영어학과 </strong></p><p>AI &amp; Language는 AI를 단순한 호기심이 아니라 <strong>전문 도구로 활용하는 법</strong>을 배우는 마이크로디그리입니다. 참고 문서의 원래 기획 의도처럼, 영어교육이 AI로 가장 빠르게 재편되는 현장에서 학습자가 뒤처지지 않도록 설계된 트랙입니다.</p><p>영어교육, 영어학, 커뮤니케이션, 데이터 분석을 함께 익히며 글로벌 현장에서 "AI + Human" 역량을 갖춘 인재로 성장하도록 돕습니다. 영어교육과 언어 데이터를 함께 다루기 때문에 에듀테크, AI 번역, 국제 커뮤니케이션, 데이터 기반 교육 기획까지 연결되는 토대를 만듭니다.</p>`,
+    overview_en: `<p><strong>English Department </strong></p><p>AI &amp; Language is a micro-degree built to help learners use AI as a <strong>professional tool</strong>, not just a curiosity. As framed in the original planning document, the track responds to the fact that language education is one of the first industries being rewritten by AI.</p><p>It combines English education, linguistics, communication, and data analysis so students can graduate with the kind of "AI + Human" capability that stands out in the global market. Because the program links language learning with data literacy, it creates a strong foundation for EdTech, AI translation, international communication, and analytics-informed education work.</p>`,
     curriculum_ko: `<ul><li><span class="pd-course-chip">과목</span><strong>AI와 영어교육</strong><em class="pd-course-meta">Prof. Hong Ji-ye (홍지예) · English Dept. · AI &amp; Linguistics Specialist</em>AI가 영어교육을 어떻게 바꾸는지 다룹니다. 자동 피드백, 맞춤형 학습 경로, AI 튜터링 시스템을 직접 이해하고 실습합니다.<a href="https://youtu.be/soW_ah-zWcg" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>영어학개론</strong><em class="pd-course-meta">English Department Faculty · Core foundation course</em>음성학, 통사론, 의미론, 화용론을 통해 영어 구조를 탄탄히 이해합니다. AI 기반 언어 활용의 기초가 되는 과목입니다.</li><li><span class="pd-course-chip">과목</span><strong>AI와 영어 커뮤니케이션</strong><em class="pd-course-meta">Prof. Ahn Ji-eun (안지은) · TESOL / AI &amp; Big Data</em>번역, AI 글쓰기 보조, 음성인식, 챗봇 기반 실시간 회화를 다루며 실제 소통 장면에 AI를 연결합니다.<a href="https://youtu.be/RzC4dxVX-P0" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>AI와 빅데이터</strong><em class="pd-course-meta">Prof. Ahn Ji-eun (안지은) · Big Data Analysis</em>데이터 수집, 처리, 시각화, 의사결정을 언어교육과 글로벌 비즈니스 사례에 적용합니다.<a href="https://youtu.be/Wpe8g8Itug8" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
     curriculum_en: `<ul><li><span class="pd-course-chip">Course</span><strong>AI and English Education</strong><em class="pd-course-meta">Prof. Hong Ji-ye · English Dept. · AI &amp; Linguistics Specialist</em>Explore how AI is reshaping English teaching through automated feedback, personalized learning pathways, and AI tutoring systems.<a href="https://youtu.be/soW_ah-zWcg" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Introduction to English Linguistics</strong><em class="pd-course-meta">English Department Faculty · Core foundation course</em>Build foundations in phonetics, syntax, semantics, and pragmatics so language structure becomes clear and usable.</li><li><span class="pd-course-chip">Course</span><strong>AI and English Communication</strong><em class="pd-course-meta">Prof. Ahn Ji-eun · TESOL / AI &amp; Big Data</em>Practice translation, AI writing support, voice recognition, and chatbot-based conversation for real communication tasks.<a href="https://youtu.be/RzC4dxVX-P0" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>AI and Big Data</strong><em class="pd-course-meta">Prof. Ahn Ji-eun · Big Data Analysis</em>Apply data collection, processing, visualization, and decision-making to language learning and global business contexts.<a href="https://youtu.be/Wpe8g8Itug8" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
-    outcomes_ko: `<ul><li>정부 인정 CUFS 마이크로디그리 수료증</li><li>ChatGPT, NLP, 데이터 분석 등 실전형 AI 활용 역량</li><li>AI로 강화된 전문 영어 커뮤니케이션 능력</li><li>교육과 비즈니스 의사결정에 필요한 빅데이터 기초 소양</li><li>에듀테크, AI 번역, 데이터 전략 분야로 이어지는 커리어 기반</li></ul>`,
-    outcomes_en: `<ul><li>A government-recognized CUFS micro-degree certificate</li><li>Practical AI tool proficiency across ChatGPT, NLP, and analytics workflows</li><li>Professional English communication enhanced by AI</li><li>Big data literacy for education and business decision-making</li><li>A career foundation for EdTech, AI translation, and data strategy roles</li></ul>`,
+    outcomes_ko: `<ul><li>정부 인정 마이크로디그리 수료증</li><li>ChatGPT, NLP, 데이터 분석 등 실전형 AI 활용 역량</li><li>AI로 강화된 전문 영어 커뮤니케이션 능력</li><li>교육과 비즈니스 의사결정에 필요한 빅데이터 기초 소양</li><li>에듀테크, AI 번역, 데이터 전략 분야로 이어지는 커리어 기반</li></ul>`,
+    outcomes_en: `<ul><li>A micro-degree certificate issued by the partner university</li><li>Practical AI tool proficiency across ChatGPT, NLP, and analytics workflows</li><li>Professional English communication enhanced by AI</li><li>Big data literacy for education and business decision-making</li><li>A career foundation for EdTech, AI translation, and data strategy roles</li></ul>`,
     prerequisites_ko: `<p>영어 기반 수업을 따라갈 수 있는 기본 의사소통 능력이 있으면 좋습니다. AI 경험은 필수가 아니며, 언어교육·커뮤니케이션·데이터 활용에 관심 있는 학습자에게 적합합니다.</p>`,
     prerequisites_en: `<p>Basic English communication ability is recommended so learners can follow lectures and assignments comfortably. No prior AI background is required; the track is designed for students interested in language education, communication, and applied data work.</p>`,
     duration: '~1 year · 10 credits',
     format: '100% online',
     language_required: 'English-friendly / Korean support',
-    certification: 'CUFS Micro-Degree Certificate',
+    certification: 'Micro-Degree Certificate',
     instructor_name: 'Prof. Ahn Ji-eun · Prof. Hong Ji-ye',
     instructor_title: 'English Department / AI & Linguistics Faculty',
-    instructor_bio_ko: `<p>안지은 교수와 홍지예 교수를 중심으로, CUFS 영어학과와 TESOL 기반 교수진이 AI 커뮤니케이션, 언어학, 빅데이터 활용을 연결해 지도합니다.</p>`,
-    instructor_bio_en: `<p>Led by Prof. Ahn Ji-eun and Prof. Hong Ji-ye, the teaching team connects CUFS expertise in TESOL, linguistics, AI communication, and big data practice.</p>`,
+    instructor_bio_ko: `<p>안지은 교수와 홍지예 교수를 중심으로, 파트너 대학 영어학과와 TESOL 기반 교수진이 AI 커뮤니케이션, 언어학, 빅데이터 활용을 연결해 지도합니다.</p>`,
+    instructor_bio_en: `<p>Led by Prof. Ahn Ji-eun and Prof. Hong Ji-ye, the teaching team connects partner-university expertise in TESOL, linguistics, AI communication, and big data practice.</p>`,
     courses_json: [
       {
         semester: '과목',
@@ -127,9 +122,9 @@ const DEFAULT_PROGRAM_DETAILS = {
         desc_ko: '자동 피드백, 맞춤형 학습 경로, AI 튜터링 시스템을 통해 영어교육이 어떻게 재편되는지 다룹니다.',
         desc_en: 'Explores how AI is reshaping English teaching through automated feedback, personalized learning paths, and AI tutoring systems.',
         faculty_name: 'Prof. Hong Ji-ye (홍지예)',
-        faculty_title: 'English Dept. · AI & Linguistics Specialist · 3+ AI courses at CUFS',
-        faculty_bio_ko: 'CUFS 영어학과에서 AI와 언어교육의 접점을 다뤄온 교수로, 영어교육 현장에서 AI를 어떻게 실용 도구로 적용할지에 초점을 맞춥니다.',
-        faculty_bio_en: 'A CUFS English Department faculty member focused on the intersection of AI and language education, with an emphasis on practical classroom application.',
+        faculty_title: 'English Dept. · AI & Linguistics Specialist · 3+ AI courses at the partner university',
+        faculty_bio_ko: '파트너 대학 영어학과에서 AI와 언어교육의 접점을 다뤄온 교수로, 영어교육 현장에서 AI를 어떻게 실용 도구로 적용할지에 초점을 맞춥니다.',
+        faculty_bio_en: 'A 파트너 대학 English Department faculty member focused on the intersection of AI and language education, with an emphasis on practical classroom application.',
         faculty_image: '',
         preview_url: 'https://youtu.be/soW_ah-zWcg',
       },
@@ -177,18 +172,18 @@ const DEFAULT_PROGRAM_DETAILS = {
     cost_currency: 'USD',
   },
   'media-content-storytelling': {
-    overview_ko: `<p><strong>Athena School of Liberal Arts · CUFS</strong></p><p>Media Content Storytelling은 <strong>사람을 움직이는 이야기의 힘</strong>을 훈련하는 과정입니다. 원문 문서가 강조하듯, 콘텐츠가 넘치는 시대에는 결국 가장 좋은 이야기를 만드는 사람이 주목받습니다.</p><p>역사 속 인물 분석부터 커뮤니케이션, 영화 기반 리더십, 방송형 스피치까지 이어지며 공공 발표, 콘텐츠 제작, 조직 커뮤니케이션에 필요한 핵심 역량을 쌓습니다. 유튜버, 발표자, 기업 리더, 교육자처럼 메시지 전달력이 중요한 역할을 꿈꾸는 학습자에게 특히 잘 맞습니다.</p>`,
-    overview_en: `<p><strong>Athena School of Liberal Arts · CUFS</strong></p><p>Media Content Storytelling trains learners in the <strong>power of stories that move people</strong>. As the original CUFS page framed it, in a world drowning in content, the people who tell the best stories win.</p><p>The track spans historical storytelling, communication skills, film-based leadership analysis, and broadcaster-style speech delivery. It is especially well suited to future creators, presenters, team leaders, educators, and anyone whose impact depends on clear and compelling communication.</p>`,
+    overview_ko: `<p><strong>Athena School of Liberal Arts </strong></p><p>Media Content Storytelling은 <strong>사람을 움직이는 이야기의 힘</strong>을 훈련하는 과정입니다. 원문 문서가 강조하듯, 콘텐츠가 넘치는 시대에는 결국 가장 좋은 이야기를 만드는 사람이 주목받습니다.</p><p>역사 속 인물 분석부터 커뮤니케이션, 영화 기반 리더십, 방송형 스피치까지 이어지며 공공 발표, 콘텐츠 제작, 조직 커뮤니케이션에 필요한 핵심 역량을 쌓습니다. 유튜버, 발표자, 기업 리더, 교육자처럼 메시지 전달력이 중요한 역할을 꿈꾸는 학습자에게 특히 잘 맞습니다.</p>`,
+    overview_en: `<p><strong>Athena School of Liberal Arts </strong></p><p>Media Content Storytelling trains learners in the <strong>power of stories that move people</strong>. As the original 파트너 대학 page framed it, in a world drowning in content, the people who tell the best stories win.</p><p>The track spans historical storytelling, communication skills, film-based leadership analysis, and broadcaster-style speech delivery. It is especially well suited to future creators, presenters, team leaders, educators, and anyone whose impact depends on clear and compelling communication.</p>`,
     curriculum_ko: `<ul><li><span class="pd-course-chip">과목</span><strong>게임 체인저: 역사를 바꾼 인물 이야기</strong><em class="pd-course-meta">Liberal Arts Faculty · Athena School</em>스티브 잡스, 마리 퀴리, 세종대왕 등 변화 주도자의 서사 구조와 리더십 프레임을 읽습니다.<a href="https://youtu.be/hVUIiTY2uS0" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>커뮤니케이션 스킬</strong><em class="pd-course-meta">Liberal Arts Faculty · Core soft skills course</em>설득, 적극적 경청, 갈등 해결, 문화 간 커뮤니케이션을 실제 업무 상황에 맞춰 훈련합니다.</li><li><span class="pd-course-chip">과목</span><strong>영화로 공부하는 리더십</strong><em class="pd-course-meta">Liberal Arts Faculty · 2026 latest content</em>영화 속 상징적인 리더십 장면을 분석하고, 개인 브랜딩과 조직 커뮤니케이션에 적용합니다.<a href="https://www.youtube.com/watch?v=3NMcHPPKzT8&t=30s" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>아나운서에게 배우는 성공 스피치</strong><em class="pd-course-meta">Professional Announcer Faculty · Broadcast industry experience</em>발성, 스크립트 구성, 즉흥 발표, 카메라 자신감까지 실제 방송 현장의 기준으로 익힙니다.<a href="https://www.youtube.com/watch?v=hO2LV9mtxeQ" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
     curriculum_en: `<ul><li><span class="pd-course-chip">Course</span><strong>Game Changers: Historical Figures Who Changed the World</strong><em class="pd-course-meta">Liberal Arts Faculty · Athena School</em>Study visionary leaders such as Steve Jobs, Marie Curie, and King Sejong to understand narrative patterns and leadership frameworks.<a href="https://youtu.be/hVUIiTY2uS0" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Communication Skills</strong><em class="pd-course-meta">Liberal Arts Faculty · Core soft skills course</em>Build practical strength in persuasion, listening, conflict resolution, and cross-cultural communication.</li><li><span class="pd-course-chip">Course</span><strong>Leadership through Film</strong><em class="pd-course-meta">Liberal Arts Faculty · 2026 latest content</em>Analyze iconic leadership styles through film and connect them to personal branding and organizational leadership.<a href="https://www.youtube.com/watch?v=3NMcHPPKzT8&t=30s" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Successful Speech by Professional Announcers</strong><em class="pd-course-meta">Professional Announcer Faculty · Real broadcast experience</em>Practice projection, script writing, impromptu speaking, and camera confidence with real broadcaster-style delivery.<a href="https://www.youtube.com/watch?v=hO2LV9mtxeQ" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
-    outcomes_ko: `<ul><li>CUFS 마이크로디그리 수료증</li><li>공개 발표와 프레젠테이션 전달력</li><li>무대, 영상, 글 어디에나 적용 가능한 스토리텔링 프레임워크</li><li>방송형 카메라 전달력과 스피치 자신감</li><li>글로벌 조직에서 통하는 문화 간 커뮤니케이션 감각</li></ul>`,
-    outcomes_en: `<ul><li>A CUFS micro-degree certificate</li><li>Professional public speaking and presentation skills</li><li>A storytelling framework usable across stage, video, and writing</li><li>Broadcast-style on-camera confidence</li><li>Cross-cultural communication for global workplaces</li></ul>`,
+    outcomes_ko: `<ul><li>마이크로디그리 수료증</li><li>공개 발표와 프레젠테이션 전달력</li><li>무대, 영상, 글 어디에나 적용 가능한 스토리텔링 프레임워크</li><li>방송형 카메라 전달력과 스피치 자신감</li><li>글로벌 조직에서 통하는 문화 간 커뮤니케이션 감각</li></ul>`,
+    outcomes_en: `<ul><li>A micro-degree certificate</li><li>Professional public speaking and presentation skills</li><li>A storytelling framework usable across stage, video, and writing</li><li>Broadcast-style on-camera confidence</li><li>Cross-cultural communication for global workplaces</li></ul>`,
     prerequisites_ko: `<p>특별한 선수지식은 필요하지 않습니다. 콘텐츠 제작, 발표, 리더십, 커뮤니케이션 역량을 키우고 싶은 모든 학습자에게 열려 있습니다.</p>`,
     prerequisites_en: `<p>No specific academic background is required. The program is open to learners who want to strengthen content creation, presentation, leadership, and communication skills.</p>`,
     duration: '~1 year · 10 credits',
     format: '100% online',
     language_required: 'English-friendly / Korean support',
-    certification: 'CUFS Micro-Degree Certificate',
+    certification: 'Micro-Degree Certificate',
     instructor_name: 'Athena School Faculty · Professional Announcer Faculty',
     instructor_title: 'Liberal Arts / Broadcast Communication',
     instructor_bio_ko: `<p>아테나 교양학부와 실무형 아나운서 교수진이 함께 참여해 스토리텔링, 리더십, 현장감 있는 스피치 훈련을 제공합니다.</p>`,
@@ -251,18 +246,18 @@ const DEFAULT_PROGRAM_DETAILS = {
     cost_currency: 'USD',
   },
   'youtube-master': {
-    overview_ko: `<p><strong>School of Business Administration · CUFS</strong></p><p>YouTube Master는 유튜브를 취미가 아니라 <strong>실제 수익화 가능한 커리어 플랫폼</strong>으로 다루는 과정입니다. 원문 문서에서 말하듯, 이 과정의 포트폴리오는 단순 이력서가 아니라 학습 중 직접 만드는 실제 채널입니다.</p><p>기획, 브랜딩, 촬영, 편집, 마케팅을 단계적으로 익히며 과정 안에서 직접 채널 포트폴리오를 만듭니다. 개인 크리에이터, 브랜드 마케터, 영상 기반 창업을 꿈꾸는 학습자에게 적합합니다.</p>`,
-    overview_en: `<p><strong>School of Business Administration · CUFS</strong></p><p>YouTube Master treats YouTube not as a hobby, but as a <strong>real career platform</strong>. As described in the source document, the portfolio here is not a resume, but a live channel built during the program itself.</p><p>Learners move step by step through strategy, branding, shooting, editing, and channel growth while building a live portfolio channel during the program. It fits aspiring creators, digital marketers, and learners who want a practical route into video-led entrepreneurship.</p>`,
+    overview_ko: `<p><strong>School of Business Administration </strong></p><p>YouTube Master는 유튜브를 취미가 아니라 <strong>실제 수익화 가능한 커리어 플랫폼</strong>으로 다루는 과정입니다. 원문 문서에서 말하듯, 이 과정의 포트폴리오는 단순 이력서가 아니라 학습 중 직접 만드는 실제 채널입니다.</p><p>기획, 브랜딩, 촬영, 편집, 마케팅을 단계적으로 익히며 과정 안에서 직접 채널 포트폴리오를 만듭니다. 개인 크리에이터, 브랜드 마케터, 영상 기반 창업을 꿈꾸는 학습자에게 적합합니다.</p>`,
+    overview_en: `<p><strong>School of Business Administration </strong></p><p>YouTube Master treats YouTube not as a hobby, but as a <strong>real career platform</strong>. As described in the source document, the portfolio here is not a resume, but a live channel built during the program itself.</p><p>Learners move step by step through strategy, branding, shooting, editing, and channel growth while building a live portfolio channel during the program. It fits aspiring creators, digital marketers, and learners who want a practical route into video-led entrepreneurship.</p>`,
     curriculum_ko: `<ul><li><span class="pd-course-chip">과목</span><strong>YouTube 첫걸음</strong><em class="pd-course-meta">Prof. Park In-young (박인영) · Digital Marketing &amp; YouTube specialist</em>채널 세팅, 콘텐츠 기획, 썸네일, SEO, 알고리즘 이해를 바탕으로 첫 영상을 실제로 올리는 것을 목표로 합니다.<a href="https://youtu.be/ou7BK6qnOpA" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>YouTube 기획과 마케팅</strong><em class="pd-course-meta">Prof. Park In-young (박인영) · Marketing Management</em>니치 선정, 콘텐츠 캘린더, 브랜드 협업, 수익화, 데이터 기반 성장 전략을 설계합니다.<a href="https://youtu.be/8eUZlFjhV0Q" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>YouTube 영상촬영과 편집</strong><em class="pd-course-meta">Prof. Lee Su-ji (이수지) · Professional video production instructor</em>카메라, 조명, 오디오, Premiere Pro / DaVinci 기반 편집, 색보정, 멀티플랫폼 출력까지 다룹니다.<a href="https://youtu.be/KdEzvfysGFo" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
     curriculum_en: `<ul><li><span class="pd-course-chip">Course</span><strong>YouTube Basics</strong><em class="pd-course-meta">Prof. Park In-young · Digital Marketing &amp; YouTube specialist</em>Cover channel setup, planning, thumbnails, SEO, and the YouTube algorithm with the goal of publishing a first live video.<a href="https://youtu.be/ou7BK6qnOpA" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>YouTube Planning &amp; Marketing</strong><em class="pd-course-meta">Prof. Park In-young · Marketing Management</em>Learn niche strategy, content calendars, brand collaboration, monetization, and analytics-driven growth.<a href="https://youtu.be/8eUZlFjhV0Q" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>YouTube Video Shooting &amp; Editing</strong><em class="pd-course-meta">Prof. Lee Su-ji · Professional video production instructor</em>Practice camera work, lighting, audio, editing workflows in Premiere Pro / DaVinci, color grading, and multi-platform exports.<a href="https://youtu.be/KdEzvfysGFo" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
-    outcomes_ko: `<ul><li>CUFS 마이크로디그리 수료증</li><li>실제 운영 가능한 유튜브 채널 포트폴리오</li><li>전문 수준의 촬영 및 편집 역량</li><li>콘텐츠 마케팅과 수익화 이해</li><li>YouTube, TikTok, Reels로 확장 가능한 플랫폼 공통 역량</li></ul>`,
-    outcomes_en: `<ul><li>A CUFS micro-degree certificate</li><li>A live YouTube channel that works as a portfolio</li><li>Professional-level shooting and editing skills</li><li>Content marketing and monetization knowledge</li><li>Transferable platform skills for YouTube, TikTok, and Reels</li></ul>`,
+    outcomes_ko: `<ul><li>마이크로디그리 수료증</li><li>실제 운영 가능한 유튜브 채널 포트폴리오</li><li>전문 수준의 촬영 및 편집 역량</li><li>콘텐츠 마케팅과 수익화 이해</li><li>YouTube, TikTok, Reels로 확장 가능한 플랫폼 공통 역량</li></ul>`,
+    outcomes_en: `<ul><li>A micro-degree certificate</li><li>A live YouTube channel that works as a portfolio</li><li>Professional-level shooting and editing skills</li><li>Content marketing and monetization knowledge</li><li>Transferable platform skills for YouTube, TikTok, and Reels</li></ul>`,
     prerequisites_ko: `<p>영상 제작 경험이 없어도 시작할 수 있습니다. 콘텐츠 아이디어를 실제 채널로 발전시키고 싶은 입문자에게 적합합니다.</p>`,
     prerequisites_en: `<p>No prior production background is required. The program is designed for beginners who want to turn content ideas into a real creator channel.</p>`,
     duration: '~1 year · 9 credits',
     format: '100% online',
     language_required: 'English-friendly / Korean support',
-    certification: 'CUFS Micro-Degree Certificate',
+    certification: 'Micro-Degree Certificate',
     instructor_name: 'Prof. Park In-young · Prof. Lee Su-ji',
     instructor_title: 'Digital Marketing / Video Production Faculty',
     instructor_bio_ko: `<p>박인영 교수와 이수지 교수를 중심으로, 디지털 마케팅과 영상 제작 실무를 연결한 커리큘럼을 운영합니다.</p>`,
@@ -312,18 +307,18 @@ const DEFAULT_PROGRAM_DETAILS = {
     cost_currency: 'USD',
   },
   'k-beauty-styling': {
-    overview_ko: `<p><strong>K-Beauty Department · CUFS</strong></p><p>Basic K-Beauty Styling은 빠르게 성장하는 글로벌 K-뷰티 시장에 맞춰 <strong>색채, 네일, 피부, 메이크업의 4대 기초 역량</strong>을 한 번에 익히는 과정입니다. 참고 문서가 강조한 것처럼, 온라인으로 시작하지만 창업과 실무 연결을 목표로 한 구조입니다.</p><p>뷰티 아티스트, 콘텐츠 크리에이터, 살롱 창업을 꿈꾸는 학습자에게 특히 적합하며, 한국 뷰티 트렌드를 실무 감각과 함께 익힐 수 있도록 구성되었습니다.</p>`,
-    overview_en: `<p><strong>K-Beauty Department · CUFS</strong></p><p>Basic K-Beauty Styling is designed for learners who want the <strong>four core foundations of K-beauty</strong> in one path: color, nails, skincare, and makeup. As emphasized in the reference document, the goal is not only online learning but a path that can grow into real practice and entrepreneurship.</p><p>It is a strong fit for aspiring beauty artists, creators, and future salon founders who want direct exposure to Korean beauty trends and practical skill-building.</p>`,
+    overview_ko: `<p><strong>K-Beauty Department </strong></p><p>Basic K-Beauty Styling은 빠르게 성장하는 글로벌 K-뷰티 시장에 맞춰 <strong>색채, 네일, 피부, 메이크업의 4대 기초 역량</strong>을 한 번에 익히는 과정입니다. 참고 문서가 강조한 것처럼, 온라인으로 시작하지만 창업과 실무 연결을 목표로 한 구조입니다.</p><p>뷰티 아티스트, 콘텐츠 크리에이터, 살롱 창업을 꿈꾸는 학습자에게 특히 적합하며, 한국 뷰티 트렌드를 실무 감각과 함께 익힐 수 있도록 구성되었습니다.</p>`,
+    overview_en: `<p><strong>K-Beauty Department </strong></p><p>Basic K-Beauty Styling is designed for learners who want the <strong>four core foundations of K-beauty</strong> in one path: color, nails, skincare, and makeup. As emphasized in the reference document, the goal is not only online learning but a path that can grow into real practice and entrepreneurship.</p><p>It is a strong fit for aspiring beauty artists, creators, and future salon founders who want direct exposure to Korean beauty trends and practical skill-building.</p>`,
     curriculum_ko: `<ul><li><span class="pd-course-chip">과목</span><strong>미용색채학</strong><em class="pd-course-meta">K-Beauty Department Faculty · 1st year foundation</em>퍼스널 컬러, 색 조화, 다양한 피부 톤을 위한 팔레트 구성, 트렌드 예측까지 K-뷰티 색채의 과학을 배웁니다.<a href="https://www.youtube.com/watch?v=0s5sPZYuX9k&t=115s" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>기초네일케어</strong><em class="pd-course-meta">Prof. Han Song-i (한송이) · Nail art specialist</em>매니큐어, 페디큐어, 젤 네일, 위생 기준, 도구 관리까지 살롱 기본기를 익힙니다.<a href="https://youtu.be/pTvt4ruBGrw" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>기초피부관리 실습</strong><em class="pd-course-meta">Prof. Kim Ji-young (김지영) · Skin care &amp; body therapy specialist</em>피부 타입 분석, 클렌징, 마사지, 마스크, 10-step 루틴과 성분 이해를 함께 다룹니다.<a href="https://youtu.be/_JKTA5dyHis" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>기초메이크업실습</strong><em class="pd-course-meta">Prof. Jeong Hyun-hyung (정현형) · Makeup practice specialist</em>베이스, 컨투어링, 아이·립 메이크업, 글래스 스킨과 그라데이션 립 같은 대표 K-뷰티 룩을 실습합니다.<a href="https://youtu.be/HiJdCKb9tw4" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
     curriculum_en: `<ul><li><span class="pd-course-chip">Course</span><strong>Beauty Color Theory</strong><em class="pd-course-meta">K-Beauty Department Faculty · 1st year foundation</em>Learn personal color analysis, harmony, palette creation for diverse skin tones, and trend forecasting.<a href="https://www.youtube.com/watch?v=0s5sPZYuX9k&t=115s" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Basic Nail Care</strong><em class="pd-course-meta">Prof. Han Song-i · Nail art specialist</em>Cover manicure and pedicure basics, gel nails, hygiene standards, and salon tool management.<a href="https://youtu.be/pTvt4ruBGrw" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Basic Skin Care Practice</strong><em class="pd-course-meta">Prof. Kim Ji-young · Skin care &amp; body therapy specialist</em>Study skin analysis, cleansing, massage, mask routines, ingredient science, and Korean skincare structure.<a href="https://youtu.be/_JKTA5dyHis" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Basic Makeup Practice</strong><em class="pd-course-meta">Prof. Jeong Hyun-hyung · Makeup practice specialist</em>Practice base work, contouring, eye and lip design, and signature K-beauty looks such as glass skin and gradient lips.<a href="https://youtu.be/HiJdCKb9tw4" target="_blank" rel="noopener">Watch lecture preview</a></li></ul>`,
-    outcomes_ko: `<ul><li>CUFS 마이크로디그리 수료증</li><li>컬러, 네일, 피부관리, 메이크업의 4개 기초 스킬셋</li><li>K-뷰티 살롱 창업을 위한 기본 토대</li><li>뷰티 콘텐츠 제작과 트렌드 해석 역량</li><li>글로벌 K-뷰티 시장에 진입할 수 있는 실무 감각</li></ul>`,
-    outcomes_en: `<ul><li>A CUFS micro-degree certificate</li><li>Four practical beauty skill sets across color, nails, skincare, and makeup</li><li>A foundation for future K-beauty salon or freelance work</li><li>Beauty content creation and trend-reading ability</li><li>Practical access to the global K-beauty market</li></ul>`,
+    outcomes_ko: `<ul><li>마이크로디그리 수료증</li><li>컬러, 네일, 피부관리, 메이크업의 4개 기초 스킬셋</li><li>K-뷰티 살롱 창업을 위한 기본 토대</li><li>뷰티 콘텐츠 제작과 트렌드 해석 역량</li><li>글로벌 K-뷰티 시장에 진입할 수 있는 실무 감각</li></ul>`,
+    outcomes_en: `<ul><li>A micro-degree certificate</li><li>Four practical beauty skill sets across color, nails, skincare, and makeup</li><li>A foundation for future K-beauty salon or freelance work</li><li>Beauty content creation and trend-reading ability</li><li>Practical access to the global K-beauty market</li></ul>`,
     prerequisites_ko: `<p>초보자도 지원할 수 있습니다. 뷰티 실습에 대한 관심과 기본적인 자기주도 학습 태도가 있으면 충분합니다.</p>`,
     prerequisites_en: `<p>Beginners are welcome. Curiosity about beauty practice and the discipline to learn hands-on techniques online are the main expectations.</p>`,
     duration: '~1 year · 10 credits',
     format: '100% online',
     language_required: 'English-friendly / Korean support',
-    certification: 'CUFS Micro-Degree Certificate',
+    certification: 'Micro-Degree Certificate',
     instructor_name: 'Prof. Han Song-i · Prof. Kim Ji-young · Prof. Jeong Hyun-hyung',
     instructor_title: 'K-Beauty Department Faculty',
     instructor_bio_ko: `<p>한송이, 김지영, 정현형 교수 등 K-Beauty 학과 교수진이 네일, 피부, 메이크업, 색채 실습을 분야별로 지도합니다.</p>`,
@@ -386,18 +381,18 @@ const DEFAULT_PROGRAM_DETAILS = {
     cost_currency: 'USD',
   },
   'business-korean': {
-    overview_ko: `<p><strong>Korean Language Department · CUFS</strong></p><p>Business Korean은 한국 기업 환경에서 바로 쓰이는 한국어를 집중적으로 훈련하는 과정입니다. 참고 문서의 핵심 메시지처럼, 한국 기업과 함께 일하려면 단순 회화가 아니라 이메일, 문서, 회의, 발표, 협상까지 가능한 언어가 필요합니다.</p><p>이 과정을 통해 <strong>TOPIK 3~4 수준의 실전형 비즈니스 한국어</strong>를 목표로 하며, 한국 취업 또는 한국 기업과의 협업을 준비하는 글로벌 학습자에게 가장 직접적인 트랙이 됩니다.</p>`,
-    overview_en: `<p><strong>Korean Language Department · CUFS</strong></p><p>Business Korean is a targeted track for learners who want Korean they can actually use in professional settings. As the source document emphasizes, professional work with Korean companies requires more than casual conversation: it requires email, documents, meetings, presentations, and negotiations.</p><p>The curriculum aims for <strong>TOPIK 3~4 level business-ready fluency</strong> and is the most direct route for global learners preparing for Korean employment or collaboration with Korean companies.</p>`,
+    overview_ko: `<p><strong>Korean Language Department </strong></p><p>Business Korean은 한국 기업 환경에서 바로 쓰이는 한국어를 집중적으로 훈련하는 과정입니다. 참고 문서의 핵심 메시지처럼, 한국 기업과 함께 일하려면 단순 회화가 아니라 이메일, 문서, 회의, 발표, 협상까지 가능한 언어가 필요합니다.</p><p>이 과정을 통해 <strong>TOPIK 3~4 수준의 실전형 비즈니스 한국어</strong>를 목표로 하며, 한국 취업 또는 한국 기업과의 협업을 준비하는 글로벌 학습자에게 가장 직접적인 트랙이 됩니다.</p>`,
+    overview_en: `<p><strong>Korean Language Department </strong></p><p>Business Korean is a targeted track for learners who want Korean they can actually use in professional settings. As the source document emphasizes, professional work with Korean companies requires more than casual conversation: it requires email, documents, meetings, presentations, and negotiations.</p><p>The curriculum aims for <strong>TOPIK 3~4 level business-ready fluency</strong> and is the most direct route for global learners preparing for Korean employment or collaboration with Korean companies.</p>`,
     curriculum_ko: `<ul><li><span class="pd-course-chip">과목</span><strong>비즈니스 한국어 입문</strong><em class="pd-course-meta">Prof. Song Eun-jung (송은정) · Korean teaching methods expert</em>인사, 자기소개, 사무실 어휘, 이메일, 전화 예절 등 기업문화에 맞는 기본기를 다집니다.<a href="https://youtu.be/rzVLDPoO6vs" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>실전비즈니스 읽기쓰기</strong><em class="pd-course-meta">Prof. Ahn Jung-min (안정민) · Business Korean specialist</em>계약서, 보고서, 메모를 읽고 존댓말을 포함한 실무 문서를 작성합니다.<a href="https://youtu.be/98BW_tuOt5Y" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">과목</span><strong>실전비즈니스 말하기듣기</strong><em class="pd-course-meta">Korean Department Faculty · Latest curriculum</em>회의, 협상, 고객 통화, 직장 내 대화를 실제 비즈니스 시나리오 롤플레잉으로 훈련합니다.</li><li><span class="pd-course-chip">과목</span><strong>비즈니스 한국어 프레젠테이션</strong><em class="pd-course-meta">Korean Department Faculty · Presentation mastery</em>슬라이드 디자인, 데이터 스토리텔링, 질의응답, 격식 있는 발표 매너를 익힙니다.</li></ul>`,
     curriculum_en: `<ul><li><span class="pd-course-chip">Course</span><strong>Introduction to Business Korean</strong><em class="pd-course-meta">Prof. Song Eun-jung · Korean teaching methods expert</em>Start with greetings, self-introductions, office vocabulary, email writing, and phone etiquette in Korean corporate culture.<a href="https://youtu.be/rzVLDPoO6vs" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Practical Business Reading &amp; Writing</strong><em class="pd-course-meta">Prof. Ahn Jung-min · Business Korean specialist</em>Read contracts, reports, and memos while writing professional correspondence with proper honorifics.<a href="https://youtu.be/98BW_tuOt5Y" target="_blank" rel="noopener">Watch lecture preview</a></li><li><span class="pd-course-chip">Course</span><strong>Practical Business Speaking &amp; Listening</strong><em class="pd-course-meta">Korean Department Faculty · Latest curriculum</em>Role-play meetings, negotiations, client calls, and workplace conversation with realistic business scenarios.</li><li><span class="pd-course-chip">Course</span><strong>Business Korean Presentation</strong><em class="pd-course-meta">Korean Department Faculty · Presentation mastery</em>Build slide design, data storytelling, persuasive delivery, Q&amp;A handling, and formal presentation etiquette.</li></ul>`,
-    outcomes_ko: `<ul><li>CUFS 마이크로디그리 수료증</li><li>TOPIK 3~4 수준의 비즈니스 한국어 역량</li><li>이메일, 문서, 발표, 협상 등 실전 업무 표현</li><li>한국 기업 취업과 협업으로 이어지는 언어 기반</li><li>K-Point +10과 연결되는 한국 취업 비자 경로 이해</li></ul>`,
-    outcomes_en: `<ul><li>A CUFS micro-degree certificate</li><li>TOPIK 3~4 level business Korean proficiency</li><li>Professional email, document, presentation, and negotiation language</li><li>A language bridge into Korean companies and cross-border work</li><li>Clear understanding of the K-Point +10 employment-visa pathway</li></ul>`,
+    outcomes_ko: `<ul><li>마이크로디그리 수료증</li><li>TOPIK 3~4 수준의 비즈니스 한국어 역량</li><li>이메일, 문서, 발표, 협상 등 실전 업무 표현</li><li>한국 기업 취업과 협업으로 이어지는 언어 기반</li><li>K-Point +10과 연결되는 한국 취업 비자 경로 이해</li></ul>`,
+    outcomes_en: `<ul><li>A micro-degree certificate</li><li>TOPIK 3~4 level business Korean proficiency</li><li>Professional email, document, presentation, and negotiation language</li><li>A language bridge into Korean companies and cross-border work</li><li>Clear understanding of the K-Point +10 employment-visa pathway</li></ul>`,
     prerequisites_ko: `<p>초급 학습자도 시작할 수 있지만, 꾸준히 한국어를 연습할 의지가 중요합니다. 한국 취업, 현지 파트너십, 비즈니스 커뮤니케이션에 관심 있는 학습자에게 적합합니다.</p>`,
     prerequisites_en: `<p>Beginners can start here, but steady commitment to Korean practice is important. The track is ideal for learners interested in Korean employment, partnerships, or business communication.</p>`,
     duration: '~1 year · 10 credits',
     format: '100% online',
     language_required: 'English-friendly / Korean immersion',
-    certification: 'CUFS Micro-Degree Certificate',
+    certification: 'Micro-Degree Certificate',
     instructor_name: 'Prof. Song Eun-jung · Prof. Ahn Jung-min',
     instructor_title: 'Korean Language Department Faculty',
     instructor_bio_ko: `<p>송은정 교수와 안정민 교수를 중심으로, 한국어교육과 비즈니스 커뮤니케이션 전문성이 결합된 교수진이 과정을 운영합니다.</p>`,
@@ -1843,7 +1838,6 @@ function seoCourse(p, origin) {
     description: seoText(p.sub_en || p.sub_ko, 600),
     url: origin + '/program/' + encodeURIComponent(p.id),
     inLanguage: ['en', 'ko'],
-    educationalLevel: seoText(p.level, 60) || undefined,
     provider: { '@id': origin + '/#organization' },
     courseMode: 'online',
     availableLanguage: ['en', 'ko'],
@@ -2310,7 +2304,7 @@ async function handleApi(request, env, url, ctx) {
       'transcript_graduation',
       'transcript_recognition',
       'transcript_translation',
-      'admission_certificate',   // v01.092 — CUFS 합격증 (cufs_no_submitted 단계)
+      'admission_certificate',   // v01.092 — 파트너 대학 합격증 (cufs_no_submitted 단계)
       'recommendation',
       'portfolio',
       'id_doc',
@@ -3929,7 +3923,7 @@ async function handleApi(request, env, url, ctx) {
         'UPDATE applications SET status = ?, screen_decided_at = ?, screen_decided_by = ?, screen_note = ? WHERE id = ?'
       ).bind(decision, now, actor ? actor.id : null, str(body.note), id).run();
       auditTransition(env, request, ctx, { id, from: 'submitted', to: decision, action: 'app_screen', extra: { note: str(body.note) } });
-      // 통과 시 CUFS 입시 안내 메일 / 탈락 시 결과 메일(best-effort).
+      // 통과 시 파트너 대학 입시 안내 메일 / 탈락 시 결과 메일(best-effort).
       try {
         await decryptApplicationRow(env, row);
         await sendEmail(env, {
@@ -3952,7 +3946,7 @@ async function handleApi(request, env, url, ctx) {
     return applyClosedResponse();
   }
 
-  // ── (학생) CUFS 접수번호 입력: screen_passed → cufs_no_submitted ──────────
+  // ── (학생) 파트너 대학 접수번호 입력: screen_passed → cufs_no_submitted ──────────
   {
     const mReg = path.match(/^\/api\/me\/applications\/([A-Za-z0-9_-]+)\/cufs-reg-no$/);
     if (mReg && method === 'POST') {
@@ -7286,7 +7280,7 @@ async function computeTuition(env, programId) {
 // 데모 구현(DemoPaymentProvider)은 입력만 검증하고 즉시 ok:true + 가짜 거래
 // 식별자를 반환한다(실제 청구·외부호출 없음). 실 PG 연동 시 이 함수 내부만
 // 교체하면 호출부(/pay 핸들러)는 수정 불필요.
-// NOTE: PG-level split 정산(CUFS tuition → CUFS merchant, KDP fee → KDP
+// NOTE: PG-level split 정산(파트너 대학 tuition → 파트너 대학 merchant, KDP fee → KDP
 //       merchant)은 본 인터페이스 밖. 시스템은 단일 amount만 다룬다.
 async function chargePayment(env, { amount, currency, card_last4, candidate_no, application_id }) {
   // 실 PG 자리: env.PAYMENT_PROVIDER === 'live' 등으로 분기 후 SDK 호출.

@@ -1418,7 +1418,6 @@
   function ProgramsTab({ c, set, addItem, removeItem }) {
     const [editingId, setEditingId] = useState(null);
     const [query, setQuery]  = useState('');
-    const [fLevel, setFLevel] = useState('all');
     const [fStatus, setFStatus] = useState('all');
     const [fCategory, setFCategory] = useState('all');
     const [selected, setSelected] = useState(new Set());
@@ -1445,7 +1444,6 @@
     }
 
     // Derive filter options from data
-    const levels = Array.from(new Set(c.programs.map(p => p.level).filter(Boolean)));
     const statuses = Array.from(new Set(c.programs.map(p => p.status).filter(Boolean)));
     const categories = Array.from(new Set(c.programs.map(p => p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '')).filter(Boolean)));
 
@@ -1453,7 +1451,6 @@
     const q = query.trim().toLowerCase();
     let rows = c.programs.map((p, idx) => ({ p, idx }));
     rows = rows.filter(({ p }) => {
-      if (fLevel !== 'all' && p.level !== fLevel) return false;
       if (fStatus !== 'all' && p.status !== fStatus) return false;
       if (fCategory !== 'all') {
         const cat = p.category || (p.kicker ? p.kicker.split('·')[0].trim() : '');
@@ -1505,7 +1502,7 @@
     function newProgram() {
       const id = 'new-program-' + Date.now().toString(36).slice(-4);
       addItem(['programs'], {
-        id, kicker: 'MICRO-DEGREE · CUFS', category: 'MICRO-DEGREE',
+        id, kicker: 'MICRO-DEGREE', category: 'MICRO-DEGREE',
         title_ko: '새 프로그램', title_en: 'New program',
         sub_ko: '', sub_en: '',
         meta: ['12 weeks','100% remote','EN'], level: 'Beginner', status: 'open',
@@ -1573,11 +1570,6 @@
               <option value="all">All categories</option>
               {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
-            <select value={fLevel} onChange={e => setFLevel(e.target.value)}
-              style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
-              <option value="all">All levels</option>
-              {levels.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
             <select value={fStatus} onChange={e => setFStatus(e.target.value)}
               style={{padding:'9px 12px',border:'1px solid var(--border-default)',borderRadius:8,fontSize:13,background:'var(--bg-elevated)'}}>
               <option value="all">All status</option>
@@ -1615,7 +1607,6 @@
                   <th style={{width:48}}></th>
                   {headerCell('Title',    'title_ko')}
                   {headerCell('Category', 'category')}
-                  {headerCell('Level',    'level')}
                   {headerCell('Status',   'status')}
                   {headerCell('ID',       'id')}
                   <th style={{width:160,textAlign:'right'}}>Actions</th>
@@ -1644,7 +1635,6 @@
                         <div style={{fontSize:12,color:'var(--fg-secondary)'}}>{p.title_en}</div>
                       </td>
                       <td><span style={{fontSize:12,fontFamily:'var(--font-mono)',color:'var(--fg-secondary)'}}>{cat}</span></td>
-                      <td><span style={{fontSize:12,color:'var(--fg-secondary)'}}>{p.level || '—'}</span></td>
                       <td><span className="pill" style={{background:sst.bg,color:sst.fg}}>{p.status || '—'}</span></td>
                       <td><code style={{fontSize:11,color:'var(--fg-muted)'}}>{p.id}</code></td>
                       <td style={{textAlign:'right'}} onClick={e => e.stopPropagation()}>
@@ -1761,7 +1751,6 @@
             <Text label="Title (EN)" value={program.title_en} onChange={v => set(['programs',index,'title_en'], v)} lang="en" />
             <Area label="Short subtitle (EN)" value={program.sub_en} onChange={v => set(['programs',index,'sub_en'], v)} lang="en" rows={2} />
             <Text label="Meta chips (comma-separated)" value={(program.meta || []).join(', ')} onChange={v => set(['programs',index,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN / KO" />
-            <Text label="Level" value={program.level} onChange={v => set(['programs',index,'level'], v)} hint="Beginner · Intermediate · All" />
             <Text label="Status" value={program.status} onChange={v => set(['programs',index,'status'], v)} hint="open · closed · opens Fall …" />
             <Text label="Tuition (USD, 등록금)" value={program.tuition == null ? '' : String(program.tuition)}
               onChange={v => set(['programs',index,'tuition'], parseInt(String(v).replace(/[^0-9]/g,''),10) || 0)}
@@ -1793,7 +1782,7 @@
             <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Instructor</h3></summary>
               <div className="grid-2 tight">
                 <Text label="Name" value={details?.instructor_name || ''} onChange={v => updDetail('instructor_name', v)} />
-                <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies, CUFS" />
+                <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies" />
                 <div className="field span-2">
                   <label>Bio</label>
                   <window.RichEditor value={details?.instructor_bio_en || ''} onChange={v => updDetail('instructor_bio_en', v)} lang="en" minHeight={140} />
@@ -8030,7 +8019,7 @@
                 <Row k="현재 단계"><span className="pill" style={{background:stageMeta(selected.status).color+'22',color:stageMeta(selected.status).color}}>{stageMeta(selected.status).label}</span></Row>
                 <Row k="Submitted">{new Date(selected.submittedAt).toLocaleString()}</Row>
                 <Row k="Program">{selected.program}</Row>
-                {selected.cufs_reg_no && <Row k="CUFS 접수번호">{selected.cufs_reg_no}</Row>}
+                {selected.cufs_reg_no && <Row k="입학 접수번호">{selected.cufs_reg_no}</Row>}
                 {selected.screen_note && <Row k="스크리닝 메모">{selected.screen_note}</Row>}
                 {selected.amount > 0 && <Row k="결제">${selected.amount}.00 {selected.card_last4 ? '· •••• ' + selected.card_last4 : ''}</Row>}
 
@@ -8083,7 +8072,7 @@
           {btn('1차 통과 →', '#248737', () => transition(app.id, 'screen', { decision: 'pass' }))}
           {btn('탈락', '#B91C1C', () => { const note = prompt('탈락 사유(선택, 학생에게 메일로 전달):') || ''; transition(app.id, 'screen', { decision: 'reject', note }); })}
         </>)}
-        {s === 'screen_passed' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 CUFS 접수번호 입력 대기 중.</span>}
+        {s === 'screen_passed' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 입학 접수번호 입력 대기 중.</span>}
         {s === 'cufs_no_submitted' && btn('합격증 검증 → 합격 확인', '#6B2DBE', () => { if (confirm('합격증을 접수번호와 대조하셨나요? 확인 시 다음 단계로 진행됩니다.')) transition(app.id, 'verify-admission'); })}
         {s === 'cufs_admitted' && <span style={{fontSize:13,color:'var(--fg-secondary)'}}>학생의 서류 3종 제출 대기 중.</span>}
         {s === 'docs_submitted' && btn('서류 검증 → 결제 오픈', '#6B2DBE', () => { if (confirm('첨부 서류를 모두 검토하셨나요? 확인 시 학생에게 결제 단계가 열립니다.')) transition(app.id, 'verify-documents'); })}
@@ -8149,7 +8138,7 @@
             transcript_graduation: '졸업(예정)증명서',
             transcript_recognition: '학력인정/아포스티유/영사확인',
             transcript_translation: '한글번역공증본',
-            admission_certificate: 'CUFS 합격증',
+            admission_certificate: '합격증',
             recommendation: `추천서 #${(f.recommender_idx ?? 0) + 1}`,
             portfolio: '포트폴리오', id_doc: '신분증',
           }[f.kind] || f.kind;

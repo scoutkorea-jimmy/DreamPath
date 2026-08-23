@@ -301,7 +301,7 @@ function ProgramDetail({ go, lang, programId, c }) {
               <p className="pd-sub">{isKo ? p.sub_ko : p.sub_en}</p>
               <div className="pd-meta">
                 {p.meta.map((m, i) => <span key={i} className="m">{m}</span>)}
-                <span className="m">{p.level}</span>
+
               </div>
             </div>
             <div className="pd-hero-card" aria-hidden="true">
@@ -590,7 +590,6 @@ function ProgramDetail({ go, lang, programId, c }) {
           {details && details.certification && (
             <div className="row"><span className="k">{isKo ? '수료증' : 'Certification'}</span><span className="v">{details.certification}</span></div>
           )}
-          <div className="row"><span className="k">{d.label_level}</span><span className="v">{p.level}</span></div>
           <div className="row"><span className="k">{d.label_status}</span><span className="v" style={{color:'var(--state-success)'}}>{p.status}</span></div>
           {details && details.cost_full != null && (
             <div className="row"><span className="k">{isKo ? '비용' : 'Cost'}</span><span className="v">${details.cost_full} {details.cost_currency || 'USD'}</span></div>

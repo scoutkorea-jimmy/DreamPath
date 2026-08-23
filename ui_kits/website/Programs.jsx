@@ -8,7 +8,11 @@ function programCategory(p) {
 
 function Programs({ go, lang, c }) {
   const isKo = lang === 'ko';
-  const all = (c && c.programs) || window.PROGRAMS;
+  // v01.097 — was `|| window.PROGRAMS`, a global that is defined nowhere in
+  // the codebase. It read as a safety net but evaluated to undefined, so a
+  // null/missing content key crashed straight into `.filter` instead. Fall
+  // back to the shipped defaults, then to an empty list.
+  const all = dpList(c && c.programs, 'programs');
   const h = ((c && c.page_heros && c.page_heros.programs && (c.page_heros.programs.en || c.page_heros.programs[lang])) || {});
   const hb = window.useHeroBg((c && c.page_heros && c.page_heros.programs) || {});
   function readCatFromUrl() {
@@ -18,7 +22,6 @@ function Programs({ go, lang, c }) {
 
   // Read ?cat= from URL so footer category links land on a pre-filtered view
   const initialCat = readCatFromUrl();
-  const [filter, setFilter] = useStateP('all');
   const [catFilter, setCatFilter] = useStateP(initialCat);
 
   useEffectP(() => {
@@ -36,14 +39,10 @@ function Programs({ go, lang, c }) {
     };
   }, []);
 
-  // Apply both filters (level chip + category from URL)
+  // 2026-08-23: 프로그램 등급(level)을 없앴다 — 필터도 함께 제거.
+  // 카테고리 필터(?cat=)는 그대로 둔다.
   let shown = all;
   if (catFilter) shown = shown.filter(p => programCategory(p).toLowerCase() === catFilter);
-  if (filter !== 'all') shown = shown.filter(p => p.level === filter);
-
-  // Build filter list from levels actually present in the (category-filtered) data
-  const levels = Array.from(new Set(shown.map(p => p.level).filter(Boolean)));
-  const filters = ['all', ...levels];
 
   // Category label (from any program with this category)
   const catLabel = catFilter
@@ -77,17 +76,6 @@ function Programs({ go, lang, c }) {
               </button>
             </div>
           )}
-          <div className="filters">
-            {filters.map(f => (
-              <span key={f}
-                className={'filter-chip' + (filter === f ? ' on' : '')}
-                onClick={() => setFilter(f)}
-                role="button" tabIndex="0"
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFilter(f); } }}>
-                {f === 'all' ? (isKo ? '전체' : 'All') : f}
-              </span>
-            ))}
-          </div>
           <div className="prog-grid">
             {shown.map(p => (
               <window.ProgramCard key={p.id} p={p} lang={lang} go={go} c={c} />

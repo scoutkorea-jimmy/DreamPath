@@ -183,47 +183,47 @@
           d_en: 'Pick from micro-degrees, full online degrees, or language tracks.' },
         { n: '03', icon: 'graduation-cap',
           t_ko: '파트너 대학에서 학습이 시작됩니다',       t_en: 'Learning begins at the partner university',
-          d_ko: '첫 파트너는 사이버한국외국어대학교(CUFS). 100% 온라인.',
-          d_en: 'First partner is Cyber Hankuk University of Foreign Studies. 100% online.' },
+          d_ko: '파트너 대학과 함께 운영합니다. 100% 온라인.',
+          d_en: 'Delivered with our partner university. 100% online.' },
       ],
     },
     programs_section: {
-      ko: { kicker: 'PROGRAMS', title: '5개의 CUFS 마이크로디그리. 모두 온라인.', sub: 'AI, 스토리텔링, 유튜브, K-뷰티, 비즈니스 한국어까지 글로벌 학습자를 위한 5개 과정을 확인하세요.' },
-      en: { kicker: 'PROGRAMS', title: 'Five CUFS micro-degrees. All online.',  sub: 'Explore five tracks for global learners in AI, storytelling, YouTube, K-beauty, and business Korean.' },
+      ko: { kicker: 'PROGRAMS', title: '5개의 마이크로디그리. 모두 온라인.', sub: 'AI, 스토리텔링, 유튜브, K-뷰티, 비즈니스 한국어까지 글로벌 학습자를 위한 5개 과정을 확인하세요.' },
+      en: { kicker: 'PROGRAMS', title: 'Five micro-degrees. All online.',  sub: 'Explore five tracks for global learners in AI, storytelling, YouTube, K-beauty, and business Korean.' },
     },
     programs: [
       // tuition: 프로그램별 등록금(USD, 최소단위=달러). 결제 단계에서 이 값을
       // 자동으로 불러와 표기·청구한다(단일 출처). 0이면 결제가 차단되므로
       // 관리자가 admin → 프로그램 탭에서 실제 금액을 입력해야 한다. v01.092.
-      { id: 'ai-language', kicker: 'MICRO-DEGREE · CUFS',
+      { id: 'ai-language', kicker: 'MICRO-DEGREE',
         title_ko: 'AI와 언어교육', title_en: 'AI & Language',
         sub_ko: 'AI 기반 영어교육, 언어학, 커뮤니케이션, 빅데이터를 연결하는 1년형 마이크로디그리입니다.',
         sub_en: 'A one-year micro-degree connecting AI-powered language education, linguistics, communication, and big data.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Intermediate', status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
         color: '#1565C0', accent: '#42A5F5', icon: 'languages' },
-      { id: 'media-content-storytelling', kicker: 'MICRO-DEGREE · CUFS',
+      { id: 'media-content-storytelling', kicker: 'MICRO-DEGREE',
         title_ko: '미디어 콘텐츠 스토리텔링', title_en: 'Media Content Storytelling',
         sub_ko: '역사, 리더십, 커뮤니케이션, 스피치를 통해 글로벌 무대용 스토리텔링 역량을 키웁니다.',
         sub_en: 'Build storytelling power for global stages through history, leadership, communication, and speech.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'All Levels', status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
         color: '#7B1FA2', accent: '#CE93D8', icon: 'mic' },
-      { id: 'youtube-master', kicker: 'MICRO-DEGREE · CUFS',
+      { id: 'youtube-master', kicker: 'MICRO-DEGREE',
         title_ko: '유튜브 마스터', title_en: 'YouTube Master',
         sub_ko: '채널 기획부터 촬영, 편집, 수익화까지 실제 유튜브 채널을 만드는 과정입니다.',
         sub_en: 'Go from channel strategy to shooting, editing, and monetization while building a live YouTube channel.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
         color: '#C62828', accent: '#EF5350', icon: 'video' },
-      { id: 'k-beauty-styling', kicker: 'MICRO-DEGREE · CUFS',
+      { id: 'k-beauty-styling', kicker: 'MICRO-DEGREE',
         title_ko: '기초 K-뷰티 스타일링', title_en: 'Basic K-Beauty Styling',
         sub_ko: '색채, 네일, 피부관리, 메이크업을 한 번에 배우는 K-뷰티 입문 트랙입니다.',
         sub_en: 'An entry-level K-beauty track covering color, nails, skincare, and makeup in one program.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
         color: '#AD1457', accent: '#F06292', icon: 'sparkles' },
-      { id: 'business-korean', kicker: 'MICRO-DEGREE · CUFS',
+      { id: 'business-korean', kicker: 'MICRO-DEGREE',
         title_ko: '비즈니스 한국어', title_en: 'Business Korean',
         sub_ko: '입문부터 발표·협상까지, 한국 기업 환경에 맞춘 실전 한국어를 집중적으로 익힙니다.',
         sub_en: 'Move from beginner foundations to presentations and negotiations in Korean business contexts.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], level: 'Beginner', status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
         color: '#00695C', accent: '#4DB6AC', icon: 'briefcase' },
     ],
     partners_section: {
@@ -236,7 +236,6 @@
       // stylized "name" text on a colored chip background.
       // url: optional partner website — when set, the logo links out to it in
       // a new tab (home strip + /partners card). Empty → internal /partners.
-      { name: 'CUFS', full: '사이버한국외국어대학교',                role_ko: '첫 파트너 · 교육기관', role_en: 'First partner · University',     color: '#1E1654', logo: '', url: 'https://www.cufs.ac.kr' },
       { name: 'KDP',  full: '주식회사 코리아드림패스',                role_ko: '운영 파트너',          role_en: 'Operating partner',              color: '#6B2DBE', logo: '', url: '' },
     ],
     stories_section: {
@@ -256,7 +255,7 @@
     ],
     news: [
       { tag: 'INITIATIVE', tag_color: '#1F5FBD', date: '2026.05.27', title_ko: '국제 청년 교육 컨퍼런스에서 Dream Path 공식 발표', title_en: 'Dream Path presented at the International Youth Education Conference' },
-      { tag: 'Korea',      tag_color: '#FF5655', date: '2026.04.10', title_ko: 'CUFS와 첫 파트너십 MOU 체결',                       title_en: 'First partnership MOU signed with CUFS' },
+      { tag: 'Korea',      tag_color: '#FF5655', date: '2026.04.10', title_ko: '첫 파트너십 MOU 체결',                       title_en: 'First partnership MOU signed' },
       { tag: 'Cohort',     tag_color: '#248737', date: '2026.03.15', title_ko: '첫 코호트 지원자 인터뷰: 12개국 40명',                title_en: 'First cohort interviews: 40 applicants, 12 countries' },
       { tag: 'Partners',   tag_color: '#0094B4', date: '2026.02.20', title_ko: '아시아-태평양 지역 청년 교육 파트너 라운드테이블',     title_en: 'Asia-Pacific youth-education partner roundtable' },
     ],
@@ -281,8 +280,8 @@
       { category_ko: '프로그램 소개', category_en: 'About the Program', category_icon: 'book-open',
         q_ko: 'Dream Path는 어떤 프로그램인가요?',
         q_en: 'What is Dream Path?',
-        a_ko: 'Dream Path는 100% 온라인으로 한국 대학 수준 강의를 들을 수 있는 글로벌 교육 프로그램입니다.\n\n(주)코리아드림패스와 사이버한국외국어대학교(CUFS)의 협력으로 운영됩니다.',
-        a_en: 'Dream Path is a 100% online program offering Korean university-level courses worldwide.\n\nA partnership between Korea Dream Path Co., Ltd. and CUFS.' },
+        a_ko: 'Dream Path는 100% 온라인으로 한국 대학 수준 강의를 들을 수 있는 글로벌 교육 프로그램입니다.\n\n(주)코리아드림패스가 파트너 교육기관과 함께 운영합니다.',
+        a_en: 'Dream Path is a 100% online program offering Korean university-level courses worldwide.\n\nOperated by Korea Dream Path Co., Ltd. together with a partner institution.' },
       { category_ko: '비용 · 결제',  category_en: 'Pricing & Payment', category_icon: 'wallet',
         q_ko: '비용은 얼마인가요?',
         q_en: 'How much does it cost?',
@@ -414,7 +413,7 @@
         version: '1.0',
         effective: '2026-05-04',
         ko: { title: '제3자 개인정보 제공 동의', summary: '지원하신 프로그램의 운영기관(파트너 대학)에 본인의 정보를 제공하는 것에 대한 동의입니다.', body:
-`<h2>1. 제공 받는 자</h2><p>지원자가 선택한 프로그램의 운영 파트너 기관 (예: 사이버한국외국어대학교(CUFS) 등). 향후 추가 파트너 기관이 추가될 수 있으며, 그 경우 별도 고지합니다.</p>
+`<h2>1. 제공 받는 자</h2><p>지원자가 선택한 프로그램의 운영 파트너 교육기관. 향후 추가 파트너 기관이 추가될 수 있으며, 그 경우 별도 고지합니다.</p>
 <h2>2. 제공 항목</h2><p>이름, 이메일, 국가, 생년월일, 학력 정보, 에세이, 추천인 정보, 신청 프로그램, 합격 여부.</p>
 <h2>3. 제공 목적</h2><p>입학 심사, 코호트 등록, 학생 관리.</p>
 <h2>4. 제공 받는 자의 보유 기간</h2><p>해당 기관의 학생 기록 관리 정책에 따름. 통상 졸업 후 5~10년.</p>
@@ -588,10 +587,10 @@
         },
         // ── 파이프라인 단계 안내 메일 (v01.092) ──────────────────────────
         screen_passed: {
-          subject_ko: '[KoreaDreamPath] 1차 통과 — CUFS 입시 안내 ({{candidate_no}})',
-          subject_en: '[KoreaDreamPath] You passed screening — CUFS admission steps ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 CUFS(사이버한국외국어대학교) 입시 절차입니다. 아래 링크에서 진행해 주세요.\n\nCUFS 입시: https://go.cufs.ac.kr/ent/ent/ent_step0.jsp?regEntType=new\n\n⚠️ 중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: CUFS 입시 사이트에서 결제합니다 (정상).\n· 등록금: CUFS에서 결제하지 마세요. 합격 후 KoreaDreamPath 홈페이지에서만 결제합니다.\n\nCUFS 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
-          body_en:    'Hi {{name}},\n\nYou passed the first document screening. Congratulations!\n\nThe next step is the CUFS (Cyber University of Foreign Studies) admission process. Please proceed via the link below.\n\nCUFS admission: https://go.cufs.ac.kr/ent/ent/ent_step0.jsp?regEntType=new\n\n⚠️ Important — know who collects each payment:\n· Application fee: pay on the CUFS admission site (normal).\n· Tuition: do NOT pay at CUFS. Pay only on the KoreaDreamPath site after admission.\n\nAfter completing the CUFS steps, enter your CUFS reference number on your member page.\n\nThe KoreaDreamPath team',
+          subject_ko: '[KoreaDreamPath] 1차 통과 — 다음 단계 안내 ({{candidate_no}})',
+          subject_en: '[KoreaDreamPath] You passed screening — next steps ({{candidate_no}})',
+          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 파트너 대학의 입학 절차입니다. 절차 안내는 담당자가 개별로 드립니다.\n\n⚠️ 중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: 파트너 대학에서 결제합니다 (정상).\n· 등록금: 파트너 대학에서 결제하지 마세요. 합격 후 KoreaDreamPath 홈페이지에서만 결제합니다.\n\n입학 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nYou passed the first document screening. Congratulations!\n\nThe next step is the partner university admission process. Your coordinator will send the details.\n\n⚠️ Important — know who collects each payment:\n· Application fee: paid to the partner university (normal).\n· Tuition: do NOT pay to the partner university. Pay only on the KoreaDreamPath site after admission.\n\nAfter completing those steps, enter your admission reference number on your member page.\n\nThe KoreaDreamPath team',
         },
         screen_rejected: {
           subject_ko: '[KoreaDreamPath] 1차 심사 결과 안내 ({{candidate_no}})',
@@ -602,8 +601,8 @@
         admission_verified: {
           subject_ko: '[KoreaDreamPath] 합격증 확인 완료 — 서류 제출 안내 ({{candidate_no}})',
           subject_en: '[KoreaDreamPath] Admission verified — please submit documents ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\nCUFS 합격증이 확인되었습니다. 이제 학력 증빙 서류 3종을 마이페이지에서 제출해 주세요.\n\n1) 졸업(예정)증명서\n2) 아포스티유 · 학력인정확인서 · 영사확인 중 택1\n3) 한글번역공증본 (국문·영문 외 서류에 한함)\n\n서류 검토가 끝나면 등록금 결제 단계가 열립니다.\n\nKoreaDreamPath 팀',
-          body_en:    'Hi {{name}},\n\nYour CUFS admission certificate has been verified. Please submit the three academic documents on your member page.\n\n1) Certificate of (expected) graduation\n2) Apostille / academic recognition / consular confirmation (choose one)\n3) Notarized Korean translation (only for non-KO/EN documents)\n\nOnce the documents are reviewed, the tuition payment step will open.\n\nThe KoreaDreamPath team',
+          body_ko:    '안녕하세요 {{name}}님,\n\n합격증이 확인되었습니다. 이제 학력 증빙 서류 3종을 마이페이지에서 제출해 주세요.\n\n1) 졸업(예정)증명서\n2) 아포스티유 · 학력인정확인서 · 영사확인 중 택1\n3) 한글번역공증본 (국문·영문 외 서류에 한함)\n\n서류 검토가 끝나면 등록금 결제 단계가 열립니다.\n\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nYour admission certificate has been verified. Please submit the three academic documents on your member page.\n\n1) Certificate of (expected) graduation\n2) Apostille / academic recognition / consular confirmation (choose one)\n3) Notarized Korean translation (only for non-KO/EN documents)\n\nOnce the documents are reviewed, the tuition payment step will open.\n\nThe KoreaDreamPath team',
         },
         docs_verified: {
           subject_ko: '[KoreaDreamPath] 서류 검토 완료 — 등록금 결제 안내 ({{candidate_no}})',
@@ -828,9 +827,9 @@
       // === Legacy fields (no longer rendered, kept for KV migration safety) ===
       hero: {
         ko: { kicker: '프로젝트 소개', title_l1: '교육 접근성은, 이미', title_l2: '존재하는 네트워크 위에서.',
-              sub: 'Dream Path는 전 세계 청소년 리더 네트워크를 학습자 파이프라인으로 전환하는 독립적인 평생 교육 이니셔티브입니다. CUFS와 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },
+              sub: 'Dream Path는 전 세계 청소년 리더 네트워크를 학습자 파이프라인으로 전환하는 독립적인 평생 교육 이니셔티브입니다. 파트너 교육기관과 독립된 조직으로, 향후 복수 교육기관과 확장 가능한 파트너 모델을 지향합니다.' },
         en: { kicker: 'ABOUT THE PROJECT', title_l1: 'Access to education, built on', title_l2: 'a network that already exists.',
-              sub: 'Dream Path is an independent lifelong-education initiative that turns the global youth-leader network into a learner pipeline. We operate independently from CUFS and aim to expand across multiple institutions.' },
+              sub: 'Dream Path is an independent lifelong-education initiative that turns the global youth-leader network into a learner pipeline. We operate independently from our partner institutions and aim to expand across multiple institutions.' },
       },
       mission: {
         ko: { kicker: '미션', title_l1: '170개국에 이미 연결된 청년 리더들.', title_l2: '같은 길에 학습을 올려놓습니다.',
@@ -953,9 +952,9 @@
               sub: "If you don't see the answer, reach us at info@koreadreampath.com." },
       },
       programs: {
-        ko: { kicker: 'PROGRAMS', title_l1: '5개의 CUFS 마이크로디그리.', title_l2: '모두 온라인.',
+        ko: { kicker: 'PROGRAMS', title_l1: '5개의 마이크로디그리.', title_l2: '모두 온라인.',
               sub: '글로벌 학습자를 위한 5개 마이크로디그리 중에서 다음 스텝을 선택하세요.' },
-        en: { kicker: 'PROGRAMS', title_l1: 'Five CUFS micro-degrees.', title_l2: 'All online.',
+        en: { kicker: 'PROGRAMS', title_l1: 'Five micro-degrees.', title_l2: 'All online.',
               sub: 'Choose your next step from five micro-degree tracks designed for global learners.' },
       },
       apply: {
@@ -1003,7 +1002,7 @@
         eligibility_h: '지원 자격',
         eligibility_body: '소속 국가의 청년 교육 파트너 기관에서 활동 중이거나 추천받은 청소년·청년. 18세 이상 권장. 기본 영어 또는 한국어 가능.',
         info_kicker: '프로그램 정보',
-        label_length: '기간', label_format: '방식', label_language: '언어', label_level: '레벨', label_status: '상태',
+        label_length: '기간', label_format: '방식', label_language: '언어', label_status: '상태',
         apply_cta: '지금 지원하기',
       },
       en: {
@@ -1015,7 +1014,7 @@
         eligibility_h: 'Who should apply',
         eligibility_body: 'Youth active in, or nominated by, a national youth-education partner organization. 18+ recommended. Basic English or Korean.',
         info_kicker: 'Program info',
-        label_length: 'Length', label_format: 'Format', label_language: 'Language', label_level: 'Level', label_status: 'Status',
+        label_length: 'Length', label_format: 'Format', label_language: 'Language', label_status: 'Status',
         apply_cta: 'Apply now',
       },
     },

@@ -2038,6 +2038,13 @@ async function sitemapXml(env, url) {
     { path: '/team',         priority: 0.5, change: 'monthly' },
     { path: '/apply',        priority: 0.9, change: 'monthly' },
   ];
+  // 신규 모집이 없는 동안 /apply 는 "모집 없음" 안내만 띄운다. 최우선 색인
+  // 대상으로 제출할 이유가 없다 — 재개하면 원래 우선순위로 돌아온다.
+  const intakeClosedNow = await applyIntakeClosed(env);
+  if (intakeClosedNow) {
+    const a = STATIC.find(x => x.path === '/apply');
+    if (a) { a.priority = 0.4; a.change = 'monthly'; }
+  }
 
   // Dynamic: each program detail page from KV content.
   // 프로그램을 내려둔 동안에는 상세 URL 도, /programs 목록 URL 도 사이트맵에서
@@ -5869,7 +5876,13 @@ async function logout(request, env) {
 
 async function me(request, env) {
   const user = await currentUser(request, env);
-  if (!user) return json({ error: 'unauthorized' }, 401);
+  // v01.097.05: 익명이라고 401 을 주지 않는다. 이건 보호된 자원이 아니라
+  // "지금 누구냐"를 묻는 조회다. 401 을 주면 **모든 방문자의 모든 페이지**에
+  // 콘솔 빨간 오류가 하나씩 찍히고(실측: 전 라우트 14/14), 진짜 오류가
+  // 그 노이즈에 묻힌다. 로그인 안 된 상태는 오류가 아니라 사실이다.
+  // ⚠️ 클라이언트(auth-store.fetchMe)는 200 + user:null 도 레거시 토큰
+  //    부트스트랩 경로로 넘어가도록 함께 고쳤다 — 배포 시차 대비.
+  if (!user) return json({ user: null });
   return json({ user });
 }
 

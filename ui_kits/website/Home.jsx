@@ -2,6 +2,8 @@
 function Home({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = { hero: c.hero[lang], how: c.how, programs: c.programs_section[lang], cta: c.cta_banner[lang] };
+  const progHidden = !!(((c && c.programs_gate) || {}).hidden);   // 프로그램 비공개 스위치
+  const intakeClosed = !!(((c && c.apply_gate) || {}).closed);    // 신규 모집 없음 스위치
   const hb = window.useHeroBg(c.hero);
   // Programs teaser shows 4 RANDOM programs each load (so the homepage feels
   // fresh and every track gets exposure), followed by a "view all" card that
@@ -35,11 +37,16 @@ function Home({ go, lang, c }) {
             {t.hero.title_l1}<br />{t.hero.title_l2}
           </h1>
           <p className="hero-sub">{t.hero.sub}</p>
+          {/* 프로그램이 내려가 있으면 "프로그램 둘러보기" 는 안내 화면으로만
+              이어진다. 그 버튼을 감추고 소개 버튼을 주 버튼으로 올린다.
+              (c.programs_gate.hidden — 다시 공개하면 원래대로 돌아온다) */}
           <div className="hero-ctas">
-            <button className="btn btn-lg btn-white" onClick={() => go('programs')} type="button">
-              {t.hero.cta1} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
-            </button>
-            <button className="btn btn-lg btn-outline" onClick={() => go('about')} type="button">
+            {!progHidden && (
+              <button className="btn btn-lg btn-white" onClick={() => go('programs')} type="button">
+                {t.hero.cta1} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+              </button>
+            )}
+            <button className={'btn btn-lg ' + (progHidden ? 'btn-white' : 'btn-outline')} onClick={() => go('about')} type="button">
               {t.hero.cta2}
             </button>
           </div>
@@ -124,8 +131,10 @@ function Home({ go, lang, c }) {
             <p>{t.cta.sub}</p>
           </div>
           <div className="btn-wrap">
-            <button className="btn btn-lg btn-white" onClick={() => go('apply')} type="button">
-              {t.cta.cta} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
+            {/* 신규 모집이 없을 때 이 버튼을 /apply 로 보내면 "모집 없음" 안내로
+                끝난다. 실제로 답을 받을 수 있는 문의로 보낸다(재개 시 원복). */}
+            <button className="btn btn-lg btn-white" onClick={() => go(intakeClosed ? 'contact' : 'apply')} type="button">
+              {intakeClosed ? (isKo ? '문의하기' : 'Talk to us') : t.cta.cta} <i data-lucide={c.icons.cta_arrow} width="18" height="18" strokeWidth="2" aria-hidden="true"></i>
             </button>
           </div>
         </div>

@@ -16,13 +16,21 @@ function PageHero({ h, isKo, bg }) {
 
 function Partners({ lang, c }) {
   const isKo = lang === 'ko';
-  const list = (c && c.partners) || window.PARTNERS;
+  const list = dpList(c && c.partners, 'partners');   // v01.097 — see dpList()
   const h = ((c && c.page_heros && c.page_heros.partners && (c.page_heros.partners.en || c.page_heros.partners[lang])) || {});
   return (
     <div data-screen-label="Partners">
       <PageHero h={h} isKo={isKo} bg={(c && c.page_heros && c.page_heros.partners) || {}} />
       <section className="section">
         <div className="container">
+          {/* 등록된 파트너가 없으면 빈 그리드만 남아 히어로 아래가 뚝 끊긴다.
+              /news 처럼 빈 상태를 말해 준다 (실측: 파트너 0곳일 때 본문 0자). */}
+          {list.length === 0 && (
+            <p style={{color:'var(--fg-muted)',fontSize:15,lineHeight:1.7,textAlign:'center',padding:'32px 0',wordBreak:'keep-all'}}>
+              {isKo ? '공개된 협력 기관 정보가 아직 없습니다. 정리되는 대로 이곳에 안내드리겠습니다.'
+                    : 'No partner information is published yet. We will list our partners here once confirmed.'}
+            </p>
+          )}
           <div className="partners-grid">
             {list.map((p, i) => {
               const inner = (
@@ -54,7 +62,7 @@ function storyIdOf(s, i) { return (s && (s.id || s.slug)) || ('s' + (i + 1)); }
 
 function Stories({ go, lang, c }) {
   const isKo = lang === 'ko';
-  const list = (c && c.stories) || window.STORIES;
+  const list = dpList(c && c.stories, 'stories');     // v01.097 — see dpList()
   const h = ((c && c.page_heros && c.page_heros.stories && (c.page_heros.stories.en || c.page_heros.stories[lang])) || {});
   // Two groups: leaders who recommend the program, and learner reviews.
   const card = (s) => {
@@ -361,7 +369,7 @@ function NewsEditor({ post, onSave, onCancel, isKo }) {
 
 function Contact({ lang, c }) {
   const isKo = lang === 'ko';
-  const list = (c && c.faq) || window.FAQ;
+  const list = dpList(c && c.faq, 'faq');             // v01.097 — see dpList()
   const h = ((c && c.page_heros && c.page_heros.contact && (c.page_heros.contact.en || c.page_heros.contact[lang])) || {});
   const cta = ((c && c.partner_cta && (c.partner_cta.en || c.partner_cta[lang])) || {});
   const [open, setOpen] = React.useState(null);

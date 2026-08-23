@@ -112,7 +112,9 @@ function Nav({ view, go, lang, setLang, c }) {
       ],
     },
     {
-      label: n.programs,
+      // 프로그램이 내려가면 이 메뉴에는 소식·후기만 남는다. 라벨이 "프로그램"
+      // 이면 눌러 보고 나서야 알게 되므로 라벨도 내용에 맞춘다.
+      label: programsHidden ? (isKo ? '소식·후기' : 'News & stories') : n.programs,
       parentViews: programsHidden ? ['news','stories'] : ['programs','program','news','stories'],
       // 프로그램을 내린 동안에는 목록·카테고리 항목만 빼고 소식/후기는 남긴다
       // (그 둘까지 사라지면 메뉴 자체가 없어져 다른 콘텐츠도 못 찾는다).

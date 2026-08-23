@@ -31,7 +31,11 @@
     // Cookie-first: same-origin fetches send dp_session automatically.
     try {
       const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
-      if (res.ok) {
+      // v01.097.05 — 서버가 익명에게 401 대신 200 { user: null } 을 준다.
+      // 그 경우에도 아래 레거시 토큰 부트스트랩을 타야 하므로, "200 인데
+      // user 가 없는" 응답은 성공으로 치지 않고 401 과 같은 길로 보낸다.
+      const anonOk = res.ok && !((await res.clone().json().catch(() => ({}))).user);
+      if (res.ok && !anonOk) {
         const data = await res.json();
         _user = data.user || null;
         _ready = true;
@@ -46,15 +50,16 @@
       }
       // 401 path — if there's a legacy localStorage token, try one
       // Bearer-header bootstrap so users with old tokens stay logged in.
-      if (res.status === 401) {
+      if (res.status === 401 || anonOk) {
         const legacy = readLegacyToken();
         if (legacy) {
           const r2 = await fetch('/api/auth/me', {
             headers: { authorization: 'Bearer ' + legacy },
             credentials: 'same-origin',
           });
-          if (r2.ok) {
-            const data = await r2.json();
+          const d2 = r2.ok ? await r2.json().catch(() => ({})) : null;
+          if (d2 && d2.user) {
+            const data = d2;
             _user = data.user || null;
             _ready = true;
             // Keep the legacy token in localStorage until the user

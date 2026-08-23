@@ -24,3 +24,6 @@ assets/DreamPath_Brandbook.pdf
 
 # AI 작업 규칙·기록 (저장소 전용, 공개 배포 대상 아님)
 rules/
+
+# 브라우저 점검 산출물 (콘솔 로그·스냅샷) — 공개 배포 대상 아님
+.playwright-mcp/

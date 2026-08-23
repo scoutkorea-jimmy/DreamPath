@@ -88,5 +88,107 @@
   <script type="text/babel" src="/ui_kits/website/Banners.jsx"></script>
   <script type="text/babel" src="/ui_kits/website/EntryGate.jsx"></script>
   <script type="text/babel" src="/ui_kits/website/App.jsx"></script>
+
+  <!-- Boot watchdog (v01.097) ------------------------------------------------
+       The SPA boots by having Babel-in-browser transpile 21 .jsx files in
+       sequence. If ANY of them arrives truncated (flaky mobile network) Babel
+       throws a SyntaxError, that file's window.* global is never created, and
+       the visitor is left staring at an empty <div id="root"> forever. The D1
+       error log shows this happening steadily from 2026-05 through 2026-08
+       ("Unterminated string constant" across Nav/Auth/Team/Pages/Errors/Apply,
+       "Could not load About.jsx", "window.DreamPathContent is undefined").
+
+       Nothing here can repair a truncated file — but a visitor must never be
+       shown a blank page with no way out. So: if the root is still empty after
+       the timeout, replace the void with a bilingual notice and a reload
+       button that bypasses the cache (the bad copy is often the cached one).
+       Styles are inline because site.css may itself have failed to load. -->
+  <script>
+  (function () {
+    var TIMEOUT_MS = 9000;
+    var failedSrc = [];
+
+    // Catch <script src> that 404s / aborts mid-transfer, so the notice can
+    // name the file instead of guessing.
+    document.addEventListener('error', function (e) {
+      var el = e.target;
+      if (el && el.tagName === 'SCRIPT' && el.src) failedSrc.push(el.src);
+    }, true);
+
+    function booted() {
+      var r = document.getElementById('root');
+      return !!(r && r.childElementCount > 0);
+    }
+
+    function render() {
+      var root = document.getElementById('root');
+      if (!root) return;
+      // word-break:keep-all — Korean must wrap on word boundaries, never mid-word.
+      root.innerHTML =
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;'
+      +   'padding:24px;font-family:system-ui,-apple-system,\'Segoe UI\',sans-serif;'
+      +   'background:#fff;color:#1a1a1a">'
+      + '<div style="max-width:420px;text-align:center;word-break:keep-all;overflow-wrap:break-word">'
+      +   '<div style="font-size:15px;font-weight:700;letter-spacing:-0.01em;margin-bottom:20px">'
+      +     'KoreaDream<span style="color:#F5A623">Path</span></div>'
+      +   '<h1 style="font-size:19px;line-height:1.5;margin:0 0 10px;font-weight:600">'
+      +     '페이지를 불러오지 못했습니다</h1>'
+      +   '<p style="font-size:14px;line-height:1.65;margin:0 0 4px;color:#555">'
+      +     '일시적인 네트워크 문제일 수 있습니다. 새로고침하면 대개 해결됩니다.</p>'
+      +   '<p style="font-size:13px;line-height:1.6;margin:0 0 24px;color:#888">'
+      +     'We couldn\'t finish loading this page. Reloading usually fixes it.</p>'
+      +   '<button type="button" id="dp-boot-retry" style="appearance:none;border:0;cursor:pointer;'
+      +     'background:#1a1a1a;color:#fff;font:inherit;font-size:14px;font-weight:600;'
+      +     'padding:12px 28px;border-radius:8px">새로고침 · Reload</button>'
+      +   '<p style="font-size:12px;line-height:1.6;margin:24px 0 0;color:#aaa">'
+      +     '계속 반복되면 <a href="mailto:info@koreadreampath.com" style="color:#888">'
+      +     'info@koreadreampath.com</a> 으로 알려주세요.</p>'
+      + '</div></div>';
+
+      document.getElementById('dp-boot-retry').onclick = function () {
+        // Cache-busting param: the truncated copy is often the one cached.
+        var u = new URL(window.location.href);
+        u.searchParams.set('_r', String(Date.now()));
+        window.location.replace(u.toString());
+      };
+    }
+
+    function report() {
+      try {
+        var missing = ['DreamPathContent', 'App', 'Nav', 'Home', 'Footer']
+          .filter(function (k) { return !window[k]; });
+        var payload = JSON.stringify({
+          level: 'error', source: 'boot-watchdog',
+          message: 'SPA failed to mount within ' + TIMEOUT_MS + 'ms',
+          path: window.location.pathname + window.location.search,
+          session_id: (function () {
+            try { return sessionStorage.getItem('dp_session_id') || ''; } catch (e) { return ''; }
+          })(),
+          meta: {
+            missing_globals: missing,
+            failed_scripts: failedSrc.slice(0, 10),
+            has_react: !!window.React,
+            has_babel: !!window.Babel,
+          },
+        });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/errors', new Blob([payload], { type: 'application/json' }));
+        }
+      } catch (e) {}
+    }
+
+    function check() {
+      if (booted()) return;
+      render();
+      report();
+    }
+
+    if (document.readyState === 'complete') setTimeout(check, TIMEOUT_MS);
+    else window.addEventListener('load', function () { setTimeout(check, TIMEOUT_MS); });
+    // Belt and braces: `load` never fires if a script hangs, so also arm an
+    // absolute timer from parse time.
+    setTimeout(check, TIMEOUT_MS + 6000);
+  })();
+  </script>
 </body>
 </html>

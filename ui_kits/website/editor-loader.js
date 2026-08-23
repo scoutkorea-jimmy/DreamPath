@@ -1,11 +1,20 @@
 // editor-loader.js — load TipTap (free) and expose globals for our React components.
 // Uses esm.sh CDN with React@18 bound to the same instance the app uses.
 //
-// We load via dynamic import inside an inline <script type="module">; once
-// loaded, window.Tiptap is populated and a 'dp-tiptap-ready' event fires.
+// Loading is LAZY as of v01.097. This file used to fire 22 esm.sh module
+// requests on every page load of the public site — but the only public
+// consumer of the editor is the NewsEditor modal, which none but a signed-in
+// editor ever opens. Every ordinary visitor paid for 22 cross-origin requests
+// they would never use.
+//
+// Now nothing is fetched until ensure() is called. RichEditor calls it when it
+// actually mounts, so both the public site and the admin get the editor on
+// demand. The contract downstream is unchanged: once loaded, window.Tiptap is
+// populated and a 'dp-tiptap-ready' event fires.
 
 (function () {
   const VERSION = '2.10.4';
+  let started = false;
 
   // We can't import inside a regular script. Inject a module script.
   const code = `
@@ -39,8 +48,15 @@
     };
     window.dispatchEvent(new CustomEvent('dp-tiptap-ready'));
   `;
-  const s = document.createElement('script');
-  s.type = 'module';
-  s.textContent = code;
-  document.head.appendChild(s);
+  // Idempotent — safe to call from every RichEditor instance that mounts.
+  function ensure() {
+    if (started || window.Tiptap) return;
+    started = true;
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.textContent = code;
+    document.head.appendChild(s);
+  }
+
+  window.DreamPathEditor = { ensure, VERSION };
 })();

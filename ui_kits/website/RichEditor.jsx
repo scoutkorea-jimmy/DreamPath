@@ -4,6 +4,9 @@
 const { useState: useStateE, useEffect: useEffectE, useRef: useRefE } = React;
 
 function useTiptapReady() {
+  // v01.097 — TipTap is no longer fetched at page load; ask for it the moment
+  // an editor actually mounts. ensure() is idempotent.
+  try { window.DreamPathEditor && window.DreamPathEditor.ensure(); } catch (e) {}
   const [ready, setReady] = useStateE(() => !!window.Tiptap);
   useEffectE(() => {
     if (window.Tiptap) return;

@@ -1752,7 +1752,7 @@
             <Area label="Short subtitle (EN)" value={program.sub_en} onChange={v => set(['programs',index,'sub_en'], v)} lang="en" rows={2} />
             <Text label="Meta chips (comma-separated)" value={(program.meta || []).join(', ')} onChange={v => set(['programs',index,'meta'], v.split(',').map(s => s.trim()).filter(Boolean))} hint="e.g. 12 weeks, 100% remote, EN / KO" />
             <Text label="Status" value={program.status} onChange={v => set(['programs',index,'status'], v)} hint="open · closed · opens Fall …" />
-            <Text label="Tuition (USD, 등록금)" value={program.tuition == null ? '' : String(program.tuition)}
+            <Text label="Tuition (USD, 등록금)" hint="비워 두거나 0이면 공개 화면에 '미공개 · 예약 단계'로 표시되고 결제가 차단됩니다." value={program.tuition == null ? '' : String(program.tuition)}
               onChange={v => set(['programs',index,'tuition'], parseInt(String(v).replace(/[^0-9]/g,''),10) || 0)}
               hint="결제 단계에서 자동 표기·청구. 숫자만(달러). 0이면 결제 차단." />
             <IconField label="Icon" value={program.icon} onChange={v => set(['programs',index,'icon'], v)} />

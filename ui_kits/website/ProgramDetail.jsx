@@ -92,6 +92,9 @@ function ProgramDetail({ go, lang, programId, c }) {
   // 프로그램 자체도 현재 c.programs_gate.hidden 으로 내려가 있어 이 페이지는
   // 도달 불가지만, 게이트를 다시 열었을 때 이 섹션이 되살아나면 안 된다.
   const SHOW_PARTNER_SECTION = false;
+  // 등록금이 실제로 공개된 상태인지. 값이 없거나 0이면 "미공개 · 예약 단계"로
+  // 표시하고, 금액이 가득한 비교 섹션은 렌더하지 않는다.
+  const tuitionPublished = Number.isFinite(parseInt(p.tuition, 10)) && parseInt(p.tuition, 10) > 0;
   const whyCUFS = isKo ? {
     title: 'Why CUFS?',
     sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
@@ -469,6 +472,18 @@ function ProgramDetail({ go, lang, programId, c }) {
             </div>
           </section>
 
+          {/* 등록금이 미공개(예약 단계)인 동안에는 구체 금액이 가득한 비교
+               섹션을 띄우지 않는다 — "미공개"라고 해놓고 옆에서 $720 · 97% 절감을
+               말하면 그 자체가 모순이다. 금액이 정해지면 자동으로 돌아온다. */}
+          {!tuitionPublished ? (
+            <section className="pd-cost">
+              <div className="pd-cost-head">
+                <div className="pd-section-eyebrow">Pricing</div>
+                <h3 className={isKo ? '' : 'en'}>{isKo ? '등록금은 아직 미공개입니다' : 'Tuition is not published yet'}</h3>
+                <p className="pd-cost-sub">{isKo ? '현재 예약 단계이며, 금액이 확정되면 이 자리에서 안내드리겠습니다.' : 'This program is at the reservation stage. The amount will be published here once confirmed.'}</p>
+              </div>
+            </section>
+          ) : (
           <section className="pd-cost">
             <div className="pd-cost-head">
               <div className="pd-section-eyebrow">Pricing</div>
@@ -572,6 +587,7 @@ function ProgramDetail({ go, lang, programId, c }) {
               <p>{costSection.semesterNote}</p>
             </div>
           </section>
+          )}
         </div>
 
         <aside className="pd-side">

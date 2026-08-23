@@ -192,38 +192,40 @@
       en: { kicker: 'PROGRAMS', title: 'Five micro-degrees. All online.',  sub: 'Explore five tracks for global learners in AI, storytelling, YouTube, K-beauty, and business Korean.' },
     },
     programs: [
-      // tuition: 프로그램별 등록금(USD, 최소단위=달러). 결제 단계에서 이 값을
+      // tuition: 프로그램별 등록금(USD, 최소단위=달러). **0 = 미공개(예약 단계)**
+      //   → 화면에는 금액 대신 '미공개 · 예약 단계'가 뜨고 서버가 결제를 막는다.
+      //   결제 단계에서 이 값을
       // 자동으로 불러와 표기·청구한다(단일 출처). 0이면 결제가 차단되므로
       // 관리자가 admin → 프로그램 탭에서 실제 금액을 입력해야 한다. v01.092.
       { id: 'ai-language', kicker: 'MICRO-DEGREE',
         title_ko: 'AI와 언어교육', title_en: 'AI & Language',
         sub_ko: 'AI 기반 영어교육, 언어학, 커뮤니케이션, 빅데이터를 연결하는 1년형 마이크로디그리입니다.',
         sub_en: 'A one-year micro-degree connecting AI-powered language education, linguistics, communication, and big data.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#1565C0', accent: '#42A5F5', icon: 'languages' },
       { id: 'media-content-storytelling', kicker: 'MICRO-DEGREE',
         title_ko: '미디어 콘텐츠 스토리텔링', title_en: 'Media Content Storytelling',
         sub_ko: '역사, 리더십, 커뮤니케이션, 스피치를 통해 글로벌 무대용 스토리텔링 역량을 키웁니다.',
         sub_en: 'Build storytelling power for global stages through history, leadership, communication, and speech.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#7B1FA2', accent: '#CE93D8', icon: 'mic' },
       { id: 'youtube-master', kicker: 'MICRO-DEGREE',
         title_ko: '유튜브 마스터', title_en: 'YouTube Master',
         sub_ko: '채널 기획부터 촬영, 편집, 수익화까지 실제 유튜브 채널을 만드는 과정입니다.',
         sub_en: 'Go from channel strategy to shooting, editing, and monetization while building a live YouTube channel.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#C62828', accent: '#EF5350', icon: 'video' },
       { id: 'k-beauty-styling', kicker: 'MICRO-DEGREE',
         title_ko: '기초 K-뷰티 스타일링', title_en: 'Basic K-Beauty Styling',
         sub_ko: '색채, 네일, 피부관리, 메이크업을 한 번에 배우는 K-뷰티 입문 트랙입니다.',
         sub_en: 'An entry-level K-beauty track covering color, nails, skincare, and makeup in one program.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#AD1457', accent: '#F06292', icon: 'sparkles' },
       { id: 'business-korean', kicker: 'MICRO-DEGREE',
         title_ko: '비즈니스 한국어', title_en: 'Business Korean',
         sub_ko: '입문부터 발표·협상까지, 한국 기업 환경에 맞춘 실전 한국어를 집중적으로 익힙니다.',
         sub_en: 'Move from beginner foundations to presentations and negotiations in Korean business contexts.',
-        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 500,
+        meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#00695C', accent: '#4DB6AC', icon: 'briefcase' },
     ],
     partners_section: {

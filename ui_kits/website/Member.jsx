@@ -783,7 +783,7 @@ function PaymentPanel({ app, program, isKo, onChange }) {
       if (frozen) { setErr(frozen); setBusy(false); return; }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        if (d.error === 'tuition_not_set') setErr(isKo ? '등록금이 설정되지 않았습니다. 관리자에게 문의해 주세요.' : 'Tuition is not set. Please contact the team.');
+        if (d.error === 'tuition_not_set') setErr(isKo ? '등록금은 아직 미공개입니다(예약 단계). 확정되면 안내드리겠습니다.' : 'Tuition is not published yet (reserved). We will let you know once it is confirmed.');
         else if (d.error === 'consent_required') setErr(isKo ? '결제 동의 3종에 모두 동의해야 합니다.' : 'All three consents are required.');
         else setErr(isKo ? '결제에 실패했습니다. 다시 시도해 주세요.' : 'Payment failed. Please try again.');
         setBusy(false); return;
@@ -798,7 +798,13 @@ function PaymentPanel({ app, program, isKo, onChange }) {
       <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '등록금 결제' : 'Tuition payment'}</h4>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'var(--bg-elevated)',borderRadius:10,marginBottom:14}}>
         <span style={{fontSize:13,color:'var(--fg-secondary)'}}>{isKo ? '결제 금액' : 'Amount due'}</span>
-        <strong style={{fontSize:20}}>{tuition != null ? `US $${tuition}.00` : (isKo ? '미설정' : 'N/A')}</strong>
+        {/* 등록금이 아직 공개되지 않은 동안에는 숫자 대신 상태를 보여준다.
+             (금액이 정해지면 자동으로 금액 표시로 돌아온다) */}
+        <strong style={{fontSize: tuition != null && tuition > 0 ? 20 : 15}}>
+          {tuition != null && tuition > 0
+            ? `US $${tuition}.00`
+            : (isKo ? '미공개 · 예약 단계' : 'Not published yet · reserved')}
+        </strong>
       </div>
 
       {CONSENT_ROWS.map(row => (

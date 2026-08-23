@@ -91,81 +91,10 @@ function ProgramDetail({ go, lang, programId, c }) {
   // 내용은 지우지 않고 남겨 둔다 — 관계가 정리되면 그때 다시 쓴다.
   // 프로그램 자체도 현재 c.programs_gate.hidden 으로 내려가 있어 이 페이지는
   // 도달 불가지만, 게이트를 다시 열었을 때 이 섹션이 되살아나면 안 된다.
-  const SHOW_PARTNER_SECTION = false;
-  // 등록금이 실제로 공개된 상태인지. 값이 없거나 0이면 "미공개 · 예약 단계"로
-  // 표시하고, 금액이 가득한 비교 섹션은 렌더하지 않는다.
-  const tuitionPublished = Number.isFinite(parseInt(p.tuition, 10)) && parseInt(p.tuition, 10) > 0;
-  const whyCUFS = isKo ? {
-    title: 'Why CUFS?',
-    sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
-    cards: [
-      {
-        icon: 'landmark',
-        title: 'Government Accredited',
-        body: 'Fully accredited by the Korean Ministry of Education. Part of the HUFS system, established in 1954.',
-      },
-      {
-        icon: 'bot',
-        title: 'AI-Powered Learning',
-        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into real coursework. Winner of the Korea AI Innovation Award.',
-      },
-      {
-        icon: 'chart-column',
-        title: 'Proven Track Record',
-        body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
-      },
-      {
-        icon: 'users',
-        title: 'World-Class Faculty',
-        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
-      },
-      {
-        icon: 'globe',
-        title: '10 Faculties',
-        body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
-      },
-      {
-        icon: 'briefcase',
-        title: 'K-Career Magnet',
-        body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
-      },
-    ],
-  } : {
-    title: 'Why CUFS?',
-    sub: 'Korea\'s #1 foreign language university with full AI support. This is not a random online course.',
-    cards: [
-      {
-        icon: 'landmark',
-        title: 'Government Accredited',
-        body: 'Fully accredited by the Korean Ministry of Education. Part of the prestigious HUFS system, established in 1954.',
-      },
-      {
-        icon: 'bot',
-        title: 'AI-Powered Learning',
-        body: 'AI Tutor, AI Chatbot, multilingual subtitles, and generative AI built into the learning experience. Winner of the Korea AI Innovation Award.',
-      },
-      {
-        icon: 'chart-column',
-        title: 'Proven Track Record',
-        body: '52 of 52 evaluation indicators passed in the 2025 national remote university assessment. About 2 in 3 students receive scholarship support.',
-      },
-      {
-        icon: 'users',
-        title: 'World-Class Faculty',
-        body: 'The most native-language professors of any Korean cyber university, plus PhD-level tutors and a 24/7 help desk reachable from overseas at +82-2-6907-6703.',
-      },
-      {
-        icon: 'globe',
-        title: '10 Faculties',
-        body: 'English, Chinese, Japanese, Korean, Spanish, Vietnamese-Indonesian, Business, K-Beauty, Industrial Safety, and Counseling Psychology — all in one university.',
-      },
-      {
-        icon: 'briefcase',
-        title: 'K-Career Magnet',
-        body: 'Micro-Degree completion adds K-Point +10 toward the Korean employment visa (E-7-4). The fastest bridge from education to working in Korea.',
-      },
-    ],
-  };
+  // 2026-08-23: 파트너 기관 전용 섹션(인증·수상·헬프데스크 번호·비자 가점)을
+  // **삭제**했다. 렌더만 막아 두었더니 배포 전 점검이 매번 이 죽은 코드를
+  // 잡아 경보가 무뎌졌다. 내용은 git 이력에 남아 있다 —
+  // 파트너 관계가 정리되면 그때 사실에 맞게 다시 쓴다.
   const dreamPathDifferent = isKo ? {
     title: 'What Makes Dream Path Different',
     cards: [
@@ -271,7 +200,7 @@ function ProgramDetail({ go, lang, programId, c }) {
       title: 'Scholarships',
       body: 'Criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Contact your local Dream Path country office for details.',
     },
-    semesterNote: isKo
+    costNote: isKo
       ? '위 금액은 1년 전체 프로그램 비용입니다. 실제 등록금은 최대 프로그램 가격 범위 안에서, 수강 신청한 과목에 따라 부과됩니다.'
       : 'The total above covers the full 1-year program. What you actually pay is charged by the courses you register for, within the maximum of the program price.',
   };
@@ -436,24 +365,6 @@ function ProgramDetail({ go, lang, programId, c }) {
             </section>
           )}
 
-          {SHOW_PARTNER_SECTION && (
-          <section className="pd-why-cufs">
-            <div className="pd-why-cufs-head">
-              <div className="pd-section-eyebrow">Why CUFS</div>
-              <h3 className={isKo ? '' : 'en'}>{whyCUFS.title}</h3>
-              <p>{whyCUFS.sub}</p>
-            </div>
-            <div className="pd-why-cufs-grid">
-              {whyCUFS.cards.map((card) => (
-                <article key={card.title} className="pd-why-cufs-card">
-                  <div className="pd-why-cufs-icon" aria-hidden="true"><i data-lucide={card.icon} width="24" height="24"></i></div>
-                  <h4>{card.title}</h4>
-                  <p>{card.body}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-          )}
 
           <section className="pd-different">
             <div className="pd-different-head">
@@ -584,7 +495,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             </div>
             <div className="pd-cost-callout is-muted">
               <span className="pd-cost-callout-icon" aria-hidden="true"><i data-lucide="info" width="22" height="22"></i></span>
-              <p>{costSection.semesterNote}</p>
+              <p>{costSection.costNote}</p>
             </div>
           </section>
           )}

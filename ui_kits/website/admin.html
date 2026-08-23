@@ -1689,7 +1689,7 @@
       setDetails(d => ({
         ...(d || {}),
         courses_json: (Array.isArray(d?.courses_json) ? d.courses_json : []).concat([{
-          semester: 'Semester 1',
+          semester: 'Course',
           title_ko: '',
           title_en: '',
           desc_ko: '',
@@ -1768,7 +1768,7 @@
           <>
             <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Logistics</h3></summary>
               <div className="grid-2 tight">
-                <Text label="Duration" value={details?.duration || ''} onChange={v => updDetail('duration', v)} hint="e.g. 12 weeks · 4 semesters" />
+                <Text label="Duration" value={details?.duration || ''} onChange={v => updDetail('duration', v)} hint="예: 12 weeks · 1 year" />
                 <Text label="Format" value={details?.format || ''} onChange={v => updDetail('format', v)} hint="online · hybrid · onsite" />
                 <Text label="Language requirement" value={details?.language_required || ''} onChange={v => updDetail('language_required', v)} hint="EN B2 · TOPIK 3 …" />
                 <Text label="Start date" value={details?.start_date || ''} onChange={v => updDetail('start_date', v)} hint="2025 Fall · 2026 Spring" />
@@ -1801,7 +1801,7 @@
               </p>
               {courses.length === 0 && (
                 <div style={{padding:18,borderRadius:12,background:'var(--bg-muted)',color:'var(--fg-muted)',fontSize:13}}>
-                  No structured courses yet. Add a course to manage semester labels, lecture preview links, professor photos, and bios from the admin.
+                  No structured courses yet. Add a course to manage course labels, lecture preview links, professor photos, and bios from the admin.
                 </div>
               )}
               {courses.map((course, ci) => (
@@ -1813,7 +1813,7 @@
                     </div>
                   </div>
                   <div className="grid-2 tight">
-                    <Text label="Semester label" value={course.semester || ''} onChange={v => updCourse(ci, 'semester', v)} hint="Semester 1 · Semester 2 · Semester 1 + 2" />
+                    <Text label="과목 라벨" value={course.semester || ''} onChange={v => updCourse(ci, 'semester', v)} hint="칩에 표시할 짧은 라벨 (예: 과목 · Course)" />
                     <Text label="Lecture preview URL" value={course.preview_url || ''} onChange={v => updCourse(ci, 'preview_url', v)} hint="https://youtu.be/..." />
                     <Text label="Course title (EN)" value={course.title_en || ''} onChange={v => updCourse(ci, 'title_en', v)} lang="en" />
                     <Area label="Course description (EN)" value={course.desc_en || ''} onChange={v => updCourse(ci, 'desc_en', v)} lang="en" rows={3} />

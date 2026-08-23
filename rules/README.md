@@ -18,6 +18,7 @@
 | 무엇을 하면 안 되는지 | [`05-do-not.md`](05-do-not.md) — **매 라운드 시작 전 필독** |
 | 주간 점검일이 지났을 때 | [`06-weekly-review.md`](06-weekly-review.md) |
 | 진행 중인 작업이 있는지 | `handoff/ACTIVE-*.md` (없으면 진행 중인 작업 없음) |
+| **배포하기 직전** | `node rules/tools/preflight.mjs` — 통과해야 배포 |
 
 ## 폴더
 
@@ -36,7 +37,8 @@ rules/
 │   ├── ACTIVE-*.md            ← 진행 중 (하나씩 유지)
 │   └── done/                  ← 완료 보관
 └── tools/
-    └── build_inventory.py     ← 01-inventory.md 재생성 스크립트
+    ├── build_inventory.py     ← 01-inventory.md 재생성 스크립트
+    └── preflight.mjs          ← **배포 전 자동 점검** (KV↔기본값 드리프트 · 금지어 · 상태 정합성)
 ```
 
 ## 이 폴더와 기존 문서의 관계

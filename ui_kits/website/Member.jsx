@@ -597,7 +597,7 @@ function StageRejected({ isKo, note }) {
   );
 }
 
-// screen_passed → 협력 대학 입학 안내 + 접수번호 입력 (POST /cufs-reg-no).
+// screen_passed → 파트너 대학 입학 안내 + 접수번호 입력 (POST /cufs-reg-no).
 // ⚠️ 경로·컬럼 이름의 `cufs` 는 내부 식별자라 그대로 둔다(마이그레이션 비용 대비
 //    이득이 없다). 화면에 보이는 문구만 기관 중립으로 쓴다.
 function CufsGuidePanel({ app, isKo, onChange }) {
@@ -621,12 +621,12 @@ function CufsGuidePanel({ app, isKo, onChange }) {
   }
   return (
     <div style={{padding:'16px 18px',background:'var(--bg-muted)',borderRadius:12}}>
-      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '다음 단계: 협력 대학 입학 절차' : 'Next: partner university admission'}</h4>
+      <h4 style={{margin:'0 0 10px',fontSize:16}}>{isKo ? '다음 단계: 파트너 대학 입학 절차' : 'Next: partner university admission'}</h4>
       <p style={{fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6,margin:'0 0 12px'}}>
-        {isKo ? '협력 대학의 입학 절차를 진행하신 뒤, 발급받은 접수번호를 입력해 주세요. 절차 안내는 담당자가 개별로 드립니다.'
+        {isKo ? '파트너 대학의 입학 절차를 진행하신 뒤, 발급받은 접수번호를 입력해 주세요. 절차 안내는 담당자가 개별로 드립니다.'
               : 'Complete the partner university admission process, then enter the reference number you receive. Your coordinator will send the details.'}
       </p>
-      {/* 2026-08-22: 협력 대학 협의 문제로 외부 입시 링크를 내렸다. 담당자가
+      {/* 2026-08-22: 파트너 대학 협의 문제로 외부 입시 링크를 내렸다. 담당자가
           개별 안내하는 방식으로 대체 — 링크만 남기면 학생이 잘못 접수한다. */}
       <div style={{fontSize:13,color:'var(--fg-secondary)',padding:'10px 12px',background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:8}}>
         {isKo ? '입학 절차 안내는 담당자가 개별로 드립니다. 안내를 받으신 뒤 발급된 접수번호를 아래에 입력해 주세요.'
@@ -635,12 +635,12 @@ function CufsGuidePanel({ app, isKo, onChange }) {
       {/* 결제 주체 경고 */}
       <div style={{marginTop:14,padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:10,fontSize:13,lineHeight:1.6}}>
         <strong>{isKo ? '⚠️ 결제 주체를 꼭 구분하세요' : '⚠️ Know who collects each payment'}</strong>
-        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — 협력 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
-        <div>🚫 {isKo ? '등록금 — 협력 대학에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never to the partner university. Pay here (member page) after admission'}</div>
+        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — 파트너 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
+        <div>🚫 {isKo ? '등록금 — 파트너 대학에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never to the partner university. Pay here (member page) after admission'}</div>
       </div>
       <div className="field" style={{marginTop:14}}>
         <label>{isKo ? '입학 접수번호' : 'Admission reference number'}</label>
-        <input value={regNo} onChange={e => setRegNo(e.target.value)} placeholder={isKo ? '협력 대학에서 발급받은 번호' : 'Number issued by the partner university'} />
+        <input value={regNo} onChange={e => setRegNo(e.target.value)} placeholder={isKo ? '파트너 대학에서 발급받은 번호' : 'Number issued by the partner university'} />
       </div>
       {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:8}}>{err}</div>}
       <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={submitReg}>
@@ -767,7 +767,7 @@ function PaymentPanel({ app, program, isKo, onChange }) {
   const canPay = allConsented && last4.length === 4 && exp && cvc && tuition && tuition > 0;
 
   const CONSENT_ROWS = [
-    { k: 'consent_cufs_refund', ko: '협력 대학의 환불 규정에 동의합니다.', en: 'I agree to the partner university refund policy.' },
+    { k: 'consent_cufs_refund', ko: '파트너 대학의 환불 규정에 동의합니다.', en: 'I agree to the partner university refund policy.' },
     { k: 'consent_kdp_refund',  ko: 'KoreaDreamPath 환불 규정에 동의합니다.', en: 'I agree to the KoreaDreamPath refund policy.' },
     { k: 'consent_pg_pii',      ko: '결제를 위한 PG사 개인정보 제공에 동의합니다.', en: 'I agree to share personal data with the payment provider.' },
   ];

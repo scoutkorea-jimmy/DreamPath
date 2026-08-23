@@ -261,8 +261,8 @@
       { tag: 'Partners',   tag_color: '#0094B4', date: '2026.02.20', title_ko: '아시아-태평양 지역 청년 교육 파트너 라운드테이블',     title_en: 'Asia-Pacific youth-education partner roundtable' },
     ],
     cta_banner: {
-      ko: { title: '2026년 2학기,', sub: '당신의 꿈을 향해 도전하세요. 2026년 8월 31일 개강.', cta: '지금 지원하기' },
-      en: { title: 'Your next semester starts here.', sub: 'Fall 2026 applications open. Programs start August 31, 2026.',  cta: 'Apply now' },
+      ko: { title: '배움은 여기서 시작됩니다,', sub: '온라인으로, 어디서나 함께합니다.', cta: '학습하러 가기' },
+      en: { title: 'Your learning starts here.', sub: 'Online, from wherever you are.',  cta: 'Start learning' },
     },
     // FAQ schema (2026-05-19 v01.055 — categorized + line-broken):
     //   { category_ko, category_en, category_icon, q_ko, q_en, a_ko, a_en }

@@ -269,8 +269,8 @@ function ProgramDetail({ go, lang, programId, c }) {
       body: 'Criteria vary by country — based on academic performance, coursework and assignments, recommendations, and other factors. Contact your local Dream Path country office for details.',
     },
     semesterNote: isKo
-      ? '위 금액은 1년 전체 프로그램 비용입니다. 학기별 등록금은 최대 프로그램 가격 범위 내에서 수강 신청한 과목에 따라 부과됩니다.'
-      : 'The total above covers the full 1-year program. Each semester, tuition is charged according to the courses you register for, within the maximum of the program price.',
+      ? '위 금액은 1년 전체 프로그램 비용입니다. 실제 등록금은 최대 프로그램 가격 범위 안에서, 수강 신청한 과목에 따라 부과됩니다.'
+      : 'The total above covers the full 1-year program. What you actually pay is charged by the courses you register for, within the maximum of the program price.',
   };
 
   // Optional hero background image (per program) — overrides the color gradient

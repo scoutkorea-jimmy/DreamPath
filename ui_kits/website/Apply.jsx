@@ -324,7 +324,7 @@ function Apply({ lang, c, go }) {
       setStep(steps.length);
       clearApplyDraft();
       if (user) deleteServerDraft();
-      // Record the two first-stage consents (privacy + third-party = partner university).
+      // Record the two first-stage consents (privacy + third-party = partner institution).
       const privacyDoc = c && c.legal && c.legal.privacy_apply;
       const thirdDoc   = c && c.legal && c.legal.third_party;
       if (window.recordConsent) {
@@ -572,8 +572,8 @@ function ConsentStep({ form, setForm, isKo, c, openDoc }) {
 
       <p className="hint" style={{marginTop:14}}>
         {isKo
-          ? '제3자 제공 동의는 입학 절차를 위해 협력 대학에 정보를 제공하는 데 대한 동의입니다. 동의 내역은 IP, 브라우저 정보, 시각과 함께 GDPR Art. 7에 따라 기록됩니다.'
-          : 'The third-party consent covers sharing your information with the partner university for the admission process. Your consent is recorded with IP, user agent, and timestamp per GDPR Art. 7.'}
+          ? '제3자 제공 동의는 입학 절차를 위해 파트너 교육기관에 정보를 제공하는 데 대한 동의입니다. 동의 내역은 IP, 브라우저 정보, 시각과 함께 GDPR Art. 7에 따라 기록됩니다.'
+          : 'The third-party consent covers sharing your information with the partner institution for the admission process. Your consent is recorded with IP, user agent, and timestamp per GDPR Art. 7.'}
       </p>
     </>
   );
@@ -648,7 +648,7 @@ function StepAcademic({ form, setForm, upd, isKo }) {
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '국가와 학력 정보를 입력합니다. 학력 증빙 서류는 1차 통과 및 협력 대학 합격 이후 마이페이지에서 제출하게 됩니다.'
+        ? '국가와 학력 정보를 입력합니다. 학력 증빙 서류는 1차 통과 및 파트너 대학 합격 이후 마이페이지에서 제출하게 됩니다.'
         : 'Country and academic background. Supporting documents are submitted on your member page after you pass screening and are admitted to the partner university.'}</p>
       <div className="form-row">
         <div className="field">

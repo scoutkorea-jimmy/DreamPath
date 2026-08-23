@@ -36,10 +36,10 @@ function VerifyEmailView({ go, lang }) {
   const T = {
     working:  isKo ? '이메일 인증 처리 중…' : 'Verifying your email…',
     ok:       isKo ? '이메일이 확인되었습니다 ✓' : 'Email verified ✓',
-    invalid:  isKo ? '인증 링크가 유효하지 않습니다.' : 'This verification link is invalid.',
+    invalid:  isKo ? '인증 링크를 다시 확인해 주세요.' : 'Please check this verification link.',
     expired:  isKo ? '인증 링크가 만료되었습니다. 새 링크를 요청해 주세요.' : 'This link has expired. Please request a new one.',
     used:     isKo ? '이 인증 링크는 이미 사용되었습니다.' : 'This link has already been used.',
-    error:    isKo ? '오류가 발생했습니다.' : 'Something went wrong.',
+    error:    isKo ? '잠시 후 다시 시도해 주세요.' : 'Please try again in a moment.',
   };
   const ok = state === 'ok';
   return (
@@ -110,7 +110,7 @@ function ResetPasswordView({ go, lang }) {
         // opaque response. password_too_short is a format error so it
         // stays distinct.
         setErr({
-          invalid_request:      isKo ? '재설정 링크가 유효하지 않거나 만료되었거나 이미 사용되었습니다. 새 링크를 요청해 주세요.' : 'Reset link is invalid, expired, or already used. Please request a new one.',
+          invalid_request:      isKo ? '재설정 링크가 만료되었거나 이미 사용된 상태입니다. 새 링크를 요청해 주세요.' : 'This reset link has expired or was already used. Please request a new one.',
           password_too_short:   isKo ? '비밀번호는 최소 8자 이상이어야 합니다.' : 'Password must be at least 8 characters.',
         }[d.error] || (d.error || ('http_' + r.status)));
         return;
@@ -286,8 +286,8 @@ function ActivateAccountView({ go, lang }) {
         {state === 'failed' && (
           <div className="auth-err" role="alert" style={{marginTop:8}}>
             {isKo
-              ? '활성화에 실패했습니다. 인증코드가 일치하지 않거나, 만료되었거나, 시도 횟수가 너무 많을 수 있습니다. 코드를 다시 확인하시거나, "다시 보내기"로 새 코드를 받으세요.'
-              : 'Activation failed. The code may be wrong, expired, or attempted too many times. Re-check it or request a new one with "Resend".'}
+              ? '활성화를 한 번 더 시도해 주세요. 인증코드가 만료되었거나 시도 횟수가 많은 상태일 수 있습니다. 코드를 다시 확인하시거나, "다시 보내기"로 새 코드를 받으세요.'
+              : 'Please try activating once more. The code may have expired or been attempted too many times. Re-check it or request a new one with "Resend".'}
           </div>
         )}
         <button type="submit" className="btn btn-primary btn-block" style={{marginTop:14}} disabled={state === 'working' || code.length !== 6}>
@@ -295,7 +295,7 @@ function ActivateAccountView({ go, lang }) {
         </button>
       </form>
       <div style={{textAlign:'center',marginTop:18,fontSize:13,color:'var(--fg-muted)'}}>
-        {isKo ? '코드를 못 받으셨나요?' : "Didn't get the code?"}{' '}
+        {isKo ? '코드를 다시 받으시겠어요?' : 'Need the code again?'}{' '}
         <button type="button" onClick={resend}
           disabled={!email || (resentAt && Date.now() - resentAt < 60_000)}
           style={{background:'none',border:'none',color:'var(--scouting-purple)',fontWeight:600,cursor:'pointer',padding:0}}>

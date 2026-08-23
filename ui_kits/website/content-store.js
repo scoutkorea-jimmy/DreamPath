@@ -175,8 +175,8 @@
       steps: [
         { n: '01', icon: 'user-check',
           t_ko: '청년 교육 파트너가 학습자를 추천합니다',   t_en: 'A youth-education partner nominates the learner',
-          d_ko: '국가별 청년 교육 파트너 기관이 검증한 학습자만 지원할 수 있습니다.',
-          d_en: 'Only learners vetted by their national youth-education partner can apply.' },
+          d_ko: '국가별 청년 교육 파트너 기관의 검증을 받은 학습자가 지원할 수 있습니다.',
+          d_en: 'Learners vetted by their national youth-education partner are eligible to apply.' },
         { n: '02', icon: 'file-check',
           t_ko: '프로그램을 선택하고 지원서를 제출합니다', t_en: 'Choose a program and submit',
           d_ko: '마이크로디그리, 온라인 학위, 어학 트랙 중에서 선택할 수 있습니다.',
@@ -193,7 +193,7 @@
     },
     programs: [
       // tuition: 프로그램별 등록금(USD, 최소단위=달러). **0 = 미공개(예약 단계)**
-      //   → 화면에는 금액 대신 '미공개 · 예약 단계'가 뜨고 서버가 결제를 막는다.
+      //   → 화면에는 금액 대신 '공개 예정 · 예약 단계'가 뜨고 서버가 결제를 막는다.
       //   결제 단계에서 이 값을
       // 자동으로 불러와 표기·청구한다(단일 출처). 0이면 결제가 차단되므로
       // 관리자가 admin → 프로그램 탭에서 실제 금액을 입력해야 한다. v01.092.
@@ -249,11 +249,11 @@
         quote_ko: '청년 멘토 덕분에 Dream Path를 알게 됐어요. 지금은 한국어로 일기를 씁니다.',
         quote_en: 'A youth mentor told me about Dream Path. Now I write my journal in Korean.' },
       { tag: 'Philippines', tag_color: '#0094B4', name: 'Jomar D.', program: 'Business in Korea',
-        quote_ko: '온라인이지만 한국 학생들과 실제로 프로젝트를 했어요. 그게 제일 컸습니다.',
-        quote_en: "It's online, but I worked on real projects with Korean students. That made the difference." },
+        quote_ko: '온라인으로도 한국 학생들과 실제로 프로젝트를 했어요. 그게 제일 컸습니다.',
+        quote_en: "It's online, and I worked on real projects with Korean students. That made the difference." },
       { tag: 'Peru',        tag_color: '#248737', name: 'Sofía M.', program: 'Digital Media',
-        quote_ko: '처음엔 영어가 걱정이었는데, 자막이랑 멘토 덕분에 따라갈 수 있었어요.',
-        quote_en: 'I was worried about my English, but captions and a mentor got me through.' },
+        quote_ko: '자막이랑 멘토 덕분에 영어도 처음부터 편하게 따라갈 수 있었어요.',
+        quote_en: 'Captions and a mentor made English easy to follow from the very start.' },
     ],
     news: [
       { tag: 'INITIATIVE', tag_color: '#1F5FBD', date: '2026.05.27', title_ko: '국제 청년 교육 컨퍼런스에서 Dream Path 공식 발표', title_en: 'Dream Path presented at the International Youth Education Conference' },
@@ -330,20 +330,20 @@
         en: { title: 'Please log in\nto continue.', body: 'You need to be signed in to access this page.', primary_label: 'Log in', secondary_label: 'Go to home', helpful_note: 'Need help? Contact us at info@koreadreampath.com' },
       },
       '403': {
-        ko: { title: '접근 권한이 없습니다.', body: '죄송합니다. 이 페이지에 접근할 권한이 없습니다.', primary_label: '홈으로', secondary_label: '뒤로 가기', helpful_note: '' },
-        en: { title: "You don't have\npermission.", body: 'Sorry, you are not authorized to access this page.', primary_label: 'Go to home', secondary_label: 'Go back', helpful_note: '' },
+        ko: { title: '권한이 있는 계정에서 열람할 수 있습니다.', body: '이 페이지는 접근 권한이 있는 계정에서 열람하실 수 있습니다. 로그인 계정을 확인해 주세요.', primary_label: '홈으로', secondary_label: '뒤로 가기', helpful_note: '' },
+        en: { title: "This page needs\npermission.", body: 'This page is available to accounts with the right permission. Please check which account you are signed in with.', primary_label: 'Go to home', secondary_label: 'Go back', helpful_note: '' },
       },
       '404': {
-        ko: { title: '페이지를 찾을 수 없습니다.', body: '찾으시는 페이지가 존재하지 않거나 이동되었습니다.', primary_label: '홈으로', secondary_label: '프로그램 보기', helpful_note: '' },
-        en: { title: 'Page not found.', body: "The page you're looking for doesn't exist or has been moved.", primary_label: 'Go to home', secondary_label: 'Browse programs', helpful_note: '' },
+        ko: { title: '주소를 다시 확인해 주세요.', body: '찾으시는 페이지가 이동했거나 주소가 바뀌었습니다. 홈에서 다시 찾아보세요.', primary_label: '홈으로', secondary_label: '프로그램 보기', helpful_note: '' },
+        en: { title: 'This page has moved.', body: "The page you're looking for has moved or its address has changed. Try starting from the home page.", primary_label: 'Go to home', secondary_label: 'Browse programs', helpful_note: '' },
       },
       '500': {
-        ko: { title: '문제가 발생했습니다.', body: '문제를 해결하는 중입니다. 잠시 후 다시 시도해주세요.', primary_label: '다시 시도', secondary_label: '홈으로', helpful_note: '' },
-        en: { title: 'Something went\nwrong on our end.', body: "We're working to fix the issue. Please try again later.", primary_label: 'Try again', secondary_label: 'Go to home', helpful_note: '' },
+        ko: { title: '서버를 복구하는 중입니다.', body: '곧 정상화됩니다. 잠시 후 다시 시도해주세요.', primary_label: '다시 시도', secondary_label: '홈으로', helpful_note: '' },
+        en: { title: 'We are restoring\nthe service.', body: "The service will be back shortly. Please try again in a moment.", primary_label: 'Try again', secondary_label: 'Go to home', helpful_note: '' },
       },
       '503': {
-        ko: { title: '일시적으로 이용할 수 없습니다.', body: '점검 중이거나 트래픽이 많습니다. 잠시 후 다시 시도해주세요.', primary_label: '잠시 후 다시 시도', secondary_label: '홈으로', helpful_note: '' },
-        en: { title: 'Temporarily\nunavailable.', body: "We're performing maintenance or experiencing high traffic. Please try again soon.", primary_label: 'Try again later', secondary_label: 'Go to home', helpful_note: '' },
+        ko: { title: '잠시 점검 중입니다.', body: '점검 중이거나 접속이 몰리고 있습니다. 잠시 후 다시 시도해주세요.', primary_label: '잠시 후 다시 시도', secondary_label: '홈으로', helpful_note: '' },
+        en: { title: 'Under brief\nmaintenance.', body: "We are performing maintenance or handling heavy traffic. Please try again soon.", primary_label: 'Try again later', secondary_label: 'Go to home', helpful_note: '' },
       },
       'offline': {
         ko: { title: '네트워크 연결 안 됨', body: '인터넷 연결을 확인하고 다시 시도해주세요.', primary_label: '다시 시도', secondary_label: '홈으로', helpful_note: '' },
@@ -364,8 +364,8 @@
 <h2>제3조 (약관의 효력 및 변경)</h2><p>본 약관은 사이트에 게시함으로써 효력이 발생합니다. 회사는 합리적인 사유가 발생할 경우 약관을 개정할 수 있으며, 변경된 약관은 시행일 7일 이전에 공지합니다.</p>
 <h2>제4조 (회원가입)</h2><p>회원가입은 회원이 약관 및 개인정보 처리방침에 동의하고, 회사가 정한 가입 양식에 정보를 기재하여 신청합니다.</p>
 <h2>제5조 (서비스 제공 및 변경)</h2><p>회사는 다음과 같은 서비스를 제공합니다: 프로그램 정보 제공, 지원서 접수, 회원 커리어 관리, 추천 프로그램 제안 등.</p>
-<h2>제6조 (회원 의무)</h2><p>회원은 타인의 정보를 도용하지 않으며, 서비스의 안정적 운영을 방해하지 않습니다.</p>
-<h2>제7조 (책임 제한)</h2><p>천재지변 또는 회사의 합리적 통제를 벗어난 사유로 인한 서비스 제공의 지연 또는 중단에 대해 회사는 책임을 지지 않습니다.</p>
+<h2>제6조 (회원 의무)</h2><p>회원은 본인 명의의 정보로 서비스를 이용하며, 서비스의 안정적 운영을 지킵니다.</p>
+<h2>제7조 (책임 범위)</h2><p>회사의 책임은 회사가 합리적으로 통제할 수 있는 범위에 한합니다. 천재지변 등 그 범위를 벗어난 사유로 발생한 서비스 지연 또는 중지는 이 범위 밖에 있습니다.</p>
 <h2>제8조 (준거법 및 관할)</h2><p>본 약관과 관련된 분쟁은 대한민국 법령에 따르며, 회사 본사 소재지 관할 법원에서 해결합니다.</p>` },
         en: { title: 'Terms of Service', summary: 'These Terms govern your use of the KoreaDreamPath service.', body:
 `<h2>1. Purpose</h2><p>These Terms set out the rights, obligations, and responsibilities of KoreaDreamPath ("we", "the Service") and members in relation to the use of the Service at koreadreampath.com.</p>
@@ -373,8 +373,8 @@
 <h2>3. Effect &amp; Changes</h2><p>These Terms take effect upon posting. We may amend them with 7 days' notice published on the site.</p>
 <h2>4. Registration</h2><p>To register, you must agree to these Terms and the Privacy Policy and provide the required information.</p>
 <h2>5. Services Provided</h2><p>The Service includes program information, application intake, member career profiles, and program recommendations.</p>
-<h2>6. Member Obligations</h2><p>You agree not to impersonate others or interfere with the operation of the Service.</p>
-<h2>7. Limitation of Liability</h2><p>We are not liable for delays or interruptions caused by events outside our reasonable control.</p>
+<h2>6. Member Obligations</h2><p>You agree to use your own identity and to respect the stable operation of the Service.</p>
+<h2>7. Scope of Liability</h2><p>Our liability covers events within our reasonable control. Delays or interruptions caused by events beyond that control fall outside this scope.</p>
 <h2>8. Governing Law &amp; Jurisdiction</h2><p>These Terms are governed by the laws of the Republic of Korea, with exclusive jurisdiction in the courts where our headquarters are located.</p>` },
       },
       privacy_signup: {
@@ -389,7 +389,7 @@
         en: { title: 'Personal Data Consent — Sign up', summary: 'To create an account we collect a minimum set of personal data.', body:
 `<h2>1. What we collect</h2><p>Email, password (hashed), name. Optional career profile: country, school, major, interests, language proficiency, summary.</p>
 <h2>2. Why</h2><ul><li>Authenticate you and operate your account</li><li>Match applications and program recommendations</li><li>Send essential service notices</li></ul>
-<h2>3. Retention</h2><p>Until you delete your account, then deleted within 30 days. Records that we are required by law to keep are retained for the legally required period only.</p>
+<h2>3. Retention</h2><p>Until you delete your account, then deleted within 30 days. Records that we are required by law to keep are retained for the legally required period.</p>
 <h2>4. Right to refuse</h2><p>You may refuse, but if you do, we cannot create an account for you. Optional fields can be skipped.</p>
 <h2>5. Safeguards</h2><p>Passwords are stored as one-way PBKDF2-SHA256 hashes. All traffic uses HTTPS. Data is stored on Cloudflare D1 (EU / APAC regions).</p>` },
       },
@@ -398,14 +398,14 @@
         effective: '2026-05-04',
         ko: { title: '개인정보 수집 · 이용 동의 (지원용)', summary: '지원서 처리를 위해 다음 정보를 수집합니다. 동의해 주셔야 지원이 가능합니다.', body:
 `<h2>1. 수집 항목 (필수)</h2><p>이름, 이메일, 생년월일, 입학 추천인 코드(선택), 국가, 최종 학교, 전공, GPA, 학력 메모, 에세이 2건, 추천인 정보(이름, 이메일, 국제 전화번호, 소속 청년 교육 파트너 기관명, 활동 경력, 추천서 PDF 파일명).</p>
-<h2>2. 수집 항목 (선택)</h2><p>결제용 카드 마지막 4자리. (전체 카드번호는 저장하지 않습니다.)</p>
+<h2>2. 수집 항목 (선택)</h2><p>결제용 카드 마지막 4자리. (카드번호는 마지막 4자리만 보관합니다.)</p>
 <h2>3. 수집 목적</h2><ul><li>지원서 검토 및 평가</li><li>합격 여부 통지</li><li>청년 교육 파트너 기관과의 추천인 검증 커뮤니케이션</li><li>결제 처리 및 영수증 발급</li></ul>
-<h2>4. 보유 기간</h2><p>최종 합격/불합격 통지 후 1년 (재지원·이의제기 기간). 이후 익명 통계로 전환되며 식별 정보는 파기됩니다.</p>
+<h2>4. 보유 기간</h2><p>최종 심사 결과 통지 후 1년 (재지원·이의제기 기간). 이후 익명 통계로 전환되며 식별 정보는 파기됩니다.</p>
 <h2>5. 거부 권리</h2><p>본 동의를 거부하실 경우 지원이 불가능합니다.</p>
 <h2>6. 처리 위탁 / 보안</h2><p>데이터는 Cloudflare 플랫폼에서 처리되며, EU GDPR Art. 28 기준의 데이터 처리 계약(DPA)을 따릅니다.</p>` },
         en: { title: 'Personal Data Consent — Application', summary: 'To process your application we collect the data below. Consent is required to apply.', body:
 `<h2>1. What we collect (required)</h2><p>Name, email, date of birth, admission referrer code (optional), country, most-recent school, major, GPA, transcript note, two essays, recommender details (name, email, international phone, affiliated youth-education partner organization, activity background, PDF filename).</p>
-<h2>2. What we collect (optional)</h2><p>Last 4 digits of the payment card. We never store the full card number.</p>
+<h2>2. What we collect (optional)</h2><p>Last 4 digits of the payment card. We store just these four digits.</p>
 <h2>3. Purpose</h2><ul><li>Review and evaluate the application</li><li>Notify the outcome</li><li>Verify the recommender via the affiliated youth-education partner organization where applicable</li><li>Process payment and issue receipts</li></ul>
 <h2>4. Retention</h2><p>One year after final notification (covers reapplication and appeal). After that, identifying details are deleted and only anonymous statistics are retained.</p>
 <h2>5. Right to refuse</h2><p>If you refuse, we cannot accept the application.</p>
@@ -433,9 +433,9 @@
         version: '1.0',
         effective: '2026-05-04',
         ko: { title: '분석 쿠키 / 추적 동의', summary: '서비스 개선을 위해 사이트 사용 패턴을 익명으로 수집합니다.', body:
-`<p>접속 경로, 페이지뷰, 클릭 등의 사용 패턴을 익명 세션 ID 기반으로 수집합니다. 식별 정보(이름·이메일)와 결합되지 않습니다. IP는 국가 추정 후 7일 후 마지막 옥텟이 마스킹됩니다.</p>` },
+`<p>접속 경로, 페이지뷰, 클릭 등의 사용 패턴을 익명 세션 ID 기반으로 수집합니다. 식별 정보(이름·이메일)와는 분리해 보관합니다. IP는 국가 추정 후 7일 후 마지막 옥텟이 마스킹됩니다.</p>` },
         en: { title: 'Analytics / tracking consent', summary: 'We collect anonymous usage patterns to improve the service.', body:
-`<p>We collect entry source, pageviews, and click patterns under an anonymous session id. This data is never combined with identifying details (name/email). IP addresses are used only to estimate country; the last octet is masked after 7 days.</p>` },
+`<p>We collect entry source, pageviews, and click patterns under an anonymous session id. This data is kept separate from identifying details (name/email). IP addresses serve a single purpose — estimating country; the last octet is masked after 7 days.</p>` },
       },
     },
     // ─── Member roles & permissions matrix ──────────────────────────────
@@ -566,20 +566,20 @@
         activate_account: {
           subject_ko: '[KoreaDreamPath] 회원가입 인증코드: {{code}}',
           subject_en: '[KoreaDreamPath] Your activation code: {{code}}',
-          body_ko:    '안녕하세요 {{name}}님,\n\nKoreaDreamPath 회원가입을 환영합니다. 아래 인증코드를 입력하거나 링크를 눌러 계정을 활성화해 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n인증코드와 링크는 {{expires_hours}}시간 동안 유효합니다. 이 시간이 지나면 계정이 자동으로 삭제되며, 다시 가입하셔야 합니다.\n\n본인이 가입을 시도하지 않으셨다면 이 메일을 무시하셔도 됩니다.',
-          body_en:    'Hi {{name}},\n\nWelcome to KoreaDreamPath. Enter the code below or click the link to activate your account.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe code and link are valid for {{expires_hours}} hours. After that, the unactivated account is deleted automatically and you will need to sign up again.\n\nIf you did not request this signup, you can safely ignore this email.',
+          body_ko:    '안녕하세요 {{name}}님,\n\nKoreaDreamPath 회원가입을 환영합니다. 아래 인증코드를 입력하거나 링크를 눌러 계정을 활성화해 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n인증코드와 링크는 {{expires_hours}}시간 동안 유효합니다. 이 시간이 지나면 계정 정보가 자동으로 정리되며, 다시 가입해 주시면 됩니다.\n\n가입을 요청하신 분만 진행해 주세요.',
+          body_en:    'Hi {{name}},\n\nWelcome to KoreaDreamPath. Enter the code below or click the link to activate your account.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe code and link are valid for {{expires_hours}} hours. After that, the pending account is cleared automatically and you can sign up again any time.\n\nPlease continue if this signup was yours.',
         },
         activate_reminder: {
-          subject_ko: '[KoreaDreamPath] 회원가입 인증이 아직 완료되지 않았습니다',
-          subject_en: '[KoreaDreamPath] Your KoreaDreamPath signup is still pending',
-          body_ko:    '안녕하세요 {{name}}님,\n\n회원가입 인증이 아직 완료되지 않았습니다. 아래 인증코드를 입력하거나 링크를 눌러 활성화를 마쳐 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n남은 유효시간이 짧으므로 가능한 빨리 활성화해 주세요.',
-          body_en:    'Hi {{name}},\n\nYour signup verification is still pending. Enter the code below or click the link to finish activation.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe remaining window is short — please activate as soon as you can.',
+          subject_ko: '[KoreaDreamPath] 회원가입 인증을 마무리해 주세요',
+          subject_en: '[KoreaDreamPath] Finish your KoreaDreamPath signup',
+          body_ko:    '안녕하세요 {{name}}님,\n\n회원가입 인증만 마치면 계정이 활성화됩니다. 아래 인증코드를 입력하거나 링크를 눌러 마무리해 주세요.\n\n인증코드: {{code}}\n링크: {{activation_url}}\n\n남은 유효시간이 짧으니 가능한 빨리 활성화해 주세요.',
+          body_en:    'Hi {{name}},\n\nOne step is left to activate your account. Enter the code below or click the link to finish activation.\n\nCode: {{code}}\nLink: {{activation_url}}\n\nThe remaining window is short — please activate as soon as you can.',
         },
         reset_password: {
           subject_ko: '[KoreaDreamPath] 비밀번호 재설정 안내',
           subject_en: '[KoreaDreamPath] Reset your password',
-          body_ko:    '안녕하세요 {{name}}님,\n\n비밀번호를 재설정하시려면 아래 링크를 눌러 주세요. 링크는 1시간 동안 유효합니다.\n\n{{reset_url}}\n\n본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다.',
-          body_en:    'Hi {{name}},\n\nClick the link below to reset your password. The link is valid for 1 hour.\n\n{{reset_url}}\n\nIf you did not request this, you can ignore this email.',
+          body_ko:    '안녕하세요 {{name}}님,\n\n비밀번호를 재설정하시려면 아래 링크를 눌러 주세요. 링크는 1시간 동안 유효합니다.\n\n{{reset_url}}\n\n비밀번호 재설정을 요청하신 분만 진행해 주세요.',
+          body_en:    'Hi {{name}},\n\nClick the link below to reset your password. The link is valid for 1 hour.\n\n{{reset_url}}\n\nPlease continue if you requested this reset.',
         },
         apply_received: {
           subject_ko: '[KoreaDreamPath] 1차 신청이 접수되었습니다 (고유번호 {{candidate_no}})',
@@ -591,20 +591,20 @@
         screen_passed: {
           subject_ko: '[KoreaDreamPath] 1차 통과 — 다음 단계 안내 ({{candidate_no}})',
           subject_en: '[KoreaDreamPath] You passed screening — next steps ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 파트너 대학의 입학 절차입니다. 절차 안내는 담당자가 개별로 드립니다.\n\n⚠️ 중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: 파트너 대학에서 결제합니다 (정상).\n· 등록금: 파트너 대학에서 결제하지 마세요. 합격 후 KoreaDreamPath 홈페이지에서만 결제합니다.\n\n입학 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
+          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 파트너 대학의 입학 절차입니다. 절차 안내는 담당자가 개별로 드립니다.\n\n⚠️ 중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: 파트너 대학에서 결제합니다 (정상).\n· 등록금: 합격 후 KoreaDreamPath 홈페이지에서 결제합니다. 등록금을 받는 곳은 이곳 한 군데입니다.\n\n입학 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
           body_en:    'Hi {{name}},\n\nYou passed the first document screening. Congratulations!\n\nThe next step is the partner university admission process. Your coordinator will send the details.\n\n⚠️ Important — know who collects each payment:\n· Application fee: paid to the partner university (normal).\n· Tuition: do NOT pay to the partner university. Pay only on the KoreaDreamPath site after admission.\n\nAfter completing those steps, enter your admission reference number on your member page.\n\nThe KoreaDreamPath team',
         },
         screen_rejected: {
           subject_ko: '[KoreaDreamPath] 1차 심사 결과 안내 ({{candidate_no}})',
           subject_en: '[KoreaDreamPath] Result of your first screening ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\n안타깝게도 이번 1차 심사에서는 선정되지 못했습니다.\n\n{{note}}\n\n관심을 가져 주셔서 진심으로 감사드리며, 다음 기회에 다시 만나뵙기를 바랍니다.\n\nKoreaDreamPath 팀',
-          body_en:    'Hi {{name}},\n\nUnfortunately you were not selected in this first screening.\n\n{{note}}\n\nThank you sincerely for your interest — we hope to see you apply again.\n\nThe KoreaDreamPath team',
+          body_ko:    '안녕하세요 {{name}}님,\n\n이번 1차 심사에서는 다른 지원자가 선정되었습니다.\n\n{{note}}\n\n관심을 가져 주셔서 진심으로 감사드리며, 다음 기회에 다시 만나뵙기를 바랍니다.\n\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nThis time, other applicants were selected in the first screening.\n\n{{note}}\n\nThank you sincerely for your interest — we hope to see you apply again.\n\nThe KoreaDreamPath team',
         },
         admission_verified: {
           subject_ko: '[KoreaDreamPath] 합격증 확인 완료 — 서류 제출 안내 ({{candidate_no}})',
           subject_en: '[KoreaDreamPath] Admission verified — please submit documents ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\n합격증이 확인되었습니다. 이제 학력 증빙 서류 3종을 마이페이지에서 제출해 주세요.\n\n1) 졸업(예정)증명서\n2) 아포스티유 · 학력인정확인서 · 영사확인 중 택1\n3) 한글번역공증본 (국문·영문 외 서류에 한함)\n\n서류 검토가 끝나면 등록금 결제 단계가 열립니다.\n\nKoreaDreamPath 팀',
-          body_en:    'Hi {{name}},\n\nYour admission certificate has been verified. Please submit the three academic documents on your member page.\n\n1) Certificate of (expected) graduation\n2) Apostille / academic recognition / consular confirmation (choose one)\n3) Notarized Korean translation (only for non-KO/EN documents)\n\nOnce the documents are reviewed, the tuition payment step will open.\n\nThe KoreaDreamPath team',
+          body_ko:    '안녕하세요 {{name}}님,\n\n합격증이 확인되었습니다. 이제 학력 증빙 서류 3종을 마이페이지에서 제출해 주세요.\n\n1) 졸업(예정)증명서\n2) 아포스티유 · 학력인정확인서 · 영사확인 중 택1\n3) 한글번역공증본 (국문·영문 외 언어로 발급된 서류에 한함)\n\n서류 검토가 끝나면 등록금 결제 단계가 열립니다.\n\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nYour admission certificate has been verified. Please submit the three academic documents on your member page.\n\n1) Certificate of (expected) graduation\n2) Apostille / academic recognition / consular confirmation (choose one)\n3) Notarized Korean translation (for documents issued in other languages)\n\nOnce the documents are reviewed, the tuition payment step will open.\n\nThe KoreaDreamPath team',
         },
         docs_verified: {
           subject_ko: '[KoreaDreamPath] 서류 검토 완료 — 등록금 결제 안내 ({{candidate_no}})',
@@ -641,7 +641,7 @@
       { value: 'program',     label_ko: '프로그램 관련', label_en: 'About a program' },
       { value: 'partnership', label_ko: '파트너십',      label_en: 'Partnership' },
       { value: 'media',       label_ko: '취재 / 미디어', label_en: 'Media / press' },
-      { value: 'bug',         label_ko: '오류 신고',     label_en: 'Report a bug' },
+      { value: 'bug',         label_ko: '기술 지원 요청',     label_en: 'Technical support' },
       // Not shown on the public Contact dropdown — applied automatically to
       // messages members send to a team member from /team (v01.072). Kept
       // here so the admin inbox renders a friendly category label.
@@ -671,8 +671,8 @@
       enabled: false,
       title_ko: '홈페이지 정식 공개 안내',
       title_en: 'Preview Notice',
-      body_ko: '본 홈페이지는 정보 최신화 작업 중입니다. 현재 제공되는 정보는 최종 확정 정보가 아니며 일부 변경될 수 있으니 참고 부탁드립니다.',
-      body_en: 'This website is being updated. The information currently provided is not final and may be subject to change. Please keep this in mind.',
+      body_ko: '본 홈페이지는 정보 최신화 작업 중입니다. 현재 제공되는 정보는 준비 단계의 내용으로 일부 변경될 수 있으니 참고 부탁드립니다.',
+      body_en: 'This website is being updated. The information shown is preliminary and may be subject to change. Please keep this in mind.',
       check_ko: '위 안내 내용을 확인했습니다.',
       check_en: 'I have read and understood the notice above.',
       button_ko: '확인하고 입장하기',
@@ -686,8 +686,8 @@
     // 2026-08-22: 협력 대학 협의 문제로 운영자가 내림.
     programs_gate: {
       hidden: true,
-      title_ko: '현재 공개된 신규 프로그램이 없습니다',
-      title_en: 'No new programs are published right now',
+      title_ko: '새 프로그램을 준비하고 있습니다',
+      title_en: 'New programs are on the way',
       body_ko: '기존 프로그램은 예정대로 진행되고 있습니다.\n새로운 프로그램이 준비되면 이 페이지에서 별도로 안내드리겠습니다.',
       body_en: 'Programs already under way are running as planned.\nNew programs will be announced separately on this page.',
     },
@@ -700,8 +700,8 @@
     // 2026-08-22 for the site-refresh round.
     apply_gate: {
       closed: true,
-      title_ko: '현재 신규 모집 중인 프로그램이 없습니다',
-      title_en: 'No new program intake is open right now',
+      title_ko: '다음 모집을 준비하고 있습니다',
+      title_en: 'The next intake is being prepared',
       body_ko: '기존 프로그램은 예정대로 진행되고 있습니다.\n신규 프로그램 모집이 시작되면 이 페이지에서 별도로 안내드리겠습니다.',
       body_en: 'Programs already under way are running as planned.\nWe will announce a new intake separately on this page once one opens.',
     },
@@ -777,13 +777,13 @@
             items_ko: [
               '정부가 인정하는 학술 파트너',
               '구조화된 마이크로 디그리 시스템',
-              '투명한 커뮤니케이션 (보장 표현 사용 금지)',
+              '투명한 커뮤니케이션 (사실에 근거한 표현 사용)',
               '학습자 보호 프레임워크',
             ],
             items_en: [
               'Government-recognized academic partner',
               'Structured micro-degree system',
-              'Transparent communication (no guarantee claims)',
+              'Transparent communication (fact-based claims)',
               'Learner protection framework',
             ],
           },
@@ -949,9 +949,9 @@
       },
       contact: {
         ko: { kicker: 'CONTACT · FAQ', title_l1: '궁금한 건 먼저 FAQ.', title_l2: '',
-              sub: '답이 없으면 언제든 info@koreadreampath.com 로 연락주세요.' },
+              sub: '더 궁금한 점이 있으면 언제든 info@koreadreampath.com 로 연락주세요.' },
         en: { kicker: 'CONTACT · FAQ', title_l1: 'Start with the FAQ.', title_l2: '',
-              sub: "If you don't see the answer, reach us at info@koreadreampath.com." },
+              sub: "For anything else, reach us at info@koreadreampath.com." },
       },
       programs: {
         ko: { kicker: 'PROGRAMS', title_l1: '5개의 마이크로디그리.', title_l2: '모두 온라인.',
@@ -972,7 +972,7 @@
       member: {
         ko: { kicker: '회원 전용', title_l1: '로그인이 필요합니다.', title_l2: '',
               sub: '회원 페이지를 이용하려면 로그인하거나 회원가입을 진행해주세요.' },
-        en: { kicker: 'MEMBERS ONLY', title_l1: 'Please log in.', title_l2: '',
+        en: { kicker: 'MEMBER SPACE', title_l1: 'Please log in.', title_l2: '',
               sub: 'Log in or create an account to access member features.' },
       },
       mypage: {

@@ -77,19 +77,19 @@ function TeamMessageModal({ open, onClose, member, lang, go }) {
         const code = data && data.error;
         let msg;
         if (code === 'cannot_message_self') {
-          msg = isKo ? '본인 계정에는 메시지를 보낼 수 없습니다.' : "You can't send a message to your own account.";
+          msg = isKo ? '메시지는 다른 팀원에게 보낼 수 있습니다.' : "Messages can be sent to other team members.";
         } else if (code === 'rate_limited') {
           msg = isKo ? '잠시 후 다시 시도해주세요. (전송 한도 초과)' : 'Too many messages — please try again later.';
         } else if (code === 'recipient_unavailable') {
-          msg = isKo ? '이 팀원에게는 현재 메시지를 보낼 수 없습니다.' : "This team member can't receive messages right now.";
+          msg = isKo ? '이 팀원은 현재 메시지 수신을 잠시 닫아 두었습니다.' : "This team member has messages paused right now.";
         } else {
-          msg = isKo ? '전송에 실패했습니다. 잠시 후 다시 시도해주세요.' : 'Could not send. Please try again shortly.';
+          msg = isKo ? '전송을 잠시 후 다시 시도해주세요.' : 'Please try sending again shortly.';
         }
         setErr(msg); setBusy(false); return;
       }
       setDone(true);
     } catch {
-      setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'A network error occurred.');
+      setErr(isKo ? '연결 상태를 확인한 뒤 다시 시도해 주세요.' : 'Please check your connection and try again.');
     }
     setBusy(false);
   }
@@ -254,7 +254,7 @@ function TeamProfileModal({ open, member, lang, onClose, onMessage }) {
             <p className="team-profile-bio"><a href={`mailto:${contactEmail}`}>{contactEmail}</a></p>
           </div>
         )}
-        {!hasAny && <p className="team-profile-bio team-profile-bio-empty">{isKo ? '등록된 약력이 없습니다.' : 'No bio available yet.'}</p>}
+        {!hasAny && <p className="team-profile-bio team-profile-bio-empty">{isKo ? '약력은 준비되는 대로 공개됩니다.' : 'A bio will appear here soon.'}</p>}
         {/* 메시지 보내기는 가입 계정이 연결된(messageable) 멤버에게만 노출.
             미연결이면 버튼 숨김(연락처 이메일이 있으면 CONTACT로 안내). */}
         {member.messageable && (

@@ -11,7 +11,7 @@ function Receipt({ lang, c }) {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     const token = params.get('token');
-    if (!id) { setErr(isKo ? '영수증 ID가 없습니다.' : 'Missing receipt ID.'); setLoading(false); return; }
+    if (!id) { setErr(isKo ? '영수증 ID를 확인해 주세요.' : 'Please provide a receipt ID.'); setLoading(false); return; }
     (async () => {
       try {
         const res = await window.DreamPathAuth.authFetch(
@@ -19,9 +19,9 @@ function Receipt({ lang, c }) {
         );
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
-          if (d.error === 'unauthorized') setErr(isKo ? '권한이 없습니다. 토큰 또는 로그인을 확인해주세요.' : 'Unauthorized. Check the token or log in.');
+          if (d.error === 'unauthorized') setErr(isKo ? '접근 권한을 확인해 주세요. 토큰 또는 로그인 상태를 점검해주세요.' : 'This needs access verification. Check the token or sign in.');
           else if (d.error === 'not_paid') setErr(isKo ? '결제가 완료된 지원에 대해서만 영수증이 발급됩니다.' : 'Receipts are only issued for paid applications.');
-          else setErr(isKo ? '영수증을 불러올 수 없습니다.' : 'Could not load receipt.');
+          else setErr(isKo ? '영수증을 다시 불러와 주세요.' : 'Please try loading the receipt again.');
           setLoading(false);
           return;
         }

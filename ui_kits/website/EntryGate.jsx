@@ -41,8 +41,8 @@ function EntryGate({ lang, c }) {
   const body   = pick(g.body_ko,   g.body_en,
     // 폴백은 날짜를 담지 않는다 — 지난 날짜가 박힌 문구가 코드에 남아
     // 있으면 게이트를 다시 켜는 순간 철 지난 안내가 뜬다 (2026-08-22).
-    '본 홈페이지는 정보 최신화 작업 중입니다. 현재 제공되는 정보는 최종 확정 정보가 아니며 일부 변경될 수 있으니 참고 부탁드립니다.',
-    'This website is being updated. The information currently provided is not final and may change. Please keep this in mind.');
+    '본 홈페이지는 정보 최신화 작업 중입니다. 현재 제공되는 정보는 준비 단계의 내용으로 일부 변경될 수 있으니 참고 부탁드립니다.',
+    'This website is being updated. The information shown is preliminary and may change. Please keep this in mind.');
   const check  = pick(g.check_ko,  g.check_en,  '위 안내 내용을 확인했습니다.', 'I have read and understood the notice above.');
   const button = pick(g.button_ko, g.button_en, '확인하고 입장하기', 'Acknowledge & enter');
 

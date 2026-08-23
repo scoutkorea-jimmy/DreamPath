@@ -45,12 +45,12 @@ class DPErrorBoundary extends React.Component {
     return (
       <div className="container" style={{padding:'96px 24px',textAlign:'center',wordBreak:'keep-all',overflowWrap:'break-word'}}>
         <h1 style={{fontSize:22,lineHeight:1.5,margin:'0 0 12px',color:'var(--fg-primary)'}}>
-          {isKo ? '이 페이지를 표시하지 못했습니다' : "We couldn't display this page"}
+          {isKo ? '이 페이지를 다시 불러와 주세요' : "This page needs a reload"}
         </h1>
         <p style={{fontSize:15,lineHeight:1.7,margin:'0 0 28px',color:'var(--fg-muted)',maxWidth:440,marginLeft:'auto',marginRight:'auto'}}>
           {isKo
-            ? '문제가 자동으로 보고되었습니다. 다른 메뉴는 정상적으로 이용하실 수 있습니다.'
-            : 'The problem has been reported automatically. The rest of the site still works.'}
+            ? '상황은 자동으로 접수되었습니다. 다른 메뉴는 정상적으로 이용하실 수 있습니다.'
+            : 'This has been reported automatically. The rest of the site works as usual.'}
         </p>
         <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
           <button type="button" className="btn btn-primary"

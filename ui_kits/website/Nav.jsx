@@ -237,12 +237,12 @@ function Nav({ view, go, lang, setLang, c }) {
                     <div style={{padding:'12px 14px',borderBottom:'1px solid var(--border-hair)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                       <strong style={{fontSize:13,color:'var(--fg-primary)'}}>{isKo ? '알림' : 'Notifications'}</strong>
                       <span style={{fontSize:11,color:'var(--fg-muted)',fontFamily:'var(--font-mono)'}}>
-                        {unread > 0 ? (isKo ? `${unread}건 읽지 않음` : `${unread} unread`) : (isKo ? '모두 읽음' : 'all read')}
+                        {unread > 0 ? (isKo ? `${unread}건 새 알림` : `${unread} new`) : (isKo ? '모두 읽음' : 'all read')}
                       </span>
                     </div>
                     {notifs.length === 0 ? (
                       <div style={{padding:'28px 14px',textAlign:'center',color:'var(--fg-muted)',fontSize:13}}>
-                        {isKo ? '받은 알림이 없습니다.' : 'No notifications yet.'}
+                        {isKo ? '새 알림이 오면 여기에 표시됩니다.' : 'New notifications will appear here.'}
                       </div>
                     ) : (
                       <div>

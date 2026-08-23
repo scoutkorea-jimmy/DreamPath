@@ -175,8 +175,8 @@ function ChatBot({ lang, c, go }) {
     if (scored.length === 0) {
       // Fallback: no FAQ matched. Offer routes the user can take.
       const text = isKo
-        ? '죄송해요, 정확한 답을 찾지 못했어요. 아래에서 빠르게 이동할 수 있어요.'
-        : "Sorry, I couldn't find a clear answer. You can jump to one of these:";
+        ? '가장 가까운 안내를 아래에 모았어요. 여기서 빠르게 이동할 수 있어요.'
+        : 'Here are the closest matches I found. You can jump to one of these:';
       setMsgs(m => [...m, { role: 'bot', text, t: Date.now(), fallback: true }]);
       return;
     }
@@ -474,10 +474,10 @@ function ChatBubble({ m, lang, onSuggest, go }) {
             fontSize:11,lineHeight:1.5,color:'var(--fg-muted)',
           }}>
             {isKo ? (
-              <>이 답변은 AI가 자동 생성한 것으로 정확하지 않을 수 있어요. 자세한 내용은 홈페이지를 다시 한 번 확인해 주시고, 그래도 부정확하다고 느껴지시면{' '}
+              <>이 답변은 AI가 자동 생성했어요. 자세한 내용은 홈페이지에서 한 번 더 확인해 주시고, 보완이 필요하다고 느껴지시면{' '}
                 <a href={mailto} style={{color:'var(--fg-link)',fontWeight:600}}>{SUPPORT_EMAIL}</a>으로 보내주시면 최대 <strong>48시간 이내</strong>에 답변드릴게요.</>
             ) : (
-              <>This answer is AI-generated and may be inaccurate. Please double-check the site, and if you still find it unclear, email{' '}
+              <>This answer is AI-generated. Please double-check the site, and for anything that needs clarifying, email{' '}
                 <a href={mailto} style={{color:'var(--fg-link)',fontWeight:600}}>{SUPPORT_EMAIL}</a> — we reply within <strong>48 hours</strong>.</>
             )}
           </div>

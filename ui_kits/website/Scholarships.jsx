@@ -47,7 +47,7 @@ function Scholarships({ go, lang, c }) {
       const data = await res.json();
       setItems(data.items || []);
     } catch (e) {
-      setErr(isKo ? '장학 정보를 불러오지 못했습니다.' : 'Failed to load scholarships.');
+      setErr(isKo ? '장학 정보를 다시 불러와 주세요.' : 'Please try loading scholarships again.');
     }
     setLoading(false);
   }
@@ -67,7 +67,7 @@ function Scholarships({ go, lang, c }) {
       setEditing(null);
       load();
     } catch (e) {
-      setErr(isKo ? '저장 실패' : 'Save failed');
+      setErr(isKo ? '저장을 다시 시도해 주세요' : 'Please try saving again');
     }
   }
 
@@ -78,7 +78,7 @@ function Scholarships({ go, lang, c }) {
       if (!res.ok) throw new Error('http_' + res.status);
       load();
     } catch (e) {
-      setErr(isKo ? '삭제 실패' : 'Delete failed');
+      setErr(isKo ? '삭제를 다시 시도해 주세요' : 'Please try removing again');
     }
   }
 
@@ -144,7 +144,7 @@ function Scholarships({ go, lang, c }) {
             <div className="schol-empty">{isKo ? '불러오는 중…' : 'Loading…'}</div>
           ) : visible.length === 0 ? (
             <div className="schol-empty">
-              {isKo ? '등록된 장학 정보가 없습니다.' : 'No scholarships posted yet.'}
+              {isKo ? '장학 정보는 준비되는 대로 안내드립니다.' : 'Scholarship listings will appear here.'}
             </div>
           ) : (
             <div className="schol-board">
@@ -222,7 +222,7 @@ function ScholarshipDetail({ go, lang, c, scholarshipId }) {
   if (err || !post) {
     return (
       <div data-screen-label="ScholarshipDetail">
-        <div className="phead"><div className="inner"><h1 className="en">{isKo ? '찾을 수 없습니다' : 'Not found'}</h1></div></div>
+        <div className="phead"><div className="inner"><h1 className="en">{isKo ? '주소를 확인해 주세요' : 'Check the address'}</h1></div></div>
         <section className="section"><div className="container-narrow">
           <button type="button" className="btn btn-secondary" onClick={() => go('scholarships')}>← {isKo ? '장학 목록으로' : 'All scholarships'}</button>
         </div></section>
@@ -384,7 +384,7 @@ function ScholarshipImageField({ value, onChange, isKo }) {
       if (!resp.ok) throw new Error('upload_failed');
       const j = await resp.json();
       onChange(j.url);
-    } catch { setErr(isKo ? '업로드 실패' : 'Upload failed'); }
+    } catch { setErr(isKo ? '업로드를 다시 시도해 주세요' : 'Please try uploading again'); }
     setBusy(false);
   }
   return (

@@ -94,8 +94,8 @@ function Error401({ go, lang, c }) {
 function Error403({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = copyFor(c, '403', lang, {
-    title: isKo ? '접근 권한이 없습니다.' : "You don't have\npermission.",
-    body: isKo ? '죄송합니다. 이 페이지에 접근할 권한이 없습니다.' : 'Sorry, you are not authorized to access this page.',
+    title: isKo ? '권한이 있는 계정에서 열람할 수 있습니다.' : "This page needs\npermission.",
+    body: isKo ? '이 페이지는 접근 권한이 있는 계정에서 열람하실 수 있습니다. 로그인 계정을 확인해 주세요.' : 'This page is available to accounts with the right permission. Please check which account you are signed in with.',
     primary_label: isKo ? '홈으로' : 'Go to home',
     secondary_label: isKo ? '뒤로 가기' : 'Go back',
   });
@@ -112,8 +112,8 @@ function Error403({ go, lang, c }) {
 function Error404({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = copyFor(c, '404', lang, {
-    title: isKo ? '페이지를 찾을 수 없습니다.' : 'Page not found.',
-    body: isKo ? '찾으시는 페이지가 존재하지 않거나 이동되었습니다.' : "The page you're looking for doesn't exist or has been moved.",
+    title: isKo ? '주소를 다시 확인해 주세요.' : 'This page has moved.',
+    body: isKo ? '찾으시는 페이지가 이동했거나 주소가 바뀌었습니다. 홈에서 다시 찾아보세요.' : "The page you're looking for has moved or its address has changed. Try starting from the home page.",
     primary_label: isKo ? '홈으로' : 'Go to home',
     secondary_label: isKo ? '프로그램 보기' : 'Browse programs',
   });
@@ -130,8 +130,8 @@ function Error404({ go, lang, c }) {
 function Error500({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = copyFor(c, '500', lang, {
-    title: isKo ? '문제가 발생했습니다.' : 'Something went\nwrong on our end.',
-    body: isKo ? '문제를 해결하는 중입니다. 잠시 후 다시 시도해주세요.' : "We're working to fix the issue. Please try again later.",
+    title: isKo ? '서버를 복구하는 중입니다.' : 'We are restoring\nthe service.',
+    body: isKo ? '곧 정상화됩니다. 잠시 후 다시 시도해주세요.' : "The service will be back shortly. Please try again in a moment.",
     primary_label: isKo ? '다시 시도' : 'Try again',
     secondary_label: isKo ? '홈으로' : 'Go to home',
   });
@@ -148,8 +148,8 @@ function Error500({ go, lang, c }) {
 function Error503({ go, lang, c }) {
   const isKo = lang === 'ko';
   const t = copyFor(c, '503', lang, {
-    title: isKo ? '일시적으로 이용할 수 없습니다.' : 'Temporarily\nunavailable.',
-    body: isKo ? '점검 중이거나 트래픽이 많습니다. 잠시 후 다시 시도해주세요.' : "We're performing maintenance or experiencing high traffic. Please try again soon.",
+    title: isKo ? '잠시 점검 중입니다.' : 'Under brief\nmaintenance.',
+    body: isKo ? '점검 중이거나 접속이 몰리고 있습니다. 잠시 후 다시 시도해주세요.' : "We are performing maintenance or handling heavy traffic. Please try again soon.",
     primary_label: isKo ? '잠시 후 다시 시도' : 'Try again later',
     secondary_label: isKo ? '홈으로' : 'Go to home',
   });

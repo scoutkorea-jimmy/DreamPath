@@ -33,7 +33,7 @@ async function uploadApplyFile(file, kind, recommenderIdx, applicationId) {
       const i = dataUrl.indexOf(',');
       res(i >= 0 ? dataUrl.slice(i + 1) : dataUrl);
     };
-    r.onerror = () => rej(new Error('읽기 실패'));
+    r.onerror = () => rej(new Error('파일을 다시 선택해 주세요'));
     r.readAsDataURL(file);
   });
   const headers = { 'content-type': 'application/json' };
@@ -312,7 +312,7 @@ function Apply({ lang, c, go }) {
         const data = await res.json().catch(() => ({}));
         const msg = data.error === 'validation'
           ? (isKo ? '입력 정보를 확인해 주세요.' : 'Please check your inputs.')
-          : (isKo ? '제출에 실패했습니다. 다시 시도해 주세요.' : 'Submission failed. Please try again.');
+          : (isKo ? '제출을 다시 시도해 주세요.' : 'Please submit again.');
         setSubmitError(msg);
         setSubmitting(false);
         return;
@@ -333,8 +333,8 @@ function Apply({ lang, c, go }) {
       }
     } catch (e) {
       setSubmitError(isKo
-        ? '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
-        : 'A network error occurred. Please try again.');
+        ? '연결 상태를 확인한 뒤 잠시 후 다시 시도해 주세요.'
+        : 'Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -351,7 +351,7 @@ function Apply({ lang, c, go }) {
   const gate = (c && c.apply_gate) || {};
   if (gate.closed) {
     const gTitle = (isKo ? gate.title_ko : gate.title_en)
-      || (isKo ? '신청 접수가 일시 중단되었습니다' : 'Applications are temporarily closed');
+      || (isKo ? '다음 모집을 준비하고 있습니다' : 'The next intake is being prepared');
     const gBody = (isKo ? gate.body_ko : gate.body_en) || '';
     return (
       <div data-screen-label="Apply · Closed">
@@ -557,8 +557,8 @@ function ConsentStep({ form, setForm, isKo, c, openDoc }) {
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '지원서 처리를 위해 다음 두 가지 동의가 필요합니다. 각 항목의 전문을 확인하신 뒤 동의해 주세요. 동의하지 않으실 경우 지원이 진행되지 않습니다.'
-        : 'Two consents are required to process your application. Review each document and confirm. Without these, the application cannot proceed.'}</p>
+        ? '지원서 처리를 위해 다음 두 가지 동의가 필요합니다. 각 항목의 전문을 확인하신 뒤 동의해 주세요. 두 항목에 동의하시면 지원이 진행됩니다.'
+        : 'Two consents are required to process your application. Review each document and confirm — the application proceeds once both are given.'}</p>
 
       {privacyDoc && (
         <window.ConsentRow doc={privacyDoc} lang={isKo ? 'ko' : 'en'}
@@ -624,7 +624,7 @@ function StepPersonal({ form, setForm, upd, isKo, lang, openPrograms }) {
           {openPrograms.length === 0
             ? (
               <div style={{padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:8,fontSize:14}}>
-                {isKo ? '현재 모집 중인 프로그램이 없습니다. 잠시 후 다시 확인해주세요.' : 'No programs are currently open. Please check back soon.'}
+                {isKo ? '다음 모집을 준비하고 있습니다. 잠시 후 다시 확인해주세요.' : 'The next intake is being prepared. Please check back soon.'}
               </div>
             )
             : (
@@ -640,7 +640,7 @@ function StepPersonal({ form, setForm, upd, isKo, lang, openPrograms }) {
           <label>{isKo ? '입학 추천인 코드 (선택)' : 'Admission referrer code (optional)'}</label>
           <input value={form.admission_referrer_code} onChange={upd('admission_referrer_code')}
             placeholder={isKo ? '예: KDP-AB12CD' : 'e.g. KDP-AB12CD'} />
-          <span className="hint">{isKo ? '코드를 받으셨다면 정확히 입력해주세요. 없으면 비워두셔도 됩니다.' : 'Enter exactly as received. Leave blank if you do not have one.'}</span>
+          <span className="hint">{isKo ? '코드를 받으셨다면 정확히 입력해주세요. 선택 항목이라 비워두셔도 됩니다.' : 'Enter exactly as received. This field is optional.'}</span>
         </div>
       </div>
     </>
@@ -699,7 +699,7 @@ function StepEssaysRecommenders({ form, setForm, upd, isKo, lang, essayQuestions
   return (
     <>
       <p className="apply-desc">{isKo
-        ? '아래 에세이 문항에 답해주세요. 각 본문은 최소 500자 이상, 최대 1500자까지 작성할 수 있으며, 1500자에 도달하면 더 이상 입력되지 않습니다. 입력하시는 즉시 자동 저장됩니다.'
+        ? '아래 에세이 문항에 답해주세요. 각 본문은 최소 500자 이상, 최대 1500자까지 작성할 수 있으며, 1500자에서 입력이 멈춥니다. 입력하시는 즉시 자동 저장됩니다.'
         : 'Answer the essay prompts below. Each body must be 500–1,500 characters; input stops at 1,500. Your work auto-saves as you type.'}</p>
 
       {essayQuestions.map((q, i) => {
@@ -747,8 +747,8 @@ function StepEssaysRecommenders({ form, setForm, upd, isKo, lang, essayQuestions
 
       <h4 className="apply-sub">{isKo ? '추천인 (선택 · 권장)' : 'Recommenders (optional · recommended)'}</h4>
       <p className="hint" style={{marginBottom:12}}>{isKo
-        ? `추천인 정보는 필수가 아니지만, 입력하시면 심사에 도움이 됩니다. 추천인을 추가해 이름·이메일·소속을 입력하세요(추천서 PDF는 선택). 최대 ${MAX_RECOMMENDERS}명까지 추가할 수 있습니다.`
-        : `Recommenders are optional but recommended — they help your review. Add a recommender with name, email, and affiliation (PDF letter optional). Up to ${MAX_RECOMMENDERS}.`}</p>
+        ? `추천인 정보는 선택 항목이며, 입력하시면 심사에 도움이 됩니다. 추천인을 추가해 이름·이메일·소속을 입력하세요(추천서 PDF는 선택). 최대 ${MAX_RECOMMENDERS}명까지 추가할 수 있습니다.`
+        : `Recommenders are optional and recommended — they help your review. Add a recommender with name, email, and affiliation (PDF letter optional). Up to ${MAX_RECOMMENDERS}.`}</p>
 
       {(form.recommenders || []).map((r, i) => (
         <RecommenderCard key={i} index={i} rec={r} isKo={isKo} lang={lang}
@@ -790,7 +790,7 @@ function RecommenderCard({ index, rec, isKo, lang, onChange, onRemove }) {
       const meta = await uploadApplyFile(f, 'recommendation', index);
       set('letter_file', meta);
     } catch (ex) {
-      setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed'));
+      setErr(ex.message || (isKo ? '업로드를 다시 시도해 주세요' : 'Please try uploading again'));
     } finally { setBusy(false); }
   }
   return (

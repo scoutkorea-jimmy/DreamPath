@@ -106,7 +106,7 @@ function BannerAdModal({ view, c }) {
         )}
 
         <div className="bnr-foot">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={hideToday}>Don't show again today</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={hideToday}>Hide for today</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={close}>Close</button>
         </div>
       </div>

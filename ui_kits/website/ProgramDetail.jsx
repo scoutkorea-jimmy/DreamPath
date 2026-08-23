@@ -13,11 +13,11 @@ function ProgramDetail({ go, lang, programId, c }) {
     return (
       <div className="container" style={{padding:'96px 24px',textAlign:'center',wordBreak:'keep-all',overflowWrap:'break-word'}}>
         <h1 style={{fontSize:22,lineHeight:1.5,margin:'0 0 12px',color:'var(--fg-primary)'}}>
-          {isKo ? '프로그램을 찾을 수 없습니다' : 'Program not found'}
+          {isKo ? '이 프로그램은 주소가 바뀌었습니다' : 'This program has moved'}
         </h1>
         <p style={{fontSize:15,lineHeight:1.7,margin:'0 0 28px',color:'var(--fg-muted)'}}>
-          {isKo ? '주소가 바뀌었거나 공개가 중단된 프로그램일 수 있습니다.'
-                : 'The link may have changed, or the program is no longer published.'}
+          {isKo ? '주소가 바뀌었거나 공개를 준비 중인 프로그램일 수 있습니다.'
+                : 'The link may have changed, or the program is being prepared for publication.'}
         </p>
         <button type="button" className="btn btn-primary" onClick={() => go && go('programs')}>
           {isKo ? '전체 프로그램 보기' : 'See all programs'}
@@ -101,7 +101,7 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: 'gift',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
-        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
+        body: 'Curious whether this fits you? Try the free Hangul course first. Free and open — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
@@ -129,7 +129,7 @@ function ProgramDetail({ go, lang, programId, c }) {
       {
         icon: 'gift',
         title: 'Start FREE — Korean Alphabet in 2 Weeks',
-        body: 'Not sure if this is for you? Try the free Hangul course first. No payment, no commitment — just see if you enjoy learning Korean.',
+        body: 'Curious whether this fits you? Try the free Hangul course first. Free and open — just see if you enjoy learning Korean.',
         tag: 'Free Entry Point',
       },
       {
@@ -176,20 +176,20 @@ function ProgramDetail({ go, lang, programId, c }) {
       rows: [
         { icon: 'graduation-cap', label: 'Tuition · 12 credits × $60', amount: '$720' },
         { icon: 'receipt', label: 'Application fee', amount: '$22' },
-        { icon: 'plane', label: 'Flight', free: 'Not needed' },
-        { icon: 'home', label: 'Housing', free: 'Not needed' },
+        { icon: 'plane', label: 'Flight', free: 'Skipped' },
+        { icon: 'home', label: 'Housing', free: 'Skipped' },
         { icon: 'utensils', label: 'Food & living', free: 'Stay home' },
       ],
       total: '$742',
     },
     savingsLabel: 'You save',
     savingsAmount: '$14,258 – $29,258',
-    savingsPct: 'Up to 97% less than studying in Korea',
+    savingsPct: 'Up to 97% lower than studying in Korea',
     barTitle: 'Cost comparison · 1-year average',
     barOffline: { label: 'In Korea, in person', amount: '~ $22,500' },
     barOnline: { label: 'Dream Path, online', amount: '$742' },
     barNote: 'That is roughly $21,758 saved on the average year.',
-    chips: ['No flight', 'No housing', 'No visa', 'No living costs', 'Study from home'],
+    chips: ['Flight-free', 'Housing-free', 'Visa-free', 'Home living costs only', 'Study from home'],
     facts: [
       { big: '$60', label: 'per credit', sub: '≈ ₩83,000' },
       { big: '$720', label: 'full micro-degree', sub: '≈ 12 credits' },
@@ -390,7 +390,7 @@ function ProgramDetail({ go, lang, programId, c }) {
             <section className="pd-cost">
               <div className="pd-cost-head">
                 <div className="pd-section-eyebrow">Pricing</div>
-                <h3 className={isKo ? '' : 'en'}>{isKo ? '등록금은 아직 미공개입니다' : 'Tuition is not published yet'}</h3>
+                <h3 className={isKo ? '' : 'en'}>{isKo ? '등록금은 공개 예정입니다' : 'Tuition will be announced soon'}</h3>
                 <p className="pd-cost-sub">{isKo ? '현재 예약 단계이며, 금액이 확정되면 이 자리에서 안내드리겠습니다.' : 'This program is at the reservation stage. The amount will be published here once confirmed.'}</p>
               </div>
             </section>

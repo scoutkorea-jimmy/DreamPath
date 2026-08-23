@@ -153,7 +153,7 @@ function MemberOverview({ go, isKo, c, unread, setSection }) {
       {unread > 0 && (
         <div className="member-card" style={{borderColor:'var(--state-info)',background:'var(--state-info-bg)',color:'var(--state-info)'}}>
           <div className="sec-kicker" style={{color:'var(--state-info)'}}>{isKo ? '00 · 알림' : '00 · NOTIFICATIONS'}</div>
-          <h3 style={{color:'var(--state-info)'}}>{isKo ? `읽지 않은 알림 ${unread}건` : `${unread} unread notification${unread===1?'':'s'}`}</h3>
+          <h3 style={{color:'var(--state-info)'}}>{isKo ? `새 알림 ${unread}건` : `${unread} new notification${unread===1?'':'s'}`}</h3>
           <p style={{color:'var(--state-info)'}}>{isKo ? '관리자가 보낸 새로운 알림이 있습니다.' : 'You have new messages from the team.'}</p>
           <button className="btn btn-primary" onClick={() => setSection && setSection('notifications')}>{isKo ? '알림 보기' : 'View'} →</button>
         </div>
@@ -163,11 +163,11 @@ function MemberOverview({ go, isKo, c, unread, setSection }) {
         <h3>{isKo ? '프로그램 지원하기' : 'Apply for a program'}</h3>
         {/* 접수 동결 중에는 "지원 시작"을 눌러 중단 안내를 만나기 전에 여기서 알린다 */}
         <p>{applyFrozen(c)
-          ? (isKo ? '현재 신청 접수가 일시 중단되어 있습니다. 접수가 다시 열리면 안내드리겠습니다.'
-                  : 'Applications are temporarily closed. We will post an update when intake reopens.')
+          ? (isKo ? '신청 접수가 잠시 대기 중입니다. 접수가 다시 열리면 안내드리겠습니다.'
+                  : 'The next intake is being prepared. We will post an update when intake reopens.')
           : (isKo ? '관심 있는 프로그램을 선택하고 지원서를 제출하세요.' : 'Pick a program and submit your application.')}</p>
         <button className="btn btn-primary" onClick={() => go('apply')} disabled={applyFrozen(c)}>
-          {applyFrozen(c) ? (isKo ? '접수 중단' : 'Closed') : (isKo ? '지원 시작' : 'Start')} {applyFrozen(c) ? '' : '→'}
+          {applyFrozen(c) ? (isKo ? '접수 준비 중' : 'Preparing') : (isKo ? '지원 시작' : 'Start')} {applyFrozen(c) ? '' : '→'}
         </button>
       </div>
       <div className="member-card">
@@ -281,7 +281,7 @@ function MemberMessages({ isKo, go, onChange }) {
     <div className="member-msg">
       {threads.length === 0 ? (
         <div className="member-msg-empty">
-          <p>{isKo ? '아직 주고받은 메시지가 없습니다.' : 'No messages yet.'}</p>
+          <p>{isKo ? '첫 메시지가 오면 여기에 표시됩니다.' : 'Your first message will appear here.'}</p>
           {go && <button type="button" className="btn btn-secondary" onClick={() => go('team')}>{isKo ? '프로젝트 팀에게 메시지 보내기' : 'Message the project team'} →</button>}
         </div>
       ) : (
@@ -403,7 +403,7 @@ function MemberNotifications({ isKo, onChange }) {
   }
 
   if (loading) return <div className="member-card" style={{textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>;
-  if (!items.length) return <div className="member-card" style={{textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '받은 알림이 없습니다.' : 'No notifications yet.'}</div>;
+  if (!items.length) return <div className="member-card" style={{textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '새 알림이 오면 여기에 표시됩니다.' : 'New notifications will appear here.'}</div>;
 
   return (
     <div className="member-card" style={{padding:0,overflow:'hidden'}}>
@@ -464,7 +464,7 @@ function MemberApplications({ isKo, c }) {
   if (err) return <div role="alert" style={{padding:24,color:'var(--state-danger)'}}>{err}</div>;
   if (items.length === 0) return (
     <div style={{padding:'40px 24px',textAlign:'center',background:'var(--bg-muted)',borderRadius:14,color:'var(--fg-secondary)'}}>
-      {isKo ? '아직 제출한 지원이 없습니다. 로그인 상태에서 지원하면 여기에 표시됩니다.' : 'No applications yet. Submit one while logged in to see it here.'}
+      {isKo ? '지원서를 제출하시면 여기에 표시됩니다. 로그인 상태에서 지원해 주세요.' : 'Your applications appear here once you submit one while signed in.'}
     </div>
   );
 
@@ -486,8 +486,8 @@ async function frozenMessage(res, isKo) {
   const d = await res.clone().json().catch(() => ({}));
   if (d.error !== 'applications_closed') return null;
   return isKo
-    ? '신청 접수가 일시 중단되어 지금은 제출할 수 없습니다. 접수가 다시 열리면 안내드리겠습니다.'
-    : 'Applications are temporarily closed, so this step cannot be submitted right now.';
+    ? '신청 접수가 잠시 대기 중입니다. 접수가 다시 열리면 안내드리겠습니다.'
+    : 'The next intake is being prepared, so this step opens again with it.';
 }
 
 // 신청 한 건의 단계별 진행 화면. 상단에 고유번호 + 진행 트래커, 하단에
@@ -540,7 +540,7 @@ function ApplicationPipeline({ app, c, isKo, onChange }) {
           <strong>{isKo ? '신규 모집 준비 중' : 'Next intake in preparation'}</strong>
           <div style={{marginTop:4}}>
             {isKo
-              ? '현재 신규 모집이 열려 있지 않아 다음 단계 제출은 잠시 받지 않고 있습니다. 이미 제출하신 내용은 그대로 보관되며, 진행 일정은 담당자가 개별로 안내드립니다.'
+              ? '다음 모집을 준비하는 동안 다음 단계 제출은 잠시 대기 상태입니다. 이미 제출하신 내용은 그대로 보관되며, 진행 일정은 담당자가 개별로 안내드립니다.'
               : 'Submissions are paused while we update the site. Everything you have already submitted is kept as is.'}
           </div>
         </div>
@@ -591,7 +591,7 @@ function StageInfo({ isKo, ko, en, tone }) {
 function StageRejected({ isKo, note }) {
   return (
     <div style={{padding:'14px 16px',background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:10,fontSize:14,lineHeight:1.6}}>
-      <strong>{isKo ? '이번 심사에서는 선정되지 않았습니다.' : 'Not selected in this screening.'}</strong>
+      <strong>{isKo ? '이번 심사에서는 다른 지원자가 선정되었습니다.' : 'Other applicants were selected in this screening.'}</strong>
       {note && <div style={{marginTop:8,whiteSpace:'pre-wrap',color:'var(--fg-secondary)'}}>{note}</div>}
     </div>
   );
@@ -616,7 +616,7 @@ function CufsGuidePanel({ app, isKo, onChange }) {
       if (frozen) { setErr(frozen); setBusy(false); return; }
       if (!r.ok) throw new Error('http_' + r.status);
       onChange && onChange();
-    } catch (e) { setErr(isKo ? '제출에 실패했습니다. 다시 시도해 주세요.' : 'Submission failed. Please try again.'); }
+    } catch (e) { setErr(isKo ? '제출을 다시 시도해 주세요.' : 'Please submit again.'); }
     finally { setBusy(false); }
   }
   return (
@@ -636,7 +636,7 @@ function CufsGuidePanel({ app, isKo, onChange }) {
       <div style={{marginTop:14,padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:10,fontSize:13,lineHeight:1.6}}>
         <strong>{isKo ? '⚠️ 결제 주체를 꼭 구분하세요' : '⚠️ Know who collects each payment'}</strong>
         <div style={{marginTop:6}}>✅ {isKo ? '전형료 — 파트너 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
-        <div>🚫 {isKo ? '등록금 — 파트너 대학에서 결제 금지. 합격 후 이 사이트(마이페이지)에서만 결제' : 'Tuition — never to the partner university. Pay here (member page) after admission'}</div>
+        <div>💳 {isKo ? '등록금 — 합격 후 이 사이트(마이페이지)에서 결제합니다. 등록금을 받는 곳은 여기 한 군데입니다' : 'Tuition — paid here on the member page after admission. This is the single place that collects tuition.'}</div>
       </div>
       <div className="field" style={{marginTop:14}}>
         <label>{isKo ? '입학 접수번호' : 'Admission reference number'}</label>
@@ -678,7 +678,7 @@ function AdmissionPanel({ app, isKo, onChange }) {
     try {
       const meta = await uploadMemberFile(f, 'admission_certificate', app.id, null);
       setUploaded({ filename: meta.filename, size: meta.size, kind: 'admission_certificate' });
-    } catch (ex) { setErr(ex.message || (isKo ? '업로드 실패' : 'Upload failed')); }
+    } catch (ex) { setErr(ex.message || (isKo ? '업로드를 다시 시도해 주세요' : 'Please try uploading again')); }
     finally { setBusy(false); }
   }
   async function confirm() {
@@ -689,7 +689,7 @@ function AdmissionPanel({ app, isKo, onChange }) {
       if (frozen) { setErr(frozen); setSubmitting(false); return; }
       if (!r.ok) throw new Error('http');
       onChange && onChange();
-    } catch (e) { setErr(isKo ? '제출에 실패했습니다.' : 'Submission failed.'); }
+    } catch (e) { setErr(isKo ? '제출을 다시 시도해 주세요.' : 'Please submit again.'); }
     finally { setSubmitting(false); }
   }
   return (
@@ -732,7 +732,7 @@ function DocumentsPanel({ app, isKo, onChange }) {
         setSubmitting(false); return;
       }
       onChange && onChange();
-    } catch (e) { setErr(isKo ? '제출에 실패했습니다.' : 'Submission failed.'); }
+    } catch (e) { setErr(isKo ? '제출을 다시 시도해 주세요.' : 'Please submit again.'); }
     finally { setSubmitting(false); }
   }
   return (
@@ -783,13 +783,13 @@ function PaymentPanel({ app, program, isKo, onChange }) {
       if (frozen) { setErr(frozen); setBusy(false); return; }
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        if (d.error === 'tuition_not_set') setErr(isKo ? '등록금은 아직 미공개입니다(예약 단계). 확정되면 안내드리겠습니다.' : 'Tuition is not published yet (reserved). We will let you know once it is confirmed.');
+        if (d.error === 'tuition_not_set') setErr(isKo ? '등록금은 공개 예정입니다(예약 단계). 확정되면 안내드리겠습니다.' : 'Tuition will be announced soon (reserved). We will let you know once it is confirmed.');
         else if (d.error === 'consent_required') setErr(isKo ? '결제 동의 3종에 모두 동의해야 합니다.' : 'All three consents are required.');
-        else setErr(isKo ? '결제에 실패했습니다. 다시 시도해 주세요.' : 'Payment failed. Please try again.');
+        else setErr(isKo ? '결제를 다시 시도해 주세요.' : 'Please try the payment again.');
         setBusy(false); return;
       }
       onChange && onChange();
-    } catch (e) { setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'A network error occurred.'); }
+    } catch (e) { setErr(isKo ? '연결 상태를 확인한 뒤 다시 시도해 주세요.' : 'Please check your connection and try again.'); }
     finally { setBusy(false); }
   }
 
@@ -803,7 +803,7 @@ function PaymentPanel({ app, program, isKo, onChange }) {
         <strong style={{fontSize: tuition != null && tuition > 0 ? 20 : 15}}>
           {tuition != null && tuition > 0
             ? `US $${tuition}.00`
-            : (isKo ? '미공개 · 예약 단계' : 'Not published yet · reserved')}
+            : (isKo ? '공개 예정 · 예약 단계' : 'To be announced · reserved')}
         </strong>
       </div>
 
@@ -836,8 +836,8 @@ function PaymentPanel({ app, program, isKo, onChange }) {
         </div>
       </div>
       <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10}}>
-        {isKo ? '이 프로토타입은 실제 결제를 처리하지 않습니다. 카드 번호 마지막 4자리만 저장됩니다.'
-              : 'This prototype does not process real payments. Only the last 4 digits are stored.'}
+        {isKo ? '이 프로토타입은 결제 절차를 시뮬레이션합니다. 카드 번호는 마지막 4자리만 저장됩니다.'
+              : 'This prototype simulates the payment flow. Only the last 4 digits are stored.'}
       </div>
       {err && <div role="alert" style={{color:'var(--state-danger)',fontSize:13,marginBottom:8}}>{err}</div>}
       <button type="button" className="btn btn-primary" disabled={!canPay || busy} onClick={pay}>
@@ -950,7 +950,7 @@ function ApplicationFiles({ appId, isKo }) {
       r.onerror = () => rej(new Error('read_failed'));
       r.readAsDataURL(file);
     }).catch(() => null);
-    if (!b64) { setErr(isKo ? '파일을 읽지 못했습니다.' : 'Could not read the file.'); return; }
+    if (!b64) { setErr(isKo ? '파일을 다시 선택해 주세요.' : 'Please pick the file again.'); return; }
     try {
       const r = await window.DreamPathAuth.authFetch('/api/applications/upload', {
         method: 'POST',
@@ -969,7 +969,7 @@ function ApplicationFiles({ appId, isKo }) {
         throw new Error(e.error || ('http_' + r.status));
       }
       await load();
-    } catch (e) { setErr(e.message || (isKo ? '업로드 실패' : 'Upload failed')); }
+    } catch (e) { setErr(e.message || (isKo ? '업로드를 다시 시도해 주세요' : 'Please try uploading again')); }
   }
 
   async function replaceFile(prevFile, file) {
@@ -983,7 +983,7 @@ function ApplicationFiles({ appId, isKo }) {
       if (!r.ok) throw new Error('http_' + r.status);
       await load();
     } catch (e) {
-      setErr((isKo ? '교체 실패: 새 파일은 업로드되었지만 기존 파일 삭제에 실패했습니다. ' : 'Replace failed: new file uploaded but old file delete failed. ') + (e.message || ''));
+      setErr((isKo ? '새 파일은 업로드되었습니다. 기존 파일 정리는 다시 시도해 주세요. ' : 'The new file uploaded. Please retry removing the old file. ') + (e.message || ''));
       // Don't roll back — leaving both is safer than losing the new one.
       void before;
     }
@@ -1021,7 +1021,7 @@ function ApplicationFiles({ appId, isKo }) {
                   {cur.filename} ({Math.round(cur.size/1024)} KB)
                 </a>
               ) : (
-                <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{isKo ? '아직 업로드되지 않음' : 'Not uploaded yet'}</div>
+                <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>{isKo ? '업로드 대기 중' : 'Awaiting upload'}</div>
               )}
             </div>
             <label className="btn btn-secondary btn-sm" style={{cursor:'pointer'}}>
@@ -1102,7 +1102,7 @@ function MemberCareer({ isKo }) {
     if (f.size > PHOTO_MAX_BYTES) { setPhotoErr(isKo ? '2MB 이하의 이미지만 업로드 가능합니다.' : 'Max 2 MB.'); return; }
     const reader = new FileReader();
     reader.onload = () => { setPhoto(String(reader.result || '')); setPhotoSize(f.size); };
-    reader.onerror = () => setPhotoErr(isKo ? '읽기 실패' : 'Read failed');
+    reader.onerror = () => setPhotoErr(isKo ? '파일을 다시 선택해 주세요' : 'Please pick the file again');
     reader.readAsDataURL(f);
   }
   function clearPhoto() { setPhoto(''); setPhotoSize(0); setPhotoErr(''); }
@@ -1119,12 +1119,12 @@ function MemberCareer({ isKo }) {
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         if (d.error === 'photo_too_large') throw new Error(isKo ? '사진이 2MB를 초과합니다.' : 'Photo exceeds 2 MB.');
-        if (d.error === 'invalid_photo')   throw new Error(isKo ? '사진 형식이 올바르지 않습니다.' : 'Invalid photo format.');
+        if (d.error === 'invalid_photo')   throw new Error(isKo ? '사진 형식을 확인해 주세요 (JPG · PNG).' : 'Please use a JPG or PNG photo.');
         throw new Error('save_failed');
       }
       setSavedAt(new Date());
     } catch (e) {
-      setErr(e.message && e.message !== 'save_failed' ? e.message : (isKo ? '저장 실패. 다시 시도해주세요.' : 'Save failed. Please try again.'));
+      setErr(e.message && e.message !== 'save_failed' ? e.message : (isKo ? '저장을 다시 시도해주세요.' : 'Please try saving again.'));
     }
   }
 
@@ -1304,8 +1304,8 @@ function MemberPrivacy({ isKo, go }) {
     const phrase = isKo ? '계정 삭제' : 'DELETE';
     const input = window.prompt(
       (isKo
-        ? '계정을 삭제하면 되돌릴 수 없습니다. 개인정보는 익명화되고 30일 이내 완전 파기됩니다.\n\n계속하려면 다음 문구를 정확히 입력하세요: '
-        : 'Deleting your account cannot be undone. Personal data is anonymized and fully removed within 30 days.\n\nType the following to confirm: '
+        ? '계정 삭제는 영구적으로 적용됩니다. 개인정보는 익명화되고 30일 이내 완전 파기됩니다.\n\n계속하려면 다음 문구를 정확히 입력하세요: '
+        : 'Deleting your account is permanent. Personal data is anonymized and fully removed within 30 days.\n\nType the following to confirm: '
       ) + phrase
     );
     if (input !== phrase) return;

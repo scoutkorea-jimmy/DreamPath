@@ -27,8 +27,8 @@ function Partners({ lang, c }) {
               /news 처럼 빈 상태를 말해 준다 (실측: 파트너 0곳일 때 본문 0자). */}
           {list.length === 0 && (
             <p style={{color:'var(--fg-muted)',fontSize:15,lineHeight:1.7,textAlign:'center',padding:'32px 0',wordBreak:'keep-all'}}>
-              {isKo ? '공개된 협력 기관 정보가 아직 없습니다. 정리되는 대로 이곳에 안내드리겠습니다.'
-                    : 'No partner information is published yet. We will list our partners here once confirmed.'}
+              {isKo ? '협력 기관 정보는 정리되는 대로 이곳에 안내드리겠습니다.'
+                    : 'Partner information will be listed here once confirmed.'}
             </p>
           )}
           <div className="partners-grid">
@@ -114,7 +114,7 @@ function StoryDetail({ go, lang, c, storyId }) {
   if (idx < 0) {
     return (
       <div data-screen-label="StoryDetail" className="container" style={{padding:'80px 24px',textAlign:'center'}}>
-        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '후기를 찾을 수 없습니다' : 'Story not found'}</h1>
+        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '이 후기는 주소가 바뀌었습니다' : 'This story has moved'}</h1>
         <p style={{color:'var(--fg-muted)'}}>{isKo ? '삭제됐거나 잘못된 링크일 수 있어요.' : 'It may have been removed or the link is wrong.'}</p>
         <button type="button" className="btn btn-primary" onClick={() => go('stories')} style={{marginTop:18}}>
           {isKo ? '전체 후기로' : 'All stories'}
@@ -183,7 +183,7 @@ function News({ go, lang, c }) {
       const data = await res.json();
       setItems(data.items || []);
     } catch (e) {
-      setErr(isKo ? '소식을 불러오지 못했습니다.' : 'Failed to load news.');
+      setErr(isKo ? '소식을 다시 불러와 주세요.' : 'Please try loading news again.');
     }
     setLoading(false);
   }
@@ -204,7 +204,7 @@ function News({ go, lang, c }) {
       setEditing(null);
       load();
     } catch (e) {
-      setErr(isKo ? '저장 실패' : 'Save failed');
+      setErr(isKo ? '저장을 다시 시도해 주세요' : 'Please try saving again');
     }
   }
 
@@ -215,7 +215,7 @@ function News({ go, lang, c }) {
       if (!res.ok) throw new Error('http_' + res.status);
       load();
     } catch (e) {
-      setErr(isKo ? '삭제 실패' : 'Delete failed');
+      setErr(isKo ? '삭제를 다시 시도해 주세요' : 'Please try removing again');
     }
   }
 
@@ -235,7 +235,7 @@ function News({ go, lang, c }) {
           {loading ? (
             <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '불러오는 중…' : 'Loading…'}</div>
           ) : items.length === 0 ? (
-            <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '등록된 소식이 없습니다.' : 'No posts yet.'}</div>
+            <div style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>{isKo ? '새 소식이 준비되면 이곳에 올라옵니다.' : 'New posts will appear here.'}</div>
           ) : (
             <div className="news-list">
               {items.map(n => <NewsRow key={n.id} n={n} isKo={isKo} canEdit={canEdit} go={go} onEdit={() => setEditing(n)} onDelete={() => deletePost(n.id)} />)}
@@ -299,7 +299,7 @@ function NewsDetail({ go, lang, c, newsId }) {
   if (err || !post) {
     return (
       <div data-screen-label="NewsDetail" className="container" style={{padding:'80px 24px',textAlign:'center'}}>
-        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '소식을 찾을 수 없습니다' : 'Post not found'}</h1>
+        <h1 style={{fontFamily:'var(--font-en)'}}>{isKo ? '이 소식은 주소가 바뀌었습니다' : 'This post has moved'}</h1>
         <p style={{color:'var(--fg-muted)'}}>{isKo ? '삭제됐거나 잘못된 링크일 수 있어요.' : 'It may have been removed or the link is wrong.'}</p>
         <button type="button" className="btn btn-primary" onClick={() => go('news')} style={{marginTop:18}}>
           {isKo ? '전체 소식으로' : 'All news'}
@@ -324,7 +324,7 @@ function NewsDetail({ go, lang, c, newsId }) {
         <div className="container-narrow">
           {body && body.trim()
             ? <div style={{color:'var(--fg-primary)',lineHeight:1.75,fontSize:16}} dangerouslySetInnerHTML={{ __html: body }} />
-            : <p style={{color:'var(--fg-muted)'}}>{isKo ? '본문이 비어 있습니다.' : 'No body content.'}</p>}
+            : <p style={{color:'var(--fg-muted)'}}>{isKo ? '본문은 준비 중입니다.' : 'Body content is being prepared.'}</p>}
           <div style={{marginTop:48,display:'flex',gap:8}}>
             <button type="button" className="btn btn-secondary" onClick={() => go('news')}>
               ← {isKo ? '전체 소식으로' : 'All news'}
@@ -474,7 +474,7 @@ function InquiryForm({ lang, c }) {
     { value: 'program',     label_ko: '프로그램 관련', label_en: 'About a program' },
     { value: 'partnership', label_ko: '파트너십',      label_en: 'Partnership' },
     { value: 'media',       label_ko: '취재 / 미디어', label_en: 'Media / press' },
-    { value: 'bug',         label_ko: '오류 신고',     label_en: 'Report a bug' },
+    { value: 'bug',         label_ko: '기술 지원 요청',     label_en: 'Technical support' },
   ];
   const CATS = (c && Array.isArray(c.inquiry_categories) && c.inquiry_categories.length) ? c.inquiry_categories : FALLBACK_CATS;
   const [form, setForm] = React.useState({
@@ -506,12 +506,12 @@ function InquiryForm({ lang, c }) {
       if (!res.ok) {
         setErr(data.error === 'validation'
           ? (isKo ? '입력 정보를 확인해주세요.' : 'Please check your inputs.')
-          : (isKo ? '제출 실패. 잠시 후 다시 시도해주세요.' : 'Submission failed. Please try again.'));
+          : (isKo ? '제출을 잠시 후 다시 시도해주세요.' : 'Please submit again.'));
         return;
       }
       setDone(data);
     } catch (e) {
-      setErr(isKo ? '네트워크 오류가 발생했습니다.' : 'Network error.');
+      setErr(isKo ? '연결 상태를 확인한 뒤 다시 시도해 주세요.' : 'Please check your connection and try again.');
     } finally {
       setBusy(false);
     }

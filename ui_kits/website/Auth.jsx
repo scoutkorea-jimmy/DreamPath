@@ -116,7 +116,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
         return;
       }
       if (!pwMatch) {
-        setErr(isKo ? '비밀번호 확인이 일치하지 않습니다.' : 'Passwords do not match.');
+        setErr(isKo ? '두 비밀번호를 같게 입력해 주세요.' : 'Please make both passwords match.');
         return;
       }
     }
@@ -155,18 +155,18 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
       // at all possible causes plus the recovery paths the user has.
       const human = {
         invalid_credentials:        isKo
-          ? '이메일 또는 비밀번호가 일치하지 않거나, 계정이 아직 활성화되지 않았거나, 시도가 너무 많아 일시적으로 차단되었습니다. 잠시 후 다시 시도하거나, 활성화 메일을 다시 받거나, 비밀번호를 재설정하세요.'
-          : "Sign-in didn't succeed. The email or password may be wrong, the account may not be activated yet, or too many attempts may have been made. Wait a few minutes and try again, resend the activation email, or reset your password.",
-        invalid_email:              isKo ? '이메일 형식이 올바르지 않습니다.' : 'Invalid email format.',
+          ? '로그인 정보를 다시 확인해 주세요. 계정 활성화가 남아 있거나, 시도 횟수가 많아 잠시 대기가 필요한 상태일 수도 있습니다. 잠시 후 다시 시도하거나, 활성화 메일을 다시 받거나, 비밀번호를 재설정하세요.'
+          : "Please check your sign-in details. Activation may still be pending, or there may have been many attempts. Wait a few minutes and try again, resend the activation email, or reset your password.",
+        invalid_email:              isKo ? '이메일 형식을 다시 확인해 주세요.' : 'Please check the email format.',
         password_too_short:         isKo ? '비밀번호는 최소 10자 이상이어야 합니다.' : 'Password must be at least 10 characters.',
         password_missing_uppercase: isKo ? '대문자가 포함되어야 합니다.' : 'Password must include an uppercase letter.',
         password_missing_lowercase: isKo ? '소문자가 포함되어야 합니다.' : 'Password must include a lowercase letter.',
         password_missing_digit:     isKo ? '숫자가 포함되어야 합니다.' : 'Password must include a number.',
         password_missing_symbol:    isKo ? '특수문자가 포함되어야 합니다.' : 'Password must include a symbol.',
-        password_mismatch:          isKo ? '비밀번호 확인이 일치하지 않습니다.' : 'Passwords do not match.',
-        invalid_phone_country:      isKo ? '국가번호 형식이 올바르지 않습니다.' : 'Invalid country code.',
+        password_mismatch:          isKo ? '두 비밀번호를 같게 입력해 주세요.' : 'Please make both passwords match.',
+        invalid_phone_country:      isKo ? '국가번호 형식을 다시 확인해 주세요.' : 'Please check the country code.',
         invalid_phone_national:     isKo ? '전화번호가 너무 짧습니다.' : 'Phone number is too short.',
-      }[msg] || (isKo ? '오류가 발생했습니다: ' + msg : 'Error: ' + msg);
+      }[msg] || (isKo ? '다시 시도해 주세요: ' + msg : 'Please try again: ' + msg);
       setErr(human);
     } finally {
       setBusy(false);
@@ -200,7 +200,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
             <p style={{color:'var(--fg-secondary)',fontSize:14,lineHeight:1.55,margin:'0 0 14px'}}>
               {mode === 'check_email'
                 ? (isKo ? '인증코드 6자리를 보내드렸습니다.' : "We've sent you a 6-digit activation code.")
-                : (isKo ? '아직 활성화되지 않은 계정입니다. 메일에서 인증코드를 확인해 주세요.' : 'This account is pending activation. Check your inbox for the code.')}
+                : (isKo ? '활성화 단계가 남아 있는 계정입니다. 메일에서 인증코드를 확인해 주세요.' : 'This account is pending activation. Check your inbox for the code.')}
               <br /><strong style={{color:'var(--fg-primary)'}}>{pendingEmail}</strong>
             </p>
             <p style={{color:'var(--fg-muted)',fontSize:12,margin:'0 0 18px'}}>
@@ -277,7 +277,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
                 style={passwordConfirm ? { borderColor: pwMatch ? 'var(--state-success)' : 'var(--state-danger)' } : undefined} />
               {passwordConfirm && !pwMatch && (
                 <span style={{fontSize:12,color:'var(--state-danger)',marginTop:4,display:'block'}}>
-                  {isKo ? '비밀번호가 일치하지 않습니다.' : 'Passwords do not match.'}
+                  {isKo ? '두 비밀번호를 같게 입력해 주세요.' : 'Please make both passwords match.'}
                 </span>
               )}
             </label>
@@ -305,7 +305,7 @@ function AuthModal({ open, onClose, lang, defaultMode = 'login' }) {
           {mode === 'signup' ? (
             <>{isKo ? '이미 계정이 있으신가요?' : 'Already have an account?'} <button type="button" onClick={() => setMode('login')}>{isKo ? '로그인' : 'Log in'}</button></>
           ) : (
-            <>{isKo ? '계정이 없으신가요?' : "Don't have an account?"} <button type="button" onClick={() => setMode('signup')}>{isKo ? '회원가입' : 'Sign up'}</button></>
+            <>{isKo ? '처음 오셨나요?' : "New here?"} <button type="button" onClick={() => setMode('signup')}>{isKo ? '회원가입' : 'Sign up'}</button></>
           )}
         </div>
       </div>

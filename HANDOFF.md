@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.100.00`
+- **버전**: `v01.101.00`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -145,6 +145,18 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 에디터 본문 높이 조절 — v01.101.00
+
+- `RichEditor` 에 `resizable` · `storageKey` prop. 켜면 본문 아래 손잡이
+  (`.rt-resize`)가 생기고 끌어서 120~2400px 로 조절.
+- 높이는 `localStorage['dp_editor_h:<storageKey>']` 에 기억. 더블클릭 = 기본값,
+  키보드 ↑/↓(Shift 시 4배)·Home 지원.
+- 메일 작성 본문에 적용(`storageKey="mail-compose"`, 기본 320px).
+- ⚠️ `resizable` 기본값은 `false` — `Pages.jsx`·프로그램 상세 에디터는 그대로.
+  켜는 곳마다 `storageKey` 를 줘야 높이가 기억된다.
+- 패턴 규약은 `wiki:design` → 폼 컴포넌트에 등재 (끌기·더블클릭·키보드 셋을
+  모두 갖춘 조절 UI 만 허용).
 
 ### 메일 작성 상식화 (자동 임시저장 · 기본 펼침) — v01.100.00
 

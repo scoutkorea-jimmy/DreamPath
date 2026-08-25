@@ -110,3 +110,28 @@
 **검증**: preflight 통과 · `@babel/standalone` 로 admin.html 3개 스크립트 블록
 파싱 확인 · 배포 후 라이브 `version.js` = 01.100.00 · 라이브 admin.html 에
 `admin-fold" open` 존재 확인.
+
+## 2026-08-25 · 에디터 본문 높이 조절 (v01.101.00)
+
+**요청**: "메일 작성 시 바디영역을 늘리고 줄일수 있게"
+
+**한 것** (`RichEditor.jsx` · `site.css` · `admin.html`)
+- `resizable` / `storageKey` prop. 손잡이 `.rt-resize` + 높이 기억.
+- 드래그는 `pointerdown/move/up` — 마우스·터치·펜을 한 경로로.
+- 저장은 `pointerup` 1회. move 마다 쓰면 드래그가 무거워진다.
+
+**고른 이유** (`resize: vertical` 을 안 쓴 이유)
+CSS 한 줄이면 될 것 같지만 셋이 안 된다 — ① 높이가 기억되지 않는다
+② TipTap 컨테이너에서 브라우저 기본 손잡이가 잘 보이지 않는다
+③ 키보드로 조절할 수단이 없다. 그래서 prop 방식.
+
+**같이 손봐야 했던 것**: `.rt-content .ProseMirror { min-height:140px }` 가
+작은 높이와 싸운다 → `.is-resizable` 일 때 `min-height:100%` 로 바꿨다.
+안 그러면 120px 로 줄여도 내부가 140px 라 늘 스크롤이 생긴다.
+
+**기본값을 false 로 둔 이유**: 같은 컴포넌트를 페이지 편집기·프로그램 상세도
+쓴다. 전역으로 켜면 요청하지 않은 화면 셋이 같이 바뀐다.
+
+**검증**: preflight 통과 · `@babel/standalone` 파싱 확인 · 배포 후 라이브
+`version.js` = 01.101.00 · `RichEditor.jsx` 의 `rt-resize` 3회 ·
+`site.css` 의 `rt-resize-grip` 확인.

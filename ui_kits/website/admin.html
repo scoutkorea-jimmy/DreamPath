@@ -4007,10 +4007,11 @@
             </div>
             <Text label="Subject" value={composeSubject} onChange={setComposeSubject} />
             <div className="field" style={{marginBottom:14}}>
-              <label>Body</label>
+              <label>Body <span style={{fontSize:11,color:'var(--fg-muted)',fontWeight:400}}>(아래 손잡이를 끌어 높이 조절 · 더블클릭하면 기본 높이)</span></label>
               {window.RichEditor
-                ? <window.RichEditor value={composeBody} onChange={setComposeBody} lang="ko" minHeight={320} placeholder="메일 본문을 작성하세요…" />
-                : <textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={14} style={{width:'100%'}} placeholder="(에디터 로딩 중)" />}
+                ? <window.RichEditor value={composeBody} onChange={setComposeBody} lang="ko" minHeight={320}
+                    resizable storageKey="mail-compose" placeholder="메일 본문을 작성하세요…" />
+                : <textarea value={composeBody} onChange={e => setComposeBody(e.target.value)} rows={14} style={{width:'100%',resize:'vertical'}} placeholder="(에디터 로딩 중)" />}
             </div>
 
             {/* Attachments */}

@@ -17,13 +17,68 @@ function useTiptapReady() {
   return ready;
 }
 
-function RichEditor({ value, onChange, placeholder, lang, minHeight = 160 }) {
+// v01.101 — resizable body. 메일 본문처럼 길이를 예측할 수 없는 자리에서는
+// 고정 높이가 늘 틀린다. 아래 손잡이를 끌어 높이를 바꾸고, 그 높이를
+// localStorage 에 기억한다 (storageKey 를 준 경우에만).
+const RT_MIN_H = 120;
+const RT_MAX_H = 2400;
+
+function RichEditor({ value, onChange, placeholder, lang, minHeight = 160, resizable = false, storageKey }) {
   const ready = useTiptapReady();
   const hostRef = useRefE(null);
   const editorRef = useRefE(null);
   const onChangeRef = useRefE(onChange);
   const [, force] = useStateE(0);
   onChangeRef.current = onChange;
+
+  const lsKey = storageKey ? 'dp_editor_h:' + storageKey : null;
+  const [height, setHeight] = useStateE(() => {
+    if (!resizable) return null;
+    try {
+      const v = parseInt(localStorage.getItem(lsKey), 10);
+      if (v >= RT_MIN_H && v <= RT_MAX_H) return v;
+    } catch (e) {}
+    return minHeight;
+  });
+  const heightRef = useRefE(height);
+  heightRef.current = height;
+
+  function persistHeight() {
+    if (!lsKey) return;
+    try { localStorage.setItem(lsKey, String(heightRef.current)); } catch (e) {}
+  }
+  function clampH(h) { return Math.max(RT_MIN_H, Math.min(RT_MAX_H, Math.round(h))); }
+
+  function startResize(e) {
+    // pointer 이벤트 하나로 마우스·터치·펜을 함께 받는다.
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = hostRef.current ? hostRef.current.getBoundingClientRect().height : (heightRef.current || minHeight);
+    const move = (ev) => setHeight(clampH(startH + (ev.clientY - startY)));
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      document.body.style.userSelect = '';
+      persistHeight();
+    };
+    document.body.style.userSelect = 'none';   // 끄는 동안 글자가 선택되지 않도록
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  }
+
+  function resetHeight() { setHeight(minHeight); if (lsKey) { try { localStorage.removeItem(lsKey); } catch (e) {} } }
+
+  function handleKey(e) {
+    // 마우스 없이도 조절 가능해야 한다 (role="separator").
+    const step = e.shiftKey ? 80 : 20;
+    if (e.key === 'ArrowDown')      { e.preventDefault(); setHeight(h => clampH((h || minHeight) + step)); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); setHeight(h => clampH((h || minHeight) - step)); }
+    else if (e.key === 'Home')      { e.preventDefault(); resetHeight(); return; }
+    else return;
+    setTimeout(persistHeight, 0);
+  }
 
   // Mount the editor when TipTap is ready
   useEffectE(() => {
@@ -75,7 +130,8 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160 }) {
         onChange={e => onChange && onChange(e.target.value)}
         placeholder={(placeholder || '') + ' (loading editor…)'}
         rows={6}
-        style={{width:'100%',padding:12,border:'1px solid var(--border-default)',borderRadius:10,fontFamily:'inherit',background:'var(--bg-elevated)',color:'var(--fg-primary)'}}
+        style={{width:'100%',padding:12,border:'1px solid var(--border-default)',borderRadius:10,fontFamily:'inherit',background:'var(--bg-elevated)',color:'var(--fg-primary)',
+          resize:'vertical', ...(resizable ? { height: height || minHeight } : {})}}
         lang={lang}
       />
     );
@@ -163,7 +219,30 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160 }) {
         <button type="button" title="Redo (Ctrl+Y)" onClick={cmd(c => c.redo())}>↷</button>
         <button type="button" title="Clear formatting" onClick={cmd(c => c.unsetAllMarks().clearNodes())}>✕fmt</button>
       </div>
-      <div className="rt-content" ref={hostRef} style={{minHeight}} />
+      <div
+        className={'rt-content' + (resizable ? ' is-resizable' : '')}
+        ref={hostRef}
+        style={resizable ? { height: height || minHeight, minHeight: RT_MIN_H } : { minHeight }}
+      />
+      {resizable && (
+        <div
+          className="rt-resize"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={lang === 'ko' ? '본문 높이 조절 (위/아래 화살표, Home 으로 기본값)' : 'Resize body (arrow keys, Home to reset)'}
+          aria-valuenow={height || minHeight}
+          aria-valuemin={RT_MIN_H}
+          aria-valuemax={RT_MAX_H}
+          tabIndex={0}
+          title={lang === 'ko' ? '끌어서 높이 조절 · 더블클릭하면 기본 높이' : 'Drag to resize · double-click to reset'}
+          onPointerDown={startResize}
+          onDoubleClick={resetHeight}
+          onKeyDown={handleKey}
+        >
+          <span className="rt-resize-grip" aria-hidden="true" />
+          <span className="rt-resize-label">{(height || minHeight)}px</span>
+        </div>
+      )}
       {ed && ed.storage.characterCount && (
         <div className="rt-count">
           {ed.storage.characterCount.characters()} {lang === 'ko' ? '자' : 'chars'} · {ed.storage.characterCount.words()} {lang === 'ko' ? '단어' : 'words'}

@@ -2176,6 +2176,22 @@ body {
 .rt-content { min-height: 160px; padding: 14px 16px; font-size: 15px; line-height: 1.6; }
 .rt-content:focus, .rt-content:focus-within { outline: 2px solid var(--scouting-purple); outline-offset: -2px; }
 .rt-content .ProseMirror { outline: none; min-height: 140px; }
+
+/* v01.101 — 본문 높이 조절 손잡이.
+   메일 본문처럼 길이를 예측할 수 없는 자리에서 고정 높이는 늘 틀린다.
+   .is-resizable 일 때만 컨테이너가 실제 height 를 갖고 스크롤한다. */
+.rt-content.is-resizable { overflow-y: auto; }
+.rt-content.is-resizable .ProseMirror { min-height: 100%; }
+.rt-resize {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 16px; cursor: ns-resize; user-select: none;
+  border-top: 1px solid var(--border-hair); background: var(--bg-muted);
+}
+.rt-resize:hover, .rt-resize:focus-visible { background: var(--border-subtle); }
+.rt-resize:focus-visible { outline: 2px solid var(--scouting-purple); outline-offset: -2px; }
+.rt-resize-grip { width: 34px; height: 3px; border-radius: 999px; background: var(--fg-muted); opacity: .45; }
+.rt-resize-label { font-size: 10px; color: var(--fg-muted); font-family: var(--font-mono, monospace); opacity: 0; transition: opacity .12s ease; }
+.rt-resize:hover .rt-resize-label, .rt-resize:focus-visible .rt-resize-label { opacity: 1; }
 .rt-content .ProseMirror p { margin: 0 0 10px; }
 .rt-content .ProseMirror h1 { font-size: 28px; font-weight: 700; margin: 16px 0 8px; }
 .rt-content .ProseMirror h2 { font-size: 22px; font-weight: 700; margin: 14px 0 8px; }

@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.00`
+- **버전**: `v01.101.01`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -145,6 +145,20 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 안정성 결함 3건 수정 — v01.101.01
+
+- ⚠️ **`RichEditor.jsx` 는 관리자 전용이 아니다.** 공개 `index.html:68` 이 로드하고
+  `Pages.jsx`(공개 뉴스 편집기)가 쓴다 — 여기서 난 사고는 공개 화면까지 간다.
+  이 파일을 고칠 때는 공개 사이트도 함께 확인할 것.
+- 드래그 도중 언마운트 → `pointerup` 이 오지 않아 리스너가 남고
+  `body{user-select:none}` 이 눌러붙었다 (새로고침해야 풀림) →
+  `dragCleanupRef` + 언마운트 훅으로 보장.
+- `userSelect` 복원을 `''` 대신 **드래그 시작 시점 값**으로. 빈 문자열은
+  복원이 아니라 삭제다.
+- 메일 임시저장의 빈 `catch` 제거 → 실패 시 저장 시각을 지우고 경고를 띄운다.
+- 훅 순서: 새 `useEffect` 는 `if (!ready)` 조기 반환 **앞**에 (82 vs 139행).
+  뒤에 넣으면 TipTap 로딩 전후로 훅 개수가 달라져 React 가 죽는다.
 
 ### 에디터 본문 높이 조절 — v01.101.00
 

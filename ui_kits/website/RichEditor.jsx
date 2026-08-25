@@ -42,6 +42,7 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160, resiz
   });
   const heightRef = useRefE(height);
   heightRef.current = height;
+  const dragCleanupRef = useRefE(null);
 
   function persistHeight() {
     if (!lsKey) return;
@@ -52,21 +53,33 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160, resiz
   function startResize(e) {
     // pointer 이벤트 하나로 마우스·터치·펜을 함께 받는다.
     e.preventDefault();
+    if (dragCleanupRef.current) dragCleanupRef.current();   // 이전 드래그가 남아 있으면 먼저 정리
     const startY = e.clientY;
     const startH = hostRef.current ? hostRef.current.getBoundingClientRect().height : (heightRef.current || minHeight);
     const move = (ev) => setHeight(clampH(startH + (ev.clientY - startY)));
-    const up = () => {
+    // 정리를 한 곳에 모은다. pointerup 이 오지 않아도(드래그 도중 언마운트 ·
+    // 탭 전환) 반드시 불리도록 아래 useEffect 가 같은 함수를 잡고 있는다.
+    const cleanup = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
-      document.body.style.userSelect = '';
-      persistHeight();
+      // 원래 값이 있었으면 되돌린다 — 빈 문자열로 덮으면 남의 스타일을 지운다.
+      document.body.style.userSelect = prevUserSelect;
+      dragCleanupRef.current = null;
     };
+    const up = () => { cleanup(); persistHeight(); };
+    const prevUserSelect = document.body.style.userSelect;
     document.body.style.userSelect = 'none';   // 끄는 동안 글자가 선택되지 않도록
+    dragCleanupRef.current = cleanup;
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   }
+
+  // 드래그 도중 컴포넌트가 사라지면 pointerup 이 오지 않는다. 그대로 두면
+  // window 리스너가 남고, 무엇보다 body 의 user-select:none 이 화면 전체에
+  // 눌러붙어 어디서도 글자를 선택할 수 없게 된다.
+  useEffectE(() => () => { if (dragCleanupRef.current) dragCleanupRef.current(); }, []);
 
   function resetHeight() { setHeight(minHeight); if (lsKey) { try { localStorage.removeItem(lsKey); } catch (e) {} } }
 

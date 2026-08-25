@@ -85,3 +85,28 @@
 - **어떻게**: `<iframe sandbox srcdoc>` → 인라인 렌더(`.mail-body`) + 정제 3중화
   (수신 시 · 읽을 때 서버 · 브라우저 DOMParser). 전체화면 오버레이 + 2단 그리드 재배분.
 - **확인**: 헤드리스 크롬 — iframe/script/form/style 0건, `javascript:` 링크 0건, 예외 0건.
+
+## 2026-08-25 · 메일 작성: 60초 자동 임시저장 + 폼 기본 펼침 (v01.100.00)
+
+**증상**: 관리자 메일함에서 메일을 쓰다 다른 화면으로 가거나 탭을 닫으면
+내용이 통째로 사라졌다. 또 '새 메일'을 눌러 작성 화면에 들어간 뒤에도
+접힌 제목(`admin-fold`)을 한 번 더 눌러야 입력칸이 나왔다.
+
+**고친 것** (`admin.html` · `MailboxTab`)
+- `<details className="card admin-fold" open>` — 작성 화면에서는 항상 펼침.
+- `saveDraftNow()` + 60초 인터벌 · `beforeunload` · 언마운트 · '닫기' 버튼.
+- 키는 계정별: `dp_mail_draft_v1:<lockedAccount|all>`.
+
+**함정 둘**
+1. 상태를 `useEffect` 의존성에 넣으면 **타이핑마다 인터벌이 리셋**되어
+   60초가 영영 오지 않는다 → 최신 값은 `composeRef` 로만 읽는다.
+2. RichEditor 는 빈 상태에서도 `<p></p>` 를 남긴다 → 빈 판정은 태그를
+   벗겨서(`draftIsEmpty`). 안 그러면 빈 초안이 계속 저장된다.
+
+**의도적으로 안 한 것**: D1 초안 테이블. 초안은 이 브라우저의 작업 상태이고
+마이그레이션 없이 즉시 효과가 있다. 첨부(≤50MB)는 localStorage 한도(≈5MB)를
+넘겨 제외 — 서버 초안이 필요해지면 그때 승격.
+
+**검증**: preflight 통과 · `@babel/standalone` 로 admin.html 3개 스크립트 블록
+파싱 확인 · 배포 후 라이브 `version.js` = 01.100.00 · 라이브 admin.html 에
+`admin-fold" open` 존재 확인.

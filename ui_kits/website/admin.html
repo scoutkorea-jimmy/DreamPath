@@ -3232,6 +3232,58 @@
     const [sending, setSending]               = useState(false);
     const [sendResult, setSendResult]         = useState(null);
 
+    // ---- Auto-draft (v01.100.00) ---------------------------------------
+    // 메일을 쓰다가 탭을 닫거나 다른 화면으로 가면 그대로 날아갔다. 60초마다
+    // localStorage 에 임시저장하고, 새 메일을 열 때 되살린다. 서버(D1)를 쓰지
+    // 않는 이유: 초안은 이 브라우저의 작업 상태이고, 마이그레이션 없이 바로
+    // 효과가 있다. 첨부파일(base64)은 localStorage 한도(≈5MB)를 넘기므로 제외.
+    const DRAFT_KEY = 'dp_mail_draft_v1:' + (lockedAccount || 'all');
+    const [draftSavedAt, setDraftSavedAt] = useState(null);
+    const [draftRestored, setDraftRestored] = useState(false);
+
+    // 인터벌이 매 타이핑마다 리셋되지 않도록 최신 값은 ref 로만 읽는다.
+    const composeRef = useRef(null);
+    composeRef.current = {
+      from: composeFrom, to: composeTo, cc: composeCc, bcc: composeBcc,
+      subject: composeSubject, body: composeBody, replyTo: composeReplyTo,
+    };
+    const composeViewRef = useRef(view);
+    composeViewRef.current = view;
+
+    function draftIsEmpty(d) {
+      const text = String(d.body || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+      return !d.to && !d.cc && !d.bcc && !String(d.subject || '').trim() && !text;
+    }
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      setDraftSavedAt(null); setDraftRestored(false);
+    }
+
+    function saveDraftNow() {
+      // 작성 화면에 있을 때만 쓴다 — 다른 화면에서 빈 값으로 덮어쓰지 않도록.
+      if (composeViewRef.current !== 'compose') return;
+      const d = composeRef.current || {};
+      try {
+        if (draftIsEmpty(d)) { localStorage.removeItem(DRAFT_KEY); setDraftSavedAt(null); return; }
+        const at = Date.now();
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...d, saved_at: at }));
+        setDraftSavedAt(at);
+      } catch {}
+    }
+    const saveDraftRef = useRef(saveDraftNow);
+    saveDraftRef.current = saveDraftNow;
+
+    useEffect(() => {
+      const fire = () => saveDraftRef.current();
+      const id = setInterval(fire, 60000);
+      window.addEventListener('beforeunload', fire);
+      return () => {
+        clearInterval(id);
+        window.removeEventListener('beforeunload', fire);
+        fire();   // 탭을 떠날 때 마지막 1회
+      };
+    }, [DRAFT_KEY]);
+
     const ATT_MAX_FILES = 10;
     const ATT_MAX_TOTAL = 50 * 1024 * 1024;
     const RESEND_MAX_TOTAL = 40 * 1024 * 1024;
@@ -3432,14 +3484,24 @@
       setComposeSubject(subject);
       setComposeBody(lead);
       setComposeReplyTo({ id: msg.id, message_id: msg.message_id, subject: msg.subject });
+      setDraftSavedAt(null); setDraftRestored(false);
       setComposeFiles([]); setComposeFileErr('');
       setSendResult(null);
       setView('compose');
     }
     function startCompose() {
-      setComposeFrom(lockedAccount || inboxes[0]?.address || 'info@koreadreampath.com');
-      setComposeTo(''); setComposeCc(''); setComposeBcc('');
-      setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+      // 임시저장본이 있으면 되살린다 (없으면 빈 폼).
+      let d = null;
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) { const p = JSON.parse(raw); if (p && !draftIsEmpty(p)) d = p; }
+      } catch {}
+      setComposeFrom(d?.from || lockedAccount || inboxes[0]?.address || 'info@koreadreampath.com');
+      setComposeTo(d?.to || ''); setComposeCc(d?.cc || ''); setComposeBcc(d?.bcc || '');
+      setComposeSubject(d?.subject || ''); setComposeBody(d?.body || '');
+      setComposeReplyTo(d?.replyTo || null);
+      setDraftSavedAt(d?.saved_at || null);
+      setDraftRestored(!!d);
       setComposeFiles([]); setComposeFileErr('');
       setSendResult(null);
       setView('compose');
@@ -3504,6 +3566,7 @@
           setSendResult({ ok: true });
           setComposeTo(''); setComposeCc(''); setComposeBcc('');
           setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null); setComposeFiles([]);
+          clearDraft();   // 보냈으면 임시저장본은 남길 이유가 없다
           setTimeout(() => { setView('sent'); setTick(t => t + 1); }, 600);
         } else {
           setSendResult({ ok: false, msg: d.error || ('http_' + r.status) });
@@ -3890,7 +3953,30 @@
         )}
 
         {view === 'compose' && (
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{composeReplyTo ? '답장 작성' : '새 메일 작성'}</h3></summary>
+            {/* 자동 임시저장 표시줄 — 60초마다 저장, 다시 열면 복구 */}
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:12,padding:'8px 12px',background:'var(--bg-muted)',borderRadius:8,fontSize:12,color:'var(--fg-muted)'}}>
+              <span>
+                {draftSavedAt
+                  ? `임시저장됨 · ${new Date(draftSavedAt).toLocaleTimeString('ko-KR')}`
+                  : '1분마다 자동으로 임시저장됩니다'}
+              </span>
+              <span style={{opacity:.6}}>첨부파일은 임시저장에 포함되지 않습니다</span>
+              {draftRestored && (
+                <span style={{padding:'2px 8px',borderRadius:999,background:'var(--state-success-bg)',color:'var(--state-success)',fontWeight:600}}>
+                  임시저장본을 불러왔습니다
+                </span>
+              )}
+              {draftSavedAt && (
+                <button type="button" className="icon-btn" style={{marginLeft:'auto',padding:'2px 10px'}}
+                  onClick={() => {
+                    if (!confirm('임시저장본을 삭제하고 작성 중인 내용을 비울까요?')) return;
+                    clearDraft();
+                    setComposeTo(''); setComposeCc(''); setComposeBcc('');
+                    setComposeSubject(''); setComposeBody(''); setComposeReplyTo(null);
+                  }}>임시저장 삭제</button>
+              )}
+            </div>
             {composeReplyTo && (
               <p className="desc">In reply to: <code style={{fontFamily:'var(--font-mono)',fontSize:12}}>{composeReplyTo.subject}</code></p>
             )}
@@ -3973,7 +4059,7 @@
               </div>
             )}
             <div style={{marginTop:18,display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button type="button" className="icon-btn" onClick={() => setView('inbox')}>취소</button>
+              <button type="button" className="icon-btn" onClick={() => { saveDraftNow(); setView('inbox'); }}>닫기 (임시저장)</button>
               <button type="button" className="btn-add" onClick={sendNow} disabled={sending || composeTotal > RESEND_MAX_TOTAL}>
                 {sending ? '발송 중…' : '📨 발송'}
               </button>

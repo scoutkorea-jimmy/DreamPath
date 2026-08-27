@@ -741,8 +741,17 @@ export default {
       const subject    = decodeRFC2047(message.headers.get('subject') || '');
       const messageId  = message.headers.get('message-id') || '';
       const inReplyTo  = message.headers.get('in-reply-to') || '';
-      const fromName   = parseDisplayName(message.from || '');
-      const fromAddr   = parseEmailAddress(message.from || '');
+      // v01.101.03: `message.from` is the ENVELOPE sender (MAIL FROM /
+      // Return-Path), not the human one. Anything sent through a bulk service
+      // puts a bounce-collection address there — a Snowflake campaign arrived
+      // as `010c01a…-000000@ap-northeast-2.amazonses.com`, and since the admin
+      // replies to `from_addr`, hitting 답장 would have mailed the bounce
+      // handler. The `From:` header is the address the sender meant to be read
+      // and written back to. Most mail has the two identical, which is why this
+      // stayed invisible until a campaign landed in the inbox.
+      const fromHeader = decodeRFC2047(message.headers.get('from') || '');
+      const fromAddr   = firstEmailAddress(fromHeader) || firstEmailAddress(message.from || '');
+      const fromName   = parseDisplayName(fromHeader) || parseDisplayName(message.from || '');
       // Read the raw RFC 822 message into memory. CF caps email size at
       // ~25 MB so this is safe.
       const raw = await readEmailRaw(message.raw);
@@ -905,6 +914,15 @@ function parseDisplayName(addr) {
 function parseEmailAddress(addr) {
   const m = addr.match(/<([^>]+)>/);
   return (m ? m[1] : addr).trim().toLowerCase();
+}
+// A From: header may carry a display name, angle brackets, several addresses,
+// or a folded line. Take the first thing that actually looks like an address —
+// returning '' (rather than the whole header) when there is none, so the
+// caller can fall back to the envelope sender instead of storing a name as if
+// it were an address.
+function firstEmailAddress(headerValue) {
+  const m = String(headerValue || '').match(/[^\s<>,;:"()\[\]]+@[^\s<>,;:"()\[\]]+\.[^\s<>,;:"()\[\]]+/);
+  return m ? m[0].trim().toLowerCase().replace(/[.,;]+$/, '') : '';
 }
 // Decode RFC 2047 encoded-words (=?charset?B?...?= or =?charset?Q?...?=).
 // Subject lines from non-ASCII senders are usually wrapped this way.

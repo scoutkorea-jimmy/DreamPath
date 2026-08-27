@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.02`
+- **버전**: `v01.101.03`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -145,6 +145,14 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 수신 발신자를 From 헤더에서 읽는다 — v01.101.03
+
+수신 메일의 발신자가 `010c01a…@ap-northeast-2.amazonses.com` 로 저장됐다.
+`message.from` 은 envelope sender(반송 주소)다 — SES·메일링리스트는 여기에 VERP
+주소를 넣는다. `startReply()` 가 `from_addr` 를 수신자로 잡으므로 **답장이 반송
+처리기로 나갔을 것**이다. `From:` 헤더 우선으로 바꾸고 `firstEmailAddress()` 를
+더했다. **기존 15통은 백필 불가** — raw 를 보관하지 않는다.
 
 ### 메일 읽기 창 붕괴 수정 — v01.101.02
 

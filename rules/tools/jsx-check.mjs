@@ -46,23 +46,77 @@ async function loadBabel() {
   new Function('module', 'exports', 'self', 'window', src)(module, module.exports, {}, {});
   const Babel = module.exports;
   if (!Babel || typeof Babel.transform !== 'function') throw new Error('Babel 로드는 됐는데 transform 이 없다');
+  _loaded = Babel;
   return { Babel, version: v };
+}
+
+// recursion-check 가 같은 캐시본을 쓰도록 열어 둔다. 파서가 서로 다르면 한쪽이
+// 통과시킨 것을 다른 쪽이 못 읽는 일이 생긴다 — 브라우저와 같은 파서 하나로 맞춘다.
+let _loaded = null;
+export function loadBabelPackages() {
+  if (!_loaded) {
+    const v = babelVersion();
+    const cached = path.join(CACHE_DIR, `babel-standalone-${v}.js`);
+    if (!fs.existsSync(cached)) {
+      throw new Error(`Babel ${v} 캐시가 없다 — 먼저 jsx-check 을 온라인에서 한 번 돌려라`);
+    }
+    const module = { exports: {} };
+    new Function('module', 'exports', 'self', 'window', fs.readFileSync(cached, 'utf8'))(module, module.exports, {}, {});
+    _loaded = module.exports;
+  }
+  const pk = _loaded.packages || {};
+  if (!pk.parser || !pk.traverse) throw new Error('Babel standalone 에 parser/traverse 가 없다');
+  return { parser: pk.parser, traverse: pk.traverse, types: pk.types };
+}
+
+// HTML 안의 <script type="text/babel"> ... </script> 인라인 블록을 뽑는다.
+// 왜 필요한가(2026-08-27): 이 검사는 처음에 .jsx 파일만 봤다. 그런데 관리자
+// 앱은 **통째로 admin.html 의 인라인 블록**(50만 자)이다 — 관리자 화면 전체가
+// 구문검사 밖에 있었다. 파일이냐 인라인이냐는 브라우저에게 아무 차이가 없다.
+function inlineBabelBlocks(htmlFile) {
+  const html = fs.readFileSync(path.join(SITE, htmlFile), 'utf8');
+  const out = [];
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = m[1] || '';
+    if (!/type\s*=\s*["']text\/babel["']/i.test(attrs)) continue;
+    if (/\bsrc\s*=/i.test(attrs)) continue; // 외부 파일은 .jsx 쪽에서 이미 본다
+    const code = m[2];
+    if (!code.trim()) continue;
+    // 오류 줄번호가 파일 기준이 되도록 앞을 개행으로 채운다 — 인라인 블록의
+    // 상대 줄번호만 알려주면 50만 자에서 자리를 못 찾는다.
+    const before = html.slice(0, m.index);
+    const pad = '\n'.repeat(before.split('\n').length - 1);
+    out.push({ label: `${htmlFile} (인라인 babel)`, code: pad + code });
+  }
+  return out;
+}
+
+// 검사 대상 = .jsx 파일 전부 + HTML 안 인라인 babel 블록. 두 검사기가 같은
+// 목록을 봐야 한다 — 한쪽만 보는 파일이 생기면 그게 다음 사고의 자리다.
+export function collectTargets() {
+  const targets = fs.readdirSync(SITE).filter(f => f.endsWith('.jsx')).sort()
+    .map(f => ({ label: f, code: fs.readFileSync(path.join(SITE, f), 'utf8') }));
+  for (const html of ['index.html', 'admin.html']) {
+    targets.push(...inlineBabelBlocks(html));
+  }
+  return targets;
 }
 
 export async function checkJsx() {
   const { Babel, version } = await loadBabel();
-  const files = fs.readdirSync(SITE).filter(f => f.endsWith('.jsx')).sort();
+  const targets = collectTargets();
   const errors = [];
-  for (const f of files) {
-    const code = fs.readFileSync(path.join(SITE, f), 'utf8');
+  for (const t of targets) {
     try {
       // 브라우저의 <script type="text/babel"> 과 같은 조건으로 변환한다.
-      Babel.transform(code, { presets: ['react'], filename: f, sourceType: 'script' });
+      Babel.transform(t.code, { presets: ['react'], filename: t.label, sourceType: 'script' });
     } catch (e) {
-      errors.push({ file: f, message: String(e && e.message || e).split('\n')[0].slice(0, 200) });
+      errors.push({ file: t.label, message: String(e && e.message || e).split('\n')[0].slice(0, 200) });
     }
   }
-  return { files: files.length, errors, version };
+  return { files: targets.length, errors, version };
 }
 
 // 단독 실행도 지원한다 — 배포와 무관하게 편집 중에 돌려볼 수 있어야 한다.

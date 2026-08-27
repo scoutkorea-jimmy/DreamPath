@@ -272,6 +272,30 @@ if (!OFFLINE) {
   }
 }
 
+// ── G. 무한 재귀 검사 (2026-08-27) ───────────────────────────────────────
+// F 는 **문법**을 본다. 그런데 v01.101.10 의 백지 사고는 문법상 완벽한 코드였다
+// (authHeaders 가 자기를 부름). 문법이 아니라 **의미**를 봐야 잡히는 것이 있다.
+// 잡는 범위를 일부러 좁게 잡았다 — 오탐이 나면 사람은 검사를 끈다.
+{
+  try {
+    const { checkRecursion } = await import('./recursion-check.mjs');
+    const { files, hits, unreadable } = checkRecursion();
+    for (const u of unreadable) {
+      warn('재귀 검사가 못 읽은 파일', `${u.file} — ${u.message}`);
+    }
+    if (hits.length) {
+      fail(`무한 재귀 ${hits.length}건`,
+        hits.map(h => `${h.file}:${h.line}  ${h.name}() 가 조건 없이 자기를 부른다`).join('\n      ')
+        + '\n      이 상태로 배포하면 그 화면이 통째로 백지가 된다 (v01.101.10).');
+    } else {
+      notes.push(`무한 재귀 없음 (${files}개 대상)`);
+    }
+  } catch (e) {
+    warn('무한 재귀 검사를 돌리지 못했다', String(e && e.message || e).slice(0, 200)
+      + ' — 통과가 아니다.');
+  }
+}
+
 // ── 결과 ─────────────────────────────────────────────────────────────────
 const line = '─'.repeat(72);
 console.log(line);

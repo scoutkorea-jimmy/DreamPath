@@ -893,6 +893,444 @@ export default {
   },
 };
 
+
+// /api/admin/search — v01.101.08 에서 handleApi 밖으로 뺐다.
+// 옮기기만 했다: 조건도 본문도 그대로다. handleApi 는 2,831줄이었고 이
+// 분기 하나가 그 안에서 226줄을 차지했다. 한 분기를 고치다 옆 분기를
+// 건드리는 사고를 막으려면 큰 것부터 밖으로 내보내는 편이 낫다.
+async function adminSearch(request, env, url, ctx) {
+  if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+  const qRaw = (url.searchParams.get('q') || '').trim();
+  if (!qRaw) {
+    return json({ q: '', users: [], applications: [], inquiries: [], inbound_emails: [], outbound_emails: [], wiki: [], content: [] });
+  }
+  const q = qRaw.slice(0, 100);
+  const like = '%' + q + '%';
+  const PER = 10;
+  const qLow = q.toLowerCase();
+
+  // D1 lookups run in parallel — six small queries. Each one .all()
+  // returns { results: [...] } so we wrap in catch-fallbacks to keep
+  // a single slow table from blocking the rest of the response.
+  const safeAll = async (sql, ...binds) => {
+    try { const r = await env.DB.prepare(sql).bind(...binds).all(); return r.results || []; } catch { return []; }
+  };
+  const [users, applications, inquiries, inEmails, outEmails] = await Promise.all([
+    // v01.046: phone exact match restored via HMAC column when q
+    // looks like phone digits. Phone-fragment / LIKE still impossible
+    // by design — the HMAC is a digest of the full number.
+    (async () => {
+      const digitsOnly = q.replace(/\D/g, '');
+      const isPhoneish = digitsOnly.length >= 4 && /^\+?\d+/.test(q.trim().replace(/[\s-]/g, ''));
+      const phoneH = isPhoneish ? await computePiiHmac(env, digitsOnly) : null;
+      if (phoneH) {
+        return safeAll(
+          'SELECT id, email, name, role, created_at FROM users ' +
+          'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? OR phone_national_h = ? ' +
+          'ORDER BY created_at DESC LIMIT ?',
+          like, like, like, phoneH, PER
+        );
+      }
+      return safeAll(
+        'SELECT id, email, name, role, created_at FROM users ' +
+        'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? ' +
+        'ORDER BY created_at DESC LIMIT ?',
+        like, like, like, PER
+      );
+    })(),
+    // v01.066 Phase 2: applications name/email are now encrypted. SQL
+    // LIKE matches the legacy plaintext columns (NULL/empty on new rows).
+    // For new rows we recover exact-email lookup via email_h HMAC; id
+    // LIKE always works. Fragment search on encrypted name/essay/etc.
+    // is impossible by design — operators use id or exact email.
+    (async () => {
+      const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
+      const rows = await safeAll(
+        'SELECT id, email, email_enc, name, name_enc, status, created_at FROM applications ' +
+        'WHERE id LIKE ? OR email LIKE ? OR name LIKE ?' +
+        (emailH ? ' OR email_h = ?' : '') +
+        ' ORDER BY created_at DESC LIMIT ?',
+        ...(emailH ? [like, like, like, emailH, PER] : [like, like, like, PER])
+      );
+      const out = [];
+      for (const r of rows) {
+        // Inline decrypt only the two fields the admin UI shows in the
+        // search result list — name + email. Avoids hauling the entire
+        // encrypted row through for no display benefit.
+        if (r.name_enc)  { const d = await decryptPii(env, r.name_enc);  if (d != null) r.name  = d; }
+        if (r.email_enc) { const d = await decryptPii(env, r.email_enc); if (d != null) r.email = d; }
+        delete r.name_enc; delete r.email_enc;
+        out.push(r);
+      }
+      return out;
+    })(),
+    // v01.065 P0-4: inquiries name/email/subject/body are now encrypted.
+    // SQL LIKE matches only the legacy plaintext columns (NULL on new
+    // rows). For new rows, exact-email search is supported via email_h
+    // HMAC; id LIKE always works. Body/name/subject fragment search on
+    // encrypted rows is impossible by design and is dropped from this
+    // surface — operators looking for a specific inquiry now go through
+    // id or exact email.
+    (async () => {
+      const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
+      const rows = await safeAll(
+        'SELECT id, name, name_enc, email, email_enc, subject, subject_enc, body, body_enc, ' +
+        '       created_at, status FROM inquiries ' +
+        'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? OR subject LIKE ? OR body LIKE ?' +
+        (emailH ? ' OR email_h = ?' : '') +
+        ' ORDER BY created_at DESC LIMIT ?',
+        ...(emailH
+          ? [like, like, like, like, like, emailH, PER]
+          : [like, like, like, like, like, PER])
+      );
+      const dec = await Promise.all(rows.map((r) => decryptInquiryRow(env, r)));
+      // Reshape into the existing { id, email, name, subject, preview, ... }
+      // contract that the admin search UI expects.
+      return dec.map((r) => ({
+        id: r.id, email: r.email, name: r.name, subject: r.subject,
+        preview: r.body ? String(r.body).slice(0, 200) : '',
+        created_at: r.created_at, status: r.status,
+      }));
+    })(),
+    // v01.067 (Phase 3): inbound + outbound subject/body are encrypted on
+    // new rows. SQL LIKE only hits the address columns (still plaintext)
+    // and any legacy plaintext bodies. Decrypt the selected rows and
+    // rebuild preview from the decrypted body.
+    (async () => {
+      const rows = await safeAll(
+        'SELECT id, ts, from_addr, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
+        'FROM inbound_emails ' +
+        'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+        'ORDER BY ts DESC LIMIT ?',
+        like, like, like, like, like, PER
+      );
+      const out = [];
+      for (const r of rows) {
+        await decryptEmailRow(env, r);
+        out.push({
+          id: r.id, ts: r.ts, from_addr: r.from_addr, to_addr: r.to_addr,
+          subject: r.subject,
+          preview: String(r.body_text || r.body_html || '').slice(0, 200),
+        });
+      }
+      return out;
+    })(),
+    (async () => {
+      const rows = await safeAll(
+        'SELECT id, ts, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
+        'FROM outbound_emails ' +
+        'WHERE to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
+        'ORDER BY ts DESC LIMIT ?',
+        like, like, like, like, PER
+      );
+      const out = [];
+      for (const r of rows) {
+        await decryptEmailRow(env, r);
+        out.push({
+          id: r.id, ts: r.ts, to_addr: r.to_addr,
+          subject: r.subject,
+          preview: String(r.body_text || r.body_html || '').slice(0, 200),
+        });
+      }
+      return out;
+    })(),
+  ]);
+
+  // Wiki search — walks all known wiki slugs and looks for the query
+  // in page title or body. Excerpts a window around the first match.
+  const wikiHits = [];
+  const slugs = ['kms', 'design', 'color', 'versions'];
+  for (const slug of slugs) {
+    if (wikiHits.length >= PER * 2) break;
+    try {
+      const raw = await env.CONTENT_KV.get('wiki:' + slug);
+      if (!raw) continue;
+      const data = JSON.parse(raw);
+      for (const p of (data.pages || [])) {
+        const title = String(p.title || '');
+        const body  = String(p.body  || '');
+        const idxT = title.toLowerCase().indexOf(qLow);
+        const idxB = body.toLowerCase().indexOf(qLow);
+        if (idxT < 0 && idxB < 0) continue;
+        let excerpt;
+        if (idxB >= 0) {
+          // Strip HTML tags from the excerpt window so the operator
+          // sees prose, not markup.
+          const start = Math.max(0, idxB - 80);
+          const slice = body.slice(start, idxB + 120).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          excerpt = (start > 0 ? '… ' : '') + slice;
+        } else {
+          excerpt = title;
+        }
+        wikiHits.push({ slug, page_id: p.id, title, excerpt: excerpt.slice(0, 240) });
+        if (wikiHits.length >= PER * 2) break;
+      }
+    } catch {}
+  }
+
+  // CONTENT_KEY (dp_content_v1) search — walks the JSON tree and emits
+  // every string value containing q. Useful for finding which content
+  // field a piece of public-site copy lives in.
+  const contentHits = [];
+  try {
+    const raw = await env.CONTENT_KV.get(CONTENT_KEY);
+    if (raw) {
+      const c = JSON.parse(raw);
+      const walk = (obj, p) => {
+        if (contentHits.length >= PER) return;
+        if (typeof obj === 'string') {
+          if (obj.toLowerCase().includes(qLow)) {
+            contentHits.push({ path: p.replace(/^\./, ''), value: obj.slice(0, 200) });
+          }
+          return;
+        }
+        if (Array.isArray(obj)) {
+          for (let i = 0; i < obj.length; i++) { walk(obj[i], p + '[' + i + ']'); if (contentHits.length >= PER) return; }
+          return;
+        }
+        if (obj && typeof obj === 'object') {
+          for (const k of Object.keys(obj)) { walk(obj[k], p + '.' + k); if (contentHits.length >= PER) return; }
+        }
+      };
+      walk(c, '');
+    }
+  } catch {}
+
+  // v01.065 P0-3: read-audit admin global search. Log a digest of the
+  // query rather than the query itself — the query may be an email or
+  // phone fragment which is already PII; we don't want to mirror it
+  // into the audit trail in plaintext.
+  const qHash = await (async () => {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(q));
+      return Array.from(new Uint8Array(buf).slice(0, 8), b => b.toString(16).padStart(2, '0')).join('');
+    } catch { return ''; }
+  })();
+  ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
+    action: 'admin_search',
+    detail: {
+      q_len: q.length, q_sha8: qHash,
+      hits: {
+        users: users.length, applications: applications.length, inquiries: inquiries.length,
+        inbound: inEmails.length, outbound: outEmails.length, wiki: wikiHits.length, content: contentHits.length,
+      },
+    },
+  }));
+  return json({
+    q,
+    users, applications, inquiries,
+    inbound_emails: inEmails, outbound_emails: outEmails,
+    wiki: wikiHits,
+    content: contentHits,
+  });
+}
+
+
+// /api/admin/mail/send — v01.101.08 에서 handleApi 밖으로 뺐다.
+// 옮기기만 했다: 조건도 본문도 그대로다. 이 분기가 handleApi 안에서
+// 135줄을 차지했다 — 큰 것부터 밖으로 내보내면 한 분기를 고치다 옆
+// 분기를 건드리는 사고가 줄어든다.
+async function adminMailSend(request, env, url, ctx) {
+  if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const fromAddr = String(body.from || '').trim().toLowerCase();
+  const toAddr   = String(body.to   || '').trim().toLowerCase();
+  const subject  = String(body.subject || '').trim();
+  // body_html (rich, from TipTap) takes priority. body_text is derived from
+  // it for plain-text fallback. Legacy { body } is treated as plain text.
+  // P1-1: sanitize the HTML before we either send it or persist it. Admin
+  // is trusted to write copy but not trusted to bypass the allowlist;
+  // also covers the case where a copy-paste from a malicious source
+  // brings in <script> / on* attributes.
+  const bodyHtml = body.body_html ? await sanitizeHtml(String(body.body_html)) : '';
+  const bodyText = body.body_text != null ? String(body.body_text)
+                 : bodyHtml ? htmlToPlainText(bodyHtml)
+                 : String(body.body || '');
+  const ccList   = splitEmailList(body.cc);
+  const bccList  = splitEmailList(body.bcc);
+  const inReplyTo = body.in_reply_to ? String(body.in_reply_to) : null;
+  if (!isEmail(fromAddr)) return json({ error: 'invalid_from' }, 400);
+  if (!isEmail(toAddr))   return json({ error: 'invalid_to' }, 400);
+  for (const e of ccList)  if (!isEmail(e)) return json({ error: 'invalid_cc',  addr: e }, 400);
+  for (const e of bccList) if (!isEmail(e)) return json({ error: 'invalid_bcc', addr: e }, 400);
+  if (!subject)           return json({ error: 'subject_required' }, 400);
+  if (!bodyText && !bodyHtml) return json({ error: 'body_required' }, 400);
+
+  // Attachments: cap 10 files / 50 MB total raw. Resend allows ≤40 MB
+  // total per email so we additionally fail if the outbound payload would
+  // exceed 40 MB.
+  const ATT_MAX_FILES = 10, ATT_MAX_TOTAL_RAW = 50 * 1024 * 1024, RESEND_MAX_TOTAL = 40 * 1024 * 1024;
+  const incoming = Array.isArray(body.attachments) ? body.attachments : [];
+  if (incoming.length > ATT_MAX_FILES) return json({ error: 'too_many_attachments', max: ATT_MAX_FILES }, 413);
+  const decoded = [];
+  let totalRaw = 0;
+  for (const a of incoming) {
+    const filename = String(a.filename || 'attachment').slice(0, 200);
+    const mime     = String(a.mime || 'application/octet-stream').slice(0, 100);
+    const b64      = String(a.content_base64 || '').replace(/\s/g, '');
+    if (!b64) return json({ error: 'empty_attachment', filename }, 400);
+    let bytes;
+    try { const bin = atob(b64); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
+    catch { return json({ error: 'invalid_base64', filename }, 400); }
+    totalRaw += bytes.byteLength;
+    if (totalRaw > ATT_MAX_TOTAL_RAW) return json({ error: 'attachments_too_large', max_bytes: ATT_MAX_TOTAL_RAW }, 413);
+    decoded.push({ filename, mime, bytes, b64 });
+  }
+  if (totalRaw > RESEND_MAX_TOTAL) return json({ error: 'resend_payload_too_large', detail: 'Resend caps each email at 40 MB total including attachments.', max_bytes: RESEND_MAX_TOTAL }, 413);
+
+  const ts = new Date().toISOString();
+  let sendResult = { sent: false, reason: 'no_key' };
+  let resendId = null, error = null, status = 'queued';
+  const htmlForSend = bodyHtml || textToHtml(bodyText);
+  const textForSend = bodyText || htmlToPlainText(bodyHtml);
+  if (env.RESEND_API_KEY) {
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'authorization': 'Bearer ' + env.RESEND_API_KEY,
+          'content-type':  'application/json',
+        },
+        body: JSON.stringify({
+          from: fromAddr,
+          to: [toAddr],
+          ...(ccList.length  ? { cc:  ccList  } : {}),
+          ...(bccList.length ? { bcc: bccList } : {}),
+          subject,
+          text: textForSend,
+          html: htmlForSend,
+          ...(inReplyTo ? { headers: { 'In-Reply-To': inReplyTo, 'References': inReplyTo } } : {}),
+          ...(decoded.length ? { attachments: decoded.map(a => ({ filename: a.filename, content: a.b64, content_type: a.mime })) } : {}),
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json().catch(() => ({}));
+        resendId = d.id || null;
+        status = 'sent';
+        sendResult = { sent: true };
+      } else {
+        status = 'failed';
+        error = ('http_' + r.status + ': ' + (await r.text().catch(() => ''))).slice(0, 500);
+        sendResult = { sent: false, reason: 'http_' + r.status, err: error };
+      }
+    } catch (e) {
+      status = 'failed';
+      error = String(e.message || e).slice(0, 500);
+      sendResult = { sent: false, reason: 'exception', err: error };
+    }
+  } else {
+    status = 'queued';
+    error = 'RESEND_API_KEY not configured — message stored as queued.';
+  }
+  // v01.067 (Phase 3): encrypt subject / body_text / body_html when the
+  // PII_ENCRYPTION_KEY is set. Plaintext columns are NULLed so a DB dump
+  // carries only one copy. Outbound mail contains user names + admission
+  // decisions + replies that quote inbound personal content.
+  const obSubjEnc  = await encryptPii(env, subject || '');
+  const obTextEnc  = textForSend ? await encryptPii(env, textForSend) : null;
+  const obHtmlEnc  = htmlForSend ? await encryptPii(env, htmlForSend) : null;
+  const obSubjPlain = obSubjEnc ? null : (subject || null);
+  const obTextPlain = obTextEnc ? null : (textForSend || null);
+  const obHtmlPlain = obHtmlEnc ? null : (htmlForSend || null);
+  const ins = await env.DB.prepare(
+    'INSERT INTO outbound_emails (ts, from_addr, to_addr, cc, bcc, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, in_reply_to, resend_id, status, error, actor_user) ' +
+    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(
+    ts, fromAddr, toAddr,
+    ccList.length ? ccList.join(', ') : null,
+    bccList.length ? bccList.join(', ') : null,
+    obSubjPlain, obSubjEnc,
+    obTextPlain, obTextEnc,
+    obHtmlPlain, obHtmlEnc,
+    inReplyTo, resendId, status, error, 'admin'
+  ).run();
+  const emailId = ins.meta?.last_row_id;
+  // Persist attachments to R2 + metadata regardless of send outcome so the
+  // operator can see what they tried to send + retry.
+  if (emailId && env.ATTACHMENTS && decoded.length) {
+    for (let i = 0; i < decoded.length; i++) {
+      const a = decoded[i];
+      const safe = a.filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
+      const key = `attachments/outbound/${emailId}/${i}-${safe}`;
+      try {
+        // v01.068 (Phase 4): envelope-encrypt before R2 put.
+        const wrapped = await encryptR2Bytes(env, a.bytes);
+        await env.ATTACHMENTS.put(key, wrapped.bytes, { httpMetadata: { contentType: a.mime } });
+        await env.DB.prepare(
+          'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key, r2_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(emailId, 'outbound', ts, a.filename, a.mime, a.bytes.byteLength, key, wrapped.encrypted ? 1 : 0).run();
+      } catch {}
+    }
+  }
+  return json({ ok: sendResult.sent, status, resend_id: resendId, error, attachments: decoded.length });
+}
+
+
+// /api/admin/notifications — v01.101.08 에서 handleApi 밖으로 뺐다.
+// 옮기기만 했다: 조건도 본문도 그대로다. 이 분기가 handleApi 안에서
+// 59줄을 차지했다 — 큰 것부터 밖으로 내보내면 한 분기를 고치다 옆
+// 분기를 건드리는 사고가 줄어든다.
+async function adminNotificationsCreate(request, env, url, ctx) {
+  if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+  const body = await request.json().catch(() => null);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  const directIds = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
+  const groupIds  = Array.isArray(body.group_ids) ? body.group_ids.filter(x => typeof x === 'string') : [];
+  // Expand group ids → user ids and dedupe with the explicit list.
+  const recipients = new Set(directIds);
+  let primaryGroup = null;
+  if (groupIds.length) {
+    primaryGroup = groupIds[0];
+    const placeholders = groupIds.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+      'SELECT user_id FROM member_group_members WHERE group_id IN (' + placeholders + ')'
+    ).bind(...groupIds).all();
+    for (const r of results || []) recipients.add(r.user_id);
+  }
+  const ids = [...recipients];
+  if (!ids.length) return json({ error: 'no_recipients' }, 400);
+  if (!body.subject_ko && !body.subject_en) return json({ error: 'subject_required' }, 400);
+  if (!body.body_ko && !body.body_en) return json({ error: 'body_required' }, 400);
+  const ts = new Date().toISOString();
+  const sender = String(body.sender || 'admin').slice(0, 80);
+  const actor  = (await currentUser(request, env))?.email || 'admin';
+
+  // Campaign row first so notifications can back-reference it.
+  const campaignId = 'NTC-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+  await env.DB.prepare(
+    'INSERT INTO notification_campaigns (id, ts, sender, subject_ko, subject_en, body_ko, body_en, recipient_count, group_id, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(campaignId, ts, sender,
+    body.subject_ko ? String(body.subject_ko) : null,
+    body.subject_en ? String(body.subject_en) : null,
+    body.body_ko    ? String(body.body_ko)    : null,
+    body.body_en    ? String(body.body_en)    : null,
+    ids.length, primaryGroup, actor,
+  ).run();
+
+  let written = 0;
+  for (const uid of ids.slice(0, 1000)) {
+    const id = 'NTF-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
+    try {
+      await env.DB.prepare(
+        'INSERT INTO notifications (id, user_id, ts, sender, subject_ko, subject_en, body_ko, body_en, campaign_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(id, uid, ts, sender,
+              body.subject_ko ? String(body.subject_ko) : null,
+              body.subject_en ? String(body.subject_en) : null,
+              body.body_ko    ? String(body.body_ko)    : null,
+              body.body_en    ? String(body.body_en)    : null,
+              campaignId).run();
+      written++;
+    } catch {}
+  }
+  // Update the actual delivered count (in case some inserts failed).
+  if (written !== ids.length) {
+    await env.DB.prepare('UPDATE notification_campaigns SET recipient_count = ? WHERE id = ?')
+      .bind(written, campaignId).run();
+  }
+  return json({ ok: true, sent_to: written, campaign_id: campaignId });
+}
+
 // ── Email parsing helpers (no npm deps; raw MIME → text/html bodies) ─────
 async function readEmailRaw(stream) {
   const chunks = [];
@@ -2855,206 +3293,14 @@ async function handleApi(request, env, url, ctx) {
   //   { from, to, cc?, bcc?, subject, body_html, body_text?, in_reply_to?,
   //     attachments?: [{ filename, mime, content_base64 }] }   // ≤10 files, 50 MB total
   // Legacy callers may still send { body } (plain text); we treat it as text.
-  if (path === '/api/admin/mail/send' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    const body = await request.json().catch(() => null);
-    if (!body) return json({ error: 'invalid_json' }, 400);
-    const fromAddr = String(body.from || '').trim().toLowerCase();
-    const toAddr   = String(body.to   || '').trim().toLowerCase();
-    const subject  = String(body.subject || '').trim();
-    // body_html (rich, from TipTap) takes priority. body_text is derived from
-    // it for plain-text fallback. Legacy { body } is treated as plain text.
-    // P1-1: sanitize the HTML before we either send it or persist it. Admin
-    // is trusted to write copy but not trusted to bypass the allowlist;
-    // also covers the case where a copy-paste from a malicious source
-    // brings in <script> / on* attributes.
-    const bodyHtml = body.body_html ? await sanitizeHtml(String(body.body_html)) : '';
-    const bodyText = body.body_text != null ? String(body.body_text)
-                   : bodyHtml ? htmlToPlainText(bodyHtml)
-                   : String(body.body || '');
-    const ccList   = splitEmailList(body.cc);
-    const bccList  = splitEmailList(body.bcc);
-    const inReplyTo = body.in_reply_to ? String(body.in_reply_to) : null;
-    if (!isEmail(fromAddr)) return json({ error: 'invalid_from' }, 400);
-    if (!isEmail(toAddr))   return json({ error: 'invalid_to' }, 400);
-    for (const e of ccList)  if (!isEmail(e)) return json({ error: 'invalid_cc',  addr: e }, 400);
-    for (const e of bccList) if (!isEmail(e)) return json({ error: 'invalid_bcc', addr: e }, 400);
-    if (!subject)           return json({ error: 'subject_required' }, 400);
-    if (!bodyText && !bodyHtml) return json({ error: 'body_required' }, 400);
-
-    // Attachments: cap 10 files / 50 MB total raw. Resend allows ≤40 MB
-    // total per email so we additionally fail if the outbound payload would
-    // exceed 40 MB.
-    const ATT_MAX_FILES = 10, ATT_MAX_TOTAL_RAW = 50 * 1024 * 1024, RESEND_MAX_TOTAL = 40 * 1024 * 1024;
-    const incoming = Array.isArray(body.attachments) ? body.attachments : [];
-    if (incoming.length > ATT_MAX_FILES) return json({ error: 'too_many_attachments', max: ATT_MAX_FILES }, 413);
-    const decoded = [];
-    let totalRaw = 0;
-    for (const a of incoming) {
-      const filename = String(a.filename || 'attachment').slice(0, 200);
-      const mime     = String(a.mime || 'application/octet-stream').slice(0, 100);
-      const b64      = String(a.content_base64 || '').replace(/\s/g, '');
-      if (!b64) return json({ error: 'empty_attachment', filename }, 400);
-      let bytes;
-      try { const bin = atob(b64); bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); }
-      catch { return json({ error: 'invalid_base64', filename }, 400); }
-      totalRaw += bytes.byteLength;
-      if (totalRaw > ATT_MAX_TOTAL_RAW) return json({ error: 'attachments_too_large', max_bytes: ATT_MAX_TOTAL_RAW }, 413);
-      decoded.push({ filename, mime, bytes, b64 });
-    }
-    if (totalRaw > RESEND_MAX_TOTAL) return json({ error: 'resend_payload_too_large', detail: 'Resend caps each email at 40 MB total including attachments.', max_bytes: RESEND_MAX_TOTAL }, 413);
-
-    const ts = new Date().toISOString();
-    let sendResult = { sent: false, reason: 'no_key' };
-    let resendId = null, error = null, status = 'queued';
-    const htmlForSend = bodyHtml || textToHtml(bodyText);
-    const textForSend = bodyText || htmlToPlainText(bodyHtml);
-    if (env.RESEND_API_KEY) {
-      try {
-        const r = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'authorization': 'Bearer ' + env.RESEND_API_KEY,
-            'content-type':  'application/json',
-          },
-          body: JSON.stringify({
-            from: fromAddr,
-            to: [toAddr],
-            ...(ccList.length  ? { cc:  ccList  } : {}),
-            ...(bccList.length ? { bcc: bccList } : {}),
-            subject,
-            text: textForSend,
-            html: htmlForSend,
-            ...(inReplyTo ? { headers: { 'In-Reply-To': inReplyTo, 'References': inReplyTo } } : {}),
-            ...(decoded.length ? { attachments: decoded.map(a => ({ filename: a.filename, content: a.b64, content_type: a.mime })) } : {}),
-          }),
-        });
-        if (r.ok) {
-          const d = await r.json().catch(() => ({}));
-          resendId = d.id || null;
-          status = 'sent';
-          sendResult = { sent: true };
-        } else {
-          status = 'failed';
-          error = ('http_' + r.status + ': ' + (await r.text().catch(() => ''))).slice(0, 500);
-          sendResult = { sent: false, reason: 'http_' + r.status, err: error };
-        }
-      } catch (e) {
-        status = 'failed';
-        error = String(e.message || e).slice(0, 500);
-        sendResult = { sent: false, reason: 'exception', err: error };
-      }
-    } else {
-      status = 'queued';
-      error = 'RESEND_API_KEY not configured — message stored as queued.';
-    }
-    // v01.067 (Phase 3): encrypt subject / body_text / body_html when the
-    // PII_ENCRYPTION_KEY is set. Plaintext columns are NULLed so a DB dump
-    // carries only one copy. Outbound mail contains user names + admission
-    // decisions + replies that quote inbound personal content.
-    const obSubjEnc  = await encryptPii(env, subject || '');
-    const obTextEnc  = textForSend ? await encryptPii(env, textForSend) : null;
-    const obHtmlEnc  = htmlForSend ? await encryptPii(env, htmlForSend) : null;
-    const obSubjPlain = obSubjEnc ? null : (subject || null);
-    const obTextPlain = obTextEnc ? null : (textForSend || null);
-    const obHtmlPlain = obHtmlEnc ? null : (htmlForSend || null);
-    const ins = await env.DB.prepare(
-      'INSERT INTO outbound_emails (ts, from_addr, to_addr, cc, bcc, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc, in_reply_to, resend_id, status, error, actor_user) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(
-      ts, fromAddr, toAddr,
-      ccList.length ? ccList.join(', ') : null,
-      bccList.length ? bccList.join(', ') : null,
-      obSubjPlain, obSubjEnc,
-      obTextPlain, obTextEnc,
-      obHtmlPlain, obHtmlEnc,
-      inReplyTo, resendId, status, error, 'admin'
-    ).run();
-    const emailId = ins.meta?.last_row_id;
-    // Persist attachments to R2 + metadata regardless of send outcome so the
-    // operator can see what they tried to send + retry.
-    if (emailId && env.ATTACHMENTS && decoded.length) {
-      for (let i = 0; i < decoded.length; i++) {
-        const a = decoded[i];
-        const safe = a.filename.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200);
-        const key = `attachments/outbound/${emailId}/${i}-${safe}`;
-        try {
-          // v01.068 (Phase 4): envelope-encrypt before R2 put.
-          const wrapped = await encryptR2Bytes(env, a.bytes);
-          await env.ATTACHMENTS.put(key, wrapped.bytes, { httpMetadata: { contentType: a.mime } });
-          await env.DB.prepare(
-            'INSERT INTO email_attachments (email_id, side, ts, filename, mime, size, r2_key, r2_encrypted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-          ).bind(emailId, 'outbound', ts, a.filename, a.mime, a.bytes.byteLength, key, wrapped.encrypted ? 1 : 0).run();
-        } catch {}
-      }
-    }
-    return json({ ok: sendResult.sent, status, resend_id: resendId, error, attachments: decoded.length });
-  }
+  if (path === '/api/admin/mail/send' && method === 'POST') return adminMailSend(request, env, url, ctx);
 
   // ── Notifications (admin → specific users, visible only on My Page) ─────
   // Each call creates a campaign row + N notification rows (one per
   // recipient). Body shape:
   //   { user_ids?: [], group_ids?: [], sender, subject_ko/en, body_ko/en }
   // user_ids and group_ids are merged + deduped; either or both may be set.
-  if (path === '/api/admin/notifications' && method === 'POST') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    const body = await request.json().catch(() => null);
-    if (!body) return json({ error: 'invalid_json' }, 400);
-    const directIds = Array.isArray(body.user_ids) ? body.user_ids.filter(x => typeof x === 'string') : [];
-    const groupIds  = Array.isArray(body.group_ids) ? body.group_ids.filter(x => typeof x === 'string') : [];
-    // Expand group ids → user ids and dedupe with the explicit list.
-    const recipients = new Set(directIds);
-    let primaryGroup = null;
-    if (groupIds.length) {
-      primaryGroup = groupIds[0];
-      const placeholders = groupIds.map(() => '?').join(',');
-      const { results } = await env.DB.prepare(
-        'SELECT user_id FROM member_group_members WHERE group_id IN (' + placeholders + ')'
-      ).bind(...groupIds).all();
-      for (const r of results || []) recipients.add(r.user_id);
-    }
-    const ids = [...recipients];
-    if (!ids.length) return json({ error: 'no_recipients' }, 400);
-    if (!body.subject_ko && !body.subject_en) return json({ error: 'subject_required' }, 400);
-    if (!body.body_ko && !body.body_en) return json({ error: 'body_required' }, 400);
-    const ts = new Date().toISOString();
-    const sender = String(body.sender || 'admin').slice(0, 80);
-    const actor  = (await currentUser(request, env))?.email || 'admin';
-
-    // Campaign row first so notifications can back-reference it.
-    const campaignId = 'NTC-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
-    await env.DB.prepare(
-      'INSERT INTO notification_campaigns (id, ts, sender, subject_ko, subject_en, body_ko, body_en, recipient_count, group_id, actor_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(campaignId, ts, sender,
-      body.subject_ko ? String(body.subject_ko) : null,
-      body.subject_en ? String(body.subject_en) : null,
-      body.body_ko    ? String(body.body_ko)    : null,
-      body.body_en    ? String(body.body_en)    : null,
-      ids.length, primaryGroup, actor,
-    ).run();
-
-    let written = 0;
-    for (const uid of ids.slice(0, 1000)) {
-      const id = 'NTF-' + Date.now().toString(36).toUpperCase() + '-' + randomSuffix(4);
-      try {
-        await env.DB.prepare(
-          'INSERT INTO notifications (id, user_id, ts, sender, subject_ko, subject_en, body_ko, body_en, campaign_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(id, uid, ts, sender,
-                body.subject_ko ? String(body.subject_ko) : null,
-                body.subject_en ? String(body.subject_en) : null,
-                body.body_ko    ? String(body.body_ko)    : null,
-                body.body_en    ? String(body.body_en)    : null,
-                campaignId).run();
-        written++;
-      } catch {}
-    }
-    // Update the actual delivered count (in case some inserts failed).
-    if (written !== ids.length) {
-      await env.DB.prepare('UPDATE notification_campaigns SET recipient_count = ? WHERE id = ?')
-        .bind(written, campaignId).run();
-    }
-    return json({ ok: true, sent_to: written, campaign_id: campaignId });
-  }
+  if (path === '/api/admin/notifications' && method === 'POST') return adminNotificationsCreate(request, env, url, ctx);
 
   // Campaign list — paged, latest first. Each row carries read counts so
   // the operator can see open rates without expanding the row.
@@ -3383,232 +3629,7 @@ async function handleApi(request, env, url, ctx) {
   // and walks the wiki + KV content blob. Per-section cap so a vague query
   // doesn't dump tens of thousands of rows. q is trimmed and capped at
   // 100 chars; empty q returns an empty result set instead of everything.
-  if (path === '/api/admin/search' && method === 'GET') {
-    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
-    const qRaw = (url.searchParams.get('q') || '').trim();
-    if (!qRaw) {
-      return json({ q: '', users: [], applications: [], inquiries: [], inbound_emails: [], outbound_emails: [], wiki: [], content: [] });
-    }
-    const q = qRaw.slice(0, 100);
-    const like = '%' + q + '%';
-    const PER = 10;
-    const qLow = q.toLowerCase();
-
-    // D1 lookups run in parallel — six small queries. Each one .all()
-    // returns { results: [...] } so we wrap in catch-fallbacks to keep
-    // a single slow table from blocking the rest of the response.
-    const safeAll = async (sql, ...binds) => {
-      try { const r = await env.DB.prepare(sql).bind(...binds).all(); return r.results || []; } catch { return []; }
-    };
-    const [users, applications, inquiries, inEmails, outEmails] = await Promise.all([
-      // v01.046: phone exact match restored via HMAC column when q
-      // looks like phone digits. Phone-fragment / LIKE still impossible
-      // by design — the HMAC is a digest of the full number.
-      (async () => {
-        const digitsOnly = q.replace(/\D/g, '');
-        const isPhoneish = digitsOnly.length >= 4 && /^\+?\d+/.test(q.trim().replace(/[\s-]/g, ''));
-        const phoneH = isPhoneish ? await computePiiHmac(env, digitsOnly) : null;
-        if (phoneH) {
-          return safeAll(
-            'SELECT id, email, name, role, created_at FROM users ' +
-            'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? OR phone_national_h = ? ' +
-            'ORDER BY created_at DESC LIMIT ?',
-            like, like, like, phoneH, PER
-          );
-        }
-        return safeAll(
-          'SELECT id, email, name, role, created_at FROM users ' +
-          'WHERE email LIKE ? OR name LIKE ? OR id LIKE ? ' +
-          'ORDER BY created_at DESC LIMIT ?',
-          like, like, like, PER
-        );
-      })(),
-      // v01.066 Phase 2: applications name/email are now encrypted. SQL
-      // LIKE matches the legacy plaintext columns (NULL/empty on new rows).
-      // For new rows we recover exact-email lookup via email_h HMAC; id
-      // LIKE always works. Fragment search on encrypted name/essay/etc.
-      // is impossible by design — operators use id or exact email.
-      (async () => {
-        const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
-        const rows = await safeAll(
-          'SELECT id, email, email_enc, name, name_enc, status, created_at FROM applications ' +
-          'WHERE id LIKE ? OR email LIKE ? OR name LIKE ?' +
-          (emailH ? ' OR email_h = ?' : '') +
-          ' ORDER BY created_at DESC LIMIT ?',
-          ...(emailH ? [like, like, like, emailH, PER] : [like, like, like, PER])
-        );
-        const out = [];
-        for (const r of rows) {
-          // Inline decrypt only the two fields the admin UI shows in the
-          // search result list — name + email. Avoids hauling the entire
-          // encrypted row through for no display benefit.
-          if (r.name_enc)  { const d = await decryptPii(env, r.name_enc);  if (d != null) r.name  = d; }
-          if (r.email_enc) { const d = await decryptPii(env, r.email_enc); if (d != null) r.email = d; }
-          delete r.name_enc; delete r.email_enc;
-          out.push(r);
-        }
-        return out;
-      })(),
-      // v01.065 P0-4: inquiries name/email/subject/body are now encrypted.
-      // SQL LIKE matches only the legacy plaintext columns (NULL on new
-      // rows). For new rows, exact-email search is supported via email_h
-      // HMAC; id LIKE always works. Body/name/subject fragment search on
-      // encrypted rows is impossible by design and is dropped from this
-      // surface — operators looking for a specific inquiry now go through
-      // id or exact email.
-      (async () => {
-        const emailH = isEmail(qLow) ? await computePiiHmac(env, qLow, 'email-hmac') : null;
-        const rows = await safeAll(
-          'SELECT id, name, name_enc, email, email_enc, subject, subject_enc, body, body_enc, ' +
-          '       created_at, status FROM inquiries ' +
-          'WHERE id LIKE ? OR email LIKE ? OR name LIKE ? OR subject LIKE ? OR body LIKE ?' +
-          (emailH ? ' OR email_h = ?' : '') +
-          ' ORDER BY created_at DESC LIMIT ?',
-          ...(emailH
-            ? [like, like, like, like, like, emailH, PER]
-            : [like, like, like, like, like, PER])
-        );
-        const dec = await Promise.all(rows.map((r) => decryptInquiryRow(env, r)));
-        // Reshape into the existing { id, email, name, subject, preview, ... }
-        // contract that the admin search UI expects.
-        return dec.map((r) => ({
-          id: r.id, email: r.email, name: r.name, subject: r.subject,
-          preview: r.body ? String(r.body).slice(0, 200) : '',
-          created_at: r.created_at, status: r.status,
-        }));
-      })(),
-      // v01.067 (Phase 3): inbound + outbound subject/body are encrypted on
-      // new rows. SQL LIKE only hits the address columns (still plaintext)
-      // and any legacy plaintext bodies. Decrypt the selected rows and
-      // rebuild preview from the decrypted body.
-      (async () => {
-        const rows = await safeAll(
-          'SELECT id, ts, from_addr, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
-          'FROM inbound_emails ' +
-          'WHERE from_addr LIKE ? OR to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
-          'ORDER BY ts DESC LIMIT ?',
-          like, like, like, like, like, PER
-        );
-        const out = [];
-        for (const r of rows) {
-          await decryptEmailRow(env, r);
-          out.push({
-            id: r.id, ts: r.ts, from_addr: r.from_addr, to_addr: r.to_addr,
-            subject: r.subject,
-            preview: String(r.body_text || r.body_html || '').slice(0, 200),
-          });
-        }
-        return out;
-      })(),
-      (async () => {
-        const rows = await safeAll(
-          'SELECT id, ts, to_addr, subject, subject_enc, body_text, body_text_enc, body_html, body_html_enc ' +
-          'FROM outbound_emails ' +
-          'WHERE to_addr LIKE ? OR subject LIKE ? OR body_text LIKE ? OR body_html LIKE ? ' +
-          'ORDER BY ts DESC LIMIT ?',
-          like, like, like, like, PER
-        );
-        const out = [];
-        for (const r of rows) {
-          await decryptEmailRow(env, r);
-          out.push({
-            id: r.id, ts: r.ts, to_addr: r.to_addr,
-            subject: r.subject,
-            preview: String(r.body_text || r.body_html || '').slice(0, 200),
-          });
-        }
-        return out;
-      })(),
-    ]);
-
-    // Wiki search — walks all known wiki slugs and looks for the query
-    // in page title or body. Excerpts a window around the first match.
-    const wikiHits = [];
-    const slugs = ['kms', 'design', 'color', 'versions'];
-    for (const slug of slugs) {
-      if (wikiHits.length >= PER * 2) break;
-      try {
-        const raw = await env.CONTENT_KV.get('wiki:' + slug);
-        if (!raw) continue;
-        const data = JSON.parse(raw);
-        for (const p of (data.pages || [])) {
-          const title = String(p.title || '');
-          const body  = String(p.body  || '');
-          const idxT = title.toLowerCase().indexOf(qLow);
-          const idxB = body.toLowerCase().indexOf(qLow);
-          if (idxT < 0 && idxB < 0) continue;
-          let excerpt;
-          if (idxB >= 0) {
-            // Strip HTML tags from the excerpt window so the operator
-            // sees prose, not markup.
-            const start = Math.max(0, idxB - 80);
-            const slice = body.slice(start, idxB + 120).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            excerpt = (start > 0 ? '… ' : '') + slice;
-          } else {
-            excerpt = title;
-          }
-          wikiHits.push({ slug, page_id: p.id, title, excerpt: excerpt.slice(0, 240) });
-          if (wikiHits.length >= PER * 2) break;
-        }
-      } catch {}
-    }
-
-    // CONTENT_KEY (dp_content_v1) search — walks the JSON tree and emits
-    // every string value containing q. Useful for finding which content
-    // field a piece of public-site copy lives in.
-    const contentHits = [];
-    try {
-      const raw = await env.CONTENT_KV.get(CONTENT_KEY);
-      if (raw) {
-        const c = JSON.parse(raw);
-        const walk = (obj, p) => {
-          if (contentHits.length >= PER) return;
-          if (typeof obj === 'string') {
-            if (obj.toLowerCase().includes(qLow)) {
-              contentHits.push({ path: p.replace(/^\./, ''), value: obj.slice(0, 200) });
-            }
-            return;
-          }
-          if (Array.isArray(obj)) {
-            for (let i = 0; i < obj.length; i++) { walk(obj[i], p + '[' + i + ']'); if (contentHits.length >= PER) return; }
-            return;
-          }
-          if (obj && typeof obj === 'object') {
-            for (const k of Object.keys(obj)) { walk(obj[k], p + '.' + k); if (contentHits.length >= PER) return; }
-          }
-        };
-        walk(c, '');
-      }
-    } catch {}
-
-    // v01.065 P0-3: read-audit admin global search. Log a digest of the
-    // query rather than the query itself — the query may be an email or
-    // phone fragment which is already PII; we don't want to mirror it
-    // into the audit trail in plaintext.
-    const qHash = await (async () => {
-      try {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(q));
-        return Array.from(new Uint8Array(buf).slice(0, 8), b => b.toString(16).padStart(2, '0')).join('');
-      } catch { return ''; }
-    })();
-    ctx && ctx.waitUntil && ctx.waitUntil(writeAdminAudit(env, request, {
-      action: 'admin_search',
-      detail: {
-        q_len: q.length, q_sha8: qHash,
-        hits: {
-          users: users.length, applications: applications.length, inquiries: inquiries.length,
-          inbound: inEmails.length, outbound: outEmails.length, wiki: wikiHits.length, content: contentHits.length,
-        },
-      },
-    }));
-    return json({
-      q,
-      users, applications, inquiries,
-      inbound_emails: inEmails, outbound_emails: outEmails,
-      wiki: wikiHits,
-      content: contentHits,
-    });
-  }
+  if (path === '/api/admin/search' && method === 'GET') return adminSearch(request, env, url, ctx);
 
   // ── Admin TOTP 2FA (step-up) — PER ACCOUNT (v01.078) ─────────────────────
   // Operate on the CALLER's own 2FA: a logged-in admin user → their users-row

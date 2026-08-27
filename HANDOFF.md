@@ -8,8 +8,10 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.10`
-- **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
+- **버전**: `v01.101.11`
+- **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && node rules/tools/deploy.mjs` (자동 모드)
+  — preflight → `wrangler deploy` → **배포 후 렌더 스모크**(실제 브라우저, 약 7초)를 묶어서 돈다.
+  맨손 `npx wrangler deploy` 는 앞뒤 검사가 통째로 빠진다.
 - **마이그레이션 상태**: 0001 ~ **0042** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0042 = error_logs rate-limit 인덱스. 0041 = analytics_events.is_bot. 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
@@ -145,6 +147,24 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 관리자 백지 방어 세 겹 · 배포 후 렌더 스모크 — v01.101.11
+- v01.101.10 사고에서 남은 둘을 닫았다. 피해를 키운 것은 재귀가 아니라 **아무도 모른
+  채 방치된 것**이었다 — 안내도 보고도 없었다.
+- **세 겹은 겹치는 게 아니라 각자 다른 실패를 잡는다**: 부트 워치독(React/Babel 이
+  **아예 못 뜬** 경우) · 에러 경계 2단(렌더 중 예외) · 전역 핸들러(이벤트·비동기).
+  공개 사이트엔 워치독이 v01.097 부터 있었는데 **관리자에는 없었다.**
+- **탭 단위 경계** — 탭 하나가 죽어도 나머지 49개는 산다. 지난 사고에서 실제로
+  `DashboardTab` 이 먼저 죽었다.
+- **`jsx-check` 이 `.jsx` 만 보고 있었다** — 관리자 앱은 `admin.html` 인라인 50만 자라
+  **관리자 화면 전체가 구문검사 밖**이었다. 이제 인라인 블록도 본다(23 → 24).
+- **`recursion-check.mjs`** — 조건 없이 자기를 부르는 함수를 AST 로. v01.101.10 의 실제
+  코드를 되돌려 잡는 것을 확인했고, 같은 코드를 구문검사는 여전히 통과시킨다.
+- **`smoke.mjs`** — CDP 로 실제 브라우저에서 마운트 확인(약 7초). npm 의존성 0.
+  Chrome 이 없으면 **종료코드 2** — 실패(1)와 다르며 **통과가 아니다.**
+- ⚠️ 스모크 실패해도 **자동 롤백하지 않는다.** 검사가 틀릴 수 있다 — 실제로 첫 판이
+  멀쩡한 홈을 죽었다고 했다(`--virtual-time-budget` 이 워치독 9초 타이머를 즉시 터뜨림).
+- ⚠️ **남은 것**: `admin.html` 인라인 500KB 분할.
 
 ### 관리자 화이트 스크린 긴급 수정 — v01.101.10
 - `admin.html` 의 `authHeaders(extra)` 가 자기 자신을 호출해 `RangeError: Maximum call

@@ -500,8 +500,10 @@
   function adminToken() {
     return localStorage.getItem('dp_admin_token') || '';
   }
+  // 주의: 여기서 authHeaders() 를 다시 부르면 무한 재귀다 (v01.101.07 사고).
+  // 기본 헤더는 반드시 adminToken() 으로 직접 만든다.
   function authHeaders(extra) {
-    return Object.assign(authHeaders(), extra || {});
+    return Object.assign({ authorization: 'Bearer ' + adminToken() }, extra || {});
   }
   // JSON 을 주고받는 호출은 이걸 쓴다. 반환은 { ok, status, data, error }.
   // 던지지 않는 이유: 호출부 대부분이 화면에 메시지를 띄우고 끝내야 하는데,

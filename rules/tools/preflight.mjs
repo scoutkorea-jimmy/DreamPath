@@ -25,6 +25,7 @@ import path from 'node:path';
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname);
 const ORIGIN = 'https://koreadreampath.com';
 const OFFLINE = process.argv.includes('--offline');
+const { babelSrcFiles } = await import('./jsx-check.mjs');
 
 const fails = [], warns = [], notes = [];
 const fail = (t, d) => fails.push([t, d]);
@@ -96,7 +97,17 @@ const BANNED = [
 //   · 식별자             — DreamPathAuth 등
 const CODE_FILES = [
   'worker.js', 'ui_kits/website/content-store.js', 'ui_kits/website/admin.html',
-  ...fs.readdirSync(path.join(ROOT, 'ui_kits/website')).filter(f => f.endsWith('.jsx')).map(f => 'ui_kits/website/' + f),
+  // 확장자로 고르지 않는다(2026-08-27): 관리자 앱을 파일로 나누면서 일부가
+  // `.js` 가 됐는데, `.jsx` 만 훑던 이 목록에서 **조용히 빠졌다**. HTML 이 실제로
+  // 싣는 파일 + 남은 .jsx 를 합쳐 본다 — 이름이 아니라 성질로.
+  ...(() => {
+    const dir = path.join(ROOT, 'ui_kits/website');
+    const names = new Set(fs.readdirSync(dir).filter(f => f.endsWith('.jsx')));
+    for (const html of ['index.html', 'admin.html']) {
+      for (const f of babelSrcFiles(html)) names.add(f);
+    }
+    return [...names].sort().map(f => 'ui_kits/website/' + f);
+  })(),
 ];
 // 규칙을 글로만 적어 두면 다음 라운드에 잊힌다 — 8/22 배너 · 8/23 CUFS 가 그랬다.
 //

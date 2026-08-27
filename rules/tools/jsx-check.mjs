@@ -93,14 +93,47 @@ function inlineBabelBlocks(htmlFile) {
   return out;
 }
 
-// 검사 대상 = .jsx 파일 전부 + HTML 안 인라인 babel 블록. 두 검사기가 같은
-// 목록을 봐야 한다 — 한쪽만 보는 파일이 생기면 그게 다음 사고의 자리다.
-export function collectTargets() {
-  const targets = fs.readdirSync(SITE).filter(f => f.endsWith('.jsx')).sort()
-    .map(f => ({ label: f, code: fs.readFileSync(path.join(SITE, f), 'utf8') }));
-  for (const html of ['index.html', 'admin.html']) {
-    targets.push(...inlineBabelBlocks(html));
+// HTML 이 <script type="text/babel" src="..."> 로 실제 로드하는 파일 목록.
+// **확장자로 고르지 않는다**(2026-08-27): 브라우저가 Babel 로 넘기는 기준은
+// script 태그의 type 속성이지 파일 이름이 아니다. 확장자로 목록을 만들면
+// `.js` 로 이름을 바꾸는 순간 그 파일이 조용히 검사 밖으로 나간다 — 방금
+// 「관리자 앱 전체가 구문검사 밖이었다」를 고쳐 놓고 같은 구멍을 다시 파는 셈이다.
+// 목록은 **이름이 아니라 성질로**(rules/04-history-failure.md).
+export function babelSrcFiles(htmlFile) {
+  const html = fs.readFileSync(path.join(SITE, htmlFile), 'utf8');
+  const out = [];
+  const re = /<script\b([^>]*)>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = m[1] || '';
+    if (!/type\s*=\s*["']text\/babel["']/i.test(attrs)) continue;
+    const src = (attrs.match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1];
+    if (!src) continue;
+    // /ui_kits/website/Foo.jsx → Foo.jsx
+    const name = src.split('/').pop();
+    const full = path.join(SITE, name);
+    if (fs.existsSync(full)) out.push(name);
   }
+  return out;
+}
+
+// 검사 대상 = HTML 이 실제로 로드하는 babel 파일 + 남은 .jsx + HTML 안 인라인 블록.
+// 두 검사기가 같은 목록을 봐야 한다 — 한쪽만 보는 파일이 생기면 그게 다음 사고의 자리다.
+export function collectTargets() {
+  const seen = new Set();
+  const targets = [];
+  const add = (name) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    targets.push({ label: name, code: fs.readFileSync(path.join(SITE, name), 'utf8') });
+  };
+  // 1) HTML 이 실제로 로드하는 것 (확장자 무관)
+  for (const html of ['index.html', 'admin.html']) for (const f of babelSrcFiles(html)) add(f);
+  // 2) 아직 아무 HTML 도 안 싣는 .jsx 도 본다 — 만드는 중인 파일이 검사 밖에 있으면
+  //    구문 오류를 실을 때 알게 된다.
+  for (const f of fs.readdirSync(SITE).filter(f => f.endsWith('.jsx')).sort()) add(f);
+  // 3) 인라인 블록
+  for (const html of ['index.html', 'admin.html']) targets.push(...inlineBabelBlocks(html));
   return targets;
 }
 

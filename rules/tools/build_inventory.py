@@ -28,7 +28,20 @@ def sh(cmd):
 
 worker = read('worker.js')
 store  = read('ui_kits/website/content-store.js')
-admin  = read('ui_kits/website/admin.html')
+# 관리자 앱은 v01.101.12 부터 admin.html 인라인이 아니라 여러 파일로 나뉘어 있다.
+# admin.html 만 읽으면 **탭이 0개로 세어진다**(실제로 그렇게 회귀했다). HTML 이
+# text/babel 로 싣는 파일을 전부 이어 붙여서 본다 — 이름이 아니라 실제 로드 목록으로.
+def read_admin():
+    html = read('ui_kits/website/admin.html')
+    parts = [html]
+    for src in re.findall(r'<script[^>]*type=["\']text/babel["\'][^>]*src=["\']([^"\']+)["\']', html):
+        name = src.split('/')[-1]
+        body = read('ui_kits/website/' + name)
+        if body:
+            parts.append(body)
+    return '\n'.join(parts)
+
+admin  = read_admin()
 site   = read('ui_kits/website/site.css')
 tokens = read('colors_and_type.css')
 

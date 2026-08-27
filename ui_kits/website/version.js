@@ -7,4 +7,4 @@
 //   cc  — patch. Bumped for hotfixes / bug fixes / copy tweaks.
 //
 // When you bump this, also append a row to the KMS Change log (admin → Wiki).
-window.DREAMPATH_VERSION = '01.101.01';
+window.DREAMPATH_VERSION = '01.101.02';

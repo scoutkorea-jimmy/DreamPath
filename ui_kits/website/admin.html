@@ -402,7 +402,11 @@
     .mail-body img { max-width: 100%; height: auto; }
     .mail-body ul, .mail-body ol { margin: 0 0 10px; padding-left: 22px; }
     .mail-body li { margin: 2px 0; }
-    .mail-body table { border-collapse: collapse; max-width: 100%; }
+    /* v01.101.02: sanitizeMailHtml strips width=/style= from layout tables,
+       so an auto-layout nested table could squeeze a cell down to
+       min-content (one glyph per line). Filling the parent's width
+       restores the measure the mail was designed for. */
+    .mail-body table { border-collapse: collapse; width: 100%; max-width: 100%; }
     .mail-body td, .mail-body th { padding: 4px 8px; vertical-align: top; text-align: left; }
     .mail-body blockquote { margin: 10px 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--border-default); color: var(--fg-secondary); }
     .mail-body code { font-family: var(--font-mono); font-size: 12.5px; background: var(--bg-muted); border-radius: 5px; padding: 1px 5px; }
@@ -3152,6 +3156,15 @@
     if (v.startsWith('data:image/')) return true;
     return false;
   }
+  // A preheader is markup the sender deliberately hid: display:none, a zeroed
+  // box, or transparent text. Only these five declarations count — anything
+  // looser (opacity, colour matching) would start eating real content.
+  const MAIL_HIDDEN_RE = /(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(\.0+)?\s*(;|$)|(max-height|max-width|font-size|line-height)\s*:\s*0(px|em|rem|%)?\s*(;|$))/i;
+  function mailHidden(el) {
+    if (el.hasAttribute('hidden')) return true;
+    const style = el.getAttribute('style');
+    return !!style && MAIL_HIDDEN_RE.test(style);
+  }
   function sanitizeMailHtml(html) {
     try {
       // DOMParser builds an inert document: no script runs, no image or font
@@ -3163,6 +3176,11 @@
           if (el.nodeType !== 1) continue;                    // text stays
           const tag = el.tagName.toLowerCase();
           if (MAIL_DROP_TAGS.has(tag)) { el.remove(); continue; }
+          // v01.101.02: the style attribute is stripped a few lines below, which
+          // used to un-hide the preheader every marketing mail carries — the
+          // operator saw a raw SES message-id as the first line of the body.
+          // Decide on visibility while the declaration is still readable.
+          if (mailHidden(el)) { el.remove(); continue; }
           walk(el);   // clean the subtree before deciding this element's fate
           if (!MAIL_ALLOWED_TAGS.has(tag)) { el.replaceWith(...Array.from(el.childNodes)); continue; }
           const allowed = MAIL_ATTRS_BY_TAG[tag] || [];
@@ -3677,30 +3695,15 @@
     // and (isFull) inside the fullscreen overlay — so the markup lives once.
     const renderReader = (isFull) => (
                 <>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
-                        {sideOfView === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
-                      </div>
-                      <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
-                      <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
-                        <strong>{sideOfView === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
-                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{sideOfView === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
-                        {' · '}
-                        <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
-                      </div>
-                      {sideOfView !== 'inbox' && selected.cc && (
-                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>
-                          <strong>CC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.cc}</code>
-                        </div>
-                      )}
-                      {sideOfView !== 'inbox' && selected.bcc && (
-                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
-                          <strong>BCC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.bcc}</code>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                  {/* v01.101.02: the toolbar and the subject used to sit side by
+                      side, and the toolbar was flexShrink:0 — on a 1440px display
+                      (reader pane ≈ 550px) its 467px of buttons squeezed the
+                      subject column to 17px and the title rendered one glyph per
+                      line over 18 rows. They are stacked now: the toolbar owns
+                      the top row, the mail's own metadata the one below, so
+                      neither can starve the other at any width. */}
+                  <div style={{marginBottom:14,paddingBottom:14,borderBottom:'1px solid var(--border-hair)'}}>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'flex-end',marginBottom:12}}>
                       <button type="button" className="icon-btn" onClick={() => setFull(f => !f)}
                         title={isFull ? '전체화면 닫기 (Esc)' : '전체화면으로 보기'}>
                         {isFull ? '⤡ 창 모드' : '⛶ 전체화면'}
@@ -3727,6 +3730,28 @@
                       )}
                       {!selected.trashed_at && (
                         <button type="button" className="icon-btn danger" onClick={() => trash(selected.id, sideOfView)}>휴지통으로</button>
+                      )}
+                    </div>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:11,color:'var(--fg-muted)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>
+                        {sideOfView === 'inbox' ? `${selected.to_addr} 로 받음` : `${selected.from_addr} 에서 보냄`}
+                      </div>
+                      <h2 style={{margin:'0 0 8px',fontSize:20,color:'var(--brand-text)'}}>{selected.subject || '(no subject)'}</h2>
+                      <div style={{fontSize:13,color:'var(--fg-secondary)'}}>
+                        <strong>{sideOfView === 'inbox' ? (selected.from_name || selected.from_addr) : 'To'}</strong>
+                        {' '}<code style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--fg-muted)'}}>&lt;{sideOfView === 'inbox' ? selected.from_addr : selected.to_addr}&gt;</code>
+                        {' · '}
+                        <span style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(selected.ts).toLocaleString()}</span>
+                      </div>
+                      {sideOfView !== 'inbox' && selected.cc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:4}}>
+                          <strong>CC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.cc}</code>
+                        </div>
+                      )}
+                      {sideOfView !== 'inbox' && selected.bcc && (
+                        <div style={{fontSize:12,color:'var(--fg-muted)',marginTop:2}}>
+                          <strong>BCC</strong> <code style={{fontFamily:'var(--font-mono)'}}>{selected.bcc}</code>
+                        </div>
                       )}
                     </div>
                   </div>

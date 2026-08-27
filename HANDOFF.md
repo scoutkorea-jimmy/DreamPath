@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.01`
+- **버전**: `v01.101.02`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -145,6 +145,15 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 메일 읽기 창 붕괴 수정 — v01.101.02
+
+관리자 메일함에서 메일을 열면 제목이 한 글자씩 18줄로 접히고 본문 첫 줄에
+SES message-id 가 노출됐다. 읽기 창 머리말을 세로 2단(툴바 / 메일 정보)으로
+바꾸고, 살균기가 숨김 프리헤더를 노출시키지 않게 하고, `.mail-body table` 에
+`width:100%` 를 더했다. 원인은 툴바의 `flexShrink:0` — 노트북에서 읽기 pane 은
+550px 인데 툴바가 467px 를 양보하지 않아 제목 칼럼이 17px 로 굶었다.
+`admin.html` 단독 변경.
 
 ### 안정성 결함 3건 수정 — v01.101.01
 

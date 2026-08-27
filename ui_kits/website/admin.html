@@ -492,6 +492,47 @@
   <script type="text/babel">
   const { useState, useEffect, useMemo, useRef } = React;
 
+  // ---- 관리자 API 호출 (v01.101.07)
+  // 이 함수가 생기기 전에는 `authHeaders()` 가 컴포넌트 안에 **네 번** 똑같이
+  // 정의돼 있었고, 토큰을 직접 읽는 곳이 40군데, Bearer 를 손으로 조립하는
+  // 곳이 41군데였다. 같은 코드가 흩어져 있으면 세션 만료 처리 같은 공통 규칙을
+  // 한 곳에서 바꿀 수 없다 — 고치면 39곳이 옛날 방식으로 남는다.
+  function adminToken() {
+    return localStorage.getItem('dp_admin_token') || '';
+  }
+  function authHeaders(extra) {
+    return Object.assign(authHeaders(), extra || {});
+  }
+  // JSON 을 주고받는 호출은 이걸 쓴다. 반환은 { ok, status, data, error }.
+  // 던지지 않는 이유: 호출부 대부분이 화면에 메시지를 띄우고 끝내야 하는데,
+  // throw 를 쓰면 try/catch 를 다시 40곳에 흩뿌리게 된다.
+  async function adminApi(url, opts) {
+    const o = opts || {};
+    const headers = authHeaders(o.body != null ? { 'content-type': 'application/json' } : null);
+    if (o.headers) Object.assign(headers, o.headers);
+    let r;
+    try {
+      r = await fetch(url, {
+        method: o.method || 'GET',
+        headers,
+        body: o.body != null ? (typeof o.body === 'string' ? o.body : JSON.stringify(o.body)) : undefined,
+        signal: o.signal,
+      });
+    } catch (e) {
+      // 네트워크 실패를 조용히 빈 값으로 바꾸지 않는다 — 화면이 "데이터 없음"
+      // 이라고 거짓말하게 된다.
+      return { ok: false, status: 0, data: null, error: '네트워크 오류' };
+    }
+    let data = null;
+    try { data = await r.json(); } catch { /* 본문이 없거나 JSON 이 아님 */ }
+    if (!r.ok) {
+      const msg = (data && (data.error || data.message))
+        || (r.status === 401 ? '세션이 만료됐습니다. 다시 로그인해 주세요.' : 'HTTP ' + r.status);
+      return { ok: false, status: r.status, data, error: msg };
+    }
+    return { ok: true, status: r.status, data, error: null };
+  }
+
   // ---- A curated Lucide icon whitelist (popular icons that work as slots)
   const LUCIDE_ICONS = [
     'arrow-right','arrow-up-right','arrow-left','arrow-down-right','send','mail','phone',
@@ -626,10 +667,10 @@
     // blob). Keeps dp_content_v1 small so every page load stays fast.
     async function store(dataUrl) {
       try {
-        const tok = localStorage.getItem('dp_admin_token') || '';
+        const tok = adminToken();
         const r = await fetch('/api/admin/upload-image', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           credentials: 'same-origin',
           body: JSON.stringify({ dataUrl }),
         });
@@ -1730,10 +1771,10 @@
       if (!details) return;
       setSavingDetails(true);
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const res = await fetch('/api/programs/' + encodeURIComponent(program.id) + '/details', {
           method: 'PUT',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify(details),
         });
         if (!res.ok) throw new Error('http_' + res.status);
@@ -2269,10 +2310,10 @@
     async function load() {
       setLoading(true); setErr('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const [s, j] = await Promise.all([
-          fetch('/api/analytics/summary?days=' + days, { headers: { authorization: 'Bearer ' + token } }),
-          fetch('/api/analytics/journeys?limit=20', { headers: { authorization: 'Bearer ' + token } }),
+          fetch('/api/analytics/summary?days=' + days, { headers: authHeaders() }),
+          fetch('/api/analytics/journeys?limit=20', { headers: authHeaders() }),
         ]);
         if (!s.ok) throw new Error('summary http_' + s.status);
         if (!j.ok) throw new Error('journeys http_' + j.status);
@@ -2464,13 +2505,13 @@
     async function load() {
       setLoading(true); setErr('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const usp = new URLSearchParams();
         usp.set('limit', '200');
         if (filter.level)    usp.set('level',    filter.level);
         if (filter.source)   usp.set('source',   filter.source);
         if (filter.resolved !== '') usp.set('resolved', filter.resolved);
-        const res = await fetch('/api/errors?' + usp.toString(), { headers: { authorization: 'Bearer ' + token } });
+        const res = await fetch('/api/errors?' + usp.toString(), { headers: authHeaders() });
         if (!res.ok) throw new Error('http_' + res.status);
         setItems((await res.json()).items || []);
       } catch (e) { setErr(e.message); }
@@ -2481,11 +2522,11 @@
     // Mark a row resolved / unresolved without leaving the dashboard. Updates
     // local state optimistically + reloads to pick up the resolved_at stamp.
     async function setResolved(id, resolved, note) {
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       try {
         const r = await fetch('/api/errors/' + id, {
           method: 'PATCH',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify({ resolved, ...(note ? { note } : {}) }),
         });
         if (!r.ok) throw new Error('http_' + r.status);
@@ -2496,8 +2537,8 @@
 
     async function clearAll() {
       if (!confirm('Delete ALL error logs? Cannot be undone.')) return;
-      const token = localStorage.getItem('dp_admin_token') || '';
-      await fetch('/api/errors/clear', { method: 'POST', headers: { authorization: 'Bearer ' + token } });
+      const token = adminToken();
+      await fetch('/api/errors/clear', { method: 'POST', headers: authHeaders() });
       load();
     }
 
@@ -2645,11 +2686,6 @@
     const [editing, setEditing] = useState(null);     // { mode: 'create' } | { mode: 'edit', user, profile }
     const [tick, setTick] = useState(0);              // bump to refetch
     const [testCount, setTestCount] = useState(0);    // total qa+/[TEST] members across all pages
-
-    function authHeaders() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      return { authorization: 'Bearer ' + tok };
-    }
 
     useEffect(() => {
       const ctrl = new AbortController();
@@ -2836,10 +2872,10 @@
                             onClick={async () => {
                               const newRole = u.role === 'admin' ? 'member' : 'admin';
                               if (!confirm(`Change role to ${newRole}?`)) return;
-                              const tok = localStorage.getItem('dp_admin_token') || '';
+                              const tok = adminToken();
                               const r = await fetch('/api/admin/users/' + encodeURIComponent(u.id), {
                                 method: 'PATCH',
-                                headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+                                headers: authHeaders({ 'content-type': 'application/json' }),
                                 body: JSON.stringify({ role: newRole, note: 'role toggle from member detail' }),
                               });
                               if (r.ok) { setTick(t => t + 1); }
@@ -2862,9 +2898,9 @@
                             <button type="button" className="icon-btn danger" style={{marginLeft:8}}
                               onClick={async () => {
                                 if (!confirm(`${u.email}의 2단계 인증을 초기화하시겠습니까?\n\n이 관리자는 다음 접속 때 본인 기기로 다시 등록해야 합니다. (분실·기기교체 시 사용)`)) return;
-                                const tok = localStorage.getItem('dp_admin_token') || '';
+                                const tok = adminToken();
                                 const r = await fetch('/api/admin/users/' + encodeURIComponent(u.id) + '/totp-reset', {
-                                  method: 'POST', headers: { authorization: 'Bearer ' + tok }, credentials: 'same-origin',
+                                  method: 'POST', headers: authHeaders(), credentials: 'same-origin',
                                 });
                                 if (r.ok) { setTick(t => t + 1); }
                                 else alert(r.status === 403 ? '2단계 인증(step-up)이 필요합니다. 회원 정보 탭에 다시 인증 후 시도하세요.' : 'Failed: HTTP ' + r.status);
@@ -2956,14 +2992,14 @@
       e.preventDefault();
       if (busy) return;
       setBusy(true); setErr('');
-      const tok = localStorage.getItem('dp_admin_token') || '';
+      const tok = adminToken();
       const url = isEdit ? '/api/admin/users/' + encodeURIComponent(user.id) : '/api/admin/users';
       const method = isEdit ? 'PATCH' : 'POST';
       const body = isEdit
         ? { email, name, role, ...(password ? { password } : {}), ...(note ? { note } : {}) }
         : { email, name, role, password, ...(note ? { note } : {}) };
       try {
-        const r = await fetch(url, { method, headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok }, body: JSON.stringify(body) });
+        const r = await fetch(url, { method, headers: authHeaders({ 'content-type': 'application/json' }), body: JSON.stringify(body) });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
           const msg = ({ invalid_email: 'Invalid email format.', email_taken: 'Email already in use.', password_too_short: 'Password must be at least 8 characters.' })[data.error] || ('Save failed: ' + (data.error || r.status));
@@ -3325,11 +3361,6 @@
     const ATT_MAX_TOTAL = 50 * 1024 * 1024;
     const RESEND_MAX_TOTAL = 40 * 1024 * 1024;
 
-    function authHeaders() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      return { authorization: 'Bearer ' + tok };
-    }
-
     // Map view → API mode + side
     function viewToApi(v) {
       if (v === 'inbox')      return { side: 'inbox',  mode: 'inbox' };
@@ -3613,13 +3644,13 @@
     }
 
     function exportCsv() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
+      const tok = adminToken();
       const cfg = viewToApi(view);
       const params = new URLSearchParams();
       params.set('format', 'csv');
       if (cfg && cfg.side === 'inbox') params.set('mode', cfg.mode);
       // Use a temporary <a> with the bearer in URL? No — use a fetch-then-blob.
-      fetch('/api/admin/inbox/export?' + params, { headers: { authorization: 'Bearer ' + tok } })
+      fetch('/api/admin/inbox/export?' + params, { headers: authHeaders() })
         .then(r => r.ok ? r.blob() : null)
         .then(blob => {
           if (!blob) return alert('Export failed');
@@ -3632,12 +3663,12 @@
         });
     }
     function exportJson() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
+      const tok = adminToken();
       const cfg = viewToApi(view);
       const params = new URLSearchParams();
       params.set('format', 'json');
       if (cfg && cfg.side === 'inbox') params.set('mode', cfg.mode);
-      fetch('/api/admin/inbox/export?' + params, { headers: { authorization: 'Bearer ' + tok } })
+      fetch('/api/admin/inbox/export?' + params, { headers: authHeaders() })
         .then(r => r.ok ? r.blob() : null)
         .then(blob => {
           if (!blob) return alert('Export failed');
@@ -3652,8 +3683,8 @@
 
     function downloadAttachment(att) {
       // R2 fetch is admin-gated; we have to send the bearer, then save the blob.
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      fetch('/api/admin/attachment/' + att.id + '/download', { headers: { authorization: 'Bearer ' + tok } })
+      const tok = adminToken();
+      fetch('/api/admin/attachment/' + att.id + '/download', { headers: authHeaders() })
         .then(r => r.ok ? r.blob() : null)
         .then(blob => {
           if (!blob) return alert('Download failed');
@@ -4137,8 +4168,8 @@
     const [result, setResult] = useState(null);
 
     useEffect(() => {
-      const token = localStorage.getItem('dp_admin_token') || '';
-      const auth = { authorization: 'Bearer ' + token };
+      const token = adminToken();
+      const auth = authHeaders();
       Promise.all([
         fetch('/api/admin/users?limit=500', { headers: auth }).then(r => r.ok ? r.json() : { items: [] }),
         fetch('/api/admin/groups',            { headers: auth }).then(r => r.ok ? r.json() : { items: [] }),
@@ -4161,11 +4192,11 @@
       if (!subjectKo && !subjectEn) { alert('제목 (KO 또는 EN) 이 필요합니다.'); return; }
       if (!bodyKo && !bodyEn) { alert('본문 (KO 또는 EN) 이 필요합니다.'); return; }
       setBusy(true); setResult(null);
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       try {
         const r = await fetch('/api/admin/notifications', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify({
             user_ids: [...picked],
             group_ids: [...pickedGroups],
@@ -4294,11 +4325,6 @@
     const [selected, setSelected] = useState(null);   // campaign id | null
     const [detail, setDetail] = useState(null);
     const [tick, setTick] = useState(0);
-
-    function authHeaders() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      return { authorization: 'Bearer ' + tok };
-    }
 
     useEffect(() => {
       setLoading(true);
@@ -4432,11 +4458,6 @@
     const [newName, setNewName] = useState('');
     const [search, setSearch] = useState('');
     const [picked, setPicked] = useState(() => new Set());
-
-    function authHeaders() {
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      return { authorization: 'Bearer ' + tok };
-    }
 
     useEffect(() => {
       Promise.all([
@@ -4656,8 +4677,8 @@
     const [loading, setLoading] = useState(true);
     useEffect(() => {
       (async () => {
-        const token = localStorage.getItem('dp_admin_token') || '';
-        const res = await fetch('/api/consents?days=90', { headers: { authorization: 'Bearer ' + token } });
+        const token = adminToken();
+        const res = await fetch('/api/consents?days=90', { headers: authHeaders() });
         if (res.ok) setItems((await res.json()).items || []);
         setLoading(false);
       })();
@@ -4899,11 +4920,11 @@
     async function sendTest(slug) {
       if (!testTo) { alert('Enter a recipient email first.'); return; }
       setTesting(slug); setResult(null);
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       try {
         const r = await fetch('/api/admin/email/test', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify({ to: testTo, slug, lang: 'ko' }),
         });
         const d = await r.json().catch(() => ({}));
@@ -5365,8 +5386,8 @@
     async function refreshStatus() {
       setStatusLoading(true); setStatusErr('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
-        const r = await fetch('/api/admin/integrations/status', { headers: { authorization: 'Bearer ' + token } });
+        const token = adminToken();
+        const r = await fetch('/api/admin/integrations/status', { headers: authHeaders() });
         if (!r.ok) throw new Error('http_' + r.status);
         const d = await r.json();
         setStatusItems(d.items || []);
@@ -5665,8 +5686,8 @@
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-      const token = localStorage.getItem('dp_admin_token') || '';
-      const auth = { 'authorization': 'Bearer ' + token };
+      const token = adminToken();
+      const auth = authHeaders();
       const get = (u) => fetch(u, { headers: auth }).then(r => r.ok ? r.json() : null).catch(() => null);
       Promise.all([
         get('/api/applications?limit=500'),
@@ -6029,8 +6050,8 @@
       if (!term || term.trim().length < 2) { setResults([]); setOpen(false); return; }
       setBusy(true);
       try {
-        const tok = localStorage.getItem('dp_admin_token') || '';
-        const r = await fetch('/api/admin/account-search?q=' + encodeURIComponent(term.trim()), { headers: { authorization: 'Bearer ' + tok } });
+        const tok = adminToken();
+        const r = await fetch('/api/admin/account-search?q=' + encodeURIComponent(term.trim()), { headers: authHeaders() });
         const d = await r.json();
         setResults(d.items || []); setOpen(true);
       } catch {} finally { setBusy(false); }
@@ -6705,10 +6726,10 @@
     async function persist(next) {
       setSaving(true); setErr('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const res = await fetch('/api/wiki/' + slug, {
           method: 'PUT',
-          headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify(next),
         });
         if (!res.ok) throw new Error('http_' + res.status);
@@ -6896,9 +6917,9 @@
       const id = setTimeout(async () => {
         setLoading(true);
         try {
-          const token = localStorage.getItem('dp_admin_token') || '';
+          const token = adminToken();
           const r = await fetch('/api/admin/search?q=' + encodeURIComponent(trimmed), {
-            headers: { authorization: 'Bearer ' + token },
+            headers: authHeaders(),
           });
           const d = await r.json();
           if (alive) setData(r.ok ? d : { error: d.error || 'failed' });
@@ -7402,8 +7423,8 @@
     async function load() {
       setLoading(true); setErr('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
-        const res = await fetch('/api/inquiries', { headers: { authorization: 'Bearer ' + token } });
+        const token = adminToken();
+        const res = await fetch('/api/inquiries', { headers: authHeaders() });
         if (!res.ok) { setErr(res.status === 401 ? 'Unauthorized — re-login required.' : 'HTTP ' + res.status); setItems([]); return; }
         const data = await res.json();
         setItems(data.items || []);
@@ -7413,10 +7434,10 @@
     useEffect(() => { load(); }, []);
 
     async function setStatus(id, status) {
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       await fetch('/api/inquiries/' + id, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        headers: authHeaders({ 'content-type': 'application/json' }),
         body: JSON.stringify({ status }),
       });
       setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i));
@@ -7424,8 +7445,8 @@
     }
     async function deleteOne(id) {
       if (!confirm('Delete this inquiry?')) return;
-      const token = localStorage.getItem('dp_admin_token') || '';
-      const res = await fetch('/api/inquiries/' + id, { method: 'DELETE', headers: { authorization: 'Bearer ' + token } });
+      const token = adminToken();
+      const res = await fetch('/api/inquiries/' + id, { method: 'DELETE', headers: authHeaders() });
       if (!res.ok) { alert('Delete failed'); return; }
       setItems(prev => prev.filter(i => i.id !== id));
       if (selected && selected.id === id) setSelected(null);
@@ -7436,10 +7457,10 @@
     async function bulkAction(op, status) {
       if (!picked.size) return;
       if (op === 'delete' && !confirm(`Delete ${picked.size} inquiries? This cannot be undone.`)) return;
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       const res = await fetch('/api/inquiries/bulk', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        headers: authHeaders({ 'content-type': 'application/json' }),
         body: JSON.stringify({ ids: [...picked], op, ...(status ? { status } : {}) }),
       });
       if (!res.ok) { alert('Bulk failed: HTTP ' + res.status); return; }
@@ -7940,9 +7961,9 @@
       setLoading(true);
       setLoadError('');
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const res = await fetch('/api/applications?limit=500', {
-          headers: { 'authorization': 'Bearer ' + token },
+          headers: authHeaders(),
         });
         if (!res.ok) {
           setLoadError(res.status === 401 ? 'Unauthorized — re-login required.' : 'Failed to load (HTTP ' + res.status + ')');
@@ -7982,11 +8003,11 @@
     async function bulkAction(op, status) {
       if (!picked.size) return;
       if (op === 'delete' && !confirm(`Delete ${picked.size} applications? This cannot be undone.`)) return;
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       try {
         const res = await fetch('/api/applications/bulk', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify({ ids: [...picked], op, ...(status ? { status } : {}) }),
         });
         if (!res.ok) { alert('Bulk failed: HTTP ' + res.status); return; }
@@ -7997,9 +8018,9 @@
     async function deleteApp(id) {
       if (!confirm('Delete this application?')) return;
       try {
-        const token = localStorage.getItem('dp_admin_token') || '';
+        const token = adminToken();
         const res = await fetch('/api/applications/' + encodeURIComponent(id), {
-          method: 'DELETE', headers: { 'authorization': 'Bearer ' + token },
+          method: 'DELETE', headers: authHeaders(),
         });
         if (!res.ok) { alert('Delete failed: HTTP ' + res.status); return; }
         setApps(prev => prev.filter(a => a.id !== id));
@@ -8010,10 +8031,10 @@
     // 파이프라인 단계 전이 호출. action = screen|verify-admission|verify-documents|enroll|cancel.
     async function transition(id, action, body) {
       setActing(true);
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       try {
         const res = await fetch('/api/admin/applications/' + encodeURIComponent(id) + '/' + action, {
-          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+          method: 'POST', headers: authHeaders({ 'content-type': 'application/json' }),
           body: JSON.stringify(body || {}),
         });
         const d = await res.json().catch(() => ({}));
@@ -8248,16 +8269,16 @@
     const [items, setItems] = useState(null);   // null = loading
     useEffect(() => {
       if (!applicationId) { setItems([]); return; }
-      const tok = localStorage.getItem('dp_admin_token') || '';
+      const tok = adminToken();
       fetch('/api/admin/applications/' + encodeURIComponent(applicationId) + '/files', {
-        headers: { authorization: 'Bearer ' + tok },
+        headers: authHeaders(),
       }).then(r => r.ok ? r.json() : { items: [] })
         .then(d => setItems(d.items || []))
         .catch(() => setItems([]));
     }, [applicationId]);
     function download(file) {
-      const tok = localStorage.getItem('dp_admin_token') || '';
-      fetch('/api/admin/application-files/' + file.id + '/download', { headers: { authorization: 'Bearer ' + tok } })
+      const tok = adminToken();
+      fetch('/api/admin/application-files/' + file.id + '/download', { headers: authHeaders() })
         .then(r => r.ok ? r.blob() : null)
         .then(blob => {
           if (!blob) return alert('Download failed');
@@ -8309,7 +8330,6 @@
   // ---- 2FA (TOTP) — Authenticator helpers ---------------------------------
   // v01.077 — Google Authenticator step-up for Members / StudentSupport.
   const adminLangNow = () => localStorage.getItem('dp_admin_lang') || 'ko';
-  const adminTok = () => localStorage.getItem('dp_admin_token') || '';
   function qrDataUrl(text) {
     try {
       if (typeof qrcode !== 'function') return null;
@@ -8332,7 +8352,7 @@
 
     useEffect(() => {
       let cancelled = false;
-      fetch('/api/admin/totp/state', { headers: { authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin' })
+      fetch('/api/admin/totp/state', { headers: authHeaders(), credentials: 'same-origin' })
         .then(r => r.ok ? r.json() : null)
         .then(d => {
           if (cancelled) return;
@@ -8352,7 +8372,7 @@
       try {
         const r = await fetch('/api/admin/totp/verify', {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() },
+          headers: authHeaders({ 'content-type': 'application/json' }),
           credentials: 'same-origin',
           body: JSON.stringify({ code: c }),
         });
@@ -8428,7 +8448,7 @@
 
     async function loadState() {
       try {
-        const r = await fetch('/api/admin/totp/state', { headers: { authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin' });
+        const r = await fetch('/api/admin/totp/state', { headers: authHeaders(), credentials: 'same-origin' });
         setSt(r.ok ? await r.json() : { error: true });
       } catch { setSt({ error: true }); }
     }
@@ -8438,7 +8458,7 @@
       setBusy(true); setErr(''); setMsg('');
       try {
         const r = await fetch('/api/admin/totp/setup', {
-          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          method: 'POST', headers: authHeaders({ 'content-type': 'application/json' }), credentials: 'same-origin',
           body: '{}',
         });
         const d = await r.json().catch(() => null);
@@ -8455,7 +8475,7 @@
       setBusy(true); setErr(''); setMsg('');
       try {
         const r = await fetch('/api/admin/totp/confirm', {
-          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          method: 'POST', headers: authHeaders({ 'content-type': 'application/json' }), credentials: 'same-origin',
           body: JSON.stringify({ code: c }),
         });
         if (r.ok) { setSetup(null); setCode(''); setMsg(isKo ? '등록이 완료되었습니다.' : 'Enrollment complete.'); await loadState(); }
@@ -8472,7 +8492,7 @@
       setBusy(true); setErr(''); setMsg('');
       try {
         const r = await fetch('/api/admin/totp/disable', {
-          method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + adminTok() }, credentials: 'same-origin',
+          method: 'POST', headers: authHeaders({ 'content-type': 'application/json' }), credentials: 'same-origin',
           body: JSON.stringify({ code: c }),
         });
         if (r.ok) { setCode(''); setMsg(isKo ? '2단계 인증이 해제되었습니다.' : '2FA disabled.'); await loadState(); }
@@ -8648,11 +8668,11 @@
     // so the badge is reasonably fresh without spamming the API.
     const [anomalies, setAnomalies] = useState({ mailUnread: {}, mailUnreadTotal: 0 });
     useEffect(() => {
-      const tok = localStorage.getItem('dp_admin_token') || '';
+      const tok = adminToken();
       if (!tok) return;
       let cancelled = false;
       function refresh() {
-        fetch('/api/admin/mail/unread-by-account', { headers: { authorization: 'Bearer ' + tok } })
+        fetch('/api/admin/mail/unread-by-account', { headers: authHeaders() })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d && !cancelled) setAnomalies({ mailUnread: d.by_account || {}, mailUnreadTotal: d.total || 0 }); })
           .catch(() => {});
@@ -9122,7 +9142,7 @@
   // working unchanged. ADMIN_TOKEN env on the server is still honoured for
   // automation, but the UI doesn't expose it.
   function Gate() {
-    const [token, setToken] = useState(() => localStorage.getItem('dp_admin_token') || '');
+    const [token, setToken] = useState(() => adminToken());
     const [authed, setAuthed] = useState(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -9270,10 +9290,10 @@
     }, [open]);
 
     async function askOne(text) {
-      const token = localStorage.getItem('dp_admin_token') || '';
+      const token = adminToken();
       const r = await fetch('/api/admin/insight', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        headers: authHeaders({ 'content-type': 'application/json' }),
         body: JSON.stringify({ q: text }),
       });
       // 실패를 삼키지 않는다 — 조회가 깨졌는데 0 을 답하면 거짓말이 된다.
@@ -9313,7 +9333,7 @@
 
     // 로그인 화면에는 띄우지 않는다. 훅은 이 검사 앞에 전부 선언해 두었다 —
     // 뒤에 두면 로그인 전후로 훅 개수가 달라져 React 가 죽는다(v01.101.01).
-    if (!localStorage.getItem('dp_admin_token')) return null;
+    if (!adminToken()) return null;
 
     if (!open) {
       return (

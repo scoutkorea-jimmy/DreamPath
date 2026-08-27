@@ -228,6 +228,10 @@
         meta: ['~1 year', '100% online', 'EN / KO support'], status: 'open', tuition: 0,
         color: '#00695C', accent: '#4DB6AC', icon: 'briefcase' },
     ],
+    // partners_section: 공개 렌더 없음 — PartnersTab 의 편집 폼도 제거됐다(2026-05-20 v01.059 검증).
+    // 기본값만 남겨 둔 이유: 과거 KV 블롭에 데이터가 있고, 지우면 관리자 JSON
+    // 내보내기에서 조용히 사라진다. 새로 읽는 코드를 만들지 마라 — 살릴 거면
+    // 렌더까지 같이 만들어야 한다.
     partners_section: {
       ko: { kicker: 'PARTNERS', title: '신뢰받는 네트워크 위에서.', sub: 'Dream Path는 파트너 교육기관, 글로벌 청년 교육 파트너 네트워크, 후원 기관과 함께 운영됩니다.' },
       en: { kicker: 'PARTNERS', title: 'Built on a trusted network.',   sub: 'Dream Path operates with partner universities, a global youth-education partner network, and supporting institutions.' },
@@ -240,6 +244,7 @@
       // a new tab (home strip + /partners card). Empty → internal /partners.
       { name: 'KDP',  full: '주식회사 코리아드림패스',                role_ko: '운영 파트너',          role_en: 'Operating partner',              color: '#6B2DBE', logo: '', url: '' },
     ],
+    // stories_section: 공개 렌더 없음 — page_heros.stories 가 히어로를 담당한다(2026-05-20 검증).
     stories_section: {
       ko: { kicker: 'STORIES', title: '먼저 걸어간 사람들.' },
       en: { kicker: 'STORIES', title: 'People who walked the path first.' },

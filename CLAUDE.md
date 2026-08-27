@@ -41,7 +41,7 @@
 
 - **라이브**: https://koreadreampath.com
 - **스택**: Cloudflare Workers + KV + D1 + R2 + 정적 자산 (**빌드 스텝 없음**)
-- **프론트**: React 18 UMD + Babel-in-browser + 순수 `.jsx`
+- **프론트**: React 18 UMD + Babel-in-browser + 순수 JSX (**파일 확장자는 `.js`** — 아래 §6 참조)
 - **자산 디렉터리**: 저장소 전체 (`.assetsignore` 로 제외)
 - **워커 진입점**: `worker.js` (ESM module worker)
 - **바인딩**
@@ -115,7 +115,7 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
    8/23 CUFS · 8/23 레거시 표기) 만들었다 — 규칙을 글로만 적어 두면 또 걸린다.
    무엇을 보는지: ① **KV ↔ 코드 기본값 ↔ worker 상수** 드리프트 ② 한 번 지우기로
    한 문자열의 부활 ③ 내려둔 것이 사이트맵·JSON-LD·llms.txt 에 남아 있는지
-   ④ 접수 차단이 서버에서 실제로 걸리는지 ⑤ `.jsx` **와 HTML 인라인 babel 블록**의
+   ④ 접수 차단이 서버에서 실제로 걸리는지 ⑤ **HTML 이 `text/babel` 로 싣는 파일과 인라인 블록**의
    구문 ⑥ **조건 없이 자기를 부르는 함수**(무한 재귀 — v01.101.10 의 백지 원인).
    네트워크가 없으면 `--offline`(①②만).
 1. **운영 동작이 바뀌는 변경은 매번 `node rules/tools/deploy.mjs`.** 요청을 기다리지 않는다.
@@ -149,7 +149,7 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
 2. **시크릿 배포 금지.** `.assetsignore` 가 `worker.js` · `.git` · `migrations/` ·
    `rules/` 등을 자산 번들에서 뺀다. 민감 파일을 추가하면 **먼저** 여기에 넣는다.
 3. **친절한 URL 을 깨지 않는다.** 새 SPA 경로는 `worker.js` 의 `SPA_PATHS` **와**
-   `App.jsx` 의 `VIEW_TO_PATH`/뷰 스위치 양쪽에 추가.
+   `App.js` 의 `VIEW_TO_PATH`/뷰 스위치 양쪽에 추가.
 4. **디자인 토큰만.** `colors_and_type.css` 가 단일 출처. 없는 색은 토큰을 먼저 추가.
 5. **빌드 스텝 추가 금지.** Babel-in-browser 는 의도된 선택. 번들러가 필요하면 먼저 제안.
 6. **한국어 + 영어.** 사용자에게 보이는 문자열은 `ko` / `en` 둘 다.
@@ -183,8 +183,9 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
     ├── auth-store.js        → 사용자 인증 (로그인/가입/세션)
     ├── analytics-store.js   → 이벤트 배치 전송 → /api/analytics
     ├── version.js           → window.DREAMPATH_VERSION
-    ├── App.jsx              → SPA 라우터 + 뷰 스위치
-    └── *.jsx                → 화면 컴포넌트 (전체 목록은 rules/01-inventory.md)
+    ├── App.js               → SPA 라우터 + 뷰 스위치
+    ├── admin-1~4*.js        → 관리자 콘솔 본체 (순서대로 실행돼야 한다)
+    └── *.js                 → 화면 컴포넌트 (전체 목록은 rules/01-inventory.md)
 ```
 
 ---
@@ -225,7 +226,14 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
 
 ## 6. 코딩 컨벤션
 
-- **`.jsx` 는 Babel-in-browser 가 파싱**한다. ESM `import` 를 쓰지 않는다
+- **JSX 파일의 확장자는 `.js` 다** (2026-08-27, v01.101.15). `.jsx` 로 두면
+  Cloudflare 가 압축하지 않는다 — `text/jsx` 가 압축 대상 MIME 이 아니어서 공개
+  스크립트 23개가 전부 무압축으로 나갔다(홈 501KB → 고친 뒤 241KB).
+  **Babel 대상인지는 파일 이름이 아니라 `<script type="text/babel">` 로 판단한다.**
+  `content-store.js` · `auth-store.js` 처럼 Babel 을 안 거치는 `.js` 도 있으니,
+  도구를 만들 때 `endsWith('.js')` 로 목록을 만들지 마라 — HTML 이 싣는 목록을 봐라
+  (`rules/tools/jsx-check.mjs` 의 `babelSrcFiles`).
+- **JSX 파일은 Babel-in-browser 가 파싱**한다. ESM `import` 를 쓰지 않는다
   (Babel 처리가 깨진다). TipTap 만 `editor-loader.js` 의 모듈 shim 예외.
 - **전역은 의도적으로 `window` 에**: `window.Home` · `window.Nav` · `window.useAuth` …
   같은 패턴을 유지한다.
@@ -242,9 +250,9 @@ npx wrangler kv key put --namespace-id=e3cb3043b2694cc7aa990b639a2a982c \
 ## 7. 플레이북
 
 ### 새 페이지 추가
-1. `Foo.jsx` 작성 → `window.Foo` 노출
-2. `index.html` 에 `<script type="text/babel" src="/ui_kits/website/Foo.jsx">` 추가
-3. `App.jsx` 의 `VIEW_TO_PATH` 에 `foo: '/foo'` + 뷰 스위치에 `case 'foo'`
+1. `Foo.js` 작성 → `window.Foo` 노출 (**`.jsx` 가 아니다** — §6 압축 사유)
+2. `index.html` 에 `<script type="text/babel" src="/ui_kits/website/Foo.js">` 추가
+3. `App.js` 의 `VIEW_TO_PATH` 에 `foo: '/foo'` + 뷰 스위치에 `case 'foo'`
 4. `worker.js` 의 `SPA_PATHS` 에 `'/foo'`
 5. `sitemapXml()` 에 항목 추가
 6. 보이는 페이지면 nav/footer 링크

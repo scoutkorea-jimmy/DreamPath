@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.14`
+- **버전**: `v01.101.15`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && node rules/tools/deploy.mjs` (자동 모드)
   — preflight → `wrangler deploy` → **배포 후 렌더 스모크**(실제 브라우저, 약 7초)를 묶어서 돈다.
   맨손 `npx wrangler deploy` 는 앞뒤 검사가 통째로 빠진다.
@@ -147,6 +147,15 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 공개 사이트 스크립트도 압축되게 — v01.101.15
+- 공개 `.jsx` 23개를 `.js` 로. **홈 전송 501KB → 241KB(-52%)**, 마운트 2,313 → 1,984ms.
+- ⚠️ **이제 이 저장소에 `.jsx` 파일은 없다.** 전부 `.js` 이고, Babel 대상인지는
+  **script 태그의 `type="text/babel"`** 로 판단한다. 파일 이름으로 판단하지 마라 —
+  `content-store.js`·`auth-store.js` 처럼 Babel 을 안 거치는 `.js` 도 있다.
+- ⚠️ 새 검사기·도구를 만들 때 `endsWith('.jsx')` 로 목록을 만들면 **아무것도 안 잡힌다.**
+  HTML 이 `text/babel` 로 싣는 목록을 봐라(`jsx-check.mjs` 의 `babelSrcFiles` 참고).
+- 옛 `error_logs` 행에는 `About.jsx` 같은 옛 이름이 남아 있다 — 같은 파일이다.
 
 ### 관리자 인라인 51만 자를 네 파일로 — v01.101.12·13·14
 - `admin.html` 572KB → 41KB. 나머지는 `admin-1-core-content.js` ~ `admin-4-apps-shell.js`.

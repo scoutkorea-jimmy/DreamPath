@@ -1350,10 +1350,6 @@ function parseDisplayName(addr) {
   const m = addr.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
   return m ? m[1].trim() : '';
 }
-function parseEmailAddress(addr) {
-  const m = addr.match(/<([^>]+)>/);
-  return (m ? m[1] : addr).trim().toLowerCase();
-}
 // A From: header may carry a display name, angle brackets, several addresses,
 // or a folded line. Take the first thing that actually looks like an address —
 // returning '' (rather than the whole header) when there is none, so the
@@ -4841,7 +4837,7 @@ async function handleApi(request, env, url, ctx) {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   if (path === '/api/analytics' && method === 'POST') {
-    return ingestEvents(request, env);
+    return ingestEvents(request, env, ctx);
   }
   // v01.101.05 — 관리자 인사이트 콘솔(우측 하단). 규칙 기반이라 외부 API 도
   // 비용도 없다. 운영자 선택(2026-08-27): LLM 을 붙이지 않는다.
@@ -6437,7 +6433,7 @@ async function deleteMyAccount(request, env, ctx) {
 // ── Analytics ──────────────────────────────────────────────────────────────
 // Public ingest: client posts a small batch of events. Worker enriches with
 // IP / country / UA / source classification and inserts into D1.
-async function ingestEvents(request, env) {
+async function ingestEvents(request, env, ctx) {
   const body = await request.json().catch(() => null);
   if (!body || !Array.isArray(body.events)) return json({ error: 'invalid_body' }, 400);
 
@@ -6445,14 +6441,6 @@ async function ingestEvents(request, env) {
   const country = request.headers.get('cf-ipcountry') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
   const referer = request.headers.get('referer') || '';
-
-  // v01.101.07: also unauthenticated and also unlimited until now. A batch is
-  // capped at 50 events, but nothing capped the number of batches — the table
-  // that every visitor number is computed from was writable without bound.
-  // 120 batches/hour/IP allows a very active real session (the client sends a
-  // batch every few seconds at most) while ending the unbounded case.
-  const arl = await rateLimit(env, 'rl:analytics:' + ip, 120, 3600);
-  if (!arl.allowed) return new Response(null, { status: 204 });
 
   const user = await currentUser(request, env);
   const user_id = user ? user.id : null;
@@ -6489,17 +6477,38 @@ async function ingestEvents(request, env) {
   }
   if (ops.length === 0) return json({ ok: true, inserted: 0 });
 
-  // Analytics is fire-and-forget. D1 occasionally throws a transient
-  // "storage operation exceeded timeout" under load — surfacing that as a 500
-  // (and an error_logs row) is pure noise: the client doesn't care and there's
-  // nothing to fix. Swallow it, return 204, and don't pollute the error log.
-  // (v01.077 — error-log triage: this was the single biggest source of 500s.)
-  try {
-    await env.DB.batch(ops);
-  } catch (e) {
-    return new Response(null, { status: 204 });
-  }
-  return json({ ok: true, inserted: ops.length });
+  // Analytics is fire-and-forget — and now the response says so.
+  //
+  // v01.101.09: this used to `await` the D1 batch (and, for a few hours on
+  // 2026-08-27, a KV rate-limit read AND write) before answering. Every
+  // pageview and click therefore held a connection for 1.0–1.5s, measured,
+  // against 0.3s for /api/content. The operator felt it as the site going
+  // sluggish, and they were right: nothing about this endpoint's answer is
+  // useful to the caller. analytics-store.js sends it with sendBeacon (or
+  // fetch().catch(() => {})) and never reads the result.
+  //
+  // So: answer immediately, do the work in waitUntil. The rate limit lives
+  // there too — refusing to INSERT is the whole point of it, and the caller
+  // was never going to be told either way.
+  const finish = (async () => {
+    try {
+      // 120 batches/hour/IP allows a very active real session (the client
+      // batches every few seconds at most) while ending the unbounded case.
+      // KV undercounts a burst (see rules/04-history-failure.md 2026-08-27),
+      // but here that is acceptable: the ceiling is a storage guard, not a
+      // security boundary, and moving it to D1 would put a COUNT on the
+      // hottest write path we have.
+      const arl = await rateLimit(env, 'rl:analytics:' + ip, 120, 3600);
+      if (!arl.allowed) return;
+      // D1 occasionally throws a transient "storage operation exceeded
+      // timeout" under load. Nothing to fix and nobody to tell — swallow it
+      // rather than filling the error log (v01.077 triage).
+      await env.DB.batch(ops);
+    } catch { /* fire-and-forget */ }
+  })();
+  if (ctx && ctx.waitUntil) ctx.waitUntil(finish);
+  else await finish;   // no ctx (tests / direct calls) → keep the old behaviour
+  return new Response(null, { status: 204 });
 }
 
 function classifySource(path, referrer, utm) {
@@ -7315,6 +7324,12 @@ async function canRole(env, roleId, pageId, action) {
 }
 // Convenience: gate an HTTP handler. Returns null on allow, or a 403 Response on deny.
 // Admin token always allows.
+//
+// 호출부가 아직 없다(2026-08-27 확인). 죽은 코드처럼 보이지만 지우지 않는다 —
+// canRole() 은 두 곳에서 실제로 쓰이고 있고 이건 그 위의 편의 래퍼다. 역할
+// 게이트를 라우트에 다는 순간 필요해지는 물건이라, 지우면 다음 사람이 같은
+// 것을 다시 만든다. 쓸 때는 분기 맨 앞에서 결과를 받아 truthy 면 그대로
+// 반환하는 형태로 둔다.
 async function requireRole(request, env, pageId, action) {
   if (await isAdmin(request, env)) return null;
   const u = await currentUser(request, env);

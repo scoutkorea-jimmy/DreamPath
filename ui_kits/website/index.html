@@ -65,38 +65,44 @@
   <script src="/ui_kits/website/auth-store.js"></script>
   <script src="/ui_kits/website/analytics-store.js"></script>
   <script src="/ui_kits/website/editor-loader.js"></script>
-  <script type="text/babel" src="/ui_kits/website/RichEditor.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/forms.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Legal.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Auth.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Auth.views.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Nav.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Footer.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Home.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/About.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Programs.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/ProgramDetail.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Apply.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Pages.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Scholarships.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Team.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Member.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Receipt.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Errors.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/VersionWatcher.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Floaters.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/Banners.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/EntryGate.jsx"></script>
-  <script type="text/babel" src="/ui_kits/website/App.jsx"></script>
+  <script type="text/babel" src="/ui_kits/website/RichEditor.js"></script>
+  <script type="text/babel" src="/ui_kits/website/forms.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Legal.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Auth.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Auth.views.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Nav.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Footer.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Home.js"></script>
+  <script type="text/babel" src="/ui_kits/website/About.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Programs.js"></script>
+  <script type="text/babel" src="/ui_kits/website/ProgramDetail.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Apply.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Pages.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Scholarships.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Team.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Member.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Receipt.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Errors.js"></script>
+  <script type="text/babel" src="/ui_kits/website/VersionWatcher.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Floaters.js"></script>
+  <script type="text/babel" src="/ui_kits/website/Banners.js"></script>
+  <script type="text/babel" src="/ui_kits/website/EntryGate.js"></script>
+  <script type="text/babel" src="/ui_kits/website/App.js"></script>
 
   <!-- Boot watchdog (v01.097) ------------------------------------------------
-       The SPA boots by having Babel-in-browser transpile 21 .jsx files in
+       The SPA boots by having Babel-in-browser transpile 23 script files in
        sequence. If ANY of them arrives truncated (flaky mobile network) Babel
        throws a SyntaxError, that file's window.* global is never created, and
        the visitor is left staring at an empty <div id="root"> forever. The D1
        error log shows this happening steadily from 2026-05 through 2026-08
        ("Unterminated string constant" across Nav/Auth/Team/Pages/Errors/Apply,
        "Could not load About.jsx", "window.DreamPathContent is undefined").
+
+       Note (v01.101.15): these files were named *.jsx until 2026-08-27. They are
+       now *.js so Cloudflare compresses them — text/jsx is not in its compressible
+       MIME list, so all 21 shipped uncompressed (home transfer 501KB). Babel does
+       NOT look at the extension; it goes by this tag's type="text/babel". Older
+       error-log rows therefore still say ".jsx" — same files, old names.
 
        Nothing here can repair a truncated file — but a visitor must never be
        shown a blank page with no way out. So: if the root is still empty after

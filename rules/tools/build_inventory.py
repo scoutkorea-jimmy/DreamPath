@@ -54,10 +54,25 @@ for m in re.finditer(r"path\.match\(/\^\\/api\\/([^/]*(?:\\/[^/]*)*)\$/", worker
 api = sorted(api)
 
 # ── SPA 화면(window 전역) ─────────────────────────────────────────────────
+# 확장자로 고르지 않는다(2026-08-27): 압축 때문에 파일이 .jsx → .js 로 바뀌는데
+# (Cloudflare 는 text/jsx 를 압축하지 않는다), 확장자로 훑으면 그 순간 **화면이
+# 0개로 세어진다.** 관리자 탭에서 이미 한 번 그렇게 됐다(50 → 0, 오류는 없었다).
+# index.html 이 text/babel 로 싣는 목록을 본다 — 이름이 아니라 성질로.
+def spa_files():
+    html = read('ui_kits/website/index.html')
+    out = []
+    for src in re.findall(r'<script[^>]*type=["\']text/babel["\'][^>]*src=["\']([^"\']+)["\']', html):
+        name = src.split('/')[-1]
+        if os.path.exists(rp('ui_kits/website/' + name)):
+            out.append(name)
+    # 아직 아무 HTML 도 안 싣는 .jsx 도 목록에 남긴다 — 만드는 중인 화면.
+    for fn in sorted(os.listdir(rp('ui_kits/website'))):
+        if fn.endswith('.jsx') and fn not in out:
+            out.append(fn)
+    return out
+
 views = []
-for fn in sorted(os.listdir(rp('ui_kits/website'))):
-    if not fn.endswith('.jsx'):
-        continue
+for fn in spa_files():
     src = read('ui_kits/website/' + fn)
     globs = sorted(set(re.findall(r'window\.([A-Za-z0-9_]+)\s*=', src)))
     lines = len(src.splitlines())
@@ -110,7 +125,7 @@ w('- 생성 시각: `%s`' % sh("date '+%Y-%m-%d %H:%M:%S %Z'"))
 w('- 기준 커밋: `%s`' % (sh('git rev-parse --short HEAD') or '—'))
 w('- 사이트 버전: `%s`' % (version or '—'))
 w('')
-w('## 화면 (SPA `.jsx`)')
+w('## 화면 (SPA — index.html 이 text/babel 로 싣는 파일)')
 w('')
 w('| 파일 | 줄 수 | `window.*` 전역 |')
 w('|---|---:|---|')

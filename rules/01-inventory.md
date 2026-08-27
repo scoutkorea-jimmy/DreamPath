@@ -4,37 +4,37 @@
 > 새 기능·새 화면·새 API 를 만들기 전에 **먼저 여기서 이미 있는 것을 찾아라.**
 > 같은 일을 하는 두 번째 구현이 스파게티의 시작이다.
 
-- 생성 시각: `2026-08-27 13:34:40 KST`
-- 기준 커밋: `61980d4`
-- 사이트 버전: `01.101.13`
+- 생성 시각: `2026-08-27 13:54:27 KST`
+- 기준 커밋: `35df441`
+- 사이트 버전: `01.101.14`
 
-## 화면 (SPA `.jsx`)
+## 화면 (SPA — index.html 이 text/babel 로 싣는 파일)
 
 | 파일 | 줄 수 | `window.*` 전역 |
 |---|---:|---|
-| `ui_kits/website/About.jsx` | 65 | About |
-| `ui_kits/website/App.jsx` | 378 | DPErrorBoundary, useContent |
-| `ui_kits/website/Apply.jsx` | 842 | Apply |
-| `ui_kits/website/Auth.jsx` | 315 | AuthModal, useAuth |
-| `ui_kits/website/Auth.views.jsx` | 310 | ActivateAccountView, ResetPasswordView, VerifyEmailView |
-| `ui_kits/website/Banners.jsx` | 117 | BannerAdModal |
-| `ui_kits/website/EntryGate.jsx` | 78 | EntryGate |
-| `ui_kits/website/Errors.jsx` | 200 | Error401, Error403, Error404, Error500, Error503, ErrorOffline |
-| `ui_kits/website/Floaters.jsx` | 511 | BackToTop, ChatBot |
-| `ui_kits/website/Footer.jsx` | 107 | Footer |
-| `ui_kits/website/Home.jsx` | 196 | Home, ProgramCard |
-| `ui_kits/website/Legal.jsx` | 116 | ConsentRow, CookieBanner, LegalModal, recordConsent |
-| `ui_kits/website/Member.jsx` | 1353 | Member |
-| `ui_kits/website/Nav.jsx` | 410 | Nav, NavGroup |
-| `ui_kits/website/Pages.jsx` | 597 | Contact, InquiryForm, News, NewsDetail, NewsEditor, Partners, Stories, StoryDetail |
-| `ui_kits/website/ProgramDetail.jsx` | 564 | ProgramDetail |
-| `ui_kits/website/Programs.jsx` | 89 | Programs |
-| `ui_kits/website/Receipt.jsx` | 216 | Receipt, ReceiptTemplate |
-| `ui_kits/website/RichEditor.jsx` | 276 | RichEditor |
-| `ui_kits/website/Scholarships.jsx` | 407 | ScholarshipDetail, Scholarships |
-| `ui_kits/website/Team.jsx` | 392 | Team |
-| `ui_kits/website/VersionWatcher.jsx` | 139 | VersionWatcher |
-| `ui_kits/website/forms.jsx` | 161 | DP_COUNTRY_CODES, EmailField, PhoneField |
+| `ui_kits/website/RichEditor.js` | 276 | RichEditor |
+| `ui_kits/website/forms.js` | 161 | DP_COUNTRY_CODES, EmailField, PhoneField |
+| `ui_kits/website/Legal.js` | 116 | ConsentRow, CookieBanner, LegalModal, recordConsent |
+| `ui_kits/website/Auth.js` | 315 | AuthModal, useAuth |
+| `ui_kits/website/Auth.views.js` | 310 | ActivateAccountView, ResetPasswordView, VerifyEmailView |
+| `ui_kits/website/Nav.js` | 410 | Nav, NavGroup |
+| `ui_kits/website/Footer.js` | 107 | Footer |
+| `ui_kits/website/Home.js` | 196 | Home, ProgramCard |
+| `ui_kits/website/About.js` | 65 | About |
+| `ui_kits/website/Programs.js` | 89 | Programs |
+| `ui_kits/website/ProgramDetail.js` | 564 | ProgramDetail |
+| `ui_kits/website/Apply.js` | 842 | Apply |
+| `ui_kits/website/Pages.js` | 597 | Contact, InquiryForm, News, NewsDetail, NewsEditor, Partners, Stories, StoryDetail |
+| `ui_kits/website/Scholarships.js` | 407 | ScholarshipDetail, Scholarships |
+| `ui_kits/website/Team.js` | 392 | Team |
+| `ui_kits/website/Member.js` | 1353 | Member |
+| `ui_kits/website/Receipt.js` | 216 | Receipt, ReceiptTemplate |
+| `ui_kits/website/Errors.js` | 200 | Error401, Error403, Error404, Error500, Error503, ErrorOffline |
+| `ui_kits/website/VersionWatcher.js` | 139 | VersionWatcher |
+| `ui_kits/website/Floaters.js` | 511 | BackToTop, ChatBot |
+| `ui_kits/website/Banners.js` | 117 | BannerAdModal |
+| `ui_kits/website/EntryGate.js` | 78 | EntryGate |
+| `ui_kits/website/App.js` | 378 | DPErrorBoundary, useContent |
 
 ## API 엔드포인트 (`worker.js`) — 95개
 

@@ -198,7 +198,7 @@
         '소유권 확인 방법 중 <strong>HTML 태그</strong> 선택.',
         '표시되는 <code>&lt;meta name="google-site-verification" content="ABC123..."&gt;</code> 에서 <strong>content="..." 안의 값만</strong> 복사.',
         '아래 입력란에 붙여넣고 저장.',
-        'Search Console로 돌아가서 <strong>확인</strong> 클릭. App.jsx가 head에 meta 태그를 즉시 주입.',
+        'Search Console로 돌아가서 <strong>확인</strong> 클릭. App.js가 head에 meta 태그를 즉시 주입.',
         '확인 완료 후 <strong>Sitemaps</strong> 메뉴에서 <code>https://koreadreampath.com/sitemap.xml</code> 제출.',
       ],
     },

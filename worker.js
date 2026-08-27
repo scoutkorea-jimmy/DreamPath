@@ -889,6 +889,7 @@ export default {
     ctx.waitUntil(piiBackfillCron(env));  // v01.043 — encrypt legacy plaintext phone rows
     ctx.waitUntil(inboundSanitizeCron(env)); // v01.043 — re-sanitize legacy inbound HTML
     ctx.waitUntil(piiRetentionCron(env));    // v01.070 — hard-delete past retention window
+    ctx.waitUntil(expiredTokenCron(env));    // v01.101.06 — sweep dead sessions / reset / verify tokens
   },
 };
 
@@ -5423,6 +5424,45 @@ async function applyDraftCron(env) {
     const cutoff = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
     await env.DB.prepare('DELETE FROM apply_drafts WHERE updated_at < ?').bind(cutoff).run();
   } catch {}
+}
+
+// v01.101.06 — expired credentials were never swept. 35 of 39 session rows were
+// already past expires_at (2026-08-27). They could not authenticate anyone —
+// every lookup checks the expiry — but a table of dead tokens is still a table
+// of tokens: it grows without bound, and a database dump hands an attacker a
+// list of what to try. Password-reset and email-verification tokens are worse,
+// because a consumed-but-kept token is a single-use secret sitting in storage
+// long after its purpose ended.
+//
+// Deliberately NOT swept here: error_logs and analytics_events. Those are the
+// record — deleting them is how "we have never seen this before" becomes true
+// by accident. When they need a bound it should be an explicit retention
+// decision by the operator, not a side effect of a cleanup job.
+async function expiredTokenCron(env) {
+  const now = new Date().toISOString();
+  const sweeps = [
+    ['sessions', 'DELETE FROM sessions WHERE expires_at < ?', [now]],
+    // Reset / verification tokens: gone once expired, and gone 24h after being
+    // used — the consumed row is kept briefly so support can answer "did that
+    // link actually get clicked?".
+    ['password_resets', 'DELETE FROM password_resets WHERE expires_at < ? OR (consumed_at IS NOT NULL AND consumed_at < ?)',
+      [now, new Date(Date.now() - 24 * 3600 * 1000).toISOString()]],
+    ['email_verifications', 'DELETE FROM email_verifications WHERE expires_at < ? OR (consumed_at IS NOT NULL AND consumed_at < ?)',
+      [now, new Date(Date.now() - 24 * 3600 * 1000).toISOString()]],
+  ];
+  for (const [table, sql, binds] of sweeps) {
+    try {
+      await env.DB.prepare(sql).bind(...binds).run();
+    } catch (e) {
+      // One table failing must not stop the others, but it must not vanish
+      // either — a cleanup job that silently stops working looks identical to
+      // one with nothing to do.
+      await logError(env, {
+        level: 'warn', source: 'cron',
+        message: `expiredTokenCron: ${table} sweep failed: ${String(e && e.message || e)}`.slice(0, 500),
+      });
+    }
+  }
 }
 
 // P2-5 backfill (v01.043) — when the operator sets PII_ENCRYPTION_KEY,

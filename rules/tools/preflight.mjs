@@ -249,6 +249,29 @@ if (!OFFLINE) {
   }
 }
 
+// ── F. JSX 구문검사 (2026-08-27) ─────────────────────────────────────────
+// 빌드 스텝이 없으므로 .jsx 하나의 구문 오류가 SPA 전체를 죽인다. 브라우저가
+// 쓰는 것과 같은 버전의 Babel 로 검사한다 — 다른 파서로 통과시키면 검사가
+// 거짓 안심을 준다. Babel 은 한 번 받아 .wrangler/ 에 캐시하므로 --offline
+// 에서도 두 번째부터는 돈다.
+{
+  try {
+    const { checkJsx } = await import('./jsx-check.mjs');
+    const { files, errors, version } = await checkJsx();
+    if (errors.length) {
+      fail(`JSX 구문 오류 ${errors.length}건`,
+        errors.map(e => `${e.file} — ${e.message}`).join('\n      ')
+        + '\n      이 상태로 배포하면 SPA 전체가 뜨지 않는다.');
+    } else {
+      notes.push(`JSX 구문검사 통과 (${files}개 · Babel ${version})`);
+    }
+  } catch (e) {
+    // 검사를 못 돌린 것과 통과한 것은 다르다. 못 읽었으면 그렇게 말한다.
+    warn('JSX 구문검사를 돌리지 못했다', String(e && e.message || e).slice(0, 200)
+      + ' — 네트워크가 없고 캐시도 없으면 이렇게 된다. 통과가 아니다.');
+  }
+}
+
 // ── 결과 ─────────────────────────────────────────────────────────────────
 const line = '─'.repeat(72);
 console.log(line);

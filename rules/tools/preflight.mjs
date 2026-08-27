@@ -98,6 +98,12 @@ const CODE_FILES = [
   'worker.js', 'ui_kits/website/content-store.js', 'ui_kits/website/admin.html',
   ...fs.readdirSync(path.join(ROOT, 'ui_kits/website')).filter(f => f.endsWith('.jsx')).map(f => 'ui_kits/website/' + f),
 ];
+// 규칙을 글로만 적어 두면 다음 라운드에 잊힌다 — 8/22 배너 · 8/23 CUFS 가 그랬다.
+//
+// 판정은 **성질**로 한다: 컬러로 렌더되는 그림문자만 잡고, 흑백 타이포그래피
+// 기호(→ ▶ ✓ ★ ⛶ ≡ ▦ …)는 통과시킨다. 저장소에 `→` 만 332개다 — 성질 대신
+// 이름(=비ASCII)으로 잡으면 멀쩡한 문서와 UI 를 함께 죽인다.
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{1F004}\u{1F0CF}]|[\u{2600}-\u{27BF}]\u{FE0F}|\u{26A0}\u{FE0F}|[\u2705\u274C\u2764\u2b50\u2728]/gu;
 const IDENTIFIER_SAFE = /DreamPathAuth|DreamPathContent|DREAMPATH_VERSION|window\.DreamPath/;
 const isComment = (l) => /^\s*(\/\/|\*|\/\*)/.test(l);
 
@@ -188,6 +194,15 @@ if (!OFFLINE) {
 
   // B-3. 라이브 콘텐츠
   scanStrings('라이브 KV 콘텐츠', live);
+  // 코드 기본값만 고치고 KV 를 놔두면 화면은 그대로다 — 실제로 이모지 6곳이
+  // KV 쪽에만 남아 있었다(2026-08-27).
+  {
+    const blob = JSON.stringify(live);
+    const found = blob.match(EMOJI_RE);
+    if (found) fail(`라이브 KV 콘텐츠에 이모지 ${found.length}개`,
+      [...new Set(found)].join(' ') + ' — dp_content_v1 을 고쳐야 화면이 바뀐다');
+    else notes.push('이모지 없음 (라이브 KV)');
+  }
 
   // C. 상태 정합성 — 내려둔 것이 기계가 읽는 곳에 남아 있지 않은지
   const hidden = !!(live.programs_gate || {}).hidden;
@@ -211,6 +226,27 @@ if (!OFFLINE) {
   // 등록금이 미공개인데 화면 어딘가에 금액이 남아 있지는 않은지 (라이브 값 기준)
   const priced = (live.programs || []).filter(p => Number(p.tuition) > 0);
   if (priced.length && hidden) warn('등록금이 설정된 프로그램이 있는데 프로그램은 비공개', priced.map(p => p.id).join(', '));
+}
+
+// ── E. 이모지 금지 (2026-08-27 운영자 지시) ──────────────────────────────
+{
+  const hitsByFile = [];
+  for (const rel of CODE_FILES.concat(['ui_kits/website/index.html'])) {
+    let src;
+    try { src = readFile(rel); } catch { continue; }
+    src.split('\n').forEach((line, i) => {
+      const m = line.match(EMOJI_RE);
+      if (m) hitsByFile.push(`${rel}:${i + 1}  ${m.join(' ')}`);
+    });
+  }
+  if (hitsByFile.length) {
+    fail(`이모지 ${hitsByFile.length}곳`,
+      hitsByFile.slice(0, 8).join('\n      ')
+      + (hitsByFile.length > 8 ? `\n      … 외 ${hitsByFile.length - 8}곳` : '')
+      + '\n      → lucide 아이콘 · 토큰 색 · 말로 쓴 라벨로 바꿔라 (rules/05-do-not.md 2026-08-27)');
+  } else {
+    notes.push('이모지 없음 (UI 소스)');
+  }
 }
 
 // ── 결과 ─────────────────────────────────────────────────────────────────

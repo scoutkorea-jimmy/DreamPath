@@ -136,6 +136,15 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160, resiz
     ed.commands.setContent(value || '', false);
   }, [value]);
 
+  // v01.101.04: the toolbar now uses lucide <i data-lucide> instead of emoji.
+  // The editor mounts after TipTap finishes loading, which can land after the
+  // host's last render — so scan for icons here too rather than trusting the
+  // parent to render again. createIcons() is idempotent.
+  // NOTE: this hook sits BEFORE the `if (!ready)` early return on purpose —
+  // behind it, the hook count would change between the loading and loaded
+  // states and React would throw (see v01.101.01).
+  useEffectE(() => { window.lucide && window.lucide.createIcons(); }, [ready]);
+
   if (!ready) {
     return (
       <textarea
@@ -216,13 +225,13 @@ function RichEditor({ value, onChange, placeholder, lang, minHeight = 160, resiz
         <button type="button" className={isActive({ textAlign: 'right' }) ? 'is-active' : ''} title="Align right" onClick={cmd(c => c.setTextAlign('right'))}>⇥</button>
         <button type="button" className={isActive({ textAlign: 'justify' }) ? 'is-active' : ''} title="Justify" onClick={cmd(c => c.setTextAlign('justify'))}>☰</button>
         <span className="sep" />
-        <button type="button" className={isActive('link') ? 'is-active' : ''} title="Link" onClick={setLink}>🔗</button>
-        <button type="button" title="Insert image" onClick={addImage}>🖼</button>
+        <button type="button" className={isActive('link') ? 'is-active' : ''} title="Link" onClick={setLink}><i data-lucide="link" width="15" height="15" /></button>
+        <button type="button" title="Insert image" onClick={addImage}><i data-lucide="image" width="15" height="15" /></button>
         <button type="button" title="Insert table" onClick={insertTable}>▦</button>
         <span className="sep" />
         <button type="button" className={isActive('subscript') ? 'is-active' : ''} title="Subscript" onClick={cmd(c => c.toggleSubscript())}>X₂</button>
         <button type="button" className={isActive('superscript') ? 'is-active' : ''} title="Superscript" onClick={cmd(c => c.toggleSuperscript())}>X²</button>
-        <button type="button" className={isActive('highlight') ? 'is-active' : ''} title="Highlight" onClick={cmd(c => c.toggleHighlight())}>🖍</button>
+        <button type="button" className={isActive('highlight') ? 'is-active' : ''} title="Highlight" onClick={cmd(c => c.toggleHighlight())}><i data-lucide="highlighter" width="15" height="15" /></button>
         <span className="sep" />
         <input type="color" title="Text color" onChange={setColor}
           style={{width:28,height:28,padding:0,border:'1px solid var(--border-hair)',borderRadius:4,background:'transparent',cursor:'pointer'}} />

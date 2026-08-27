@@ -598,7 +598,7 @@ function StageRejected({ isKo, note }) {
 }
 
 // screen_passed → 파트너 대학 입학 안내 + 접수번호 입력 (POST /cufs-reg-no).
-// ⚠️ 경로·컬럼 이름의 `cufs` 는 내부 식별자라 그대로 둔다(마이그레이션 비용 대비
+// 주의 — 경로·컬럼 이름의 `cufs` 는 내부 식별자라 그대로 둔다(마이그레이션 비용 대비
 //    이득이 없다). 화면에 보이는 문구만 기관 중립으로 쓴다.
 function CufsGuidePanel({ app, isKo, onChange }) {
   const [regNo, setRegNo] = useStateM('');
@@ -634,9 +634,9 @@ function CufsGuidePanel({ app, isKo, onChange }) {
       </div>
       {/* 결제 주체 경고 */}
       <div style={{marginTop:14,padding:'12px 14px',background:'var(--state-warning-bg, #fff7ed)',color:'var(--state-warning, #b45309)',borderRadius:10,fontSize:13,lineHeight:1.6}}>
-        <strong>{isKo ? '⚠️ 결제 주체를 꼭 구분하세요' : '⚠️ Know who collects each payment'}</strong>
-        <div style={{marginTop:6}}>✅ {isKo ? '전형료 — 파트너 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
-        <div>💳 {isKo ? '등록금 — 합격 후 이 사이트(마이페이지)에서 결제합니다. 등록금을 받는 곳은 여기 한 군데입니다' : 'Tuition — paid here on the member page after admission. This is the single place that collects tuition.'}</div>
+        <strong>{isKo ? '결제 주체를 꼭 구분하세요' : 'Know who collects each payment'}</strong>
+        <div style={{marginTop:6}}>{isKo ? '전형료 — 파트너 대학에서 결제 (정상)' : 'Application fee — paid to the partner university (normal)'}</div>
+        <div>{isKo ? '등록금 — 합격 후 이 사이트(마이페이지)에서 결제합니다. 등록금을 받는 곳은 여기 한 군데입니다' : 'Tuition — paid here on the member page after admission. This is the single place that collects tuition.'}</div>
       </div>
       <div className="field" style={{marginTop:14}}>
         <label>{isKo ? '입학 접수번호' : 'Admission reference number'}</label>
@@ -866,7 +866,7 @@ function StageEnrolled({ app, isKo }) {
   return (
     <div>
       <div style={{padding:'14px 16px',background:'var(--state-success-bg)',color:'var(--state-success)',borderRadius:10,fontSize:15,fontWeight:600}}>
-        🎉 {isKo ? '등록이 최종 확정되었습니다. 환영합니다!' : 'Your enrollment is confirmed. Welcome aboard!'}
+        {isKo ? '등록이 최종 확정되었습니다. 환영합니다.' : 'Your enrollment is confirmed. Welcome aboard.'}
       </div>
       {app.receipt_token && (
         <div style={{marginTop:12}}>

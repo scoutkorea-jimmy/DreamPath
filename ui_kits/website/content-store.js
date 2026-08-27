@@ -591,8 +591,8 @@
         screen_passed: {
           subject_ko: '[KoreaDreamPath] 1차 통과 — 다음 단계 안내 ({{candidate_no}})',
           subject_en: '[KoreaDreamPath] You passed screening — next steps ({{candidate_no}})',
-          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 파트너 대학의 입학 절차입니다. 절차 안내는 담당자가 개별로 드립니다.\n\n⚠️ 중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: 파트너 대학에서 결제합니다 (정상).\n· 등록금: 합격 후 KoreaDreamPath 홈페이지에서 결제합니다. 등록금을 받는 곳은 이곳 한 군데입니다.\n\n입학 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
-          body_en:    'Hi {{name}},\n\nYou passed the first document screening. Congratulations!\n\nThe next step is the partner university admission process. Your coordinator will send the details.\n\n⚠️ Important — know who collects each payment:\n· Application fee: paid to the partner university (normal).\n· Tuition: do NOT pay to the partner university. Pay only on the KoreaDreamPath site after admission.\n\nAfter completing those steps, enter your admission reference number on your member page.\n\nThe KoreaDreamPath team',
+          body_ko:    '안녕하세요 {{name}}님,\n\n1차 서류 심사를 통과하셨습니다. 축하드립니다!\n\n다음 단계는 파트너 대학의 입학 절차입니다. 절차 안내는 담당자가 개별로 드립니다.\n\n중요 — 결제 주체를 꼭 구분하세요.\n· 전형료: 파트너 대학에서 결제합니다 (정상).\n· 등록금: 합격 후 KoreaDreamPath 홈페이지에서 결제합니다. 등록금을 받는 곳은 이곳 한 군데입니다.\n\n입학 절차를 마치신 뒤 발급받은 접수번호를 마이페이지에 입력해 주세요.\n\nKoreaDreamPath 팀',
+          body_en:    'Hi {{name}},\n\nYou passed the first document screening. Congratulations!\n\nThe next step is the partner university admission process. Your coordinator will send the details.\n\nImportant — know who collects each payment:\n· Application fee: paid to the partner university (normal).\n· Tuition: do NOT pay to the partner university. Pay only on the KoreaDreamPath site after admission.\n\nAfter completing those steps, enter your admission reference number on your member page.\n\nThe KoreaDreamPath team',
         },
         screen_rejected: {
           subject_ko: '[KoreaDreamPath] 1차 심사 결과 안내 ({{candidate_no}})',
@@ -619,8 +619,8 @@
           body_en:    'Hi {{name}},\n\nYour tuition payment was completed successfully.\n\nApplicant ID: {{candidate_no}}\nAmount paid: US ${{amount}}\n\nYou can view and print the receipt on your member page. We will confirm your final enrollment shortly.\n\nThe KoreaDreamPath team',
         },
         enrolled: {
-          subject_ko: '[KoreaDreamPath] 등록이 확정되었습니다 🎉 ({{candidate_no}})',
-          subject_en: '[KoreaDreamPath] Your enrollment is confirmed 🎉 ({{candidate_no}})',
+          subject_ko: '[KoreaDreamPath] 등록이 확정되었습니다 ({{candidate_no}})',
+          subject_en: '[KoreaDreamPath] Your enrollment is confirmed ({{candidate_no}})',
           body_ko:    '안녕하세요 {{name}}님,\n\n모든 절차가 완료되어 등록이 최종 확정되었습니다. 환영합니다!\n\n학생 고유번호: {{candidate_no}}\n\n개강 및 수업 안내는 별도로 전달드리겠습니다.\n\nKoreaDreamPath 팀',
           body_en:    'Hi {{name}},\n\nAll steps are complete and your enrollment is now confirmed. Welcome aboard!\n\nApplicant ID: {{candidate_no}}\n\nWe will send course and start-date details separately.\n\nThe KoreaDreamPath team',
         },
@@ -655,8 +655,8 @@
       // 있었다. 문구에서도 날짜를 뺀다: 코드에 박힌 날짜는 반드시 낡는다.
       enabled: false,
       style: 'dev',  // 'dev' | 'info' | 'warning' (changes the stripe color)
-      ko: '🚧 홈페이지를 정비하고 있습니다',
-      en: '🚧 This site is being updated',
+      ko: '홈페이지를 정비하고 있습니다',
+      en: 'This site is being updated',
     },
     // ─── Site-entry notice gate (blocking modal on every visit) ──────────
     // Full-screen disclaimer shown on every page load until the visitor

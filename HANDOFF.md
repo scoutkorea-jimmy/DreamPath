@@ -8,7 +8,7 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.03`
+- **버전**: `v01.101.05`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
 - **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
@@ -145,6 +145,23 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 봇 제외 · 오류 정리 · 이모지 제거 · 인사이트 콘솔 — v01.101.04·05
+
+운영자 지시 다섯 건을 한 라운드로. **"지난 100개 중 71개 오류"는 장애가 아니라
+집계의 결함이었다** — 최근 25건 중 22건이 bingbot 한 마리였고, 나머지는 이미
+고쳐진 옛 오류인데 아무도 해결 표시를 하지 않았다. 메일 수신 성공 로그(`info`)
+까지 오류로 세고 있었다.
+
+- `isBotUserAgent()` + 마이그레이션 0041(`analytics_events.is_bot`). 분석 읽기
+  10곳과 `/api/errors` POST 에서 봇·AI 에이전트 제외. **행은 지우지 않는다.**
+- 오류 71건을 원인별로 사유와 함께 `resolved` 처리. `/api/errors` GET 의
+  `level` 이 콤마 목록 지원 → 대시보드는 `error,warn`.
+- 이모지 전면 제거(UI·메일 기본값·라이브 KV). preflight 가 재발을 막는다 —
+  **성질로 판정**한다: `→` 332개 같은 흑백 기호는 이모지가 아니다.
+- 관리자 `<details>` 76개 상시 펼침 + 토글 무력화.
+- `POST /api/admin/insight` + 우측 하단 InsightConsole. **규칙 기반, LLM 없음**
+  (운영자 선택).
 
 ### 수신 발신자를 From 헤더에서 읽는다 — v01.101.03
 

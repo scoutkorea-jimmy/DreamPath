@@ -492,7 +492,7 @@ async function readContentFromKv(env) {
 // form in the SPA is not enough — the endpoints below are public (or
 // session-authed) and a replayed POST would sail straight through.
 //
-// ⚠️ Mirror of DEFAULT_CONTENT.apply_gate.closed in content-store.js. The
+// 주의 — Mirror of DEFAULT_CONTENT.apply_gate.closed in content-store.js. The
 // SPA merges its defaults over the KV blob; the worker reads the KV blob
 // raw. If these two disagree, the form and the API disagree — the visitor
 // fills in a page that the server then refuses. Move them together.
@@ -1845,7 +1845,7 @@ function seoOrganization(c, origin) {
   };
 }
 
-// 프로그램 → schema.org Course. ⚠️ 가격(offers)은 넣지 않는다: 현재 등록금이
+// 프로그램 → schema.org Course. 주의 — 가격(offers)은 넣지 않는다: 현재 등록금이
 // 임시값($500)이라 기계가 읽는 가격으로 퍼뜨리면 잘못된 정보가 된다.
 // 실제 금액이 확정되면 offers 를 추가할 것.
 function seoCourse(p, origin) {
@@ -2133,7 +2133,7 @@ async function sitemapXml(env, url) {
 // AEO: 답변 엔진 크롤러를 **명시적으로** 허용한다. `User-agent: *` 로도
 // 허용되지만, 명시 블록은 (1) 의도를 문서화하고 (2) 나중에 특정 크롤러만
 // 막고 싶을 때 손댈 자리를 만들어 준다.
-// ⚠️ 이건 사업 판단이다 — AI 답변에 인용되길 원하면 허용, 학습 이용을
+// 주의 — 이건 사업 판단이다 — AI 답변에 인용되길 원하면 허용, 학습 이용을
 // 원치 않으면 해당 UA 를 Disallow 로 바꾸면 된다.
 const AI_CRAWLERS = [
   'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',        // OpenAI
@@ -2203,7 +2203,10 @@ async function handleApi(request, env, url, ctx) {
   // we ever swap to HttpOnly cookies (P2-1) the check is already there.
   // Origin is preferred; Referer is a fallback (older clients). If the
   // browser sent neither, we allow (curl / server-to-server). If it sent
-  // one and it points off-site, we reject.
+  // one and it points off-site, we reject. NOTE: sameOriginOrEmpty() returns
+  // false when BOTH headers are absent — despite its name it does not allow the
+  // empty case, so plain curl gets 403 too. That is the stricter reading and we
+  // keep it; the comment used to claim the opposite (corrected 2026-08-27).
   if (path.startsWith('/api/admin/') && method !== 'GET') {
     if (!sameOriginOrEmpty(request, url)) {
       return json({ error: 'origin_blocked' }, 403);
@@ -4747,7 +4750,17 @@ async function handleApi(request, env, url, ctx) {
       const resolved = url.searchParams.get('resolved');  // '0' | '1' | '' (all)
       let sql = 'SELECT * FROM error_logs WHERE 1=1';
       const binds = [];
-      if (level)    { sql += ' AND level = ?';    binds.push(level); }
+      // v01.101.04: accepts a comma list. The dashboard asks for `error,warn`
+      // because `info` rows are not faults — the email worker writes a success
+      // line per delivered message, and counting those as errors is how the
+      // console came to show "71 errors" while nothing was wrong.
+      if (level) {
+        const wanted = level.split(',').map(v => v.trim()).filter(Boolean).slice(0, 5);
+        if (wanted.length) {
+          sql += ` AND level IN (${wanted.map(() => '?').join(',')})`;
+          binds.push(...wanted);
+        }
+      }
       if (source)   { sql += ' AND source = ?';   binds.push(source); }
       if (resolved === '0') sql += ' AND COALESCE(resolved, 0) = 0';
       if (resolved === '1') sql += ' AND COALESCE(resolved, 0) = 1';
@@ -4789,6 +4802,12 @@ async function handleApi(request, env, url, ctx) {
   // ── Analytics ────────────────────────────────────────────────────────────
   if (path === '/api/analytics' && method === 'POST') {
     return ingestEvents(request, env);
+  }
+  // v01.101.05 — 관리자 인사이트 콘솔(우측 하단). 규칙 기반이라 외부 API 도
+  // 비용도 없다. 운영자 선택(2026-08-27): LLM 을 붙이지 않는다.
+  if (path === '/api/admin/insight' && method === 'POST') {
+    if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
+    return adminInsight(request, env);
   }
   if (path === '/api/analytics/summary' && method === 'GET') {
     if (!(await isAdmin(request, env))) return json({ error: 'unauthorized' }, 401);
@@ -5892,7 +5911,7 @@ async function me(request, env) {
   // "지금 누구냐"를 묻는 조회다. 401 을 주면 **모든 방문자의 모든 페이지**에
   // 콘솔 빨간 오류가 하나씩 찍히고(실측: 전 라우트 14/14), 진짜 오류가
   // 그 노이즈에 묻힌다. 로그인 안 된 상태는 오류가 아니라 사실이다.
-  // ⚠️ 클라이언트(auth-store.fetchMe)는 200 + user:null 도 레거시 토큰
+  // 주의 — 클라이언트(auth-store.fetchMe)는 200 + user:null 도 레거시 토큰
   //    부트스트랩 경로로 넘어가도록 함께 고쳤다 — 배포 시차 대비.
   if (!user) return json({ user: null });
   return json({ user });
@@ -6145,6 +6164,11 @@ async function reportClientError(request, env) {
   if (!body) return json({ error: 'invalid_json' }, 400);
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = (request.headers.get('user-agent') || '').slice(0, 500);
+  // v01.101.04: a crawler that cannot run our bootstrap reports one failure per
+  // .jsx file — 22 rows from a single bingbot pass on 2026-08-21. That is not a
+  // fault to fix, and it drowned the real entries. Accept and discard, so the
+  // reporter on the other end sees a normal response either way.
+  if (isBotUserAgent(ua)) return json({ ok: true, ignored: 'bot' });
   const u = await currentUser(request, env);
   await logError(env, {
     level: body.level || 'error',
@@ -6327,12 +6351,15 @@ async function ingestEvents(request, env) {
     `INSERT INTO analytics_events
       (ts, day, session_id, user_id, type, view, path, target,
        referrer, source, utm_source, utm_medium, utm_campaign,
-       lang, country, device, ip, user_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       lang, country, device, ip, user_agent, is_bot)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
+  // One verdict per request — the user-agent cannot change between events in
+  // the same batch, and calling the regexes 50 times would be wasted work.
+  const botHit = isBotUserAgent(ua);
   const ops = [];
 
   for (const e of body.events.slice(0, 50)) { // hard cap per request
@@ -6347,7 +6374,7 @@ async function ingestEvents(request, env) {
       String(e.session_id || ''), user_id,
       String(e.type || 'event'), str(e.view), String(e.path || '/'), str(e.target),
       ev_referrer, source, str(e.utm_source), str(e.utm_medium), str(e.utm_campaign),
-      str(e.lang), country, device, ip, ua
+      str(e.lang), country, device, ip, ua, botHit ? 1 : 0
     ));
   }
   if (ops.length === 0) return json({ ok: true, inserted: 0 });
@@ -6379,6 +6406,26 @@ function classifySource(path, referrer, utm) {
     return 'external';
   }
 }
+// v01.101.04: crawlers and AI agents were counted as visitors, and — worse —
+// their failures filled the error log: 22 of the 25 most recent errors were a
+// single bingbot pass that cannot execute our Babel-in-browser bootstrap.
+// Neither number says anything about people, so analytics flags them and the
+// client error reporter drops them.
+//
+// Two patterns, not one. Generic crawlers announce themselves with a word like
+// "bot" or "spider". The AI fetchers that act on a person's behalf often do
+// NOT — ChatGPT-User and Claude-User are the ones the operator named — so they
+// are listed by name. Matching is on the property (how the agent identifies
+// itself), never on a single reported user-agent string.
+const BOT_UA_RE = /(bot\b|bot\/|crawler|crawl\b|spider|scraper|slurp|feedfetcher|headless|phantomjs|puppeteer|playwright|lighthouse|curl\/|wget|python-requests|node-fetch|axios\/|go-http-client|okhttp|libwww|httpclient|apache-httpclient)/i;
+const AI_AGENT_UA_RE = /(gptbot|chatgpt|oai-searchbot|openai|claude|anthropic|perplexity|grok|x-ai|xai-|google-extended|bytespider|ccbot|amazonbot|applebot|cohere|diffbot|meta-externalagent|youbot|timpibot|omgili)/i;
+function isBotUserAgent(ua) {
+  const s = String(ua || '').trim();
+  // No user-agent at all is never a real browser. Every engine sends one.
+  if (!s) return true;
+  return BOT_UA_RE.test(s) || AI_AGENT_UA_RE.test(s);
+}
+
 function classifyDevice(ua) {
   const u = (ua || '').toLowerCase();
   if (/iphone|android.*mobile|windows phone/.test(u)) return 'mobile';
@@ -6386,6 +6433,9 @@ function classifyDevice(ua) {
   return 'desktop';
 }
 
+// v01.101.04: every read below filters is_bot = 0. Crawler and AI-agent hits
+// are kept in the table (knowing the crawl volume is useful) but they are not
+// visitors, so they never reach a number the operator reads.
 async function analyticsSummary(env, url) {
   // Range: ?days=N (default 30)
   const days = Math.min(parseInt(url.searchParams.get('days') || '30', 10) || 30, 365);
@@ -6397,7 +6447,7 @@ async function analyticsSummary(env, url) {
        COUNT(*) FILTER (WHERE type='pageview') AS pageviews,
        COUNT(DISTINCT session_id) AS sessions,
        COUNT(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL) AS users
-     FROM analytics_events WHERE day >= ?`
+     FROM analytics_events WHERE is_bot = 0 AND day >= ?`
   ).bind(since).first();
 
   // Daily series (pageviews + sessions)
@@ -6406,7 +6456,7 @@ async function analyticsSummary(env, url) {
        COUNT(*) FILTER (WHERE type='pageview') AS pageviews,
        COUNT(DISTINCT session_id) AS sessions
      FROM analytics_events
-     WHERE day >= ?
+     WHERE is_bot = 0 AND day >= ?
      GROUP BY day ORDER BY day ASC`
   ).bind(since).all();
 
@@ -6414,7 +6464,7 @@ async function analyticsSummary(env, url) {
   const { results: top_paths } = await env.DB.prepare(
     `SELECT path, COUNT(*) AS hits, COUNT(DISTINCT session_id) AS sessions
      FROM analytics_events
-     WHERE day >= ? AND type='pageview'
+     WHERE is_bot = 0 AND day >= ? AND type='pageview'
      GROUP BY path ORDER BY hits DESC LIMIT 25`
   ).bind(since).all();
 
@@ -6422,7 +6472,7 @@ async function analyticsSummary(env, url) {
   const { results: sources } = await env.DB.prepare(
     `SELECT COALESCE(source,'direct') AS source, COUNT(*) AS hits, COUNT(DISTINCT session_id) AS sessions
      FROM analytics_events
-     WHERE day >= ? AND type='pageview'
+     WHERE is_bot = 0 AND day >= ? AND type='pageview'
      GROUP BY source ORDER BY hits DESC`
   ).bind(since).all();
 
@@ -6430,21 +6480,21 @@ async function analyticsSummary(env, url) {
   const { results: referrers } = await env.DB.prepare(
     `SELECT referrer, COUNT(*) AS hits
      FROM analytics_events
-     WHERE day >= ? AND type='pageview' AND referrer != '' AND source != 'internal'
+     WHERE is_bot = 0 AND day >= ? AND type='pageview' AND referrer != '' AND source != 'internal'
      GROUP BY referrer ORDER BY hits DESC LIMIT 20`
   ).bind(since).all();
 
   // Devices
   const { results: devices } = await env.DB.prepare(
     `SELECT device, COUNT(*) AS hits FROM analytics_events
-     WHERE day >= ? AND type='pageview'
+     WHERE is_bot = 0 AND day >= ? AND type='pageview'
      GROUP BY device ORDER BY hits DESC`
   ).bind(since).all();
 
   // Top click targets
   const { results: clicks } = await env.DB.prepare(
     `SELECT target, COUNT(*) AS hits FROM analytics_events
-     WHERE day >= ? AND type='click' AND target != ''
+     WHERE is_bot = 0 AND day >= ? AND type='click' AND target != ''
      GROUP BY target ORDER BY hits DESC LIMIT 25`
   ).bind(since).all();
 
@@ -6467,6 +6517,7 @@ async function analyticsJourneys(env, url) {
     `SELECT session_id, MIN(ts) AS started, MAX(ts) AS ended,
             COUNT(*) AS events, COUNT(DISTINCT path) AS pages
      FROM analytics_events
+     WHERE is_bot = 0
      GROUP BY session_id ORDER BY started DESC LIMIT ?`
   ).bind(limit).all();
 
@@ -6475,11 +6526,237 @@ async function analyticsJourneys(env, url) {
     const { results: trail } = await env.DB.prepare(
       `SELECT ts, type, path, target, source, country, device, lang
        FROM analytics_events
-       WHERE session_id = ? ORDER BY ts ASC LIMIT 50`
+       WHERE session_id = ? AND is_bot = 0 ORDER BY ts ASC LIMIT 50`
     ).bind(s.session_id).all();
     journeys.push({ ...s, trail: trail || [] });
   }
   return json({ items: journeys });
+}
+
+// ── Admin insight console (v01.101.05) ─────────────────────────────────────
+// A rule-based answerer for the panel in the admin's bottom-right corner.
+//
+// Why no LLM (operator's call, 2026-08-27): the questions an operator actually
+// asks a console like this are a small, closed set — how many, how recent,
+// what is unanswered. Those map to SQL exactly, and an exact number beats a
+// fluent guess. It also means no API key, no per-call cost, and no third party
+// seeing applicant data.
+//
+// How an intent is chosen: each one carries the words that identify it in
+// Korean and English. The intent with the most matched words wins; a tie goes
+// to the one declared first. Every answer states the number AND where it came
+// from, so the operator can verify it in the tab next to the panel.
+const INSIGHT_INTENTS = [
+  {
+    id: 'applications',
+    words: ['지원', '지원자', '신청', '접수', 'application', 'applicant', 'apply'],
+    async run(env, w) {
+      const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM applications').first();
+      const period = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM applications WHERE submitted_at >= ?').bind(w.since).first();
+      const { results: byStatus } = await env.DB.prepare(
+        `SELECT status, COUNT(*) AS n FROM applications GROUP BY status ORDER BY n DESC`).all();
+      const breakdown = (byStatus || []).map(r => `${r.status || '(없음)'} ${r.n}`).join(' · ');
+      return {
+        headline: `${w.label} 지원 ${period.n}건 · 전체 ${total.n}건`,
+        detail: breakdown ? `상태별 — ${breakdown}` : '아직 지원이 없습니다.',
+        source: '학생 지원 → 지원 목록',
+      };
+    },
+  },
+  {
+    id: 'inquiries',
+    words: ['문의', '답변', '미답변', 'inquiry', 'inquiries', 'question', 'unanswered'],
+    async run(env, w) {
+      const open = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM inquiries WHERE COALESCE(status,'new') IN ('new','open')`).first();
+      const period = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ?').bind(w.since).first();
+      const oldest = await env.DB.prepare(
+        `SELECT created_at FROM inquiries WHERE COALESCE(status,'new') IN ('new','open')
+         ORDER BY created_at ASC LIMIT 1`).first();
+      let detail = '미처리 문의가 없습니다.';
+      if (open.n > 0) {
+        const days = oldest ? Math.floor((Date.now() - Date.parse(oldest.created_at)) / 86400000) : null;
+        detail = days != null
+          ? `가장 오래 기다린 문의가 ${days}일 됐습니다.`
+          : '가장 오래된 문의의 접수 시각을 읽지 못했습니다.';
+      }
+      return {
+        headline: `미처리 문의 ${open.n}건 · ${w.label} 접수 ${period.n}건`,
+        detail, source: '학생 지원 → 문의함',
+      };
+    },
+  },
+  {
+    id: 'members',
+    words: ['회원', '가입', '유저', '사용자', 'member', 'user', 'signup', 'signed up'],
+    async run(env, w) {
+      const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM users').first();
+      const period = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM users WHERE created_at >= ?').bind(w.since).first();
+      const { results: roles } = await env.DB.prepare(
+        `SELECT COALESCE(role,'member') AS role, COUNT(*) AS n FROM users GROUP BY role ORDER BY n DESC`).all();
+      return {
+        headline: `회원 ${total.n}명 · ${w.label} 신규 ${period.n}명`,
+        detail: (roles || []).map(r => `${r.role} ${r.n}`).join(' · '),
+        source: '회원 정보 → 회원 목록',
+      };
+    },
+  },
+  {
+    id: 'mail',
+    words: ['메일', '편지', '안읽', '안 읽', 'mail', 'inbox', 'unread', 'email'],
+    async run(env, w) {
+      const unread = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM inbound_emails WHERE read_at IS NULL AND trashed_at IS NULL AND spam = 0').first();
+      const period = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM inbound_emails WHERE ts >= ?').bind(w.since).first();
+      const sent = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM outbound_emails WHERE ts >= ?').bind(w.since).first();
+      return {
+        headline: `안 읽은 메일 ${unread.n}통 · ${w.label} 수신 ${period.n}통 / 발신 ${sent.n}통`,
+        detail: unread.n === 0 ? '받은편지함을 모두 확인했습니다.' : '메일함 탭에서 확인할 수 있습니다.',
+        source: '메일함',
+      };
+    },
+  },
+  {
+    id: 'errors',
+    words: ['오류', '에러', '장애', '버그', 'error', 'bug', 'failure', 'broken'],
+    async run(env, w) {
+      const open = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM error_logs WHERE COALESCE(resolved,0) = 0 AND level IN ('error','warn')`).first();
+      const period = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM error_logs WHERE ts >= ? AND level IN ('error','warn')`).bind(w.since).first();
+      const { results: top } = await env.DB.prepare(
+        `SELECT substr(message,1,60) AS m, COUNT(*) AS n FROM error_logs
+         WHERE COALESCE(resolved,0) = 0 AND level IN ('error','warn')
+         GROUP BY substr(message,1,60) ORDER BY n DESC LIMIT 3`).all();
+      return {
+        headline: `미해결 오류 ${open.n}건 · ${w.label} 발생 ${period.n}건`,
+        detail: (top || []).length
+          ? (top || []).map(r => `${r.n}× ${r.m}`).join('\n')
+          : '미해결 오류가 없습니다. (info 로그는 오류가 아니라 세지 않습니다)',
+        source: '시스템 → 오류 로그',
+      };
+    },
+  },
+  {
+    id: 'traffic',
+    words: ['방문', '트래픽', '세션', '조회', '접속', 'visit', 'traffic', 'session', 'pageview'],
+    async run(env, w) {
+      const t = await env.DB.prepare(
+        `SELECT COUNT(*) FILTER (WHERE type='pageview') AS pv,
+                COUNT(DISTINCT session_id) AS ses
+         FROM analytics_events WHERE is_bot = 0 AND day >= ?`).bind(w.sinceDay).first();
+      const bots = await env.DB.prepare(
+        'SELECT COUNT(*) AS n FROM analytics_events WHERE is_bot = 1 AND day >= ?').bind(w.sinceDay).first();
+      const { results: paths } = await env.DB.prepare(
+        `SELECT path, COUNT(*) AS n FROM analytics_events
+         WHERE is_bot = 0 AND day >= ? AND type='pageview'
+         GROUP BY path ORDER BY n DESC LIMIT 3`).all();
+      return {
+        headline: `${w.label} 방문 ${t.ses}세션 · ${t.pv}페이지뷰`,
+        detail: [
+          (paths || []).length ? '많이 본 페이지 — ' + (paths || []).map(r => `${r.path} ${r.n}`).join(' · ') : null,
+          `봇·AI 에이전트 ${bots.n}건은 위 숫자에서 빠져 있습니다.`,
+        ].filter(Boolean).join('\n'),
+        source: '대시보드 → 방문 분석',
+      };
+    },
+  },
+  {
+    id: 'sources',
+    words: ['경로', '유입', '어디서', '레퍼러', '유입경로', '채널', 'source', 'referrer', 'channel'],
+    async run(env, w) {
+      const { results: src } = await env.DB.prepare(
+        `SELECT COALESCE(source,'direct') AS source, COUNT(DISTINCT session_id) AS n
+         FROM analytics_events WHERE is_bot = 0 AND day >= ? AND type='pageview'
+         GROUP BY source ORDER BY n DESC`).bind(w.sinceDay).all();
+      return {
+        headline: `${w.label} 유입 경로`,
+        detail: (src || []).length
+          ? (src || []).map(r => `${r.source} ${r.n}세션`).join(' · ')
+          : '기록된 방문이 없습니다.',
+        source: '대시보드 → 방문 분석',
+      };
+    },
+  },
+];
+
+// "이번 달" / "지난 7일" / "오늘" — the window the question asks about.
+// Default is 30 days because that is what the dashboard shows; saying so in
+// the answer keeps the operator from comparing two different windows.
+function insightWindow(q) {
+  const t = q.toLowerCase();
+  const now = Date.now();
+  const mk = (days, label) => ({
+    days, label,
+    since: new Date(now - days * 86400000).toISOString(),
+    sinceDay: new Date(now - days * 86400000).toISOString().slice(0, 10),
+  });
+  if (/오늘|today/.test(t)) return mk(1, '오늘');
+  if (/어제|yesterday/.test(t)) return mk(2, '어제부터');
+  if (/이번\s*주|이번주|주간|7일|this week|last 7/.test(t)) return mk(7, '최근 7일');
+  if (/이번\s*달|이번달|한\s*달|30일|this month|last 30/.test(t)) return mk(30, '최근 30일');
+  if (/올해|1년|365|this year/.test(t)) return mk(365, '최근 1년');
+  if (/전체|누적|all time|total/.test(t)) return mk(36500, '전체 기간');
+  return mk(30, '최근 30일');
+}
+
+const INSIGHT_HELP = {
+  headline: '무엇을 물어볼 수 있나요',
+  detail: [
+    '· 지원자 — "이번 달 지원 몇 건?"',
+    '· 문의 — "미답변 문의 있어?"',
+    '· 회원 — "이번 주 가입한 사람"',
+    '· 메일 — "안 읽은 메일"',
+    '· 오류 — "미해결 오류"',
+    '· 방문 — "최근 7일 방문", "유입 경로"',
+    '',
+    '기간을 붙이면 그 기간으로 답합니다 — 오늘 / 이번 주 / 이번 달 / 올해 / 전체.',
+  ].join('\n'),
+  source: null,
+};
+
+async function adminInsight(request, env) {
+  const body = await request.json().catch(() => null);
+  const q = String((body && body.q) || '').trim().slice(0, 300);
+  if (!q) return json({ ok: true, ...INSIGHT_HELP, intent: 'help' });
+
+  const lower = q.toLowerCase();
+  // Score by how many of an intent's words appear. Ties keep declaration
+  // order, which puts the operator's daily concerns (applications, inquiries)
+  // ahead of the analytical ones.
+  let best = null, bestScore = 0;
+  for (const intent of INSIGHT_INTENTS) {
+    const score = intent.words.reduce((n, wd) => n + (lower.includes(wd.toLowerCase()) ? 1 : 0), 0);
+    if (score > bestScore) { best = intent; bestScore = score; }
+  }
+  if (!best) {
+    return json({
+      ok: true, intent: 'unknown',
+      headline: '무슨 값을 찾는지 모르겠습니다.',
+      detail: INSIGHT_HELP.detail,
+      source: null,
+    });
+  }
+
+  const w = insightWindow(q);
+  try {
+    const out = await best.run(env, w);
+    return json({ ok: true, intent: best.id, window: { days: w.days, label: w.label }, ...out });
+  } catch (e) {
+    // Say what failed. A console that answers "0" when the query blew up is
+    // worse than one that admits it could not read.
+    return json({
+      ok: false, intent: best.id,
+      headline: '조회에 실패했습니다.',
+      detail: String(e && e.message || e).slice(0, 200),
+      source: null,
+    }, 500);
+  }
 }
 
 // ── Inquiries (public submission) ──────────────────────────────────────────

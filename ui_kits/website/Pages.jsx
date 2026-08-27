@@ -155,7 +155,7 @@ function StoryDetail({ go, lang, c, storyId }) {
               ← {isKo ? '전체 후기로' : 'All stories'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => { try { navigator.clipboard.writeText(window.location.href); } catch {} }}>
-              🔗 {isKo ? '링크 복사' : 'Copy link'}
+              {isKo ? '링크 복사' : 'Copy link'}
             </button>
           </div>
         </div>
@@ -330,7 +330,7 @@ function NewsDetail({ go, lang, c, newsId }) {
               ← {isKo ? '전체 소식으로' : 'All news'}
             </button>
             <button type="button" className="btn btn-ghost" onClick={() => { try { navigator.clipboard.writeText(window.location.href); } catch {} }}>
-              🔗 {isKo ? '링크 복사' : 'Copy link'}
+              {isKo ? '링크 복사' : 'Copy link'}
             </button>
           </div>
         </div>

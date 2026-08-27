@@ -60,6 +60,17 @@
       font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
       color: #FFC93E; letter-spacing: 0.04em;
     }
+    /* v01.101.04 — 접고 펼치는 개념을 없앴다(운영자 지시 2026-08-27).
+       카드는 전부 열린 채로 시작하고 닫히지 않는다. <summary> 는 제목으로만
+       남으므로 화살표와 손가락 커서를 거둔다. 토글 차단은 아래 스크립트에서. */
+    .admin-fold > summary .fold-chevron,
+    .hero-bg-card > summary .fold-chevron { display: none; }
+    .admin-fold > summary,
+    .hero-bg-card > summary,
+    .team-admin-member > summary { cursor: default; }
+    .admin-fold > summary:hover,
+    .hero-bg-card > summary:hover { opacity: 1; }
+
     /* Sidebar groups (accordion: active group always open; others toggle via
        the caret on the right of each row). */
     .side nav.groups { display: flex; flex-direction: column; gap: 2px; }
@@ -706,7 +717,7 @@
         )}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           <label htmlFor={inputId} className="icon-btn" style={{cursor:'pointer'}}>
-            {busy ? '업로드 중…' : (value ? '🔁 다른 파일 선택' : '📁 파일 업로드')}
+            {busy ? '업로드 중…' : (value ? '다른 파일 선택' : '파일 업로드')}
             <input id={inputId} type="file" accept={accept} style={{display:'none'}}
               onChange={e => { readFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
           </label>
@@ -780,7 +791,7 @@
     const sliderStyle = { width: '100%' };
     const enabled = !!(node.bg_image || node.bg_color);
     return (
-      <details className="card hero-bg-card">
+      <details className="card hero-bg-card" open>
         <summary>
           <span className="hero-bg-chevron" aria-hidden="true">▶</span>
           <h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>{title || '히어로 배경'}</h3>
@@ -852,7 +863,7 @@
     const setF = (k, v) => set(['page_heros', pageKey, 'en', k], v);
     return (
       <>
-        <details className="card admin-fold">
+        <details className="card admin-fold" open>
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>{label || '히어로 (헤더)'}</h3></summary>
           <div style={{marginTop:12}}>
             <Text label="Kicker" value={g('kicker')} onChange={v => setF('kicker', v)} lang="en" />
@@ -1296,7 +1307,7 @@
     const b = c.brand, n = c.nav;
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Brand</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Brand</h3></summary>
           <div className="grid-2">
             <Text label="Brand name (EN)" value={b.name_en} onChange={v => set(['brand','name_en'], v)} lang="en" />
           </div>
@@ -1315,7 +1326,7 @@
             <Text label="Partners email" value={b.partners_email} onChange={v => set(['brand','partners_email'], v)} />
           </div>
         </details>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Navigation labels</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Navigation labels</h3></summary>
           <p className="desc">Labels for the top navigation. Most are shared across languages; the Apply CTA differs.</p>
           <div className="grid-2">
             {['programs','about','partners','stories','news','apply'].map(k => (
@@ -1333,7 +1344,7 @@
     const en = c.hero.en;
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero copy</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero copy</h3></summary>
           <Text label="Kicker" value={en.kicker} onChange={v => set(['hero','en','kicker'], v)} lang="en" />
           <div className="grid-2 tight">
             <Text label="Title line 1" value={en.title_l1} onChange={v => set(['hero','en','title_l1'], v)} lang="en" />
@@ -1346,7 +1357,7 @@
           </div>
         </details>
         <HeroBgFields title="홈 히어로 배경" path={['hero']} node={c.hero} set={set} />
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero accent dots</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero accent dots</h3></summary>
           <p className="desc">The four color dots floating in the hero. Edit color and accessibility label.</p>
           {c.hero.dots.map((d, i) => (
             <div className="rep-item" key={i}>
@@ -1390,13 +1401,13 @@
   function HowTab({ c, set, addItem, removeItem }) {
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Section heading</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Section heading</h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker" value={c.how.en.kicker} onChange={v => set(['how','en','kicker'], v)} lang="en" />
             <Text label="Title" value={c.how.en.title} onChange={v => set(['how','en','title'], v)} lang="en" />
           </div>
         </details>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Steps</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Steps</h3></summary>
           {c.how.steps.map((s, i) => (
             <div className="rep-item" key={i}>
               <div className="rep-head">
@@ -1554,7 +1565,7 @@
             <Area label="안내 본문 (EN)" value={pg.body_en} onChange={v => set(['programs_gate','body_en'], v)} rows={3} lang="en" />
           </div>
         </details>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Programs section heading <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(home page teaser)</span></h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker" value={c.programs_section.en.kicker} onChange={v => set(['programs_section','en','kicker'], v)} lang="en" />
             <Text label="Title" value={c.programs_section.en.title} onChange={v => set(['programs_section','en','title'], v)} lang="en" />
@@ -1746,7 +1757,7 @@
           <button type="button" className="icon-btn danger" onClick={onDelete}>Delete program</button>
         </div>
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Card / list info <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(auto-saved to KV)</span></h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Card / list info <span style={{fontSize:12,color:'var(--fg-muted)',marginLeft:8,fontWeight:400}}>(auto-saved to KV)</span></h3></summary>
           <div className="grid-2 tight">
             <Text label="ID" value={program.id} onChange={v => set(['programs',index,'id'], v)} hint="URL-friendly. Used in /program/:id" />
             <Text label="Kicker" value={program.kicker} onChange={v => set(['programs',index,'kicker'], v)} />
@@ -1770,7 +1781,7 @@
           <div className="card" style={{padding:40,textAlign:'center',color:'var(--fg-muted)'}}>Loading details…</div>
         ) : (
           <>
-            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Logistics</h3></summary>
+            <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Logistics</h3></summary>
               <div className="grid-2 tight">
                 <Text label="Duration" value={details?.duration || ''} onChange={v => updDetail('duration', v)} hint="예: 12 weeks · 1 year" />
                 <Text label="Format" value={details?.format || ''} onChange={v => updDetail('format', v)} hint="online · hybrid · onsite" />
@@ -1783,7 +1794,7 @@
               </div>
             </details>
 
-            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Instructor</h3></summary>
+            <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Instructor</h3></summary>
               <div className="grid-2 tight">
                 <Text label="Name" value={details?.instructor_name || ''} onChange={v => updDetail('instructor_name', v)} />
                 <Text label="Title" value={details?.instructor_title || ''} onChange={v => updDetail('instructor_title', v)} hint="e.g. Professor of Korean Studies" />
@@ -1838,7 +1849,7 @@
               ))}
             </div>
 
-            <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Long-form content</h3></summary>
+            <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Long-form content</h3></summary>
               <p className="desc" style={{marginBottom:14}}>
                 Each section is a rich-text body. Use it to write the full program description. These are stored in D1, separate from the lightweight card data above.
               </p>
@@ -1878,9 +1889,9 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="partners" label="파트너 페이지 히어로 (헤더)" />
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Partners <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{partners.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Partners <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{partners.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
           {partners.map((p, i) => (
-            <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+            <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}} open>
               <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
                 <span className="tm-chevron" aria-hidden="true">▶</span>
                 <strong style={{fontSize:14,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name || `Partner ${i+1}`}</strong>
@@ -1910,7 +1921,7 @@
           ))}
           <button className="btn-add" onClick={() => addItem(['partners'], { name: 'NEW', full: 'New partner', url: '', role_en: 'Role', color: '#6B2DBE', logo: '' })}>+ Add partner</button>
         </details>
-        <details className="card admin-fold">
+        <details className="card admin-fold" open>
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>파트너 CTA (Contact 페이지 하단 배너)</h3></summary>
           <div style={{marginTop:12}}>
             <div className="grid-2 tight">
@@ -1938,12 +1949,12 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="stories" label="스토리 페이지 히어로 (헤더)" />
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>스토리 <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>추천자(리더) + 학습자 후기 · {stories.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>스토리 <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>추천자(리더) + 학습자 후기 · {stories.length}개 · 이름을 눌러 펼치기/접기</span></h3></summary>
         {stories.map((s, i) => {
           const sName = s.name || `Story ${i + 1}`;
           const isLeader = s.kind === 'leader';
           return (
-          <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+          <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}} open>
             <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
               <span className="tm-chevron" aria-hidden="true">▶</span>
               <span className="pill" style={{flex:'0 0 auto',background:isLeader?'var(--sunshine-yellow)':'var(--bg-muted)',color:isLeader?'var(--midnight-purple)':'var(--fg-secondary)',fontSize:11}}>{isLeader?'추천자':'학습자'}</span>
@@ -1989,7 +2000,7 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="news" label="소식 페이지 히어로 (헤더)" />
-        <details className="card admin-fold">
+        <details className="card admin-fold" open>
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>뉴스 글 관리</h3></summary>
           <div style={{marginTop:12}}>
             <p style={{margin:'0 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
@@ -2007,7 +2018,7 @@
 
   function CtaTab({ c, set }) {
     return (
-      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>CTA banner (homepage)</h3></summary>
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>CTA banner (homepage)</h3></summary>
         <div className="grid-2 tight">
           <Text label="Title" value={c.cta_banner.en.title} onChange={v => set(['cta_banner','en','title'], v)} lang="en" />
           <Text label="Subtitle" value={c.cta_banner.en.sub} onChange={v => set(['cta_banner','en','sub'], v)} lang="en" />
@@ -2098,12 +2109,12 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="contact" label="문의·FAQ 페이지 히어로 (헤더)" />
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>FAQ <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{faq.length}문항 · 질문을 눌러 펼치기/접기</span></h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>FAQ <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,marginLeft:8}}>{faq.length}문항 · 질문을 눌러 펼치기/접기</span></h3></summary>
           {groups.map((g, gi) => (
             <div key={gi} style={{marginTop:14}}>
               <div style={{fontSize:12,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--brand-text)',fontWeight:700,margin:'8px 0 6px'}}>{g.title} · {g.items.length}</div>
               {g.items.map(({ f, i }) => (
-                <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:8,border:'1px solid var(--border-subtle)'}}>
+                <details key={i} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:8,border:'1px solid var(--border-subtle)'}} open>
                   <summary style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
                     <span className="tm-chevron" aria-hidden="true">▶</span>
                     <strong style={{fontSize:13,color:'var(--fg-primary)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{f.q_en || f.q_ko || ('Q' + (i+1))}</strong>
@@ -2144,7 +2155,7 @@
       set(['essay_questions', i, 'max_chars'], n);
     }
     return (
-      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Apply essays · 지원 에세이 문항</h3></summary>
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Apply essays · 지원 에세이 문항</h3></summary>
         <p className="desc" style={{marginTop:0}}>
           Each entry adds one essay slot to the public Apply form (Step 4 — Essays). Reorder, edit, or remove freely. Length limits are enforced by the textarea (input is blocked past Max).
         </p>
@@ -2222,7 +2233,7 @@
           </p>
         </div>
         {codes.map(code => (
-          <details className="card admin-fold" key={code}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{display:'flex',alignItems:'center',gap:10}}>
+          <details className="card admin-fold" key={code} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{display:'flex',alignItems:'center',gap:10}}>
               <span>{titles[code]}</span>
               <a className="icon-btn" href={code === 'offline' ? '/offline' : '/' + code} target="_blank" rel="noopener" style={{marginLeft:'auto'}}>Preview ↗</a>
             </h3></summary>
@@ -2526,7 +2537,7 @@
         </div>
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           {items.length === 0 ? (
-            <div style={{padding:'60px 20px',textAlign:'center',color:'var(--fg-muted)'}}>No error logs yet 🎉</div>
+            <div style={{padding:'60px 20px',textAlign:'center',color:'var(--fg-muted)'}}>미해결 오류가 없습니다.</div>
           ) : (
             <table className="apps-table">
               <thead><tr><th>Time</th><th>Level</th><th>Source</th><th>Message</th><th>Path</th><th>Status</th><th style={{width:140,textAlign:'right'}}>State</th></tr></thead>
@@ -2573,7 +2584,7 @@
               <div className="app-modal-body">
                 <div style={{padding:'10px 14px',borderRadius:10,marginBottom:14,background:selected.resolved?'var(--state-success-bg)':'var(--state-warning-bg)',color:selected.resolved?'var(--state-success)':'var(--state-warning)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
                   <div>
-                    <strong>{selected.resolved ? '✓ 해결 완료' : '⚠ 미해결'}</strong>
+                    <strong>{selected.resolved ? '해결 완료' : '미해결'}</strong>
                     {selected.resolved && selected.resolved_at && (
                       <span style={{marginLeft:10,fontSize:12,opacity:0.8}}>{new Date(selected.resolved_at).toLocaleString()}</span>
                     )}
@@ -3038,7 +3049,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Roles & permissions</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Roles & permissions</h3></summary>
           <p className="desc">
             Define which pages each member role can access and what they can do on each page.
             <strong> Note:</strong> the public site does not yet enforce these rules — this tab persists the policy
@@ -3854,7 +3865,7 @@
               <button type="button" className="icon-btn danger" onClick={emptyTrash}>휴지통 비우기</button>
             )}
             {view !== 'compose' && (
-              <button type="button" className="btn-add" onClick={startCompose}>✉️ 새 메일</button>
+              <button type="button" className="btn-add" onClick={startCompose}>새 메일</button>
             )}
           </div>
         </div>
@@ -4012,7 +4023,7 @@
             </div>
             {draftErr && (
               <div role="alert" style={{marginBottom:12,padding:'8px 12px',background:'var(--state-warning-bg)',color:'var(--state-warning)',borderRadius:8,fontSize:12}}>
-                ⚠ {draftErr}
+                {draftErr}
               </div>
             )}
             {composeReplyTo && (
@@ -4062,7 +4073,7 @@
                   </span>
                 </div>
                 <label className="icon-btn" style={{cursor:'pointer'}}>
-                  📎 파일 추가
+                  파일 추가
                   <input type="file" multiple onChange={pickFiles} style={{display:'none'}} />
                 </label>
               </div>
@@ -4085,7 +4096,7 @@
               )}
               {composeTotal > RESEND_MAX_TOTAL && (
                 <div role="alert" style={{marginTop:8,padding:'8px 12px',background:'var(--state-warning-bg)',color:'var(--state-warning)',borderRadius:6,fontSize:12}}>
-                  ⚠ Resend 발송 한도(40MB)를 초과합니다. 일부 파일을 제거하세요.
+                  Resend 발송 한도(40MB)를 초과합니다. 일부 파일을 제거하세요.
                 </div>
               )}
             </div>
@@ -4100,7 +4111,7 @@
             <div style={{marginTop:18,display:'flex',justifyContent:'flex-end',gap:8}}>
               <button type="button" className="icon-btn" onClick={() => { saveDraftNow(); setView('inbox'); }}>닫기 (임시저장)</button>
               <button type="button" className="btn-add" onClick={sendNow} disabled={sending || composeTotal > RESEND_MAX_TOTAL}>
-                {sending ? '발송 중…' : '📨 발송'}
+                {sending ? '발송 중…' : '발송'}
               </button>
             </div>
           </details>
@@ -4177,7 +4188,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내부 알림 보내기</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내부 알림 보내기</h3></summary>
           <p className="desc">
             선택한 회원의 마이페이지에만 표시되는 내부 메시지입니다 (외부로 발송되지 않음).
             외부 이메일이 필요하면 메일함 → 새 메일을 사용하세요.
@@ -4252,7 +4263,7 @@
 
           {/* Composer (right) — 한 줄당 한 필드, 두 컬럼은 picker 섹션과의
               관계로만 형성. KO/EN은 라벨로 구분. */}
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내용 작성</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>내용 작성</h3></summary>
             <Text label="발신자 라벨" value={sender} onChange={setSender} hint="자유 입력. 알림 받는 사람에게 표시됩니다." />
             <Text label="제목" value={subjectEn} onChange={setSubjectEn} lang="en" />
             <Area label="본문" value={bodyEn} onChange={setBodyEn} lang="en" rows={8} />
@@ -4265,7 +4276,7 @@
             )}
             <div style={{marginTop:14,display:'flex',justifyContent:'flex-end',gap:8}}>
               <button type="button" className="btn-add" onClick={send} disabled={busy || (!picked.size && !pickedGroups.size)}>
-                {busy ? '발송 중…' : `📨 발송하기${picked.size || pickedGroups.size ? ` (${picked.size}명${pickedGroups.size ? ' + ' + pickedGroups.size + '그룹' : ''})` : ''}`}
+                {busy ? '발송 중…' : `발송하기${picked.size || pickedGroups.size ? ` (${picked.size}명${pickedGroups.size ? ' + ' + pickedGroups.size + '그룹' : ''})` : ''}`}
               </button>
             </div>
           </details>
@@ -4313,7 +4324,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>발송 기록</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>발송 기록</h3></summary>
           <p className="desc">
             지금까지 보낸 내부 알림 캠페인입니다. 각 행은 한 번의 "알림 보내기" 액션이며, 수신자별 읽음 상태도 확인할 수 있습니다.
           </p>
@@ -4338,8 +4349,8 @@
                         <span style={{fontSize:11,color:'var(--fg-muted)',whiteSpace:'nowrap',fontFamily:'var(--font-mono)'}}>{new Date(c.ts).toLocaleString()}</span>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:10,fontSize:12,color:'var(--fg-secondary)'}}>
-                        <span>👤 {c.sender}</span>
-                        <span>📬 {c.recipient_count}명</span>
+                        <span>{c.sender}</span>
+                        <span>{c.recipient_count}명</span>
                         <span style={{display:'inline-flex',alignItems:'center',gap:4}}>
                           <span style={{width:60,height:5,borderRadius:3,background:'var(--bg-muted)',overflow:'hidden',display:'inline-block'}}>
                             <span style={{display:'block',height:'100%',width: readPct + '%',background:'var(--state-success)'}} />
@@ -4492,7 +4503,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>회원 그룹</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>회원 그룹</h3></summary>
           <p className="desc">
             회원을 그룹으로 묶어 알림 보내기에서 한 번에 선택할 수 있습니다. 그룹을 삭제해도 회원 자체는 유지됩니다.
           </p>
@@ -4610,7 +4621,7 @@
     }
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>문의 유형 · Inquiry categories</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>문의 유형 · Inquiry categories</h3></summary>
           <p className="desc">
             공개 사이트 Contact 폼의 \"문의 유형\" 드롭다운 항목입니다. <code>value</code>는 DB에 저장되는 슬러그
             (영문/숫자/언더스코어), 라벨은 KO/EN 양쪽을 채워주세요.
@@ -4835,7 +4846,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 4px'}}>API directory</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 4px'}}>API directory</h3></summary>
           <p className="desc">Worker가 노출하는 모든 HTTP 엔드포인트. <code>/api/public/*</code>는 외부 통합용 CORS 허용. 그 외는 세션 토큰 또는 관리자 Bearer 필요.</p>
           <p className="desc" style={{marginTop:8}}>Base URL: <code>https://koreadreampath.com</code></p>
         </details>
@@ -4859,7 +4870,7 @@
             </tbody>
           </table>
         </div>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>외부 통합 예시</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>외부 통합 예시</h3></summary>
           <pre style={{background:'#1F1B2E',color:'#E0DDFF',padding:14,borderRadius:8,fontSize:12,fontFamily:'var(--font-mono)',overflowX:'auto'}}>{`curl https://koreadreampath.com/api/public/programs
 # → { "items": [{ id, title_ko, title_en, kicker, ... }, ...] }`}</pre>
         </details>
@@ -4903,14 +4914,14 @@
 
     return (
       <>
-        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>Resend integration</h3></summary>
+        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>Resend integration</h3></summary>
           <p className="desc" style={{color:'var(--state-info)',margin:0,fontSize:13}}>
             Set <code>RESEND_API_KEY</code> as a worker secret to enable real sends.{' '}
             <code>wrangler secret put RESEND_API_KEY</code>. Until then signup / verify / reset
             return the token in the response so flows can still be tested manually.
           </p>
         </details>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sender identity</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sender identity</h3></summary>
           <p className="desc">Used as the "From" header on every transactional email. Make sure the <code>from_email</code> domain is verified in Resend (SPF + DKIM).</p>
           <div className="grid-2 tight">
             <Text label="From name"  value={et.from_name || ''}  onChange={v => set(['email_templates','from_name'], v)} />
@@ -4951,7 +4962,7 @@
               </div>
               <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
                 <button type="button" className="icon-btn" onClick={() => sendTest(k.id)} disabled={testing === k.id || !testTo}>
-                  {testing === k.id ? 'Sending…' : '📨 Send test'}
+                  {testing === k.id ? 'Sending…' : 'Send test'}
                 </button>
               </div>
             </div>
@@ -4997,7 +5008,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Receipt template</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Receipt template</h3></summary>
           <p className="desc">
             Upload a background image (your letterhead / receipt form), define field
             positions, and the public <code>/receipt</code> page auto-fills application data
@@ -5073,7 +5084,7 @@
         </div>
 
         {/* Field list editor */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Fields ({fields.length})</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Fields ({fields.length})</h3></summary>
           <p className="desc">Each field overlays a single piece of data on the background. Move with ↑↓ to control z-order.</p>
           <button type="button" className="btn-add" onClick={addField}>+ Add field</button>
         </details>
@@ -5144,7 +5155,7 @@
         '프로젝트 폴더로 이동: <code>cd /Users/jimmy_macmini/Desktop/VS_Code/DreamPath</code>',
         '<code>wrangler secret put ADMIN_TOKEN</code> 실행 → 프롬프트에 토큰 붙여넣기 → Enter.',
         '브라우저 어드민에서 로그아웃 → 새 토큰으로 로그인 (localStorage 청소).',
-        '⚠ 새 토큰은 password manager에 보관 — 잊으면 같은 명령으로 재발급해야 함.',
+        '주의 — 새 토큰은 password manager에 보관 — 잊으면 같은 명령으로 재발급해야 함.',
       ],
     },
     RESEND_API_KEY: {
@@ -5156,9 +5167,9 @@
         'Name: <code>dreampath-prod</code>, Permission: <strong>Full access</strong>, Domain: <strong>All</strong>.',
         '생성된 키(<code>re_...</code>) 즉시 복사 — 한 번만 표시됨.',
         '터미널: <code>cd /Users/jimmy_macmini/Desktop/VS_Code/DreamPath && wrangler secret put RESEND_API_KEY</code> → 프롬프트에 붙여넣기.',
-        '⚠ 발신 도메인 인증 필요: Resend → <strong>Domains</strong> → <strong>Add Domain</strong> → <code>koreadreampath.com</code>.',
+        '주의 — 발신 도메인 인증 필요: Resend → <strong>Domains</strong> → <strong>Add Domain</strong> → <code>koreadreampath.com</code>.',
         'Resend가 표시하는 DNS 레코드(SPF/DKIM/Return-Path) 4개를 도메인 DNS에 추가 → <strong>Verify DNS Records</strong> 클릭.',
-        '인증 완료 후 어드민 → Email templates → 📨 Send test 로 실제 발송 확인.',
+        '인증 완료 후 어드민 → Email templates → Send test 로 실제 발송 확인.',
       ],
     },
     STRIPE_SECRET_KEY: {
@@ -5276,9 +5287,9 @@
       '<strong>Action</strong>: <strong>Send to a Worker</strong>.',
       '<strong>Destination Worker</strong>: <code>dream-path</code> 선택.',
       '저장. 같은 방식으로 <code>partner</code>, <code>info</code> 등 관리할 모든 주소를 각각 추가.',
-      '⚠ 이미 다른 곳(Gmail 등)으로 포워딩 중이라면 그 규칙을 먼저 비활성화. 한 주소당 한 라우팅 규칙만 동작.',
+      '주의 — 이미 다른 곳(Gmail 등)으로 포워딩 중이라면 그 규칙을 먼저 비활성화. 한 주소당 한 라우팅 규칙만 동작.',
       '받은 메일 검증: 외부 메일 클라이언트(개인 Gmail 등)에서 <code>hello@koreadreampath.com</code>으로 테스트 메일 발송 → 1분 내 어드민 → 메일함 → 받은 메일에 표시되어야 함.',
-      '⚠ 수신 보존: D1 무료 플랜은 5GB 한계. 첨부파일은 현재 R2 미연동이라 본문만 저장(메타데이터만 기록). 대용량 파일이 자주 오는 주소는 별도 처리 필요.',
+      '주의 — 수신 보존: D1 무료 플랜은 5GB 한계. 첨부파일은 현재 R2 미연동이라 본문만 저장(메타데이터만 기록). 대용량 파일이 자주 오는 주소는 별도 처리 필요.',
     ],
   };
 
@@ -5382,7 +5393,7 @@
       <>
         {/* Security model preface — operators must understand WHY some
             keys live in env and others in KV. */}
-        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>두 가지 종류의 키</h3></summary>
+        <details className="card admin-fold" style={{background:'var(--state-info-bg)',borderColor:'var(--state-info)'}} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{color:'var(--state-info)',margin:'0 0 6px'}}>두 가지 종류의 키</h3></summary>
           <div className="desc" style={{color:'var(--state-info)',fontSize:13,lineHeight:1.6}}>
             <p style={{margin:'0 0 8px'}}><strong>1. 시크릿 (env에만 보관):</strong> Resend API 키, 결제 시크릿, OAuth client_secret 등. <code>/api/content</code>는 public이므로 KV에 절대 저장하지 않습니다. 등록 방법: <code>wrangler secret put NAME</code></p>
             <p style={{margin:0}}><strong>2. 공개 인증 토큰 (KV에 보관):</strong> Google / Naver / Bing 등 검색엔진 도메인 verification. 어차피 HTML head에 노출돼야 정상 작동하므로 어드민에서 직접 입력합니다.</p>
@@ -5423,7 +5434,7 @@
                   </div>
                   {guide && (
                     <details style={{marginTop:10,marginLeft:0}}>
-                      <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+                      <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>등록 방법 (step-by-step)</summary>
                       <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
                         <div style={{fontWeight:700,marginBottom:6}}>{guide.title}</div>
                         {guide.where && <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10,fontFamily:'var(--font-mono)'}}>{guide.where}</div>}
@@ -5451,12 +5462,12 @@
         </div>
 
         {/* Section 1.5: Cloudflare Email Routing — receiving inbound mail */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Cloudflare Email Routing · 받은 메일</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Cloudflare Email Routing · 받은 메일</h3></summary>
           <p className="desc">
             메일함 (관리자 → Mailbox)에서 받은 메일을 보려면 Cloudflare 대시보드에서 Email Routing을 활성화하고 워커로 라우팅 규칙을 추가해야 합니다. 발송은 Resend로, 수신은 Email Routing으로 — 두 시스템이 분리되어 있음.
           </p>
           <details>
-            <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+            <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>등록 방법 (step-by-step)</summary>
             <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
               <div style={{fontWeight:700,marginBottom:6}}>{EMAIL_ROUTING_GUIDE.title}</div>
               <div style={{fontSize:12,color:'var(--fg-muted)',marginBottom:10,fontFamily:'var(--font-mono)'}}>{EMAIL_ROUTING_GUIDE.where}</div>
@@ -5470,7 +5481,7 @@
         </details>
 
         {/* Section 2: Public verification tokens — editable */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Site verification · 공개 인증 토큰</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Site verification · 공개 인증 토큰</h3></summary>
           <p className="desc">검색엔진·소셜 플랫폼에 도메인 소유권 증명. 입력한 값은 모든 페이지의 <code>&lt;head&gt;</code>에 자동 주입됩니다. 값이 비어있는 항목은 무시됩니다.</p>
           {VERIFY_ROWS.map(row => {
             const guide = VERIFICATION_GUIDES[row.key];
@@ -5495,7 +5506,7 @@
                 </div>
                 {guide && (
                   <details style={{marginTop:10}}>
-                    <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>📖 등록 방법 (step-by-step)</summary>
+                    <summary style={{cursor:'pointer',fontSize:13,color:'var(--brand-text)',fontWeight:600,padding:'4px 0'}}>등록 방법 (step-by-step)</summary>
                     <div style={{marginTop:10,padding:'14px 18px',background:'var(--bg-muted)',borderRadius:10,fontSize:13,lineHeight:1.7,color:'var(--fg-primary)'}}>
                       <div style={{fontWeight:700,marginBottom:10}}>{guide.title}</div>
                       <ol style={{margin:0,paddingLeft:22}}>
@@ -5523,7 +5534,7 @@
       <>
       {/* 진입 안내 게이트 — 접속 시마다 뜨는 전체화면 고지 모달. 2026-08-22
           운영자 요청으로 꺼둔 상태이며, 여기서 다시 켤 수 있다. */}
-      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>진입 안내 게이트 (전체화면 고지) <span style={{fontSize:12,fontWeight:700,marginLeft:8,padding:'2px 10px',borderRadius:999,background: egOn ? 'var(--state-warning-bg)' : 'var(--bg-muted)',color: egOn ? 'var(--state-warning)' : 'var(--fg-muted)'}}>{egOn ? '표시 중' : '꺼짐'}</span></h3></summary>
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>진입 안내 게이트 (전체화면 고지) <span style={{fontSize:12,fontWeight:700,marginLeft:8,padding:'2px 10px',borderRadius:999,background: egOn ? 'var(--state-warning-bg)' : 'var(--bg-muted)',color: egOn ? 'var(--state-warning)' : 'var(--fg-muted)'}}>{egOn ? '표시 중' : '꺼짐'}</span></h3></summary>
         <p style={{fontSize:13,color:'var(--fg-muted)',margin:'4px 0 14px',lineHeight:1.7}}>
           켜면 방문자가 <strong>접속할 때마다</strong> 전체화면 안내 모달을 보고, 동의 체크 후에만 사이트로 들어갑니다.
           정보가 확정되지 않은 기간에만 쓰는 임시 게이트입니다.
@@ -5543,7 +5554,7 @@
           <Text label="입장 버튼 (EN)" value={eg.button_en} onChange={v => set(['entry_gate','button_en'], v)} lang="en" />
         </div>
       </details>
-      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top notice banner</h3></summary>
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top notice banner</h3></summary>
         <p className="desc">A diagonal-stripe banner shown at the very top of every page on the public site. Use it for "under development" notices, launch countdowns, or maintenance windows.</p>
         <div className="grid-2 tight">
           <div className="field">
@@ -5588,7 +5599,7 @@
     ];
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>How it works</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>How it works</h3></summary>
           <p className="desc">
             Set a default OG image and per-route overrides. The public site updates&nbsp;
             <code>&lt;title&gt;</code>, <code>og:title</code>, <code>og:description</code>, and <code>og:image</code> on every navigation.
@@ -5598,7 +5609,7 @@
           </p>
         </details>
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Default (site-wide fallback)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Default (site-wide fallback)</h3></summary>
           <p className="desc">Used on any page that doesn't set its own OG image. Leave empty to keep the static defaults from <code>index.html</code>.</p>
           <ImageUploadField
             label="OG image"
@@ -5617,7 +5628,7 @@
         {PAGES.map(p => {
           const pg = (og.pages && og.pages[p.id]) || {};
           return (
-            <details className="card admin-fold" key={p.id}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{p.label} <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>· {p.path}</span></h3></summary>
+            <details className="card admin-fold" key={p.id} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>{p.label} <span style={{fontSize:12,color:'var(--fg-muted)',fontWeight:400,fontFamily:'var(--font-mono)'}}>· {p.path}</span></h3></summary>
               <ImageUploadField
                 label="OG image (override)"
                 value={pg.image || ''}
@@ -5660,7 +5671,10 @@
       Promise.all([
         get('/api/applications?limit=500'),
         get('/api/inquiries'),
-        get('/api/errors?limit=100&resolved=0'),   // dashboard counts unresolved only
+        // Unresolved faults only. `info` is excluded on purpose: the email
+        // worker logs one success line per delivered message, and counting
+        // those made the console read "71 errors" with nothing broken.
+        get('/api/errors?limit=100&resolved=0&level=error,warn'),
         get('/api/analytics/summary?days=7'),
         get('/api/analytics/summary?days=30'),
         get('/api/admin/users'),
@@ -5853,7 +5867,7 @@
 
         {/* Top pages + traffic sources */}
         <div className="grid-2">
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top pages · 30d</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Top pages · 30d</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : data.topPaths.length === 0 ? <p className="desc">No pageviews yet.</p>
              : (
@@ -5871,7 +5885,7 @@
               </table>
             )}
           </details>
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Traffic sources · 30d</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Traffic sources · 30d</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : data.sources.length === 0 ? <p className="desc">No data yet.</p>
              : (
@@ -5900,7 +5914,7 @@
         </div>
 
         {/* Quick actions */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Quick actions</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Quick actions</h3></summary>
           <p className="desc">Jump into the things you most often manage.</p>
           <div className="grid-3">
             <Quick id="apps" label="Review applications" icon="clipboard-check" />
@@ -5917,7 +5931,7 @@
 
         {/* Recent activity — 4 columns */}
         <div className="grid-2">
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent applications</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent applications</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentApps.length === 0 ? <p className="desc">No applications yet.</p>
              : (
@@ -5937,7 +5951,7 @@
               <button type="button" className="icon-btn" onClick={() => setTab('apps')}>View all →</button>
             </div>
           </details>
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent inquiries</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent inquiries</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentInq.length === 0 ? <p className="desc">No inquiries yet.</p>
              : (
@@ -5954,7 +5968,7 @@
               <button type="button" className="icon-btn" onClick={() => setTab('inquiries')}>View all →</button>
             </div>
           </details>
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Newest members</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Newest members</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentMembers.length === 0 ? <p className="desc">No members yet.</p>
              : (
@@ -5974,7 +5988,7 @@
               <button type="button" className="icon-btn" onClick={() => setTab('members')}>View all →</button>
             </div>
           </details>
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent error logs</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Recent error logs</h3></summary>
             {loading ? <p className="desc">Loading…</p>
              : recentErrors.length === 0 ? <p className="desc" style={{color:'var(--forest-green)'}}>✓ No errors logged.</p>
              : (
@@ -6026,7 +6040,7 @@
         <label>Linked account · 메시지 받을 계정</label>
         {userId ? (
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'var(--state-success-bg)',border:'1px solid var(--border-subtle)',borderRadius:10}}>
-            <span style={{fontSize:13,color:'var(--fg-primary)'}}>🔗 {userLabel || userId}</span>
+            <span style={{fontSize:13,color:'var(--fg-primary)'}}>{userLabel || userId}</span>
             <button type="button" className="icon-btn danger" style={{marginLeft:'auto'}} onClick={onUnlink}>연결 해제</button>
           </div>
         ) : (
@@ -6079,7 +6093,7 @@
     };
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of /team page)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of /team page)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>공개 사이트는 영어 전용입니다 — 영어로만 입력하세요.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={pt.hero?.en?.kicker || ''} onChange={v => set(['project_team','hero','en','kicker'], v)} lang="en" />
@@ -6090,7 +6104,7 @@
         </details>
         <HeroBgFields title="팀 히어로 배경" path={['project_team','hero']} node={pt.hero} set={set} />
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>상단 메시지 밴드 (Meet our CEO)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>상단 메시지 밴드 (Meet our CEO)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>/team 상단 메시지 밴드 문구. 비우면 기본 문구가 표시됩니다.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={(pt.coord_cta && pt.coord_cta.kicker_en) || ''} onChange={v => set(['project_team','coord_cta','kicker_en'], v)} lang="en" />
@@ -6134,11 +6148,11 @@
                 {desigKey ? (
                   <div style={{padding:'10px 14px',background:'var(--state-success-bg)',border:'1px solid var(--border-subtle)',borderRadius:10}}>
                     <p className="desc" style={{margin:0}}>
-                      ✅ 이 코디네이터는 팀원 <strong>{desigMember ? (desigMember.m.name_en || desigMember.m.name || '(이름 없음)') : '(찾을 수 없음)'}</strong> 와(과)
+                      이 코디네이터는 팀원 <strong>{desigMember ? (desigMember.m.name_en || desigMember.m.name || '(이름 없음)') : '(찾을 수 없음)'}</strong> 와(과)
                       자동 동기화됩니다. 이름·직함·사진·연결계정은 아래 <strong>Sections</strong>의 해당 팀원 카드에서 수정하세요.
                       {desigMember && !desigMember.m.user_id && (
                         <span style={{display:'block',marginTop:6,color:'var(--state-danger)'}}>
-                          ⚠️ 이 팀원에 아직 가입 계정이 연결되지 않았습니다 — 연결해야 회원 메시지가 그 사람의 메시지함으로 도착합니다(미연결 시 문의함으로 fallback).
+                          이 팀원에 아직 가입 계정이 연결되지 않았습니다 — 연결해야 회원 메시지가 그 사람의 메시지함으로 도착합니다(미연결 시 문의함으로 fallback).
                         </span>
                       )}
                     </p>
@@ -6170,7 +6184,7 @@
           })()}
         </details>
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sections</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Sections</h3></summary>
           <p className="desc" style={{marginTop:-4}}>
             그룹(예: <code>HQ</code>, <code>GLOBAL TEAM</code>)별로 섹션을 만들고 멤버를 추가하세요.
             각 섹션 제목이 공개 /team 페이지의 그룹 헤딩으로 표시됩니다. 멤버마다
@@ -6197,7 +6211,7 @@
                 // so open state is DOM-managed and survives re-render).
                 const mName = m.name_en || m.name || `Member ${mi + 1}`;
                 return (
-                <details key={mi} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}}>
+                <details key={mi} className="team-admin-member" style={{background:'var(--bg-elevated)',borderRadius:10,marginBottom:10,border:'1px solid var(--border-subtle)'}} open>
                   <summary style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',listStyle:'none',userSelect:'none'}}>
                     {/* chevron = explicit 펼치기/접기 버튼. Part of summary so it
                         toggles; rotates via CSS on [open]. Name click also toggles. */}
@@ -6253,7 +6267,7 @@
           <button className="btn-add" onClick={() => addItem(['project_team','sections'], { kicker_en:'NEW GROUP', members:[] })}>+ Add section</button>
         </details>
 
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Join CTA</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Join CTA</h3></summary>
           <p className="desc" style={{marginTop:-4}}>영어로만 입력하세요.</p>
           <div className="grid-2 tight">
             <Text label="Kicker" value={cta.en?.kicker || ''} onChange={v => set(['project_team','cta','en','kicker'], v)} lang="en" />
@@ -6315,7 +6329,7 @@
     return (
       <>
         {/* Hero band */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of About page)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Hero (top of About page)</h3></summary>
           <div className="grid-2 tight">
             <Text label="Kicker (EN)" value={ex.hero?.kicker_en || ''} onChange={v => set(['about','exec','hero','kicker_en'], v)} lang="en" />
             <Area label="Title (EN)" value={ex.hero?.title_en || ''} onChange={v => set(['about','exec','hero','title_en'], v)} lang="en" rows={3} hint="Use \\n for line break" />
@@ -6325,7 +6339,7 @@
         <HeroBgFields title="About 히어로 배경" path={['about','exec','hero']} node={ex.hero} set={set} />
 
         {/* Content blocks */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Content blocks</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Content blocks</h3></summary>
           <p className="desc">A grid of cards (default: 정책 정합성 / 핵심 특징 / 기대 효과 / 컴플라이언스). Each block has its own kicker, heading, and bullet list.</p>
           <button type="button" className="btn-add" onClick={addBlock}>+ Add block</button>
         </details>
@@ -6366,7 +6380,7 @@
         })}
 
         {/* Closing strategic-value band */}
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Closing — Strategic Value</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Closing — Strategic Value</h3></summary>
           <p className="desc">The grey panel at the bottom of /about. One kicker + one big title + one body paragraph.</p>
           <div className="grid-2 tight">
             <Text label="Kicker (EN)" value={ex.closing?.kicker_en || ''} onChange={v => set(['about','exec','closing','kicker_en'], v)} lang="en" />
@@ -6385,14 +6399,14 @@
     const cols = (c.footer && c.footer.columns) || [];
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{marginTop:0}}>상단 메뉴 이름 (Top navigation)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{marginTop:0}}>상단 메뉴 이름 (Top navigation)</h3></summary>
           <p className="desc" style={{marginTop:-4}}>공개 사이트 상단 네비게이션 메뉴 이름입니다(영어).</p>
           <div className="grid-2 tight">
             {navOrder.map(k => <Text key={k} label={k} value={nav[k] || ''} onChange={v => set(['nav','en',k], v)} lang="en" />)}
           </div>
         </details>
         {cols.map((col, ci) => (
-          <details key={ci} className="card admin-fold">
+          <details key={ci} className="card admin-fold" open>
             <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>푸터 메뉴: {col.title_en || ('Column ' + (ci+1))}</h3></summary>
             <div style={{marginTop:12}}>
               <Text label="컬럼 제목 (Column title)" value={col.title_en || ''} onChange={v => set(['footer','columns',ci,'title_en'], v)} lang="en" />
@@ -6443,14 +6457,14 @@
     return (
       <>
         <PageHeroText c={c} set={set} pageKey="scholarships" label="장학 페이지 히어로 (헤더)" />
-        <details className="card admin-fold">
+        <details className="card admin-fold" open>
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>안내문 (상단 배너 · 선택)</h3></summary>
           <div style={{marginTop:12}}>
             <Area label="Intro note (영어)" value={(s.intro && s.intro.en) || ''} onChange={v => set(['scholarships','intro','en'], v)} lang="en" rows={3}
               hint="장학 게시판 상단에 표시되는 안내 문구입니다. 비우면 배너가 숨겨집니다." />
           </div>
         </details>
-        <details className="card admin-fold">
+        <details className="card admin-fold" open>
           <summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:0,display:'inline',fontSize:'inherit'}}>장학 정보 관리 (게시판)</h3></summary>
           <div style={{marginTop:12}}>
             <p style={{margin:'0 0 14px',fontSize:14,color:'var(--fg-secondary)',lineHeight:1.6}}>
@@ -6502,7 +6516,7 @@
     };
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>프로그램 상세 본문 (공통 카피)</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>프로그램 상세 본문 (공통 카피)</h3></summary>
           <Text label="Back link" value={en.back_link || ''} onChange={v => set(['program_detail','en','back_link'], v)} lang="en" />
           <Text label="Overview heading" value={en.overview_h || ''} onChange={v => set(['program_detail','en','overview_h'], v)} lang="en" />
           <Area label="Overview body" value={en.overview_body || ''} onChange={v => set(['program_detail','en','overview_body'], v)} lang="en" rows={4} />
@@ -6568,7 +6582,7 @@
 
     return (
       <>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Footer columns</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Footer columns</h3></summary>
           <p className="desc">
             Each column shows a heading and a list of items rendered in the public-site footer.
             Items can navigate within the SPA (<code>view</code>), open an external URL, or trigger
@@ -6800,7 +6814,7 @@
         <main style={{minWidth:0}}>
           {err && <div role="alert" style={{padding:12,background:'var(--state-danger-bg)',color:'var(--state-danger)',borderRadius:10,marginBottom:14,fontSize:13}}>{err}</div>}
           {!active ? (
-            <details className="card admin-fold" style={{textAlign:'center',padding:60,color:'var(--fg-muted)'}}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>{title}</h3></summary>
+            <details className="card admin-fold" style={{textAlign:'center',padding:60,color:'var(--fg-muted)'}} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 8px'}}>{title}</h3></summary>
               <p style={{margin:0}}>Click <strong>+ New</strong> to create your first page.</p>
             </details>
           ) : draft ? (
@@ -7835,7 +7849,7 @@
           </div>
         </div>
         {grouped.map((g, gi) => (
-          <details className="card admin-fold" key={gi}><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 12px'}}>{g.title}</h3></summary>
+          <details className="card admin-fold" key={gi} open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{margin:'0 0 12px'}}>{g.title}</h3></summary>
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr>
@@ -7885,7 +7899,7 @@
   function IconsTab({ c, set }) {
     const keys = Object.keys(c.icons);
     return (
-      <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Icon slots</h3></summary>
+      <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3>Icon slots</h3></summary>
         <p className="desc">Each slot is a named role used somewhere on the site. Pick any Lucide icon.</p>
         <div className="grid-3">
           {keys.map(k => (
@@ -8359,7 +8373,7 @@
     if (phase === 'enroll_needed') {
       return (
         <div className="card" style={wrap}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+          <div style={{ marginBottom: 8 }}><i data-lucide="lock" width="30" height="30" /></div>
           <h3 style={{ margin: '0 0 8px' }}>{isKo ? '2단계 인증이 필요합니다' : 'Two-factor required'}</h3>
           <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
             {isKo
@@ -8375,7 +8389,7 @@
     // phase === 'prompt'
     return (
       <div className="card" style={wrap}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+        <div style={{ marginBottom: 8 }}><i data-lucide="shield-check" width="30" height="30" /></div>
         <h3 style={{ margin: '0 0 4px' }}>{isKo ? '인증 코드 입력' : 'Enter your code'}</h3>
         <p style={{ color: 'var(--fg-secondary)', fontSize: 14, margin: '0 0 16px' }}>
           {isKo ? 'Google Authenticator 앱의 6자리 코드를 입력하세요.' : 'Enter the 6-digit code from Google Authenticator.'}
@@ -8473,7 +8487,7 @@
 
     return (
       <div>
-        <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3></summary>
+        <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '2단계 인증 (Google Authenticator)' : 'Two-factor (Google Authenticator)'}</h3></summary>
           <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
             {isKo
               ? '여기서 등록하는 2단계 인증은 지금 로그인한 본인 계정에만 적용됩니다. 회원 정보·학생 지원 탭 접근 시 본인 Authenticator의 6자리 코드를 추가로 요구하며, 한 번 인증하면 15분간 유지됩니다.'
@@ -8498,7 +8512,7 @@
 
         {/* Enroll flow */}
         {!enrolled && !setup && (
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '등록' : 'Enroll'}</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '등록' : 'Enroll'}</h3></summary>
             <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
               {isKo ? '아래 버튼을 누르면 비밀키와 QR이 생성됩니다. Google Authenticator로 스캔한 뒤 첫 코드를 입력해 등록을 완료하세요.'
                     : 'Generate a secret + QR, scan it with Google Authenticator, then enter the first code to finish.'}
@@ -8510,7 +8524,7 @@
         )}
 
         {setup && (
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? 'Authenticator에 추가' : 'Add to Authenticator'}</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? 'Authenticator에 추가' : 'Add to Authenticator'}</h3></summary>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
               <div style={{ textAlign: 'center' }}>
                 {dataUrl
@@ -8544,7 +8558,7 @@
 
         {/* Manage when enrolled */}
         {enrolled && (
-          <details className="card admin-fold"><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '관리' : 'Manage'}</h3></summary>
+          <details className="card admin-fold" open><summary><span className="fold-chevron" aria-hidden="true">▶</span><h3 style={{ marginTop: 0 }}>{isKo ? '관리' : 'Manage'}</h3></summary>
             <p style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
               {isKo ? '기기를 바꾸려면 재설정하거나, 현재 코드로 2단계 인증을 해제할 수 있습니다.'
                     : 'Re-enroll on a new device, or disable 2FA with your current code.'}
@@ -8929,7 +8943,7 @@
               color: canExtend ? '#1E1654' : 'rgba(255,255,255,0.32)',
               transition: 'background 140ms',
             }}>
-            ⏱ +30분 연장
+            +30분 연장
           </button>
           {/* Real-time global search — debounces by 300ms and hits
               /api/admin/search across users / applications / inquiries /
@@ -9217,6 +9231,171 @@
     return <Admin onLogout={logout} />;
   }
 
+
+  // ── 인사이트 콘솔 (v01.101.05) ─────────────────────────────────────────
+  // 우측 하단에 상주하는 질의 패널. 운영자 지시(2026-08-27).
+  //
+  // 왜 대시보드로 안 되는가: 대시보드는 고정된 카드라 "이번 달 지원 몇 건"
+  // 처럼 기간을 바꿔 묻는 질문에 답하지 못하고, 전체 검색은 레코드를 찾을 뿐
+  // 집계를 내지 못한다. 이 패널은 어느 탭에 있든 따라다니며 숫자를 답한다.
+  //
+  // 답은 서버(/api/admin/insight)가 D1 집계로 만든다 — 화면에서 목록을 받아
+  // 세지 않는다. 데이터가 늘어도 답이 흔들리지 않아야 한다.
+  function InsightConsole() {
+    const [open, setOpen]   = useState(false);
+    const [q, setQ]         = useState('');
+    const [log, setLog]     = useState([]);     // [{ role:'you'|'console', ... }]
+    const [busy, setBusy]   = useState(false);
+    const bodyRef = useRef(null);
+    const inputRef = useRef(null);
+
+    // 패널을 처음 열면 요약을 먼저 보여준다 — "실시간으로 정리"의 몫이다.
+    useEffect(() => {
+      if (!open || log.length) return;
+      ask('', { silent: true, preset: ['지원', '문의', '오류'] });
+    }, [open]);
+
+    useEffect(() => {
+      if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }, [log, busy]);
+
+    useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+
+    // Esc 로 닫는다. 모달이 아니므로 포커스를 가두지는 않는다.
+    useEffect(() => {
+      if (!open) return;
+      const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [open]);
+
+    async function askOne(text) {
+      const token = localStorage.getItem('dp_admin_token') || '';
+      const r = await fetch('/api/admin/insight', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify({ q: text }),
+      });
+      // 실패를 삼키지 않는다 — 조회가 깨졌는데 0 을 답하면 거짓말이 된다.
+      if (!r.ok && r.status === 401) {
+        return { headline: '세션이 만료됐습니다.', detail: '다시 로그인한 뒤 물어보세요.', source: null };
+      }
+      const j = await r.json().catch(() => null);
+      if (!j) return { headline: '응답을 읽지 못했습니다.', detail: '네트워크 상태를 확인해 주세요.', source: null };
+      return j;
+    }
+
+    async function ask(text, opts) {
+      const o = opts || {};
+      setBusy(true);
+      try {
+        if (o.preset) {
+          const rows = [];
+          for (const p of o.preset) rows.push(await askOne(p));
+          setLog(l => [...l, { role: 'console', summary: rows }]);
+        } else {
+          setLog(l => [...l, { role: 'you', text }]);
+          const j = await askOne(text);
+          setLog(l => [...l, { role: 'console', ...j }]);
+        }
+      } finally { setBusy(false); }
+    }
+
+    function submit(e) {
+      e.preventDefault();
+      const text = q.trim();
+      if (!text || busy) return;
+      setQ('');
+      ask(text);
+    }
+
+    const CHIPS = ['이번 달 지원', '미답변 문의', '안 읽은 메일', '미해결 오류', '최근 7일 방문', '유입 경로'];
+
+    // 로그인 화면에는 띄우지 않는다. 훅은 이 검사 앞에 전부 선언해 두었다 —
+    // 뒤에 두면 로그인 전후로 훅 개수가 달라져 React 가 죽는다(v01.101.01).
+    if (!localStorage.getItem('dp_admin_token')) return null;
+
+    if (!open) {
+      return (
+        <button type="button" onClick={() => setOpen(true)}
+          title="인사이트 콘솔 열기"
+          style={{position:'fixed',right:22,bottom:22,zIndex:2200,display:'inline-flex',alignItems:'center',gap:8,
+                  padding:'12px 18px',borderRadius:999,border:'none',cursor:'pointer',
+                  background:'var(--midnight-purple)',color:'#fff',fontWeight:700,fontSize:13,fontFamily:'inherit',
+                  boxShadow:'0 8px 26px rgba(0,0,0,0.24)'}}>
+          <i data-lucide="sparkles" width="15" height="15" />
+          인사이트
+        </button>
+      );
+    }
+
+    return (
+      <div role="dialog" aria-label="인사이트 콘솔"
+        style={{position:'fixed',right:22,bottom:22,zIndex:2200,width:390,maxWidth:'calc(100vw - 44px)',
+                maxHeight:'min(620px, calc(100vh - 60px))',display:'flex',flexDirection:'column',
+                background:'var(--bg-elevated)',border:'1px solid var(--border-default)',borderRadius:16,
+                boxShadow:'0 18px 50px rgba(0,0,0,0.26)',overflow:'hidden'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'14px 16px',borderBottom:'1px solid var(--border-hair)'}}>
+          <i data-lucide="sparkles" width="15" height="15" style={{color:'var(--brand-text)'}} />
+          <strong style={{fontSize:14,flex:1,minWidth:0}}>인사이트 콘솔</strong>
+          <button type="button" className="icon-btn" onClick={() => setLog([])} title="대화 지우기">지우기</button>
+          <button type="button" className="icon-btn" onClick={() => setOpen(false)} title="닫기 (Esc)">닫기</button>
+        </div>
+
+        <div ref={bodyRef} style={{flex:1,minHeight:0,overflowY:'auto',padding:'14px 16px',fontSize:13,lineHeight:1.65}}>
+          {log.map((m, i) => {
+            if (m.role === 'you') {
+              return (
+                <div key={i} style={{margin:'0 0 12px',textAlign:'right'}}>
+                  <span style={{display:'inline-block',padding:'7px 12px',borderRadius:12,
+                                background:'var(--midnight-purple)',color:'#fff',maxWidth:'86%',textAlign:'left',
+                                wordBreak:'keep-all',overflowWrap:'break-word'}}>{m.text}</span>
+                </div>
+              );
+            }
+            const rows = m.summary || [m];
+            return (
+              <div key={i} style={{margin:'0 0 14px'}}>
+                {rows.map((r, j) => (
+                  <div key={j} style={{padding:'10px 12px',borderRadius:12,background:'var(--bg-muted)',
+                                       marginBottom: j < rows.length - 1 ? 8 : 0,
+                                       wordBreak:'keep-all',overflowWrap:'break-word'}}>
+                    <div style={{fontWeight:700,color:'var(--fg-primary)'}}>{r.headline}</div>
+                    {r.detail && (
+                      <div style={{marginTop:4,color:'var(--fg-secondary)',whiteSpace:'pre-line'}}>{r.detail}</div>
+                    )}
+                    {r.source && (
+                      <div style={{marginTop:6,fontSize:11,color:'var(--fg-muted)'}}>출처 — {r.source}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+          {busy && <div style={{color:'var(--fg-muted)'}}>세는 중…</div>}
+        </div>
+
+        <div style={{padding:'10px 12px 12px',borderTop:'1px solid var(--border-hair)'}}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+            {CHIPS.map(c => (
+              <button key={c} type="button" className="icon-btn" disabled={busy}
+                onClick={() => ask(c)} style={{fontSize:11,padding:'5px 9px'}}>{c}</button>
+            ))}
+          </div>
+          <form onSubmit={submit} style={{display:'flex',gap:8}}>
+            <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
+              placeholder="예: 이번 달 지원 몇 건?"
+              style={{flex:1,minWidth:0,padding:'10px 12px',fontSize:13,borderRadius:9,
+                      border:'1px solid var(--border-default)',background:'var(--bg-elevated)',
+                      color:'var(--fg-primary)',fontFamily:'inherit'}} />
+            <button type="submit" className="btn-add" disabled={busy || !q.trim()}
+              style={{padding:'8px 14px',opacity: (busy || !q.trim()) ? 0.5 : 1}}>묻기</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const root = ReactDOM.createRoot(document.getElementById('root'));
   // Mount both the admin app and the VersionWatcher so the operator gets
   // the same "new version available" banner the public site shows.
@@ -9224,8 +9403,33 @@
     <>
       <Gate />
       {window.VersionWatcher ? <window.VersionWatcher lang={(localStorage.getItem('dp_admin_lang') || 'ko')} /> : null}
+      {/* 인사이트 콘솔은 Gate 밖에 둔다 — 어느 탭에 있든 따라다녀야 하고,
+          토큰이 없으면 첫 질의가 401 을 받아 스스로 안내한다. */}
+      <InsightConsole />
     </>
   );
+  </script>
+  <script>
+    // v01.101.04 — 관리자 카드는 열고 닫지 않는다(운영자 지시 2026-08-27).
+    // <details> 의 기본 토글을 캡처 단계에서 막는다. 76개 <summary> 에 각각
+    // 핸들러를 다는 대신 위임 하나로 두는 이유: 나중에 마운트되는 카드도
+    // 같은 규칙을 받아야 하고, React 재렌더가 핸들러를 떨어뜨릴 수 없다.
+    // 본문 안 도움말의 맨 <details>(자세히 보기)는 대상이 아니다.
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!t || !t.closest) return;
+      if (t.closest('.admin-fold > summary, .hero-bg-card > summary, .team-admin-member > summary')) {
+        e.preventDefault();
+      }
+    }, true);
+    // 키보드로도 같은 규칙 — summary 는 기본으로 Enter/Space 에 반응한다.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const t = e.target;
+      if (t && t.closest && t.closest('.admin-fold > summary, .hero-bg-card > summary, .team-admin-member > summary')) {
+        e.preventDefault();
+      }
+    }, true);
   </script>
 </body>
 </html>

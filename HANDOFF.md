@@ -8,9 +8,9 @@
 
 ## 1. 현재 버전 / 배포
 
-- **버전**: `v01.101.05`
+- **버전**: `v01.101.10`
 - **배포 방식**: `cd ~/Desktop/VS_Code/DreamPath && npx wrangler deploy` (자동 모드)
-- **마이그레이션 상태**: 0001 ~ **0040** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
+- **마이그레이션 상태**: 0001 ~ **0042** + **0037_apply_pipeline** 모두 적용됨 (remote D1 검증 완료). **0037_apply_pipeline.sql** = 신청 파이프라인 컬럼(candidate_no/phone/cufs_reg_no/단계 타임스탬프/결제 동의 3종) + candidate_counters + (합의된) 레거시 신청 초기화 (v01.092). ⚠️ 기존 `0037_messages.sql`과 숫자 prefix가 겹치나, 원격 d1 추적은 각각 별도 파일명으로 적용·기록됨 — **파일명 변경 금지**(재적용 시 ALTER 중복 충돌). 0042 = error_logs rate-limit 인덱스. 0041 = analytics_events.is_bot. 0040 = scholarship_posts.image / info_json. 0039 = scholarship_posts. 0038 = users.totp. 0037_messages = messages 테이블.
 - **Cron**: `0 * * * *` (매시 정각, 활성화 만료 정리 + 리마인더 + Apply draft 72h purge)
 
 ### 테스트 계정 (2026-05-19 표준화)
@@ -145,6 +145,21 @@ R2           dreampath-attachments (메일 첨부 + 지원서 PDF)
 ```
 
 ## 3. 이번 라운드(v01.028 ~ v01.057)에 마친 큰 변경
+
+### 관리자 화이트 스크린 긴급 수정 — v01.101.10
+- `admin.html` 의 `authHeaders(extra)` 가 자기 자신을 호출해 `RangeError: Maximum call
+  stack size exceeded`. 에러 경계가 없어 `Gate` 아래 `Admin` 트리 전체가 언마운트 →
+  `/admin` 이 완전한 백지였다.
+- 뿌리는 **v01.101.07 의 헬퍼 통합**이다. 네 곳에 중복돼 있던 `authHeaders()` 를 하나로
+  합칠 때 기본 헤더를 만드는 본체가 빠지고 재귀 호출만 남았다.
+- **문법상 완벽한 코드**라 preflight 의 JSX 구문검사를 통과했고, 라이브 HTML 은 HTTP 200
+  에 로컬과 바이트 단위로 같았다 — **정상 신호가 셋이나 있었다.** 헤드리스 브라우저로
+  실제 콘솔을 읽어야 스택이 나왔다.
+- 배포 후 다시 열어 관리자 콘솔이 끝까지 렌더되는 것을 확인했다.
+- ⚠️ **남은 것**: 관리자 트리에 에러 경계가 없다. 어떤 렌더 예외든 곧바로 백지가 된다.
+  인라인 스크립트 500KB 분할과 함께 다음 라운드 후보.
+- ⚠️ 재귀가 살아 있던 동안 관리자 API 는 요청 자체가 나가지 못했다 — **재로그인 필요.**
+- `wiki:versions` 에 누락돼 있던 **v01.101.06~09** 네 페이지를 함께 채웠다(148 → 153).
 
 ### 봇 제외 · 오류 정리 · 이모지 제거 · 인사이트 콘솔 — v01.101.04·05
 
